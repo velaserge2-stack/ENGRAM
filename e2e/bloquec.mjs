@@ -277,6 +277,70 @@ try {
     check(true, 'crear un examen de 5 preguntas, hacerlo y ver los resultados sin tocar archivos');
   }
 
+  if (run('espacios')) {
+    console.log('Espacios conectados');
+    // el menú se cierra si la página se desplaza: abrirlo con el botón ya a la vista
+    const addMenu = async () => { const b = page.getByRole('button', { name: 'Añadir panel' }); await b.scrollIntoViewIfNeeded(); await page.waitForTimeout(150); await b.click(); await page.getByRole('menu').waitFor(); };
+    await page.goto(URL_ + '#/espacios');
+    await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
+    check(await page.getByLabel('Preajuste').count() === 0, 'crear un espacio ya no ofrece preajustes');
+    await page.getByLabel(/Nombre/).fill('Estudio conectado');
+    await page.getByRole('button', { name: 'Crear' }).click();
+    await page.getByText(/Añade paneles/).first().waitFor();
+    check(await page.locator('.win').count() === 0, 'un espacio nuevo está vacío');
+    await page.getByRole('button', { name: 'Añadir panel' }).click();
+    const items = await page.getByRole('menuitem').allInnerTexts();
+    check(items.length >= 13 && ['Nueva nota', 'Nota existente', 'Mazo', 'Tema', 'Simulacro', 'PDF', 'Documento', 'Hoja', 'Imagen', 'Pomodoro', 'Estadísticas', 'Calendario'].every((k) => items.some((x) => x.includes(k))), `«＋ Añadir panel» ofrece todo (${items.length})`);
+    // nota nueva creada de verdad desde el panel
+    await page.getByRole('menuitem', { name: /Nueva nota/ }).click();
+    const form = page.getByRole('dialog', { name: 'Nueva nota' });
+    await form.getByLabel('Materia').fill('Cardiología');
+    await form.getByLabel('Tema o clase').fill('Arritmias');
+    await form.getByLabel('Título').fill('Panel vivo');
+    await form.getByRole('button', { name: 'Crear' }).click();
+    const panel = page.locator('.win', { hasText: 'Panel vivo' });
+    await panel.locator('.doc').waitFor();
+    await panel.getByRole('button', { name: /Escribe o usa/ }).click();
+    await panel.locator('.doc textarea').last().click();
+    await page.keyboard.type('Escrito en el panel');
+    await page.waitForTimeout(700);
+    await page.goto(URL_ + '#/notas/Cardiolog%C3%ADa/Arritmias/Panel%20vivo.md');
+    await page.getByText('Escrito en el panel').first().waitFor();
+    check(true, 'lo escrito en el panel de nota aparece en la pestaña Notas (misma nota en la bóveda)');
+    await page.getByRole('button', { name: /Escribe o usa/ }).click();
+    await page.locator('.doc textarea').last().click();
+    await page.keyboard.type('Y esto desde Notas');
+    await page.waitForTimeout(700);
+    await page.goto(URL_ + '#/espacios');
+    await page.locator('.win', { hasText: 'Panel vivo' }).getByText('Y esto desde Notas').waitFor();
+    check(true, 'y al revés: lo escrito en Notas aparece en el panel');
+    // mazo como panel: estudiar cuenta igual que en Estudiar
+    await addMenu();
+    await page.getByRole('menuitem', { name: 'Añadir panel Mazo' }).evaluate((b) => b.click());
+    await page.locator('.win .opt', { hasText: 'Cardiología' }).first().click();
+    const dp = page.locator('.win', { hasText: 'Cardiología' }).last();
+    await dp.getByRole('button', { name: 'Estudiar' }).click();
+    for (let i = 0; i < 5; i++) {
+      await dp.getByRole('button', { name: /Mostrar respuesta/ }).click();
+      await dp.getByRole('button', { name: /^Bien/ }).click();
+      await page.waitForTimeout(200);
+    }
+    await page.goto(URL_ + '#/hoy');
+    await page.getByText(/Estudiaste 5 tarjetas/).waitFor();
+    check(true, 'estudiar 5 tarjetas desde un panel de mazo actualiza Hoy');
+    await page.reload();
+    await page.getByText(/Estudiaste 5 tarjetas/).waitFor();
+    check(true, 'todo sobrevive a recargar');
+    // simulacro dentro del panel: misma pantalla, sin salir del espacio
+    await page.goto(URL_ + '#/espacios');
+    await addMenu();
+    await page.getByRole('menuitem', { name: /Simulacro/ }).evaluate((b) => b.click());
+    const sp = page.locator('.win', { has: page.locator('.sim-embed') });
+    await sp.getByRole('link', { name: 'Nuevo examen' }).click();
+    await sp.getByLabel('Título del examen').waitFor();
+    check((await page.evaluate(() => location.hash)).startsWith('#/espacios'), 'crear un examen desde el panel sin salir del espacio');
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');

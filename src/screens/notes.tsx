@@ -5,7 +5,6 @@ import { normalizeAnswer, parseDeck } from '../cards/parse';
 import { appendCard } from '../data/ops';
 import { deliver } from '../io/share';
 import { buildZip } from '../io/zip';
-import { createAutosave } from '../lib/autosave';
 import { addDays, dayKey } from '../lib/days';
 import { type Frontmatter, parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
 import { renderMarkdown } from '../md/render';
@@ -25,6 +24,10 @@ import { LinkedEvents } from '../ui/links';
 import { modalOpen, Popover } from '../ui/overlay';
 import { FindBar, pendingFind } from '../notes/find';
 import { notesIndex } from '../notes/search-client';
+import { noteStore, onNoteSaved } from '../notes/store';
+
+// tras cada guardado (venga de la pestaña o de un panel): historial de versiones e índice de búsqueda
+onNoteSaved(async (vault, path, text) => { await snapshot(vault, path, text); void notesIndex.upsert(path, text); });
 import type { Filters, Result } from '../notes/search-core';
 
 const BOOKMARKS = '.app/bookmarks.json';
@@ -171,6 +174,22 @@ export function Notes(props: { route: string[] }) {
 
 type NotesData = ReturnType<typeof useNotes>['data'];
 
+/**
+ * La misma nota como panel del lienzo (E14): el editor completo («/», imágenes, enlaces,
+ * «Buscar en esta nota») sobre el mismo documento que la pestaña Notas.
+ */
+export function NotePanel(props: { path: string }) {
+  const { data } = useNotes();
+  const [ui, setUi] = useState<NotesUI>({ explorer: false, inspector: false, explorerW: 260, width: 'completo' });
+  return <div class="note-panel"><NoteEditor path={props.path} data={data} ui={ui} setUi={(p) => setUi((u) => ({ ...u, ...p }))} overlay embedded /></div>;
+}
+
+/** «＋ Nueva nota» desde un panel: crea la nota de verdad (en la materia y tema elegidos) y la devuelve. */
+export function NewNotePanel(props: { onCreated: (path: string) => void; onClose: () => void }) {
+  const { data } = useNotes();
+  return data ? <NewNote notes={data.notes} onClose={props.onClose} onCreated={props.onCreated} /> : null;
+}
+
 /** Barra de búsqueda siempre visible en Notas (también en teléfono), con filtros. */
 function NotesSearchBar(p: { q: string; setQ: (q: string) => void; filters: Filters; setFilters: (f: Filters) => void; data: NotesData }) {
   const materias = [...new Set(p.data?.notes.map((n) => n.materia).filter((m) => m && m !== DAILY) ?? [])];
@@ -305,7 +324,7 @@ function NotesHome(props: { data: NotesData; onNew: () => void; ui: NotesUI; set
   );
 }
 
-function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { materia?: string; tema?: string; title?: string } }) {
+function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { materia?: string; tema?: string; title?: string }; onCreated?: (path: string) => void }) {
   const app = useApp();
   const tree = buildTree(props.notes).tree;
   const [materia, setMateria] = useState(props.initial?.materia ?? tree[0]?.materia ?? '');
@@ -322,7 +341,8 @@ function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { ma
         await app.vault.write(path, newNoteText(materia, tema, title, tpl));
         app.changed();
         props.onClose();
-        go('notas', ...path.split('/').slice(1));
+        if (props.onCreated) props.onCreated(path);
+        else go('notas', ...path.split('/').slice(1));
       }}>
         <label class="field">{tr('inbox.materia')}<input class="input" list="materias" required value={materia} onInput={(e) => setMateria((e.target as HTMLInputElement).value)} placeholder={tr('notes.cardiologia')} /><datalist id="materias">{tree.map((m) => <option value={m.materia} />)}</datalist></label>
         <label class="field">{tr('inbox.tema_o_clase')}<input class="input" list="temas" required value={tema} onInput={(e) => setTema((e.target as HTMLInputElement).value)} placeholder="ECG" /><datalist id="temas">{temas.map((t) => <option value={t} />)}</datalist></label>
@@ -383,19 +403,16 @@ const SLASH = (): [string, string, string][] => ([
   ['img', tr('deck.imagen'), ''], ['card', tr('notes.tarjeta_de_estudio'), ''], ['code', tr('notes.codigo'), '```\n\n```'], ['link', tr('notes.enlace_a_nota'), '[['],
 ]);
 
-function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: (p: Partial<NotesUI>) => void; overlay: boolean }) {
+function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: (p: Partial<NotesUI>) => void; overlay: boolean; embedded?: boolean }) {
   const app = useApp();
-  const [text, setText] = useState<string | null>(null);
+  // un solo documento en memoria por nota (NoteStore): la pestaña y los paneles lo comparten
+  const [text, setText] = useState<string | null>(() => noteStore.peek(props.path));
   const [mode, setMode] = useState<'doc' | 'md'>('doc');
   const [editing, setEditing] = useState<number | null>(null);
   const [tab, setTab] = useState<'outline' | 'links' | 'props' | 'graph' | 'cards' | 'events'>('outline');
   const [sheet, setSheet] = useState<'share' | 'history' | 'move' | 'prompt' | 'card' | null>(null);
   const [cardSeed, setCardSeed] = useState<{ text: string; kind: 'cloze' | 'basic'; para: number } | null>(null);
-  const saver = useMemo(() => createAutosave(async (t: string) => {
-    await app.vault.write(props.path, t);
-    await snapshot(app.vault, props.path, t);
-    void notesIndex.upsert(props.path, t); // índice incremental al guardar
-  }), [props.path]);
+  const saver = { flush: () => noteStore.flush(props.path) };
   const [find, setFind] = useState<string | null>(() => (pendingFind.path === props.path ? ((pendingFind.path = null), pendingFind.q) : null));
   const docRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -405,13 +422,16 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
     return () => removeEventListener('keydown', onKey);
   }, []);
   useEffect(() => {
-    void readTextOr(app.vault, props.path, '').then(setText);
-    return () => { void saver.flush(); saver.dispose(); };
+    let alive = true;
+    const un = noteStore.subscribe(app.vault, props.path, (t) => alive && setText(t));
+    void noteStore.load(app.vault, props.path).then((t) => alive && setText(t));
+    return () => { alive = false; un(); };
   }, [props.path]);
+  useEffect(() => { void noteStore.refresh(app.vault, props.path); }, [app.version]);
   if (text === null) return <p class="t2">{tr('deck.cargando')}</p>;
   const doc = parseFrontmatter(text);
   const meta = noteMeta(props.path);
-  const set = (t: string) => { setText(t); saver.schedule(t); };
+  const set = (t: string) => noteStore.set(app.vault, props.path, t);
   const setBody = (body: string) => set(stringifyFrontmatter(doc.data, body));
   const setFm = (fm: Frontmatter) => set(stringifyFrontmatter(fm, doc.body));
   const blocks = splitBlocks(doc.body);
@@ -439,10 +459,10 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
             <div class="foot">{tr('calendar.cards_tarjetas', { cards: cov.cards })}{' '}{cov.total ? tr('notes.p_de_parrafos_cubiertos', { p: Math.round((cov.covered.length / cov.total) * 100) }) : tr('notes.sin_parrafos')}</div>
           </div>
           <div class="row wrap">
-            <button type="button" class="btn icon" {...keep} aria-label={props.ui.explorer ? tr('notes.ocultar_explorador') : tr('notes.mostrar_explorador')} aria-pressed={props.ui.explorer} onClick={() => props.setUi({ explorer: !props.ui.explorer })}><PanelLeft size={18} /></button>
+            {!props.embedded && <button type="button" class="btn icon" {...keep} aria-label={props.ui.explorer ? tr('notes.ocultar_explorador') : tr('notes.mostrar_explorador')} aria-pressed={props.ui.explorer} onClick={() => props.setUi({ explorer: !props.ui.explorer })}><PanelLeft size={18} /></button>}
             <button type="button" class="btn icon" {...keep} aria-label={insp ? tr('notes.ocultar_inspector') : tr('notes.mostrar_inspector')} aria-pressed={insp} onClick={() => props.setUi({ inspector: !insp })}><PanelRight size={18} /></button>
             <div {...keep}><Segmented label={tr('notes.ancho_de_linea')} value={props.ui.width} onChange={(w) => props.setUi({ width: w })} options={[['comodo', tr('notes.comodo')], ['ancho', tr('notes.ancho')], ['completo', tr('notes.completo')]]} /></div>
-            <button type="button" class="btn icon" {...keep} aria-label={full ? tr('notes.salir_de_pantalla_completa') : tr('notes.pantalla_completa_de_notas')} aria-pressed={full} onClick={() => toggleFull(!full)}>{full ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button>
+            {!props.embedded && <button type="button" class="btn icon" {...keep} aria-label={full ? tr('notes.salir_de_pantalla_completa') : tr('notes.pantalla_completa_de_notas')} aria-pressed={full} onClick={() => toggleFull(!full)}>{full ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button>}
             <Segmented label={tr('calendar.vista')} value={mode} onChange={(m) => (setMode(m), setEditing(null))} options={[['doc', tr('notes.documento')], ['md', tr('deck.ver_markdown')]]} />
             <button type="button" class="btn icon" aria-label={bookmarked ? tr('notes.quitar_marcador') : tr('notes.marcar')} aria-pressed={bookmarked} onClick={async () => { const b = props.data?.bookmarks ?? []; await app.vault.write(BOOKMARKS, JSON.stringify(bookmarked ? b.filter((x) => x !== props.path) : [...b, props.path])); app.changed(); }}>{bookmarked ? <Star size={18} fill="currentColor" /> : <Bookmark size={18} />}</button>
             <button type="button" class="btn icon" aria-label={tr('find.buscar_en_esta_nota')} aria-pressed={find !== null} onClick={() => (setMode('doc'), setEditing(null), setFind(find === null ? '' : null))}><Search size={18} /></button>
@@ -450,7 +470,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
             <button type="button" class="btn icon" aria-label={tr('notes.historial_de_versiones')} onClick={() => setSheet('history')}><History size={18} /></button>
             <button type="button" class="btn icon" aria-label={tr('notes.mover_a_otra_materia_o_tema')} onClick={() => setSheet('move')}><MoveRight size={18} /></button>
             <button type="button" class="btn icon" aria-label={tr('notes.compartir_o_exportar')} onClick={() => setSheet('share')}><Share size={18} /></button>
-            <button type="button" class="btn icon" aria-label={tr('notes.enviar_a_la_papelera')} onClick={async () => { if (!confirm(tr('notes.confirm_papelera'))) return; await saver.flush(); await trash(app.vault, props.path); app.changed(); go('notas'); }}><Trash2 size={18} /></button>
+            <button type="button" class="btn icon" aria-label={tr('notes.enviar_a_la_papelera')} onClick={async () => { if (!confirm(tr('notes.confirm_papelera'))) return; await saver.flush(); await trash(app.vault, props.path); await noteStore.forget(props.path); app.changed(); if (!props.embedded) go('notas'); }}><Trash2 size={18} /></button>
           </div>
         </div>
         {find !== null && <FindBar root={() => docRef.current} initial={find} dep={text + mode} onClose={() => setFind(null)} />}
@@ -503,7 +523,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
       )}
       {sheet === 'share' && <ShareNote path={props.path} title={meta.title} text={text} onClose={() => setSheet(null)} />}
       {sheet === 'history' && <HistorySheet path={props.path} onRestore={(t) => (set(t), setSheet(null))} onClose={() => setSheet(null)} />}
-      {sheet === 'move' && props.data && <MoveNote path={props.path} notes={props.data.notes} onClose={() => setSheet(null)} onBeforeMove={() => saver.flush()} />}
+      {sheet === 'move' && props.data && <MoveNote path={props.path} notes={props.data.notes} onClose={() => setSheet(null)} onBeforeMove={async () => { await saver.flush(); await noteStore.forget(props.path); }} />}
       {sheet === 'prompt' && <PromptSheet path={props.path} title={meta.title} body={doc.body} onClose={() => setSheet(null)} />}
       {sheet === 'card' && cardSeed && <CardFromNote seed={cardSeed} path={props.path} paraIdx={paragraphs(doc.body).find((p) => p.text.includes(cardSeed.text.slice(0, 40)))?.idx ?? cardSeed.para} onClose={() => setSheet(null)} />}
     </>

@@ -157,7 +157,7 @@ export function AddCardSheet(props: { deckPath: string | null; onClose: () => vo
 }
 
 /** Editor del archivo del mazo: Markdown a la izquierda, tarjetas renderizadas a la derecha. */
-export function DeckEditor(props: { path: string }) {
+export function DeckEditor(props: { path: string; onGear?: () => void }) {
   const app = useApp();
   const [text, setText] = useState<string | null>(null);
   const [mode, setMode] = useState<'visual' | 'md'>('visual');
@@ -189,7 +189,7 @@ export function DeckEditor(props: { path: string }) {
         <a class="btn primary" href={href('estudiar', ...props.path.split('/'))}><BookOpen size={18} />{' '}{tr('today.estudiar')}</a>
         <button type="button" class="btn" onClick={() => setCsv(true)}><FileSpreadsheet size={18} /> CSV</button>
         <button type="button" class="btn" onClick={async () => { await saver.flush(); const r = await deliver(new File([text], props.path.split('/').pop()!, { type: 'text/markdown' })); if (r !== 'cancelled') app.toast(tr('deck.mazo_exportado')); }}><Share size={18} />{' '}{tr('deck.exportar')}</button>
-        <button type="button" class="btn icon" aria-label={tr('deck.volver_a_mazos')} onClick={() => go('mazos')}><Settings2 size={18} /></button>
+        <button type="button" class="btn icon" aria-label={tr('deck.volver_a_mazos')} onClick={() => (props.onGear ? props.onGear() : go('mazos'))}><Settings2 size={18} /></button>
       </PageTitle>
       <div class="editor">
         {mode === 'md' ? (

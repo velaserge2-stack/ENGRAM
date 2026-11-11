@@ -607,3 +607,10 @@ mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border
 .exam-editor { max-width: 860px; margin: 0 auto; }
 .exam-opt input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--t1); }
 .exam-opt .input { min-width: 0; }
+/* espacios conectados (E13/E14) */
+.add-menu { min-width: 240px; }
+.add-menu button { display: flex; width: 100%; gap: 10px; align-items: center; min-height: 44px; padding: 0 12px; border: 0; background: none; border-radius: 10px; text-align: left; color: var(--t1); }
+.add-menu button:focus-visible, .add-menu button:active { background: var(--fill-sel); }
+.win-body .page-title { position: static; }
+.note-panel { padding: 8px; }
+.note-panel .doc { min-height: 40dvh; }

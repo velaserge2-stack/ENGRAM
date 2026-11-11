@@ -214,7 +214,7 @@ function CreateDeck(props: { onClose: () => void }) {
   );
 }
 
-function DeckOptions(props: { deck: Deck; onClose: () => void }) {
+export function DeckOptions(props: { deck: Deck; onClose: () => void }) {
   const app = useApp();
   const d = props.deck;
   const [name, setName] = useState(d.name);

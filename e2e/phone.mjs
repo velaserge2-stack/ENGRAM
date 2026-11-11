@@ -201,7 +201,14 @@ try {
     check(lastBottom <= barTop + 1, 'el final de la página queda por encima de la barra inferior');
     // espacios: un panel a la vez; el otro queda como cuadrito y tocarlo lo muestra
     await go(page, 'espacios');
-    await page.getByRole('button', { name: 'PDF + tarjetas' }).click();
+    await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
+    await page.getByLabel(/Nombre/).fill('Cel');
+    await page.getByRole('button', { name: 'Crear' }).click();
+    for (const k of ['PDF', 'Pomodoro']) {
+      await page.getByRole('button', { name: 'Añadir panel' }).click();
+      await page.getByRole('menuitem', { name: `Añadir panel ${k}` }).click();
+      await page.waitForTimeout(300);
+    }
     await page.locator('.tiles > .win').first().waitFor();
     check(await page.locator('.tiles > .win').count() === 1, 'Espacios en teléfono muestra un panel a la vez');
     const sq = page.locator('.rail .tray-sq');
