@@ -1,3 +1,4 @@
+import { t, tn } from '../i18n';
 /**
  * Motor de repetición espaciada (SPEC §8) sobre ts-fsrs.
  * `reviews.jsonl` es la fuente de verdad: el estado de cada tarjeta se obtiene
@@ -6,7 +7,7 @@
 import { type Card, createEmptyCard, fsrs, type FSRS, type Grade, State, forgetting_curve, computeDecayFactor, default_w } from 'ts-fsrs';
 
 export type Rating = 1 | 2 | 3 | 4;
-export const RATING_LABEL: Record<Rating, string> = { 1: 'Otra vez', 2: 'Difícil', 3: 'Bien', 4: 'Fácil' };
+export const RATING_LABEL: Record<Rating, string> = { get 1() { return t('design.otra_vez'); }, get 2() { return t('design.dificil'); }, get 3() { return t('design.bien'); }, get 4() { return t('design.facil'); } };
 
 export interface LogEntry {
   id: string;
@@ -180,10 +181,10 @@ export function explain(st: CardState, now: number, retention: number, f: FSRS) 
   const R = retrievability(f, c, now);
   const days = Math.max(0, Math.round((c.due.getTime() - now) / 86_400_000));
   let phrase: string;
-  if (c.state === State.New) phrase = 'Es una tarjeta nueva: aún no hay datos de memoria.';
+  if (c.state === State.New) phrase = t('engine.es_una_tarjeta_nueva_aun_no');
   else if (c.state === State.Learning || c.state === State.Relearning)
-    phrase = `Está en ${c.state === State.Learning ? 'aprendizaje' : 'reaprendizaje'}: vuelve en pasos cortos hasta que la recuerdes.`;
+    phrase = t('engine.esta_en_p_vuelve_en_pasos', { p: c.state === State.Learning ? 'aprendizaje' : 'reaprendizaje' });
   else
-    phrase = `Vuelve en ${days} ${days === 1 ? 'día' : 'días'} porque tu estabilidad actual es de ${c.stability.toFixed(1)} días y la meta es ${Math.round(retention * 100)} % de retención.`;
+    phrase = t('engine.vuelve_en_days_p_porque_tu', { days: days, p: tn('plural.daysword', days), p2: c.stability.toFixed(1), p3: Math.round(retention * 100) });
   return { D: c.difficulty, S: c.stability, R, lapses: c.lapses, reps: c.reps, last: st.history.slice(-10), phrase, due: c.due.getTime(), state: c.state };
 }

@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * Importar .apkg de Anki (SPEC §5, fase 5). Conversión pura (probada en Node);
  * en la app se ejecuta en un Worker con sql.js (WASM). Datos no confiables:
@@ -51,12 +52,12 @@ const rows = (db: SqlDb, sql: string) => {
 
 export function convertApkg(bytes: Uint8Array, SQL: SqlJs, withHistory = true): ApkgResult {
   const warnings: string[] = [];
-  if (bytes.length > MAX_APKG) throw new Error('El .apkg supera 500 MB');
+  if (bytes.length > MAX_APKG) throw new Error(t('apkg.el_apkg_supera_500_mb'));
   const files = unzipSync(bytes, { filter: (f) => f.originalSize < 300 * 1024 * 1024 });
   const dbBytes = files['collection.anki21'] ?? files['collection.anki2'];
   if (!dbBytes) {
-    if (files['collection.anki21b']) throw new Error('Este .apkg usa el formato nuevo comprimido (anki21b). En Anki, exporta marcando «Compatibilidad con versiones antiguas».');
-    throw new Error('No es un paquete de Anki válido (falta collection.anki2)');
+    if (files['collection.anki21b']) throw new Error(t('apkg.este_apkg_usa_el_formato_nuevo'));
+    throw new Error(t('apkg.no_es_un_paquete_de_anki'));
   }
   const db = new SQL.Database(dbBytes);
   try {
@@ -68,7 +69,7 @@ export function convertApkg(bytes: Uint8Array, SQL: SqlJs, withHistory = true): 
       for (const [id, m] of Object.entries(JSON.parse(col?.models || '{}') as Record<string, { type: number; name: string }>)) models.set(String(id), m);
       for (const [id, d] of Object.entries(JSON.parse(col?.decks || '{}') as Record<string, { name: string }>)) decks.set(String(id), d.name);
     } catch {
-      warnings.push('Metadatos de modelos/mazos ilegibles');
+      warnings.push(t('apkg.metadatos_de_modelos_mazos_ilegibles'));
     }
     for (const r of rows(db, 'SELECT id, name FROM decks')) decks.set(String(r.id), String(r.name));
     for (const r of rows(db, 'SELECT id, name, config FROM notetypes')) models.set(String(r.id), { type: String(r.name).toLowerCase().includes('cloze') ? 1 : 0, name: String(r.name) });
@@ -113,7 +114,7 @@ export function convertApkg(bytes: Uint8Array, SQL: SqlJs, withHistory = true): 
     }
     const out: ApkgResult['decks'] = [];
     for (const [name, d] of byDeck) {
-      const parts = name.split('::').map((x) => x.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').trim() || 'Mazo');
+      const parts = name.split('::').map((x) => x.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').trim() || t('deck.mazo'));
       out.push({ path: `decks/${parts.join('/')}.md`, text: stringifyFrontmatter({ deck: parts[parts.length - 1]!, tags: [...d.tags].slice(0, 30), origen: 'anki' }, `\n${d.blocks.join('\n\n')}\n`), cards: d.n });
     }
 

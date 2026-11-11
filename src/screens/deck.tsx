@@ -1,3 +1,4 @@
+import { locale, t as tr, tn } from '../i18n';
 import { BookOpen, FileSpreadsheet, ImagePlus, Plus, Settings2, Share } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { cardsOf, type Note, type NoteType, parseDeck, type Rect } from '../cards/parse';
@@ -20,16 +21,16 @@ function DeckEvents(p: { path: string }) {
   if (!data?.next.length) return null;
   const n = data.next[0]!;
   return (
-    <a class="btn" href="#/calendario" title={data.next.map((o) => `${o.b.title} · ${new Date(o.start).toLocaleString('es-MX')}`).join('\n')}>
-      <CalendarDays size={18} /> {data.next.length} {data.next.length === 1 ? 'evento' : 'eventos'} · {new Date(n.start).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+    <a class="btn" href="#/calendario" title={data.next.map((o) => `${o.b.title} · ${new Date(o.start).toLocaleString(locale())}`).join('\n')}>
+      <CalendarDays size={18} /> {tn('plural.events', data.next.length)} · {new Date(n.start).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })}
     </a>
   );
 }
 
-const TYPES: [NoteType, string][] = [
-  ['basic', 'Básica'], ['reverse', 'Inversa'], ['type', 'Escribir'], ['cloze', 'Cloze'], ['list', 'Lista'],
-  ['olist', 'Lista ordenada'], ['mc', 'Opción múltiple'], ['match', 'Unir'], ['order', 'Ordenar'], ['io', 'Oclusión'],
-];
+const TYPES = (): [NoteType, string][] => ([
+  ['basic', tr('deck.basica')], ['reverse', tr('deck.inversa')], ['type', tr('deck.escribir')], ['cloze', tr('deck.cloze')], ['list', tr('deck.lista')],
+  ['olist', tr('deck.lista_ordenada')], ['mc', tr('deck.opcion_multiple')], ['match', tr('deck.unir')], ['order', tr('deck.ordenar')], ['io', tr('deck.oclusion')],
+]);
 
 const one = (s: string) => s.replace(/\r?\n\s*\r?\n/g, '\n').trim();
 
@@ -40,7 +41,7 @@ export function buildBlock(t: NoteType, f: { front: string; back: string; lines:
     case 'basic': return `Q:: ${one(f.front)}\nA:: ${one(f.back)}`;
     case 'reverse': return `QR:: ${one(f.front)}\nA:: ${one(f.back)}`;
     case 'type': return `T:: ${one(f.front)}\nA:: ${one(f.back)}`;
-    case 'cloze': return `Cloze: ${one(f.front)}`;
+    case 'cloze': return tr('deck.cloze_p', { p: one(f.front) });
     case 'list': return `L:: ${one(f.front)}\n${items.map((x) => `- ${x}`).join('\n')}`;
     case 'olist': return `LO:: ${one(f.front)}\n${items.map((x) => `- ${x}`).join('\n')}`;
     case 'order': return `ORD:: ${one(f.front)}\n${items.map((x) => `- ${x}`).join('\n')}`;
@@ -55,7 +56,7 @@ export function NotePreview(props: { note: Note }) {
   const cards = cardsOf(n);
   return (
     <div class="inset" style={{ borderRadius: 'var(--r-row)', padding: '10px 12px' }}>
-      <div class="row foot"><span class="chip">{TYPES.find((t) => t[0] === n.type)?.[1]}</span>{n.id && <span class="t3">^{n.id}</span>}<span class="grow" />{cards.length > 1 && <span>{cards.length} tarjetas</span>}{n.origin === 'ia' && <span class="chip">IA</span>}</div>
+      <div class="row foot"><span class="chip">{TYPES().find((t) => t[0] === n.type)?.[1]}</span>{n.id && <span class="t3">^{n.id}</span>}<span class="grow" />{cards.length > 1 && <span>{cards.length} tarjetas</span>}{n.origin === 'ia' && <span class="chip">IA</span>}</div>
       {n.errors.map((e) => <div class="err" style={{ marginTop: '6px' }}>⚠ {e}</div>)}
       <div style={{ marginTop: '6px' }}>
         {n.type === 'cloze' ? <Html html={renderCloze(n.front, -1, true)} /> : <Html html={renderMarkdown(n.front)} />}
@@ -98,7 +99,7 @@ export function CardForm(props: { onAdd: (block: string) => Promise<void>; initi
     setImgUrl(URL.createObjectURL(file));
     setRects([]);
   };
-  const listLabel = type === 'mc' ? 'Opciones (una por línea; marca las correctas con * al inicio)' : type === 'match' ? 'Pares, uno por línea: izquierda => derecha' : 'Elementos, uno por línea' + (type === 'order' || type === 'olist' ? ' (en el orden correcto)' : '');
+  const listLabel = type === 'mc' ? tr('deck.opciones_una_por_linea_marca_las') : type === 'match' ? tr('deck.pares_uno_por_linea') : tr('deck.elementos_uno_por_linea') + (type === 'order' || type === 'olist' ? tr('deck.en_el_orden_correcto') : '');
   return (
     <form class="stack" onSubmit={async (e) => {
       e.preventDefault();
@@ -107,21 +108,21 @@ export function CardForm(props: { onAdd: (block: string) => Promise<void>; initi
       setFront(''); setBack(''); setLines(''); setRects([]);
       ta.current?.focus();
     }}>
-      <div style={{ overflowX: 'auto' }}><Segmented label="Tipo de tarjeta" value={type} onChange={setType} options={TYPES} /></div>
+      <div style={{ overflowX: 'auto' }}><Segmented label={tr('deck.tipo_de_tarjeta')} value={type} onChange={setType} options={TYPES()} /></div>
       {type === 'io' ? (
         <>
-          <label class="btn" style={{ justifySelf: 'start' }}><ImagePlus size={18} /> Elegir imagen<input type="file" accept="image/*" hidden onChange={(e) => void pickImage((e.target as HTMLInputElement).files?.[0])} /></label>
+          <label class="btn" style={{ justifySelf: 'start' }}><ImagePlus size={18} />{' '}{tr('deck.elegir_imagen')}<input type="file" accept="image/*" hidden onChange={(e) => void pickImage((e.target as HTMLInputElement).files?.[0])} /></label>
           {imgUrl && <OcclusionEditor url={imgUrl} rects={rects} onChange={setRects} />}
-          <p class="foot">Cada zona es una tarjeta (ocultar una). Dibuja con el dedo o con el Pencil.</p>
+          <p class="foot">{tr('deck.cada_zona_es_una_tarjeta_ocultar')}</p>
         </>
       ) : (
         <>
-          <label class="field">{type === 'cloze' ? 'Texto (selecciona una palabra y toca "Hacer hueco")' : type === 'list' || type === 'olist' || type === 'order' || type === 'match' ? 'Título' : 'Pregunta'}
+          <label class="field">{type === 'cloze' ? tr('deck.texto_selecciona_una_palabra_y_toca') : type === 'list' || type === 'olist' || type === 'order' || type === 'match' ? tr('calendar.titulo') : tr('deck.pregunta')}
             <textarea ref={ta} class="input" rows={type === 'cloze' ? 4 : 2} value={front} onInput={(e) => setFront((e.target as HTMLTextAreaElement).value)} required />
           </label>
-          {type === 'cloze' && <button type="button" class="btn small" style={{ justifySelf: 'start' }} onClick={makeCloze}>Hacer hueco {'{{c}}'}</button>}
+          {type === 'cloze' && <button type="button" class="btn small" style={{ justifySelf: 'start' }} onClick={makeCloze}>{tr('deck.hacer_hueco_p', { p: '{{c}}' })}</button>}
           {['basic', 'reverse', 'type', 'mc'].includes(type) && (
-            <label class="field">{type === 'mc' ? 'Explicación (opcional)' : 'Respuesta'}<textarea class="input" rows={2} value={back} onInput={(e) => setBack((e.target as HTMLTextAreaElement).value)} required={type !== 'mc'} /></label>
+            <label class="field">{type === 'mc' ? tr('deck.explicacion_opcional') : tr('deck.respuesta')}<textarea class="input" rows={2} value={back} onInput={(e) => setBack((e.target as HTMLTextAreaElement).value)} required={type !== 'mc'} /></label>
           )}
           {['list', 'olist', 'order', 'mc', 'match'].includes(type) && (
             <label class="field">{listLabel}<textarea class="input" rows={5} value={lines} onInput={(e) => setLines((e.target as HTMLTextAreaElement).value)} required /></label>
@@ -129,7 +130,7 @@ export function CardForm(props: { onAdd: (block: string) => Promise<void>; initi
         </>
       )}
       {parsed && (front || lines || image) && <NotePreview note={parsed} />}
-      <button class="btn primary" type="submit" disabled={!!parsed?.errors.length}><Plus size={18} /> Añadir tarjeta</button>
+      <button class="btn primary" type="submit" disabled={!!parsed?.errors.length}><Plus size={18} />{' '}{tr('app.anadir_tarjeta')}</button>
     </form>
   );
 }
@@ -140,16 +141,15 @@ export function AddCardSheet(props: { deckPath: string | null; onClose: () => vo
   const [deck, setDeck] = useState(props.deckPath ?? app.col?.decks[0]?.path ?? '');
   const [added, setAdded] = useState(0);
   return (
-    <Sheet title="Añadir tarjeta" onClose={() => (added && app.changed(), props.onClose())} wide>
-      {decks.length === 0 ? <p>Primero crea un mazo en Mazos.</p> : (
+    <Sheet title={tr('app.anadir_tarjeta')} onClose={() => (added && app.changed(), props.onClose())} wide>
+      {decks.length === 0 ? <p>{tr('deck.primero_crea_un_mazo_en_mazos')}</p> : (
         <div class="stack">
-          <label class="field">Mazo
-            <select value={deck} onChange={(e) => setDeck((e.target as HTMLSelectElement).value)}>
+          <label class="field">{tr('deck.mazo')}<select value={deck} onChange={(e) => setDeck((e.target as HTMLSelectElement).value)}>
               {decks.map((d) => <option value={d.path}>{d.full}</option>)}
             </select>
           </label>
-          <CardForm onAdd={async (b) => { await appendCard(app.vault, deck, b, app.col); setAdded((n) => n + 1); app.toast('Tarjeta añadida'); }} />
-          {added > 0 && <p class="foot">{added} añadidas en esta sesión.</p>}
+          <CardForm onAdd={async (b) => { await appendCard(app.vault, deck, b, app.col); setAdded((n) => n + 1); app.toast(tr('deck.tarjeta_anadida')); }} />
+          {added > 0 && <p class="foot">{tr('deck.added_anadidas_en_esta_sesion', { added: added })}</p>}
         </div>
       )}
     </Sheet>
@@ -171,7 +171,7 @@ export function DeckEditor(props: { path: string }) {
       saver.dispose();
     };
   }, [props.path]);
-  if (text === null) return <p class="t2">Cargando…</p>;
+  if (text === null) return <p class="t2">{tr('deck.cargando')}</p>;
   const parsed = parseDeck(text);
   const name = typeof parsed.data.deck === 'string' ? parsed.data.deck : props.path.split('/').pop()!.replace(/\.md$/, '');
   const onAdd = async (block: string) => {
@@ -179,34 +179,34 @@ export function DeckEditor(props: { path: string }) {
     await appendCard(app.vault, props.path, block, app.col);
     setText(await readTextOr(app.vault, props.path, ''));
     dirty.current = true;
-    app.toast('Tarjeta añadida');
+    app.toast(tr('deck.tarjeta_anadida'));
   };
   return (
     <>
-      <PageTitle title={name} sub={`${props.path} · ${parsed.notes.length} notas · ${parsed.notes.flatMap(cardsOf).length} tarjetas`}>
-        <Segmented label="Modo" value={mode} onChange={setMode} options={[['visual', 'Visual'], ['md', 'Ver Markdown']]} />
+      <PageTitle title={name} sub={tr('deck.path_n_notas_n2_tarjetas', { path: props.path, n: parsed.notes.length, n2: parsed.notes.flatMap(cardsOf).length })}>
+        <Segmented label={tr('deck.modo')} value={mode} onChange={setMode} options={[['visual', tr('deck.visual')], ['md', tr('deck.ver_markdown')]]} />
         <DeckEvents path={props.path} />
-        <a class="btn primary" href={href('estudiar', ...props.path.split('/'))}><BookOpen size={18} /> Estudiar</a>
+        <a class="btn primary" href={href('estudiar', ...props.path.split('/'))}><BookOpen size={18} />{' '}{tr('today.estudiar')}</a>
         <button type="button" class="btn" onClick={() => setCsv(true)}><FileSpreadsheet size={18} /> CSV</button>
-        <button type="button" class="btn" onClick={async () => { await saver.flush(); const r = await deliver(new File([text], props.path.split('/').pop()!, { type: 'text/markdown' })); if (r !== 'cancelled') app.toast('Mazo exportado'); }}><Share size={18} /> Exportar</button>
-        <button type="button" class="btn icon" aria-label="Volver a mazos" onClick={() => go('mazos')}><Settings2 size={18} /></button>
+        <button type="button" class="btn" onClick={async () => { await saver.flush(); const r = await deliver(new File([text], props.path.split('/').pop()!, { type: 'text/markdown' })); if (r !== 'cancelled') app.toast(tr('deck.mazo_exportado')); }}><Share size={18} />{' '}{tr('deck.exportar')}</button>
+        <button type="button" class="btn icon" aria-label={tr('deck.volver_a_mazos')} onClick={() => go('mazos')}><Settings2 size={18} /></button>
       </PageTitle>
       <div class="editor">
         {mode === 'md' ? (
           <section class="glass strong panel">
-            <textarea class="input code" value={text} spellcheck={false} aria-label="Markdown del mazo" onInput={(e) => { const t = (e.target as HTMLTextAreaElement).value; setText(t); dirty.current = true; saver.schedule(t); }} />
-            <p class="foot">Se guarda solo. Los IDs ^xxxx se añaden al salir del editor. Una línea en blanco separa tarjetas.</p>
+            <textarea class="input code" value={text} spellcheck={false} aria-label={tr('deck.markdown_del_mazo')} onInput={(e) => { const t = (e.target as HTMLTextAreaElement).value; setText(t); dirty.current = true; saver.schedule(t); }} />
+            <p class="foot">{tr('deck.se_guarda_solo_los_ids_xxxx')}</p>
           </section>
         ) : (
-          <section class="glass strong panel"><h2 style={{ fontSize: 'var(--t-3)', marginBottom: '10px' }}>Nueva tarjeta</h2><CardForm onAdd={onAdd} /></section>
+          <section class="glass strong panel"><h2 style={{ fontSize: 'var(--t-3)', marginBottom: '10px' }}>{tr('deck.nueva_tarjeta')}</h2><CardForm onAdd={onAdd} /></section>
         )}
-        <section class="glass strong panel stack-s" aria-label="Vista previa">
+        <section class="glass strong panel stack-s" aria-label={tr('deck.vista_previa')}>
           {parsed.errors.map((e) => <div class="err">⚠ {e}</div>)}
-          {parsed.notes.length === 0 && <p class="t2">Sin tarjetas todavía.</p>}
+          {parsed.notes.length === 0 && <p class="t2">{tr('deck.sin_tarjetas_todavia')}</p>}
           {parsed.notes.map((n) => <NotePreview note={n} />)}
         </section>
       </div>
-      {csv && <CsvImport onClose={() => setCsv(false)} onAdd={async (blocks) => { for (const b of blocks) await appendCard(app.vault, props.path, b, app.col); setText(await readTextOr(app.vault, props.path, '')); dirty.current = true; app.toast(`${blocks.length} tarjetas importadas`); }} />}
+      {csv && <CsvImport onClose={() => setCsv(false)} onAdd={async (blocks) => { for (const b of blocks) await appendCard(app.vault, props.path, b, app.col); setText(await readTextOr(app.vault, props.path, '')); dirty.current = true; app.toast(tr('deck.n_tarjetas_importadas', { n: blocks.length })); }} />}
     </>
   );
 }
@@ -215,7 +215,7 @@ export function DeckEditor(props: { path: string }) {
 function CsvImport(props: { onClose: () => void; onAdd: (blocks: string[]) => Promise<void> }) {
   const [rows, setRows] = useState<string[][] | null>(null);
   const [m, setM] = useState(guessMapping([]));
-  const cols = rows?.[0]?.map((h, i) => [i, m.header ? h : `Columna ${i + 1}`] as const) ?? [];
+  const cols = rows?.[0]?.map((h, i) => [i, m.header ? h : tr('deck.columna_p', { p: i + 1 })] as const) ?? [];
   const blocks = rows ? rowsToBlocks(rows, m) : [];
   const sel = (k: 'front' | 'back' | 'type' | 'tags' | 'image', label: string, optional = false) => (
     <label class="field">{label}
@@ -226,19 +226,19 @@ function CsvImport(props: { onClose: () => void; onAdd: (blocks: string[]) => Pr
     </label>
   );
   return (
-    <Sheet title="Importar CSV / TSV" onClose={props.onClose} wide>
+    <Sheet title={tr('deck.importar_csv_tsv')} onClose={props.onClose} wide>
       <div class="stack">
         <input type="file" accept=".csv,.tsv,.txt,text/csv" onChange={async (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (!f) return; const r = parseCSV(await f.text()); setRows(r); setM(guessMapping(r)); }} />
         {rows && (
           <>
-            <div class="row wrap">{sel('front', 'Pregunta')}{sel('back', 'Respuesta', true)}{sel('type', 'Tipo', true)}{sel('tags', 'Etiquetas', true)}{sel('image', 'Imagen', true)}
-              <label class="row"><input type="checkbox" checked={m.header} onChange={(e) => setM({ ...m, header: (e.target as HTMLInputElement).checked })} /> Primera fila es encabezado</label>
+            <div class="row wrap">{sel('front', tr('deck.pregunta'))}{sel('back', tr('deck.respuesta'), true)}{sel('type', tr('deck.tipo'), true)}{sel('tags', tr('deck.etiquetas'), true)}{sel('image', tr('deck.imagen'), true)}
+              <label class="row"><input type="checkbox" checked={m.header} onChange={(e) => setM({ ...m, header: (e.target as HTMLInputElement).checked })} />{' '}{tr('deck.primera_fila_es_encabezado')}</label>
             </div>
-            <p>{blocks.length} filas · {blocks.filter((b) => b.error).length} con errores (se omiten)</p>
+            <p>{tr('deck.n_filas_n2_con_errores_se', { n: blocks.length, n2: blocks.filter((b) => b.error).length })}</p>
             <div class="stack-s" style={{ maxHeight: '45dvh', overflow: 'auto' }}>
-              {blocks.slice(0, 200).map((b) => { const n = parseDeck(b.block + ' ^vista').notes[0]; return b.error || !n ? <div class="err">⚠ {b.error ?? 'Fila no válida'}: {b.block.slice(0, 80)}</div> : <NotePreview note={n} />; })}
+              {blocks.slice(0, 200).map((b) => { const n = parseDeck(b.block + ' ^vista').notes[0]; return b.error || !n ? <div class="err">⚠ {b.error ?? tr('deck.fila_no_valida')}: {b.block.slice(0, 80)}</div> : <NotePreview note={n} />; })}
             </div>
-            <button type="button" class="btn primary" onClick={async () => { await props.onAdd(blocks.filter((b) => !b.error).map((b) => b.block)); props.onClose(); }}>Importar {blocks.filter((b) => !b.error).length} tarjetas</button>
+            <button type="button" class="btn primary" onClick={async () => { await props.onAdd(blocks.filter((b) => !b.error).map((b) => b.block)); props.onClose(); }}>{tr('deck.importar_n_tarjetas', { n: blocks.filter((b) => !b.error).length })}</button>
           </>
         )}
       </div>

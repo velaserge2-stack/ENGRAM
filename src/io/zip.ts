@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * Exportar / importar la bóveda como .zip (SPEC §5) con `manifest.json`
  * (versión de formato, fecha, conteos) para validar al reimportar.
@@ -87,20 +88,20 @@ export async function parseZip(bytes: Uint8Array, limits: Limits = LIMITS): Prom
           if (/(^|\/)(__MACOSX|\.DS_Store|\.obsidian|\.trash)(\/|$)/.test(f.name)) return false;
           count++;
           if (count > limits.maxFiles) {
-            if (count === limits.maxFiles + 1) warnings.push(`Más de ${limits.maxFiles} archivos: se ignoró el resto`);
+            if (count === limits.maxFiles + 1) warnings.push(t('zip.mas_de_maxfiles_archivos_se_ignoro', { maxFiles: limits.maxFiles }));
             return false;
           }
           if (f.originalSize > limits.maxFileBytes) {
-            warnings.push(`${f.name}: demasiado grande, omitido`);
+            warnings.push(t('import.name_demasiado_grande_omitido', { name: f.name }));
             return false;
           }
           if (f.size > 0 && f.originalSize / f.size > limits.maxRatio && f.originalSize > 1024 * 1024) {
-            warnings.push(`${f.name}: compresión sospechosa, omitido`);
+            warnings.push(t('zip.name_compresion_sospechosa_omitido', { name: f.name }));
             return false;
           }
           total += f.originalSize;
           if (total > limits.maxTotalBytes) {
-            warnings.push('El zip excede el tamaño total permitido: se ignoró el resto');
+            warnings.push(t('zip.el_zip_excede_el_tamano_total'));
             return false;
           }
           return true;
@@ -117,12 +118,12 @@ export async function parseZip(bytes: Uint8Array, limits: Limits = LIMITS): Prom
     try {
       path = normalizePath(name);
     } catch {
-      warnings.push(`${name}: ruta no permitida, omitido`);
+      warnings.push(t('zip.name_ruta_no_permitida_omitido', { name: name }));
       continue;
     }
     if (!path) continue;
     if (path.split('/').length > limits.maxDepth) {
-      warnings.push(`${name}: demasiado profundo, omitido`);
+      warnings.push(t('zip.name_demasiado_profundo_omitido', { name: name }));
       continue;
     }
     files.push({ path, data });
@@ -141,15 +142,15 @@ export async function parseZip(bytes: Uint8Array, limits: Limits = LIMITS): Prom
       const m = JSON.parse(decodeText(files[mi]!.data)) as Manifest;
       if (m.format === FORMAT) {
         manifest = m;
-        if (m.formatVersion > FORMAT_VERSION) warnings.push(`Formato v${m.formatVersion} es más nuevo que esta app (v${FORMAT_VERSION})`);
+        if (m.formatVersion > FORMAT_VERSION) warnings.push(t('zip.formato_vformatversion_es_mas_nuevo_que', { formatVersion: m.formatVersion, FORMAT_VERSION: FORMAT_VERSION }));
       }
     } catch {
-      warnings.push('manifest.json ilegible');
+      warnings.push(t('zip.manifest_json_ilegible'));
     }
     files.splice(mi, 1);
   }
   if (manifest && manifest.counts.files !== files.length) {
-    warnings.push(`El manifiesto indica ${manifest.counts.files} archivos y el zip trae ${files.length}`);
+    warnings.push(t('zip.el_manifiesto_indica_files_archivos_y', { files: manifest.counts.files, n: files.length }));
   }
   return { manifest, files, warnings };
 }

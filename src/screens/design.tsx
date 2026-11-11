@@ -1,3 +1,4 @@
+import { getLang, setLang, t, type Lang } from '../i18n';
 import { Check, HelpCircle, RotateCcw, Zap, Lock, Minimize2, Maximize2, X, FileText, BookOpen, Plus, Inbox, Sparkles } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
 import type { Background } from '../lib/settings';
@@ -31,58 +32,59 @@ export function Design() {
   useEffect(() => () => app.previewBg(null), []);
   return (
     <div class="stack">
-      <PageTitle title="Diseño · Cristal" sub="Todos los componentes sobre los 5 fondos de prueba. La interfaz no tiene color.">
-        <Segmented label="Fondo de prueba" value={bg} onChange={setBg} options={TEST_BGS.map(([k]) => [k, k[0]!.toUpperCase() + k.slice(1)])} />
-        <Segmented label="Modo" value={mode} onChange={setMode} options={[['dark', 'Oscuro'], ['light', 'Claro']]} />
+      <PageTitle title={t('design.diseno_cristal')} sub={t('design.todos_los_componentes_sobre_los_5')}>
+        <Segmented label={t('design.fondo_de_prueba')} value={bg} onChange={setBg} options={TEST_BGS.map(([k]) => [k, k[0]!.toUpperCase() + k.slice(1)])} />
+        <Segmented label={t('deck.modo')} value={mode} onChange={setMode} options={[['dark', t('design.oscuro')], ['light', t('design.claro')]]} />
+        <Segmented<Lang> label={t('design.idioma_de_prueba')} value={getLang()} onChange={(l) => { setLang(l); app.update({ lang: l }, true); }} options={[['es', 'ES'], ['en', 'EN'], ['fr', 'FR'], ['xx', t('design.pseudo')]]} />
       </PageTitle>
       <div class="grid hoy">
         <DeckPanel />
         <div class="side"><PomodoroPanel /></div>
         <div class="grid cards3 span-all">
-          <section class="glass panel statcard"><h3>Progreso de hoy</h3><KV k="Estudiadas" v={177} /><KV k="Tiempo (min)" v={41} /><KV k="Ritmo (s/tarjeta)" v={14} /><KV k="Aciertos" v="88 %" /></section>
-          <section class="glass panel statcard"><h3>Pendientes</h3><KV k="Nuevas" v={12} /><KV k="Aprendiendo" v={0} /><KV k="Vencidas" v={34} strong /><KV k="Total" v={46} /></section>
-          <section class="glass panel statcard center"><h3>Retención</h3><Ring value={0.91} label="Retención" /><Bar value={0.7} label="Precisión" /><Bar value={0.4} label="Sin datos" outline /></section>
+          <section class="glass panel statcard"><h3>{t('today.progreso_de_hoy')}</h3><KV k={t('today.estudiadas')} v={177} /><KV k={t('today.tiempo_min')} v={41} /><KV k={t('today.ritmo_s_tarjeta')} v={14} /><KV k={t('today.aciertos')} v="88 %" /></section>
+          <section class="glass panel statcard"><h3>{t('today.pendientes')}</h3><KV k={t('today.nuevas')} v={12} /><KV k={t('today.aprendiendo')} v={0} /><KV k={t('today.vencidas')} v={34} strong /><KV k={t('today.total')} v={46} /></section>
+          <section class="glass panel statcard center"><h3>{t('design.retencion')}</h3><Ring value={0.91} label={t('design.retencion')} /><Bar value={0.7} label={t('design.precision')} /><Bar value={0.4} label={t('design.sin_datos')} outline /></section>
         </div>
       </div>
       <section class="glass panel stack">
-        <h2 style={{ fontSize: 'var(--t-2)' }}>Calificación</h2>
+        <h2 style={{ fontSize: 'var(--t-2)' }}>{t('design.calificacion')}</h2>
         <div class="grades" style={{ padding: 0 }}>
-          <button type="button" class="grade"><RotateCcw size={18} /> Otra vez<span class="iv">10 min</span></button>
-          <button type="button" class="grade"><HelpCircle size={18} /> Difícil<span class="iv">3 d</span></button>
-          <button type="button" class="grade inv"><Check size={18} /> Bien<span class="iv">8 d</span></button>
-          <button type="button" class="grade suggested"><Zap size={18} /> Fácil<span class="iv">19 d</span></button>
+          <button type="button" class="grade"><RotateCcw size={18} />{' '}{t('design.otra_vez')}<span class="iv">{t('design.10_min')}</span></button>
+          <button type="button" class="grade"><HelpCircle size={18} />{' '}{t('design.dificil')}<span class="iv">{t('design.3_d')}</span></button>
+          <button type="button" class="grade inv"><Check size={18} />{' '}{t('design.bien')}<span class="iv">{t('design.8_d')}</span></button>
+          <button type="button" class="grade suggested"><Zap size={18} />{' '}{t('design.facil')}<span class="iv">{t('design.19_d')}</span></button>
         </div>
-        <h2 style={{ fontSize: 'var(--t-2)' }}>Botones, chips y estados</h2>
+        <h2 style={{ fontSize: 'var(--t-2)' }}>{t('design.botones_chips_y_estados')}</h2>
         <div class="row wrap">
-          <button type="button" class="btn primary">Primario</button><button type="button" class="btn">Normal</button><button type="button" class="btn outline">Contorno</button>
-          <button type="button" class="btn" disabled>Deshabilitado</button><button type="button" class="btn danger">Eliminar</button>
-          <span class="chip">Contorno</span><span class="chip solid">Activo</span><span class="count">7</span><span class="count zero">0</span>
+          <button type="button" class="btn primary">{t('design.primario')}</button><button type="button" class="btn">{t('design.normal')}</button><button type="button" class="btn outline">{t('design.contorno')}</button>
+          <button type="button" class="btn" disabled>{t('design.deshabilitado')}</button><button type="button" class="btn danger">{t('calendar.eliminar')}</button>
+          <span class="chip">{t('design.contorno')}</span><span class="chip solid">{t('design.activo')}</span><span class="count">7</span><span class="count zero">0</span>
         </div>
-        <div class="row wrap"><span class="row">✓ En ritmo</span><span class="row">◐ Ajustado</span><span class="row">⚠ Atrasado</span></div>
-        <div class="err">⚠ Error: icono, texto en negrita y borde más grueso; sin rojo.</div>
-        <div class="row wrap"><Switch label="Interruptor" checked={sw} onChange={setSw} /><Segmented label="Segmentado" value={seg} onChange={setSeg} options={[['a', 'Uno'], ['b', 'Dos'], ['c', 'Tres']]} /><input class="input" placeholder="Campo de texto" aria-label="Campo de texto" /><input type="range" aria-label="Deslizador" /></div>
-        <div class="legend">menos {[0, 1, 2, 3, 4].map((l) => <span class="c" data-l={l} />)} más</div>
+        <div class="row wrap"><span class="row">{t('design.en_ritmo')}</span><span class="row">{t('design.ajustado')}</span><span class="row">{t('design.atrasado')}</span></div>
+        <div class="err">{t('design.error_icono_texto_en_negrita_y')}</div>
+        <div class="row wrap"><Switch label={t('design.interruptor')} checked={sw} onChange={setSw} /><Segmented label={t('design.segmentado')} value={seg} onChange={setSeg} options={[['a', t('design.uno')], ['b', t('design.dos')], ['c', t('design.tres')]]} /><input class="input" placeholder={t('design.campo_de_texto')} aria-label={t('design.campo_de_texto')} /><input type="range" aria-label={t('design.deslizador')} /></div>
+        <div class="legend">menos {[0, 1, 2, 3, 4].map((l) => <span class="c" data-l={l} />)}{' '}{t('design.mas')}</div>
       </section>
-      <Group title="Lista agrupada" footer="Filas de ≥ 44 px, separadores finos.">
-        <Row k="Fila con valor" sub="Detalle"><span class="v">12</span></Row>
-        <Row k="Fila con interruptor"><Switch label="Ejemplo" checked={!sw} onChange={(v) => setSw(!v)} /></Row>
+      <Group title={t('design.lista_agrupada')} footer={t('design.filas_44')}>
+        <Row k={t('design.fila_con_valor')} sub={t('design.detalle')}><span class="v">12</span></Row>
+        <Row k={t('design.fila_con_interruptor')}><Switch label={t('design.ejemplo')} checked={!sw} onChange={(v) => setSw(!v)} /></Row>
       </Group>
       <div class="spaces" style={{ minHeight: '0' }}>
-        <nav class="rail glass" aria-label="Espacios de ejemplo"><button type="button" aria-current="true">🫀</button><button type="button">🧠</button><button type="button" aria-label="Nuevo"><Plus size={20} /></button></nav>
+        <nav class="rail glass" aria-label={t('design.espacios_de_ejemplo')}><button type="button" aria-current="true">🫀</button><button type="button">🧠</button><button type="button" aria-label={t('design.nuevo')}><Plus size={20} /></button></nav>
         <div class="stack">
-          <section class="win glass focused" style={{ height: '220px' }} aria-label="Ventana de ejemplo">
-            <header class="win-bar"><FileText size={18} /><span class="t">guia-ecg.pdf</span><span class="chip">PDF</span><span class="grow" /><button type="button" class="btn icon small ghost" aria-label="Bloquear"><Lock size={16} /></button><button type="button" class="btn icon small ghost" aria-label="Minimizar"><Minimize2 size={16} /></button><button type="button" class="btn icon small ghost" aria-label="Expandir"><Maximize2 size={16} /></button><button type="button" class="btn icon small ghost" aria-label="Cerrar"><X size={16} /></button></header>
-            <div class="win-body" style={{ padding: '14px' }}><p>Ventana enfocada: borde más claro y sombra más profunda, no color.</p></div>
+          <section class="win glass focused" style={{ height: '220px' }} aria-label={t('design.ventana_de_ejemplo')}>
+            <header class="win-bar"><FileText size={18} /><span class="t">guia-ecg.pdf</span><span class="chip">PDF</span><span class="grow" /><button type="button" class="btn icon small ghost" aria-label={t('design.bloquear')}><Lock size={16} /></button><button type="button" class="btn icon small ghost" aria-label={t('design.minimizar')}><Minimize2 size={16} /></button><button type="button" class="btn icon small ghost" aria-label={t('design.expandir')}><Maximize2 size={16} /></button><button type="button" class="btn icon small ghost" aria-label={t('design.cerrar')}><X size={16} /></button></header>
+            <div class="win-body" style={{ padding: '14px' }}><p>{t('design.ventana_enfocada_borde_mas_claro_y')}</p></div>
           </section>
-          <section class="win glass" style={{ height: '140px' }} aria-label="Ventana sin foco"><header class="win-bar"><BookOpen size={18} /><span class="t">Estudio</span><span class="chip">Estudio</span></header><div class="win-body" style={{ padding: '14px' }}><p class="t2">Texto secundario sobre vidrio.</p></div></section>
+          <section class="win glass" style={{ height: '140px' }} aria-label={t('design.ventana_sin_foco')}><header class="win-bar"><BookOpen size={18} /><span class="t">{t('design.estudio')}</span><span class="chip">{t('design.estudio')}</span></header><div class="win-body" style={{ padding: '14px' }}><p class="t2">{t('design.texto_secundario_sobre_vidrio')}</p></div></section>
           <div class="dock" style={{ position: 'static' }}>
-            <span class="pill glass"><Sparkles size={16} /> Extras</span>
-            <div class="glass"><span class="note t2" style={{ padding: '0 10px' }}><Plus size={14} /> Añadir panel</span><button type="button" class="btn icon small ghost" aria-label="PDF"><FileText size={18} /></button><button type="button" class="btn icon small ghost" aria-label="Estudio"><BookOpen size={18} /></button></div>
-            <span class="pill glass"><Inbox size={16} /> Bandeja <span class="count">3</span></span>
+            <span class="pill glass"><Sparkles size={16} />{' '}{t('design.extras')}</span>
+            <div class="glass"><span class="note t2" style={{ padding: '0 10px' }}><Plus size={14} />{' '}{t('design.anadir_panel')}</span><button type="button" class="btn icon small ghost" aria-label="PDF"><FileText size={18} /></button><button type="button" class="btn icon small ghost" aria-label={t('design.estudio')}><BookOpen size={18} /></button></div>
+            <span class="pill glass"><Inbox size={16} />{' '}{t('app.bandeja')}{' '}<span class="count">3</span></span>
           </div>
         </div>
       </div>
-      <section class="study-card glass strong"><p>Superficie de lectura larga (--glass-strong ≥ 78 %): tarjeta de estudio, editor de notas, simulacro.</p><p class="t2">Texto secundario.</p></section>
+      <section class="study-card glass strong"><p>{t('design.superficie_de_lectura_larga_glass_strong')}</p><p class="t2">{t('design.texto_secundario')}</p></section>
     </div>
   );
 }

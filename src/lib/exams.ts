@@ -1,3 +1,4 @@
+import { locale, t } from '../i18n';
 /**
  * Exámenes reales y ritmo (SPEC §9b D). Cada examen es `exams/<nombre>.md`:
  *   ---
@@ -118,8 +119,8 @@ export function pace(input: { today: string; examDate: string; created: string; 
   const span = Math.max(1, daysBetween(created, examDate));
   const elapsed = Math.min(1, Math.max(0, daysBetween(created, today) / span));
   const base = { daysLeft, newLeft, elapsed, finishDate: null as string | null };
-  if (daysLeft < 0) return { ...base, studyDays: 0, needed: 0, actual: 0, dataDays: 0, status: 'pasado', message: 'El examen ya pasó.' };
-  if (newLeft === 0) return { ...base, studyDays: Math.max(0, daysLeft - finalDays), needed: 0, actual: 0, dataDays: 0, status: 'terminado', message: 'Ya no quedan tarjetas nuevas: toca repasar.' };
+  if (daysLeft < 0) return { ...base, studyDays: 0, needed: 0, actual: 0, dataDays: 0, status: 'pasado', message: t('exams.el_examen_ya_paso') };
+  if (newLeft === 0) return { ...base, studyDays: Math.max(0, daysLeft - finalDays), needed: 0, actual: 0, dataDays: 0, status: 'terminado', message: t('exams.ya_no_quedan_tarjetas_nuevas_toca') };
   const studyDays = Math.max(1, daysLeft - finalDays);
   let needed = Math.ceil(newLeft / studyDays);
   if (input.minPerDay) needed = Math.max(needed, input.minPerDay);
@@ -128,7 +129,7 @@ export function pace(input: { today: string; examDate: string; created: string; 
   let sum = 0;
   for (let i = 1; i <= win; i++) sum += input.newPerDay.get(addDays(today, -i)) ?? 0;
   const actual = Math.round((sum / Math.min(win, Math.max(1, dataDays))) * 10) / 10;
-  if (dataDays < 3) return { ...base, studyDays, needed, actual, dataDays, status: 'calculando', message: `Aún calculando: necesitas ${needed} nuevas/día.` };
+  if (dataDays < 3) return { ...base, studyDays, needed, actual, dataDays, status: 'calculando', message: t('exams.aun_calculando_necesitas_needed_nuevas_dia', { needed: needed }) };
   const ratio = actual / needed;
   const status: PaceStatus = ratio >= 1 ? 'en-ritmo' : ratio >= 0.8 ? 'ajustado' : 'atrasado';
   let finishDate: string | null = null;
@@ -137,14 +138,14 @@ export function pace(input: { today: string; examDate: string; created: string; 
     finishDate = addDays(today, Math.ceil(newLeft / actual));
     const diff = daysBetween(addDays(examDate, -finalDays), finishDate);
     message = status === 'en-ritmo'
-      ? `Necesitas ${needed} nuevas/día y llevas ${actual}. Terminas el temario el ${fmtDate(finishDate)}.`
-      : `Necesitas ${needed} nuevas/día y llevas ${actual}; te faltan ${Math.ceil(needed - actual)}/día. Al ritmo actual terminas el temario el ${fmtDate(finishDate)}, ${diff > 0 ? `${diff} días tarde` : 'a tiempo'}.`;
-  } else message = `Necesitas ${needed} nuevas/día y esta semana no has introducido nuevas.`;
+      ? t('exams.necesitas_needed_nuevas_dia_y_llevas', { needed: needed, actual: actual, p: fmtDate(finishDate) })
+      : t('exams.necesitas_needed_nuevas_dia_y_llevas_2', { needed: needed, actual: actual, p: Math.ceil(needed - actual), p2: fmtDate(finishDate), p3: diff > 0 ? `${diff} días tarde` : 'a tiempo' });
+  } else message = t('exams.necesitas_needed_nuevas_dia_y_esta', { needed: needed });
   return { ...base, studyDays, needed, actual, dataDays, status, message, finishDate };
 }
 
 export function fmtDate(key: string): string {
-  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(key + 'T12:00:00Z'));
+  return new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(key + 'T12:00:00Z'));
 }
 
 export function newPerDayMap(col: Collection, cids: Set<string>, tz: string, h: number): { map: Map<string, number>; first: string | null } {

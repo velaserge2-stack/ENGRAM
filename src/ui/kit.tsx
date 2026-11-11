@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import type { ComponentChildren, JSX } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { X } from 'lucide-preact';
@@ -66,7 +67,7 @@ export function Sheet(props: { title: string; onClose: () => void; children: Com
           <h2>{props.title}</h2>
           <div class="row">
             {props.actions}
-            <button type="button" class="btn icon small" aria-label="Cerrar" onClick={props.onClose}>
+            <button type="button" class="btn icon small" aria-label={t('design.cerrar')} onClick={props.onClose}>
               <X size={18} />
             </button>
           </div>

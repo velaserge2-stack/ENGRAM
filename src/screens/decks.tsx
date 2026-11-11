@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { BookOpen, Download, FilePlus2, FolderInput, Import, Pause as PauseIcon, Pencil, Settings2, Layers } from 'lucide-preact';
 import { useRef, useState } from 'preact/hooks';
 import type { Deck } from '../data/collection';
@@ -56,7 +57,7 @@ export function DeckPanel(props: { title?: string }) {
   const [opts, setOpts] = useState<Deck | null>(null);
   const [creating, setCreating] = useState(false);
   const swipe = useRef<{ x: number; key: string } | null>(null);
-  if (!col) return <section class="glass panel" aria-busy="true"><p class="t2">Cargando mazos…</p></section>;
+  if (!col) return <section class="glass panel" aria-busy="true"><p class="t2">{t('decks.cargando_mazos')}</p></section>;
   const now = Date.now();
   const lim = studyLimits(app.settings);
   const intro = newIntroducedToday(col, now, lim);
@@ -90,7 +91,7 @@ export function DeckPanel(props: { title?: string }) {
               )}
               <a href={n.deck ? href('estudiar', ...n.deck.path.split('/')) : href('estudiar', ...studyKey.split('/').filter(Boolean), '')} onClick={(e) => e.stopPropagation()}>{n.label}</a>
               {isSel && n.deck && (
-                <button type="button" class="btn icon small ghost" aria-label={`Opciones de ${n.label}`} onClick={(e) => (e.stopPropagation(), setOpts(n.deck))}>
+                <button type="button" class="btn icon small ghost" aria-label={t('decks.opciones_de_label', { label: n.label })} onClick={(e) => (e.stopPropagation(), setOpts(n.deck))}>
                   <Settings2 size={18} />
                 </button>
               )}
@@ -99,9 +100,9 @@ export function DeckPanel(props: { title?: string }) {
           {swiped === n.key ? (
             <td colSpan={3}>
               <div class="row" style={{ justifyContent: 'flex-end' }}>
-                <a class="btn small" href={href('estudiar', ...studyKey.split('/').filter(Boolean), ...(n.deck ? [] : ['']))}><BookOpen size={16} /> Estudiar</a>
-                <button type="button" class="btn small" onClick={(e) => (e.stopPropagation(), suspendAll(n))}><PauseIcon size={16} /> Suspender</button>
-                {n.deck && <button type="button" class="btn small" onClick={(e) => (e.stopPropagation(), void exportDeck(n.deck!))}><Download size={16} /> Exportar</button>}
+                <a class="btn small" href={href('estudiar', ...studyKey.split('/').filter(Boolean), ...(n.deck ? [] : ['']))}><BookOpen size={16} />{' '}{t('today.estudiar')}</a>
+                <button type="button" class="btn small" onClick={(e) => (e.stopPropagation(), suspendAll(n))}><PauseIcon size={16} />{' '}{t('decks.suspender')}</button>
+                {n.deck && <button type="button" class="btn small" onClick={(e) => (e.stopPropagation(), void exportDeck(n.deck!))}><Download size={16} />{' '}{t('deck.exportar')}</button>}
               </div>
             </td>
           ) : (
@@ -121,11 +122,11 @@ export function DeckPanel(props: { title?: string }) {
   const suspendAll = async (n: Node) => {
     const decks = n.deck ? [n.deck] : col.decks.filter((d) => d.folder === n.key || d.folder.startsWith(n.key + '/'));
     const cids = decks.flatMap((d) => d.cards.map((c) => c.cid));
-    if (!confirm(`¿Suspender ${cids.length} tarjetas de "${n.label}"? Puedes reactivarlas en Explorar.`)) return;
+    if (!confirm(t('decks.suspender_n_tarjetas_de_label_puedes', { n: cids.length, label: n.label }))) return;
     await stateOp(app.vault, col, cids, 'suspend', srsParams(app.settings));
     setSwiped(null);
     app.refresh();
-    app.toast(`${cids.length} tarjetas suspendidas`);
+    app.toast(t('decks.n_tarjetas_suspendidas', { n: cids.length }));
   };
 
   const exportDeck = async (d: Deck) => {
@@ -133,7 +134,7 @@ export function DeckPanel(props: { title?: string }) {
     const media = mediaRefs(text);
     if (!media.length) {
       const r = await deliver(new File([text], d.path.split('/').pop()!, { type: 'text/markdown' }));
-      if (r !== 'cancelled') app.toast('Mazo exportado');
+      if (r !== 'cancelled') app.toast(t('decks.mazo_exportado'));
       return;
     }
     // con medios: .zip (se prepara y luego se entrega con un segundo toque)
@@ -148,38 +149,38 @@ export function DeckPanel(props: { title?: string }) {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   return (
-    <section class="glass panel" aria-label="Mazos">
+    <section class="glass panel" aria-label={t('decks.mazos')}>
       <div class="panel-h">
-        <h2>{props.title ?? 'Mazos'}</h2>
-        <span class="foot">Desliza una fila para acciones rápidas</span>
+        <h2>{props.title ?? t('decks.mazos')}</h2>
+        <span class="foot">{t('decks.desliza_una_fila_para_acciones_rapidas')}</span>
       </div>
       {col.decks.length === 0 ? (
-        <p class="t2" style={{ padding: '8px 4px 12px' }}>Aún no hay mazos. Crea uno o importa un archivo .md con frontmatter <code>deck:</code>.</p>
+        <p class="t2" style={{ padding: '8px 4px 12px' }}>{t('decks.aun_no_hay_mazos_crea_uno')}{' '}<code>deck:</code>.</p>
       ) : (
         <table class="decks">
           <thead>
             <tr>
-              <th scope="col">Mazo</th>
-              <th scope="col">Nuevas</th>
-              <th scope="col">Aprendiendo</th>
-              <th scope="col">Vencidas</th>
+              <th scope="col">{t('deck.mazo')}</th>
+              <th scope="col">{t('today.nuevas')}</th>
+              <th scope="col">{t('today.aprendiendo')}</th>
+              <th scope="col">{t('today.vencidas')}</th>
             </tr>
           </thead>
           <tbody>{rows}</tbody>
         </table>
       )}
       <div class="footer-pills" style={{ marginTop: '14px' }}>
-        <button type="button" class="btn" onClick={() => app.openSheet('import')}><FolderInput size={18} /> Importar compartidos</button>
-        <button type="button" class="btn" onClick={() => setCreating(true)}><FilePlus2 size={18} /> Crear mazo</button>
-        <button type="button" class="btn" onClick={() => app.openSheet('import')}><Import size={18} /> Importar archivo</button>
+        <button type="button" class="btn" onClick={() => app.openSheet('import')}><FolderInput size={18} />{' '}{t('decks.importar_compartidos')}</button>
+        <button type="button" class="btn" onClick={() => setCreating(true)}><FilePlus2 size={18} />{' '}{t('decks.crear_mazo')}</button>
+        <button type="button" class="btn" onClick={() => app.openSheet('import')}><Import size={18} />{' '}{t('decks.importar_archivo')}</button>
       </div>
       {opts && <DeckOptions deck={opts} onClose={() => setOpts(null)} />}
       {creating && <CreateDeck onClose={() => setCreating(false)} />}
       {pendingFile && (
-        <Sheet title="Exportar mazo con medios" onClose={() => setPendingFile(null)}>
+        <Sheet title={t('decks.exportar_mazo_con_medios')} onClose={() => setPendingFile(null)}>
           <div class="stack">
-            <p>{pendingFile.name} está listo.</p>
-            <button type="button" class="btn primary" onClick={async () => { await deliver(pendingFile); setPendingFile(null); }}>Guardar en Archivos</button>
+            <p>{t('decks.name_esta_listo', { name: pendingFile.name })}</p>
+            <button type="button" class="btn primary" onClick={async () => { await deliver(pendingFile); setPendingFile(null); }}>{t('backup.guardar_en_archivos')}</button>
           </div>
         </Sheet>
       )}
@@ -193,7 +194,7 @@ function CreateDeck(props: { onClose: () => void }) {
   const [folder, setFolder] = useState('');
   const folders = [...new Set(app.col?.decks.map((d) => d.folder).filter(Boolean))];
   return (
-    <Sheet title="Crear mazo" onClose={props.onClose}>
+    <Sheet title={t('decks.crear_mazo')} onClose={props.onClose}>
       <form class="stack" onSubmit={async (e) => {
         e.preventDefault();
         const p = await createDeck(app.vault, name, folder);
@@ -201,12 +202,11 @@ function CreateDeck(props: { onClose: () => void }) {
         props.onClose();
         go('mazos', ...p.split('/'));
       }}>
-        <label class="field">Nombre (puedes empezar con un emoji)<input class="input" required value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} placeholder="🫀 Cardiología" /></label>
-        <label class="field">Carpeta (opcional, para submazos)
-          <input class="input" list="folders" value={folder} onInput={(e) => setFolder((e.target as HTMLInputElement).value)} placeholder="Medicina interna" />
+        <label class="field">{t('decks.nombre_puedes_empezar_con_un_emoji')}<input class="input" required value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} placeholder={t('decks.cardiologia')} /></label>
+        <label class="field">{t('decks.carpeta_opcional_para_submazos')}<input class="input" list="folders" value={folder} onInput={(e) => setFolder((e.target as HTMLInputElement).value)} placeholder={t('decks.medicina_interna')} />
           <datalist id="folders">{folders.map((f) => <option value={f} />)}</datalist>
         </label>
-        <button class="btn primary" type="submit">Crear</button>
+        <button class="btn primary" type="submit">{t('decks.crear')}</button>
       </form>
     </Sheet>
   );
@@ -220,22 +220,22 @@ function DeckOptions(props: { deck: Deck; onClose: () => void }) {
   const [npd, setNpd] = useState(d.newPerDay ?? app.settings.newPerDay);
   const [lang, setLang] = useState(typeof d.data.lang === 'string' ? d.data.lang : '');
   return (
-    <Sheet title={`Opciones · ${d.name}`} onClose={props.onClose}>
+    <Sheet title={t('decks.opciones_name', { name: d.name })} onClose={props.onClose}>
       <form class="stack" onSubmit={async (e) => {
         e.preventDefault();
         await setDeckMeta(app.vault, d.path, { deck: name, emoji: emoji || null, new_per_day: npd, lang: lang || null });
         app.changed();
         props.onClose();
       }}>
-        <label class="field">Nombre<input class="input" value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} /></label>
-        <label class="field">Emoji (el único color de la interfaz)<input class="input" value={emoji} maxLength={8} onInput={(e) => setEmoji((e.target as HTMLInputElement).value)} placeholder="🫀" /></label>
-        <label class="field">Nuevas por día<input class="input" type="number" min={0} max={999} value={npd} onInput={(e) => setNpd(Number((e.target as HTMLInputElement).value))} /></label>
-        <label class="field">Idioma de lectura en voz alta<input class="input" value={lang} onInput={(e) => setLang((e.target as HTMLInputElement).value)} placeholder="es-MX, en-US…" /></label>
+        <label class="field">{t('decks.nombre')}<input class="input" value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} /></label>
+        <label class="field">{t('decks.emoji_el_unico_color_de_la')}<input class="input" value={emoji} maxLength={8} onInput={(e) => setEmoji((e.target as HTMLInputElement).value)} placeholder="🫀" /></label>
+        <label class="field">{t('decks.nuevas_por_dia')}<input class="input" type="number" min={0} max={999} value={npd} onInput={(e) => setNpd(Number((e.target as HTMLInputElement).value))} /></label>
+        <label class="field">{t('decks.idioma_de_lectura_en_voz_alta')}<input class="input" value={lang} onInput={(e) => setLang((e.target as HTMLInputElement).value)} placeholder={t('decks.es_mx_en_us')} /></label>
         <div class="row wrap">
-          <button class="btn primary" type="submit">Guardar</button>
-          <a class="btn" href={href('mazos', ...d.path.split('/'))} onClick={props.onClose}><Pencil size={16} /> Editar tarjetas</a>
+          <button class="btn primary" type="submit">{t('calendar.guardar')}</button>
+          <a class="btn" href={href('mazos', ...d.path.split('/'))} onClick={props.onClose}><Pencil size={16} />{' '}{t('decks.editar_tarjetas')}</a>
         </div>
-        <p class="foot">Se guarda en el frontmatter del archivo, así viaja con él.</p>
+        <p class="foot">{t('decks.se_guarda_en_el_frontmatter_del')}</p>
       </form>
     </Sheet>
   );
@@ -246,19 +246,17 @@ export function Decks() {
   const col = app.col;
   return (
     <>
-      <PageTitle title="Mazos" sub={col ? `${col.decks.length} mazos · ${col.byCid.size} tarjetas` : undefined}>
-        <a class="btn primary" href="#/estudiar"><BookOpen size={18} /> Estudiar todo</a>
+      <PageTitle title={t('decks.mazos')} sub={col ? t('decks.n_mazos_size_tarjetas', { n: col.decks.length, size: col.byCid.size }) : undefined}>
+        <a class="btn primary" href="#/estudiar"><BookOpen size={18} />{' '}{t('decks.estudiar_todo')}</a>
       </PageTitle>
       {col && col.decks.length === 0 ? (
-        <Empty icon={<Layers size={44} />} title="Sin mazos todavía" action={<button type="button" class="btn primary" onClick={() => app.openSheet('import')}>Importar</button>}>
-          Un mazo es un archivo .md en la carpeta decks/. Crea uno, impórtalo desde Archivos o carga la bóveda de ejemplo en Ajustes.
-        </Empty>
+        <Empty icon={<Layers size={44} />} title={t('decks.sin_mazos_todavia')} action={<button type="button" class="btn primary" onClick={() => app.openSheet('import')}>{t('decks.importar')}</button>}>{t('decks.un_mazo_es_un_archivo_md')}</Empty>
       ) : (
         <div class="stack">
           <DeckPanel />
           {col && col.decks.some((d) => d.errors.length) && (
             <section class="glass panel">
-              <h2 style={{ fontSize: 'var(--t-3)', marginBottom: '8px' }}>Tarjetas con errores (no entran al estudio)</h2>
+              <h2 style={{ fontSize: 'var(--t-3)', marginBottom: '8px' }}>{t('decks.tarjetas_con_errores_no_entran_al')}</h2>
               {col.decks.filter((d) => d.errors.length).map((d) => (
                 <div class="stack-s" style={{ marginBottom: '10px' }}>
                   <a href={href('mazos', ...d.path.split('/'))}><b>{d.full}</b></a>
@@ -269,8 +267,8 @@ export function Decks() {
           )}
           {col && col.archived.length > 0 && (
             <section class="glass panel">
-              <h2 style={{ fontSize: 'var(--t-3)' }}>Archivadas</h2>
-              <p class="t2 note">{col.archived.length} tarjetas cuyo ID ya no está en ningún mazo. Su historial se conserva; se ocultan a los 30 días. Si vuelves a pegar el bloque con su ID, recuperan su programación.</p>
+              <h2 style={{ fontSize: 'var(--t-3)' }}>{t('decks.archivadas')}</h2>
+              <p class="t2 note">{t('decks.n_tarjetas_cuyo_id_ya_no', { n: col.archived.length })}</p>
             </section>
           )}
         </div>

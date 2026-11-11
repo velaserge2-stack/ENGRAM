@@ -49,7 +49,7 @@ const NO_COLOR = (allow = []) => {
 
 let failed = 0;
 try {
-  const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 } });
+  const ctx = await browser.newContext({ locale: 'es-MX', viewport: { width: 1180, height: 820 } });
   const page = await ctx.newPage();
   await page.goto(URL_);
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();

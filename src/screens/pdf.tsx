@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n';
 /**
  * Visor PDF (SPEC §10d): páginas renderizadas bajo demanda y liberadas fuera de
  * pantalla; escala ≤ 2× y tope de ~16 MP por lienzo (límite de Safari); capa de
@@ -37,7 +38,7 @@ export function PdfViewer(props: { path: string; page?: number }) {
     void (async () => {
       try {
         const bytes = await app.vault.read(props.path);
-        if (bytes.length > 50 * 1024 * 1024) app.toast('PDF de más de 50 MB: puede ir lento en el iPad');
+        if (bytes.length > 50 * 1024 * 1024) app.toast(tr('pdf.pdf_de_mas_de_50_mb'));
         const lib = await pdfjs();
         task = lib.getDocument({ data: bytes }) as unknown as typeof task;
         setDoc(await task!.promise);
@@ -83,32 +84,32 @@ export function PdfViewer(props: { path: string; page?: number }) {
     s.removeAllRanges();
     setSel(null);
   };
-  if (err) return <div class="err">⚠ No se pudo abrir el PDF: {err}</div>;
-  if (!doc) return <p class="t2" style={{ padding: '12px' }}>Abriendo PDF…</p>;
+  if (err) return <div class="err">{tr('pdf.no_se_pudo_abrir_el_pdf', { err: err })}</div>;
+  if (!doc) return <p class="t2" style={{ padding: '12px' }}>{tr('pdf.abriendo_pdf')}</p>;
   const src = `${props.path}#p${sel?.page ?? 1}`;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div class="row wrap" style={{ padding: '6px 10px', borderBottom: 'var(--hair) solid var(--line)' }}>
-        <form class="row" onSubmit={(e) => (e.preventDefault(), void find())}><input class="input" style={{ width: '140px', minHeight: '34px' }} placeholder="Buscar" value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label="Buscar en el PDF" /><button class="btn icon small" aria-label="Buscar"><Search size={16} /></button></form>
-        {hits.length > 0 && <span class="foot">{hits.length} páginas: {hits.slice(0, 8).map((h) => <button type="button" class="link" style={{ minHeight: '24px' }} onClick={() => box.current?.querySelector(`[data-page="${h}"]`)?.scrollIntoView({ behavior: 'smooth' })}>{h} </button>)}</span>}
+        <form class="row" onSubmit={(e) => (e.preventDefault(), void find())}><input class="input" style={{ width: '140px', minHeight: '34px' }} placeholder={tr('inbox.buscar')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label={tr('pdf.buscar_en_el_pdf')} /><button class="btn icon small" aria-label={tr('inbox.buscar')}><Search size={16} /></button></form>
+        {hits.length > 0 && <span class="foot">{tr('pdf.n_paginas', { n: hits.length })}{' '}{hits.slice(0, 8).map((h) => <button type="button" class="link" style={{ minHeight: '24px' }} onClick={() => box.current?.querySelector(`[data-page="${h}"]`)?.scrollIntoView({ behavior: 'smooth' })}>{h} </button>)}</span>}
         <span class="grow" />
-        <button type="button" class={`btn small${draw ? ' primary' : ''}`} aria-pressed={draw} onClick={() => setDraw(!draw)}><PencilLine size={16} /> Dibujar</button>
+        <button type="button" class={`btn small${draw ? ' primary' : ''}`} aria-pressed={draw} onClick={() => setDraw(!draw)}><PencilLine size={16} />{' '}{tr('pdf.dibujar')}</button>
         {sel && (
           <>
-            <button type="button" class="btn small" onClick={highlight}><Highlighter size={16} /> Resaltar</button>
-            <button type="button" class="btn small" onClick={() => setMk('card')}><Sparkles size={16} /> Crear tarjeta</button>
-            <button type="button" class="btn small" onClick={() => setMk('quote')}><Quote size={16} /> Cita en nota</button>
+            <button type="button" class="btn small" onClick={highlight}><Highlighter size={16} />{' '}{tr('notes.resaltar')}</button>
+            <button type="button" class="btn small" onClick={() => setMk('card')}><Sparkles size={16} />{' '}{tr('pdf.crear_tarjeta')}</button>
+            <button type="button" class="btn small" onClick={() => setMk('quote')}><Quote size={16} />{' '}{tr('pdf.cita_en_nota')}</button>
           </>
         )}
-        <span class="foot">{doc.numPages} págs.</span>
+        <span class="foot">{tr('pdf.numpages_pags', { numPages: doc.numPages })}</span>
       </div>
       <div ref={box} style={{ overflow: 'auto', flex: 1, padding: '0 12px' }} onPointerUp={onSelect} onKeyUp={onSelect}>
         {Array.from({ length: doc.numPages }, (_, i) => <Page key={i} doc={doc} n={i + 1} width={width} draw={draw} ann={ann.pages[i + 1]} onStroke={(st) => { const pg = ann.pages[i + 1] ?? { strokes: [], highlights: [] }; saveAnn({ pages: { ...ann.pages, [i + 1]: { ...pg, strokes: [...pg.strokes, st] } } }); }} />)}
       </div>
       {mk === 'card' && sel && (
-        <Sheet title="Tarjeta desde el PDF" onClose={() => setMk(null)} wide>
-          <CardForm initialFront={sel.text} onAdd={async (b) => { const d = app.col?.decks[0]?.path; if (!d) return app.toast('Crea un mazo primero'); await appendCard(app.vault, d, `${b} <!-- src: ${src} -->`, app.col); app.changed(); app.toast(`Tarjeta creada con origen ${src}`); setMk(null); }} />
-          <p class="foot">Se guarda en tu primer mazo con su origen (página {sel.page}); muévela después si quieres.</p>
+        <Sheet title={tr('pdf.tarjeta_desde_el_pdf')} onClose={() => setMk(null)} wide>
+          <CardForm initialFront={sel.text} onAdd={async (b) => { const d = app.col?.decks[0]?.path; if (!d) return app.toast(tr('pdf.crea_un_mazo_primero')); await appendCard(app.vault, d, `${b} <!-- src: ${src} -->`, app.col); app.changed(); app.toast(tr('pdf.tarjeta_creada_origen', { src })); setMk(null); }} />
+          <p class="foot">{tr('pdf.se_guarda_en_tu_primer_mazo', { page: sel.page })}</p>
         </Sheet>
       )}
       {mk === 'quote' && sel && <QuoteToNote text={sel.text} src={src} onClose={() => setMk(null)} />}
@@ -122,11 +123,11 @@ function QuoteToNote(p: { text: string; src: string; onClose: () => void }) {
   const [target, setTarget] = useState('');
   useEffect(() => void listNotes(app.vault).then((n) => (setNotes(n.map((x) => x.path)), setTarget(n[0]?.path ?? ''))), []);
   return (
-    <Sheet title="Insertar cita en nota" onClose={p.onClose}>
+    <Sheet title={tr('pdf.insertar_cita_en_nota')} onClose={p.onClose}>
       <div class="stack">
         <blockquote class="note">{p.text}</blockquote>
         <select value={target} onChange={(e) => setTarget((e.target as HTMLSelectElement).value)}>{notes.map((n) => <option value={n}>{n.replace(/^notes\//, '')}</option>)}</select>
-        <button type="button" class="btn primary" disabled={!target} onClick={async () => { const t = await readTextOr(app.vault, target, ''); await app.vault.write(target, `${t.replace(/\s*$/, '')}\n\n> ${p.text.replace(/\n/g, '\n> ')}\n> — [${p.src}](#/espacios/abrir/${encodeURIComponent(p.src)})\n`); app.changed(); app.toast('Cita insertada'); p.onClose(); }}>Insertar</button>
+        <button type="button" class="btn primary" disabled={!target} onClick={async () => { const t = await readTextOr(app.vault, target, ''); await app.vault.write(target, `${t.replace(/\s*$/, '')}\n\n> ${p.text.replace(/\n/g, '\n> ')}\n> — [${p.src}](#/espacios/abrir/${encodeURIComponent(p.src)})\n`); app.changed(); app.toast(tr('pdf.cita_insertada')); p.onClose(); }}>{tr('pdf.insertar')}</button>
       </div>
     </Sheet>
   );

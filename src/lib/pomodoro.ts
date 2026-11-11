@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * Pomodoro (SPEC §9d). Safari suspende temporizadores en segundo plano: el
  * tiempo se lleva con `endAt` (marca de tiempo) y se recalcula al volver.
@@ -34,7 +35,7 @@ export interface PomoSession {
   completed: boolean;
 }
 
-export const PHASE_LABEL: Record<Phase, string> = { work: 'Estudio', short: 'Descanso', long: 'Descanso largo' };
+export const PHASE_LABEL: Record<Phase, string> = { get work() { return t('design.estudio'); }, get short() { return t('pomodoro.descanso'); }, get long() { return t('pomodoro.descanso_largo'); } };
 
 export function initial(cfg: PomoConfig): PomoState {
   return { phase: 'work', running: false, endAt: null, remaining: cfg.work * 60_000, cycle: 0, label: '', startedAt: null };

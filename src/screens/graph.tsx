@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /** Grafo de notas: fuerza simple en <canvas> (sin dependencias), zoom con dos dedos o rueda. */
 import { useEffect, useRef } from 'preact/hooks';
 import type { LinkIndex, NoteMeta } from '../notes/model';
@@ -85,5 +86,5 @@ export function Graph(p: { notes: NoteMeta[]; idx: LinkIndex; texts: Map<string,
     c.addEventListener('pointerdown', down); c.addEventListener('pointermove', move); c.addEventListener('pointerup', up); c.addEventListener('wheel', wheel, { passive: false });
     return () => { cancelAnimationFrame(raf); c.removeEventListener('pointerdown', down); c.removeEventListener('pointermove', move); c.removeEventListener('pointerup', up); c.removeEventListener('wheel', wheel); };
   }, [p.notes, p.focus]);
-  return <canvas ref={ref} style={{ width: '100%', height: p.focus ? '240px' : '420px', touchAction: 'none', display: 'block' }} role="img" aria-label="Grafo de enlaces entre notas" />;
+  return <canvas ref={ref} style={{ width: '100%', height: p.focus ? '240px' : '420px', touchAction: 'none', display: 'block' }} role="img" aria-label={t('graph.grafo_de_enlaces_entre_notas')} />;
 }

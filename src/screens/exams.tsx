@@ -1,3 +1,4 @@
+import { locale, t as tr, tn } from '../i18n';
 import { CircleCheck, CircleDashed, TriangleAlert, CircleHelp, Flag, Plus } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { setDeckMeta, safeName } from '../data/ops';
@@ -10,14 +11,14 @@ import { Bar, Sheet } from '../ui/kit';
 import { readTextOr } from '../vault/util';
 import type { Extra } from '../lib/stats';
 
-const PACE: Record<PaceStatus, { icon: preact.JSX.Element; text: string; fill: 'full' | 'half' | 'outline' }> = {
-  'en-ritmo': { icon: <CircleCheck size={18} />, text: 'En ritmo', fill: 'full' },
-  ajustado: { icon: <CircleDashed size={18} />, text: 'Ajustado', fill: 'half' },
-  atrasado: { icon: <TriangleAlert size={18} />, text: 'Atrasado', fill: 'outline' },
-  calculando: { icon: <CircleHelp size={18} />, text: 'Aún calculando', fill: 'outline' },
-  terminado: { icon: <Flag size={18} />, text: 'Temario visto', fill: 'full' },
-  pasado: { icon: <Flag size={18} />, text: 'Ya pasó', fill: 'outline' },
-};
+const PACE = (): Record<PaceStatus, { icon: preact.JSX.Element; text: string; fill: 'full' | 'half' | 'outline' }> => ({
+  'en-ritmo': { icon: <CircleCheck size={18} />, text: tr('exams.en_ritmo'), fill: 'full' },
+  ajustado: { icon: <CircleDashed size={18} />, text: tr('exams.ajustado'), fill: 'half' },
+  atrasado: { icon: <TriangleAlert size={18} />, text: tr('exams.atrasado'), fill: 'outline' },
+  calculando: { icon: <CircleHelp size={18} />, text: tr('exams.aun_calculando'), fill: 'outline' },
+  terminado: { icon: <Flag size={18} />, text: tr('exams.temario_visto'), fill: 'full' },
+  pasado: { icon: <Flag size={18} />, text: tr('exams.ya_paso'), fill: 'outline' },
+});
 
 export function ExamCard(props: { exam: Exam; extra: Extra; detailed?: boolean }) {
   const app = useApp();
@@ -34,7 +35,7 @@ export function ExamCard(props: { exam: Exam; extra: Extra; detailed?: boolean }
   const newLeft = topics.reduce((n, t) => n + t.newLeft, 0);
   const { map, first } = newPerDayMap(col, cids, s.timeZone, s.dayStartHour);
   const p = pace({ today, examDate: e.date, created: e.created, finalDays: e.finalDays, newLeft, newPerDay: map, firstActivity: first, minPerDay: e.minPerDay });
-  const st = PACE[p.status];
+  const st = PACE()[p.status];
   const missing = topics.filter((t) => !t.complete).length;
   const examTs = Date.parse(e.date + 'T09:00:00');
   const proj = props.detailed ? projectedRetention(col, cids, examTs, now, params) : null;
@@ -43,44 +44,44 @@ export function ExamCard(props: { exam: Exam; extra: Extra; detailed?: boolean }
   const avg = act ? avgDaily(act, today) : 0;
   const peak = fc.reduce((m, x) => Math.max(m, x.n), 0);
   return (
-    <section class="glass panel stack-s" aria-label={`Examen ${e.name}`}>
+    <section class="glass panel stack-s" aria-label={tr('exams.examen_name', { name: e.name })}>
       <div class="panel-h" style={{ marginBottom: 0 }}>
         <h2 style={{ fontSize: 'var(--t-3)' }}>{e.name}</h2>
-        <button type="button" class="btn small" onClick={() => app.openSheet('exam', e.path)}>Editar</button>
+        <button type="button" class="btn small" onClick={() => app.openSheet('exam', e.path)}>{tr('exams.editar')}</button>
       </div>
       <div class="row" style={{ alignItems: 'baseline' }}>
-        <span class="big">{p.daysLeft < 0 ? '—' : p.daysLeft}</span><small class="t2">{p.daysLeft === 1 ? 'día' : 'días'} · {fmtDate(e.date)}</small>
+        <span class="big">{p.daysLeft < 0 ? '—' : p.daysLeft}</span><small class="t2">{tn('plural.daysword', p.daysLeft)} · {fmtDate(e.date)}</small>
       </div>
-      <Bar value={p.elapsed} label="Tiempo transcurrido desde que lo creaste" />
+      <Bar value={p.elapsed} label={tr('exams.tiempo_transcurrido_desde_que_lo_creaste')} />
       <div class="row" style={{ fontWeight: 700 }}>{st.icon} {st.text}</div>
       <div class={`bar prog${st.fill === 'outline' ? ' outline' : ''}`} aria-hidden="true"><i style={{ width: st.fill === 'full' ? '100%' : st.fill === 'half' ? '50%' : `${Math.min(100, (p.actual / Math.max(1, p.needed)) * 100)}%` }} /></div>
       <p class="note">{p.message}</p>
-      <p class="note t2">Te faltan {missing} de {topics.length} temas · {newLeft} nuevas restantes</p>
+      <p class="note t2">{tr('exams.te_faltan_missing_de_n_temas', { missing: missing, n: topics.length, newLeft: newLeft })}</p>
       {props.detailed && (
         <>
           <table class="tbl">
-            <thead><tr><th>Tema</th><th>Total</th><th>Nuevas</th><th>Cobertura</th><th>Dominio</th><th>Estado</th></tr></thead>
+            <thead><tr><th>{tr('exams.tema')}</th><th>{tr('today.total')}</th><th>{tr('today.nuevas')}</th><th>{tr('exams.cobertura')}</th><th>{tr('exams.dominio')}</th><th>{tr('exams.estado')}</th></tr></thead>
             <tbody>
               {topics.map((t) => (
                 <tr>
-                  <td>{t.topic}{decksForTopic(col, t.topic).length === 0 && <span class="chip">sin mazos</span>}</td>
+                  <td>{t.topic}{decksForTopic(col, t.topic).length === 0 && <span class="chip">{tr('exams.sin_mazos')}</span>}</td>
                   <td class="num">{t.total}</td><td class="num">{t.newLeft}</td>
                   <td class="num">{Math.round(t.coverage * 100)} %</td><td class="num">{Math.round(t.mastery * 100)} %</td>
-                  <td>{t.complete ? '✓ Completo' : '○ Pendiente'}</td>
+                  <td>{t.complete ? tr('exams.completo') : tr('exams.pendiente')}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div class="kv"><span class="k">Retención proyectada el día del examen</span><span class="v">{proj === null ? '—' : `${Math.round(proj * 100)} %`} {proj !== null && (proj >= e.goal ? '✓' : '⚠')} meta {Math.round(e.goal * 100)} %</span></div>
-          <div class="kv"><span class="k">Carga futura máxima</span><span class="v">{peak} repasos/día {avg > 0 && peak > 1.5 * avg ? `⚠ supera 1.5× tu promedio (${Math.round(avg)})` : ''}</span></div>
-          {p.status !== 'pasado' && p.status !== 'terminado' && <button type="button" class="btn" onClick={() => setAdjust(true)}>Ajustar plan</button>}
+          <div class="kv"><span class="k">{tr('exams.retencion_proyectada_el_dia_del_examen')}</span><span class="v">{proj === null ? '—' : `${Math.round(proj * 100)} %`} {proj !== null && (proj >= e.goal ? '✓' : '⚠')} meta {Math.round(e.goal * 100)} %</span></div>
+          <div class="kv"><span class="k">{tr('exams.carga_futura_maxima')}</span><span class="v">{tr('exams.peak_repasos_dia', { peak: peak })}{' '}{avg > 0 && peak > 1.5 * avg ? tr('exams.supera_1_5_tu_promedio_p', { p: Math.round(avg) }) : ''}</span></div>
+          {p.status !== 'pasado' && p.status !== 'terminado' && <button type="button" class="btn" onClick={() => setAdjust(true)}>{tr('exams.ajustar_plan')}</button>}
         </>
       )}
       {adjust && (
-        <Sheet title="Ajustar plan" onClose={() => setAdjust(false)}>
+        <Sheet title={tr('exams.ajustar_plan')} onClose={() => setAdjust(false)}>
           <div class="stack">
-            <p>Para terminar el temario {e.finalDays} días antes del examen necesitas <b>{p.needed} nuevas/día</b>.</p>
-            <p class="t2">Se repartirá entre los {new Set(e.topics.flatMap((t) => decksForTopic(col, t))).size} mazos del examen según sus nuevas restantes, en el campo <code>new_per_day</code> de cada archivo.</p>
+            <p>{tr('exams.para_terminar_el_temario_finaldays_dias', { finalDays: e.finalDays })}{' '}<b>{tr('exams.needed_nuevas_dia', { needed: p.needed })}</b>.</p>
+            <p class="t2">{tr('exams.se_repartira_entre_los_size_mazos', { size: new Set(e.topics.flatMap((t) => decksForTopic(col, t))).size })}{' '}<code>new_per_day</code>{' '}{tr('exams.de_cada_archivo')}</p>
             <button type="button" class="btn primary" onClick={async () => {
               const decks = [...new Set(e.topics.flatMap((t) => decksForTopic(col, t)))];
               const left = decks.map((d) => ({ d, n: d.cards.filter((c) => !col.states.get(c.cid) || col.states.get(c.cid)!.card.state === 0).length }));
@@ -88,8 +89,8 @@ export function ExamCard(props: { exam: Exam; extra: Extra; detailed?: boolean }
               for (const { d, n } of left) if (n) await setDeckMeta(app.vault, d.path, { new_per_day: Math.max(1, Math.ceil((p.needed * n) / tot)) });
               app.changed();
               setAdjust(false);
-              app.toast('Límites diarios actualizados');
-            }}>Aplicar a los mazos</button>
+              app.toast(tr('exams.limites_actualizados'));
+            }}>{tr('exams.aplicar_a_los_mazos')}</button>
           </div>
         </Sheet>
       )}
@@ -108,7 +109,7 @@ export function ExamSheet(props: { path: string | null; onClose: () => void }) {
   const options = [...new Set([...(app.col?.decks.map((d) => d.full) ?? []), ...(app.col?.decks.map((d) => d.folder).filter(Boolean) ?? []), ...(app.col?.decks.flatMap((d) => d.tags.map((t) => `tag:${t}`)) ?? [])])].sort();
   if (props.path && !data && !form) return null;
   return (
-    <Sheet title={props.path ? 'Editar examen' : 'Añadir examen'} onClose={props.onClose}>
+    <Sheet title={props.path ? tr('exams.editar_examen') : tr('exams.anadir_examen')} onClose={props.onClose}>
       <form class="stack" onSubmit={async (ev) => {
         ev.preventDefault();
         const path = props.path ?? `exams/${safeName(e.name)}.md`;
@@ -116,27 +117,27 @@ export function ExamSheet(props: { path: string | null; onClose: () => void }) {
         app.changed();
         props.onClose();
       }}>
-        <label class="field">Nombre<input class="input" required value={e.name} onInput={(x) => set({ name: (x.target as HTMLInputElement).value })} placeholder="Cardiología, parcial 1" /></label>
-        <label class="field">Fecha<input class="input" type="date" required value={e.date} onInput={(x) => set({ date: (x.target as HTMLInputElement).value })} /></label>
+        <label class="field">{tr('decks.nombre')}<input class="input" required value={e.name} onInput={(x) => set({ name: (x.target as HTMLInputElement).value })} placeholder={tr('exams.cardiologia_parcial_1')} /></label>
+        <label class="field">{tr('exams.fecha')}<input class="input" type="date" required value={e.date} onInput={(x) => set({ date: (x.target as HTMLInputElement).value })} /></label>
         <fieldset class="field" style={{ border: 0, padding: 0 }}>
-          <legend>Temas (mazos, carpetas o etiquetas)</legend>
+          <legend>{tr('exams.temas_mazos_carpetas_o_etiquetas')}</legend>
           <div class="row wrap">
             {options.map((o) => (
               <button type="button" class={`btn small${e.topics.includes(o) ? ' primary' : ''}`} aria-pressed={e.topics.includes(o)} onClick={() => set({ topics: e.topics.includes(o) ? e.topics.filter((t) => t !== o) : [...e.topics, o] })}>{o}</button>
             ))}
-            {!options.length && <span class="t2">Crea mazos primero.</span>}
+            {!options.length && <span class="t2">{tr('exams.crea_mazos_primero')}</span>}
           </div>
         </fieldset>
         <div class="row wrap">
-          <label class="field">Meta de retención (%)<input class="input" type="number" min={70} max={99} value={Math.round(e.goal * 100)} onInput={(x) => set({ goal: Number((x.target as HTMLInputElement).value) / 100 })} /></label>
-          <label class="field">Días de repaso final<input class="input" type="number" min={0} max={60} value={e.finalDays} onInput={(x) => set({ finalDays: Number((x.target as HTMLInputElement).value) })} /></label>
-          <label class="field">Mínimo de tarjetas/día (opcional)<input class="input" type="number" min={0} value={e.minPerDay ?? ''} onInput={(x) => set({ minPerDay: Number((x.target as HTMLInputElement).value) || null })} /></label>
+          <label class="field">{tr('exams.meta_de_retencion')}<input class="input" type="number" min={70} max={99} value={Math.round(e.goal * 100)} onInput={(x) => set({ goal: Number((x.target as HTMLInputElement).value) / 100 })} /></label>
+          <label class="field">{tr('exams.dias_de_repaso_final')}<input class="input" type="number" min={0} max={60} value={e.finalDays} onInput={(x) => set({ finalDays: Number((x.target as HTMLInputElement).value) })} /></label>
+          <label class="field">{tr('exams.minimo_de_tarjetas_dia_opcional')}<input class="input" type="number" min={0} value={e.minPerDay ?? ''} onInput={(x) => set({ minPerDay: Number((x.target as HTMLInputElement).value) || null })} /></label>
         </div>
         <div class="row">
-          <button class="btn primary" type="submit">Guardar</button>
-          {props.path && <button type="button" class="btn danger" onClick={async () => { if (confirm('¿Eliminar este examen? Solo se borra su archivo; tus tarjetas no cambian.')) { await app.vault.remove(props.path!); app.changed(); props.onClose(); } }}>Eliminar</button>}
+          <button class="btn primary" type="submit">{tr('calendar.guardar')}</button>
+          {props.path && <button type="button" class="btn danger" onClick={async () => { if (confirm(tr('exams.confirm_eliminar'))) { await app.vault.remove(props.path!); app.changed(); props.onClose(); } }}>{tr('calendar.eliminar')}</button>}
         </div>
-        <p class="foot">Se guarda en exams/ como Markdown con frontmatter. Faltan {Math.max(0, daysBetween(today, e.date))} días.</p>
+        <p class="foot">{tr('exams.se_guarda_en_exams_como_markdown')}{' '}{Math.max(0, daysBetween(today, e.date))}{' '}{tr('exams.dias')}</p>
       </form>
     </Sheet>
   );
@@ -144,5 +145,5 @@ export function ExamSheet(props: { path: string | null; onClose: () => void }) {
 
 export function AddExamButton() {
   const app = useApp();
-  return <button type="button" class="btn" onClick={() => app.openSheet('exam')}><Plus size={18} /> Añadir examen</button>;
+  return <button type="button" class="btn" onClick={() => app.openSheet('exam')}><Plus size={18} />{' '}{tr('exams.anadir_examen')}</button>;
 }

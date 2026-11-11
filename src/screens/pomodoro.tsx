@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n';
 import { BarChart3, Pause, Play, RotateCcw, SkipForward } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { dayKey } from '../lib/days';
@@ -87,7 +88,7 @@ export function usePomodoro(vault: VaultAdapter, s: Settings, toast: (m: string)
         commit(r.state);
         void log(r.session);
         if (cfg.sound) chime();
-        toast(r.finished === 'work' ? 'Pomodoro terminado: toma un descanso' : 'Descanso terminado');
+        toast(r.finished === 'work' ? tr('pomodoro.pomodoro_terminado_toma_un_descanso') : tr('pomodoro.descanso_terminado'));
       }
     };
     const onVis = () => document.visibilityState === 'visible' && step();
@@ -136,22 +137,22 @@ export function PomodoroPanel(props: { compact?: boolean }) {
   const total = duration(cfg, p.state.phase);
   const [showStats, setShowStats] = useState(false);
   return (
-    <section class="pomo glass panel" aria-label="Pomodoro">
-      {!props.compact && <Ring value={1 - rem / total} size={120} label="Progreso" text=" " class="prog" />}
+    <section class="pomo glass panel" aria-label={tr('today.pomodoro')}>
+      {!props.compact && <Ring value={1 - rem / total} size={120} label={tr('pomodoro.progreso')} text=" " class="prog" />}
       <div class="time" style={props.compact ? undefined : { marginTop: '-82px', marginBottom: '40px' }} aria-live="off">{fmt(rem)}</div>
       <div class="phase">{PHASE_LABEL[p.state.phase]}{p.state.label ? ` · ${p.state.label}` : ''}</div>
       <div class="ctrls">
-        <button type="button" class={`btn round${p.state.running ? '' : ' primary'}`} onClick={() => (p.state.running ? p.pause() : p.start())} aria-label={p.state.running ? 'Pausar' : 'Iniciar'}>
+        <button type="button" class={`btn round${p.state.running ? '' : ' primary'}`} onClick={() => (p.state.running ? p.pause() : p.start())} aria-label={p.state.running ? tr('pomodoro.pausar') : tr('pomodoro.iniciar')}>
           {p.state.running ? <Pause size={22} /> : <Play size={22} />}
         </button>
-        <button type="button" class="btn round" onClick={p.reset} aria-label="Reiniciar"><RotateCcw size={20} /></button>
-        <button type="button" class="btn round" onClick={p.skip} aria-label="Saltar fase"><SkipForward size={20} /></button>
-        <button type="button" class="btn round" onClick={() => setShowStats(!showStats)} aria-label="Estadísticas de enfoque" aria-pressed={showStats}><BarChart3 size={20} /></button>
+        <button type="button" class="btn round" onClick={p.reset} aria-label={tr('explorar.reiniciar')}><RotateCcw size={20} /></button>
+        <button type="button" class="btn round" onClick={p.skip} aria-label={tr('pomodoro.saltar_fase')}><SkipForward size={20} /></button>
+        <button type="button" class="btn round" onClick={() => setShowStats(!showStats)} aria-label={tr('pomodoro.estadisticas_de_enfoque')} aria-pressed={showStats}><BarChart3 size={20} /></button>
       </div>
-      <p class="foot center">Hoy: {p.today} · Estudio: {cfg.work} min · Descanso: {cfg.short} min</p>
+      <p class="foot center">{tr('pomodoro.hoy_today_estudio_work_min_descanso', { today: p.today, work: cfg.work, short: cfg.short })}</p>
       {showStats && <FocusStats />}
       {!props.compact && (
-        <input class="input wide" style={{ marginTop: '10px' }} placeholder="¿Qué estudias? (materia, mazo o examen)" value={p.state.label} onChange={(e) => p.setLabel((e.target as HTMLInputElement).value)} aria-label="Etiqueta del pomodoro" />
+        <input class="input wide" style={{ marginTop: '10px' }} placeholder={tr('pomodoro.que_estudias_materia_mazo_o_examen')} value={p.state.label} onChange={(e) => p.setLabel((e.target as HTMLInputElement).value)} aria-label={tr('pomodoro.etiqueta_del_pomodoro')} />
       )}
     </section>
   );
@@ -163,7 +164,7 @@ function FocusStats() {
   useEffect(() => {
     void readTextOr(app.vault, POMO_LOG, '').then((t) => {
       const by = new Map<string, number>();
-      for (const s of parseSessions(t)) by.set(s.label || 'Sin etiqueta', (by.get(s.label || 'Sin etiqueta') ?? 0) + s.minutes);
+      for (const s of parseSessions(t)) by.set(s.label || tr('pomodoro.sin_etiqueta'), (by.get(s.label || tr('pomodoro.sin_etiqueta')) ?? 0) + s.minutes);
       setRows([...by].sort((a, b) => b[1] - a[1]).slice(0, 6));
     });
   }, [app.pomo.today]);
@@ -171,7 +172,7 @@ function FocusStats() {
     <div class="stack-s" style={{ marginTop: '8px' }}>
       {rows.length ? rows.map(([k, m]) => (
         <div class="kv"><span class="k">{k}</span><span class="v">{Math.round(m)} min</span></div>
-      )) : <p class="foot center">Aún no hay sesiones registradas.</p>}
+      )) : <p class="foot center">{tr('pomodoro.aun_no_hay_sesiones_registradas')}</p>}
     </div>
   );
 }

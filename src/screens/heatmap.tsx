@@ -1,3 +1,4 @@
+import { locale, t } from '../i18n';
 import { ChevronLeft, ChevronRight } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { addDays, daysBetween, heatLevels, streaks, weekdayMon } from '../lib/days';
@@ -40,30 +41,30 @@ export function Heatmap(props: { act: Map<string, DayAct>; today: string; byDeck
   }
   const a = open ? props.act.get(open) : null;
   return (
-    <section class="glass panel" aria-label="Mapa de adherencia">
+    <section class="glass panel" aria-label={t('today.mapa_de_adherencia')}>
       <div class="panel-h wrap">
-        <h2>Adherencia</h2>
+        <h2>{t('heatmap.adherencia')}</h2>
         <div class="row wrap">
-          <Segmented label="Métrica" value={metric} onChange={setMetric} options={[['cards', 'Tarjetas'], ['min', 'Minutos']]} />
-          <div class="row" role="group" aria-label="Año">
-            <button type="button" class="btn icon small" aria-label="Año anterior" onClick={() => setOffset(offset + 1)}><ChevronLeft size={16} /></button>
-            <button type="button" class="btn icon small" aria-label="Volver a hoy" onClick={() => setOffset(0)} disabled={offset === 0}>○</button>
-            <button type="button" class="btn icon small" aria-label="Año siguiente" onClick={() => setOffset(Math.max(0, offset - 1))} disabled={offset === 0}><ChevronRight size={16} /></button>
+          <Segmented label={t('heatmap.metrica')} value={metric} onChange={setMetric} options={[['cards', t('heatmap.tarjetas')], ['min', t('heatmap.minutos')]]} />
+          <div class="row" role="group" aria-label={t('heatmap.ano')}>
+            <button type="button" class="btn icon small" aria-label={t('heatmap.ano_anterior')} onClick={() => setOffset(offset + 1)}><ChevronLeft size={16} /></button>
+            <button type="button" class="btn icon small" aria-label={t('heatmap.volver_a_hoy')} onClick={() => setOffset(0)} disabled={offset === 0}>○</button>
+            <button type="button" class="btn icon small" aria-label={t('heatmap.ano_siguiente')} onClick={() => setOffset(Math.max(0, offset - 1))} disabled={offset === 0}><ChevronRight size={16} /></button>
           </div>
         </div>
       </div>
-      <div class="heat" ref={ref} role="grid" aria-label={`Actividad por día hasta ${end}`}>{cells}</div>
+      <div class="heat" ref={ref} role="grid" aria-label={t('heatmap.actividad_por_dia_hasta_end', { end: end })}>{cells}</div>
       <div class="row wrap" style={{ justifyContent: 'space-between', marginTop: '8px' }}>
-        <span class="foot">Días estudiados: {st.daysStudied}{span ? ` (${Math.round((st.daysStudied / span) * 100)} %)` : ''} · Racha más larga: {st.longest} · Racha actual: {st.current}{st.todayCounts ? ' · hoy ya cuenta' : ''}</span>
-        <span class="legend" aria-hidden="true">menos {[0, 1, 2, 3, 4].map((l) => <span class="c" data-l={l} />)} más</span>
+        <span class="foot">{t('heatmap.dias_estudiados_daysstudied', { daysStudied: st.daysStudied })}{span ? ` (${Math.round((st.daysStudied / span) * 100)} %)` : ''}{' '}{t('heatmap.racha_mas_larga_longest_racha_actual', { longest: st.longest, current: st.current })}{st.todayCounts ? t('heatmap.hoy_ya_cuenta') : ''}</span>
+        <span class="legend" aria-hidden="true">menos {[0, 1, 2, 3, 4].map((l) => <span class="c" data-l={l} />)}{' '}{t('design.mas')}</span>
       </div>
       {open && (
-        <Sheet title={new Intl.DateTimeFormat('es-MX', { dateStyle: 'full', timeZone: 'UTC' }).format(new Date(open + 'T12:00:00Z'))} onClose={() => setOpen(null)}>
+        <Sheet title={new Intl.DateTimeFormat(locale(), { dateStyle: 'full', timeZone: 'UTC' }).format(new Date(open + 'T12:00:00Z'))} onClose={() => setOpen(null)}>
           <div class="stack-s">
-            <div class="kv"><span class="k">Tarjetas</span><span class="v">{a?.cards ?? 0}</span></div>
-            <div class="kv"><span class="k">Minutos de estudio</span><span class="v">{Math.round(studyMs(a ?? undefined) / 60000)}</span></div>
-            <div class="kv"><span class="k">Enfoque (pomodoro)</span><span class="v">{Math.round((a?.focusMs ?? 0) / 60000)} min</span></div>
-            <div class="kv"><span class="k">Simulacros</span><span class="v">{Math.round((a?.examMs ?? 0) / 60000)} min</span></div>
+            <div class="kv"><span class="k">{t('heatmap.tarjetas')}</span><span class="v">{a?.cards ?? 0}</span></div>
+            <div class="kv"><span class="k">{t('heatmap.minutos_de_estudio')}</span><span class="v">{Math.round(studyMs(a ?? undefined) / 60000)}</span></div>
+            <div class="kv"><span class="k">{t('heatmap.enfoque_pomodoro')}</span><span class="v">{Math.round((a?.focusMs ?? 0) / 60000)} min</span></div>
+            <div class="kv"><span class="k">{t('calendar.simulacros')}</span><span class="v">{Math.round((a?.examMs ?? 0) / 60000)} min</span></div>
             {props.byDeck?.(open).map(([d, n]) => <div class="kv"><span class="k">{d}</span><span class="v">{n}</span></div>)}
           </div>
         </Sheet>

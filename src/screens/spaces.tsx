@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n';
 import { BarChart3, BookOpen, ClipboardCheck, FileSpreadsheet, FileText, Image as ImageIcon, Lock, NotebookPen, Plus, Scan, Timer, Unlock, X, LayoutGrid, Inbox as InboxIcon, Sparkles } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { docxToHtml } from '../io/extract';
@@ -28,17 +29,17 @@ const MINIMIZABLE: PType[] = ['pomodoro', 'stats', 'pdf', 'docx', 'hoja'];
 const visible = (sp: Space) => sp.panels.filter((x) => !x.min);
 
 const DIR = '.app/spaces';
-const TYPES: { t: PType; label: string; icon: preact.JSX.Element }[] = [
-  { t: 'estudio', label: 'Estudio', icon: <BookOpen size={18} /> },
-  { t: 'nota', label: 'Nota', icon: <NotebookPen size={18} /> },
+const TYPES = (): { t: PType; label: string; icon: preact.JSX.Element }[] => ([
+  { t: 'estudio', label: tr('design.estudio'), icon: <BookOpen size={18} /> },
+  { t: 'nota', label: tr('notes.nota'), icon: <NotebookPen size={18} /> },
   { t: 'pdf', label: 'PDF', icon: <FileText size={18} /> },
-  { t: 'docx', label: 'Documento', icon: <FileText size={18} /> },
-  { t: 'hoja', label: 'Hoja', icon: <FileSpreadsheet size={18} /> },
-  { t: 'imagen', label: 'Imagen', icon: <ImageIcon size={18} /> },
-  { t: 'simulacro', label: 'Simulacro', icon: <ClipboardCheck size={18} /> },
-  { t: 'pomodoro', label: 'Pomodoro', icon: <Timer size={18} /> },
-  { t: 'stats', label: 'Estadísticas', icon: <BarChart3 size={18} /> },
-];
+  { t: 'docx', label: tr('notes.documento'), icon: <FileText size={18} /> },
+  { t: 'hoja', label: tr('spaces.hoja'), icon: <FileSpreadsheet size={18} /> },
+  { t: 'imagen', label: tr('deck.imagen'), icon: <ImageIcon size={18} /> },
+  { t: 'simulacro', label: tr('simulacros.simulacro'), icon: <ClipboardCheck size={18} /> },
+  { t: 'pomodoro', label: tr('today.pomodoro'), icon: <Timer size={18} /> },
+  { t: 'stats', label: tr('spaces.estadisticas'), icon: <BarChart3 size={18} /> },
+]);
 const MAX_ACTIVE = 4;
 
 /** Reparto inicial del mosaico: un panel de notas arranca con al menos el 60 % del área útil. */
@@ -98,14 +99,14 @@ export function Spaces(props: { route: string[] }) {
 
   return (
     <div class="spaces">
-      <nav class="rail glass" aria-label="Espacios">
+      <nav class="rail glass" aria-label={tr('spaces.espacios')}>
         {spaces?.map((s) => <button type="button" aria-current={sp?.id === s.id} aria-label={s.name} title={s.name} onClick={() => go('espacios', s.id)}>{s.emoji}</button>)}
-        <button type="button" aria-label="Nuevo espacio" onClick={() => setCreating(true)}><Plus size={20} /></button>
+        <button type="button" aria-label={tr('spaces.nuevo_espacio')} onClick={() => setCreating(true)}><Plus size={20} /></button>
         {sp && innerWidth < 900 && <PanelTray sp={sp} save={save} vertical />}
       </nav>
       <div style={{ minWidth: 0 }}>
         {!sp ? (
-          <div class="empty glass"><LayoutGrid size={44} /><h2>Espacios</h2><p>Paneles que comparten datos: crea una tarjeta desde un PDF o cita el PDF en tu nota. Elige un preajuste.</p>
+          <div class="empty glass"><LayoutGrid size={44} /><h2>{tr('spaces.espacios')}</h2><p>{tr('spaces.paneles_que_comparten_datos_crea_una')}</p>
             <div class="row wrap" style={{ justifyContent: 'center' }}>{Object.keys(PRESETS).map((k) => <button type="button" class="btn" onClick={() => { const s = { ...PRESETS[k]!, id: Date.now().toString(36) }; save(s); go('espacios', s.id); }}>{k}</button>)}</div>
           </div>
         ) : (
@@ -113,8 +114,8 @@ export function Spaces(props: { route: string[] }) {
             <div class="row wrap glass" style={{ marginBottom: '10px', padding: '8px 12px', borderRadius: 'var(--r-pill)' }}>
               <b style={{ padding: '0 6px' }}>{sp.emoji} {sp.name}</b>
               <span class="grow" />
-              <Segmented label="Modo" value={sp.mode} onChange={(m) => save({ ...sp, mode: m })} options={[['tiles', 'Mosaico'], ['canvas', 'Lienzo']]} />
-              <button type="button" class="btn small" onClick={async () => { if (!confirm(`¿Eliminar el espacio "${sp.name}"? Los archivos no se borran.`)) return; await app.vault.remove(`${DIR}/${sp.id}.json`); app.changed(); go('espacios'); }}>Eliminar</button>
+              <Segmented label={tr('deck.modo')} value={sp.mode} onChange={(m) => save({ ...sp, mode: m })} options={[['tiles', tr('spaces.mosaico')], ['canvas', tr('spaces.lienzo')]]} />
+              <button type="button" class="btn small" onClick={async () => { if (!confirm(tr('spaces.confirm_eliminar', { name: sp.name }))) return; await app.vault.remove(`${DIR}/${sp.id}.json`); app.changed(); go('espacios'); }}>{tr('calendar.eliminar')}</button>
             </div>
             {sp.mode === 'tiles' ? <Tiles sp={sp} save={save} /> : <CanvasView sp={sp} save={save} />}
             <Dock sp={sp} save={save} />
@@ -122,12 +123,12 @@ export function Spaces(props: { route: string[] }) {
         )}
       </div>
       {creating && (
-        <Sheet title="Nuevo espacio" onClose={() => setCreating(false)}>
+        <Sheet title={tr('spaces.nuevo_espacio')} onClose={() => setCreating(false)}>
           <form class="stack" onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget as HTMLFormElement); const preset = PRESETS[String(f.get('p'))]; const s: Space = { ...(preset ?? { mode: 'tiles', panels: [], sizes: [], view: { x: 0, y: 0, k: 1 } }), id: Date.now().toString(36), name: String(f.get('n')) || 'Espacio', emoji: String(f.get('e')) || '🗂️' } as Space; save(s); setCreating(false); go('espacios', s.id); }}>
-            <label class="field">Nombre (materia o examen)<input class="input" name="n" required /></label>
-            <label class="field">Emoji<input class="input" name="e" maxLength={8} placeholder="🫀" /></label>
-            <label class="field">Preajuste<select name="p"><option value="">Vacío</option>{Object.keys(PRESETS).map((k) => <option>{k}</option>)}</select></label>
-            <button class="btn primary" type="submit">Crear</button>
+            <label class="field">{tr('spaces.nombre_materia_o_examen')}<input class="input" name="n" required /></label>
+            <label class="field">{tr('spaces.emoji')}<input class="input" name="e" maxLength={8} placeholder="🫀" /></label>
+            <label class="field">{tr('spaces.preajuste')}<select name="p"><option value="">{tr('spaces.vacio')}</option>{Object.keys(PRESETS).map((k) => <option>{k}</option>)}</select></label>
+            <button class="btn primary" type="submit">{tr('decks.crear')}</button>
           </form>
         </Sheet>
       )}
@@ -166,9 +167,9 @@ function PanelTray(p: { sp: Space; save: (s: Space) => void; vertical?: boolean 
   const rem = fmt(remaining(app.pomo.state, app.pomo.now));
   const items: TrayItem[] = ids.map((id) => {
     const pn = p.sp.panels.find((x) => x.id === id)!;
-    const t = TYPES.find((x) => x.t === pn.type)!;
+    const t = TYPES().find((x) => x.t === pn.type)!;
     const name = pn.arg ? `${t.label}: ${pn.arg.split('/').pop()}` : t.label;
-    return pn.type === 'pomodoro' ? { id, label: name, icon: t.icon, live: rem, liveLabel: `${rem} restantes${app.pomo.state.running ? '' : ', en pausa'}` } : { id, label: name, icon: t.icon };
+    return pn.type === 'pomodoro' ? { id, label: name, icon: t.icon, live: rem, liveLabel: tr(app.pomo.state.running ? 'tray.restantes' : 'tray.restantes_pausa', { rem }) } : { id, label: name, icon: t.icon };
   });
   return <Tray items={items} vertical={p.vertical} max={p.vertical ? 4 : 6} onRestore={(id) => restorePanel(p.sp, p.save, id)} onClose={(id) => { const panels = p.sp.panels.filter((x) => x.id !== id); p.save({ ...p.sp, panels, tray: (p.sp.tray ?? []).filter((x) => x !== id), sizes: initialSizes(panels.filter((x) => !x.min).slice(0, 3)) }); }} />;
 }
@@ -187,12 +188,12 @@ function Dock(p: { sp: Space; save: (s: Space) => void }) {
   return (
     <div class="dock no-print">
       {innerWidth >= 900 && <PanelTray sp={p.sp} save={p.save} />}
-      <a class="pill glass" href="#/addons"><Sparkles size={16} /> Extras</a>
-      <div class="glass" role="toolbar" aria-label="Añadir panel">
-        <span class="note t2" style={{ padding: '0 10px' }}><Plus size={14} /> Añadir panel</span>
-        {TYPES.map((x) => <button type="button" class="btn icon small ghost" aria-label={`Añadir panel ${x.label}`} title={x.label} onClick={() => add(x.t)}>{x.icon}</button>)}
+      <a class="pill glass" href="#/addons"><Sparkles size={16} />{' '}{tr('design.extras')}</a>
+      <div class="glass" role="toolbar" aria-label={tr('design.anadir_panel')}>
+        <span class="note t2" style={{ padding: '0 10px' }}><Plus size={14} />{' '}{tr('design.anadir_panel')}</span>
+        {TYPES().map((x) => <button type="button" class="btn icon small ghost" aria-label={tr('spaces.anadir_panel_label', { label: x.label })} title={x.label} onClick={() => add(x.t)}>{x.icon}</button>)}
       </div>
-      <a class="pill glass" href="#/bandeja"><InboxIcon size={16} /> Bandeja <span class={`count${app.inboxCount ? '' : ' zero'}`}>{app.inboxCount}</span></a>
+      <a class="pill glass" href="#/bandeja"><InboxIcon size={16} />{' '}{tr('app.bandeja')}{' '}<span class={`count${app.inboxCount ? '' : ' zero'}`}>{app.inboxCount}</span></a>
     </div>
   );
 }
@@ -202,12 +203,12 @@ function Tiles(p: { sp: Space; save: (s: Space) => void }) {
   const panels = visible(p.sp).slice(0, 3);
   const sizes = p.sp.sizes.length === panels.length ? p.sp.sizes : initialSizes(panels);
   const drag = useRef<{ i: number; x: number; s: number[] } | null>(null);
-  if (!panels.length) return <div class="empty glass"><p>Añade paneles desde el dock (1 a 3 en mosaico).</p></div>;
+  if (!panels.length) return <div class="empty glass"><p>{tr('spaces.anade_paneles_desde_el_dock_1')}</p></div>;
   const cols = sizes.flatMap((s, i) => (i ? ['10px', `${s}fr`] : [`${s}fr`])).join(' ');
   return (
     <div ref={box} class="tiles" style={{ gridTemplateColumns: cols, height: 'calc(100dvh - 230px)' }}>
       {panels.flatMap((pn, i) => [
-        ...(i ? [<div class="divider" role="separator" aria-orientation="vertical" aria-label="Redimensionar paneles" tabIndex={0}
+        ...(i ? [<div class="divider" role="separator" aria-orientation="vertical" aria-label={tr('spaces.redimensionar_paneles')} tabIndex={0}
           onPointerDown={(e) => { (e.target as HTMLElement).setPointerCapture(e.pointerId); drag.current = { i, x: e.clientX, s: [...sizes] }; }}
           onPointerMove={(e) => { const d = drag.current; if (!d) return; const W = box.current!.clientWidth; const dx = (e.clientX - d.x) / W; const tot = d.s[d.i - 1]! + d.s[d.i]!; const a = Math.min(tot - minFrac(panels[d.i]), Math.max(minFrac(panels[d.i - 1]), d.s[d.i - 1]! + dx)); const s = [...d.s]; s[d.i - 1] = a; s[d.i] = tot - a; p.save({ ...p.sp, sizes: s }); }}
           onPointerUp={() => (drag.current = null)}
@@ -266,7 +267,7 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
         {visible(p.sp).map((pn) => <Window key={pn.id} panel={pn} sp={p.sp} save={p.save} free scale={v.k} asleep={!awake.has(pn.id)} focused={focus === pn.id} onFocus={() => setFocus(pn.id)} />)}
       </div>
       <div class="row" style={{ position: 'absolute', left: '12px', bottom: '12px' }}>
-        <button type="button" class="btn small glass" onClick={fit}><Scan size={16} /> Ajustar al contenido</button>
+        <button type="button" class="btn small glass" onClick={fit}><Scan size={16} />{' '}{tr('spaces.ajustar_al_contenido')}</button>
         <span class="chip">{Math.round(v.k * 100)} %</span>
       </div>
       <div class="minimap glass" aria-hidden="true">
@@ -279,7 +280,7 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
 
 function Window(p: { panel: Panel; sp: Space; save: (s: Space) => void; free?: boolean; scale?: number; asleep?: boolean; focused?: boolean; onFocus?: () => void }) {
   const pn = p.panel;
-  const t = TYPES.find((x) => x.t === pn.type)!;
+  const t = TYPES().find((x) => x.t === pn.type)!;
   const upd = (patch: Partial<Panel>) => p.save({ ...p.sp, panels: p.sp.panels.map((x) => (x.id === pn.id ? { ...x, ...patch } : x)) });
   const dragRef = useRef<{ x: number; y: number; px: number; py: number; mode: 'move' | 'size' } | null>(null);
   const winRef = useRef<HTMLElement>(null);
@@ -302,19 +303,19 @@ function Window(p: { panel: Panel; sp: Space; save: (s: Space) => void; free?: b
   };
   const style = p.free ? { left: `${pn.x}px`, top: `${pn.y}px`, width: `${pn.w}px`, height: `${pn.h}px` } : {};
   return (
-    <section ref={winRef} class={`win glass${p.focused ? ' focused' : ''}${p.asleep ? ' asleep flat' : ''}`} style={style} aria-label={`Panel ${t.label}`} onPointerDown={() => p.onFocus?.()}>
+    <section ref={winRef} class={`win glass${p.focused ? ' focused' : ''}${p.asleep ? ' asleep flat' : ''}`} style={style} aria-label={tr('spaces.panel_label', { label: t.label })} onPointerDown={() => p.onFocus?.()}>
       <header class="win-bar" onPointerDown={start('move')} onPointerMove={move} onPointerUp={() => (dragRef.current = null)}>
         {t.icon}
         <span class="t ellipsis">{pn.arg ? pn.arg.split('/').pop() : t.label}</span>
-        <span class="chip">{p.asleep ? 'en pausa' : t.label}</span>
+        <span class="chip">{p.asleep ? tr('spaces.en_pausa') : t.label}</span>
         <span class="grow" />
-        {p.free && <button type="button" class="btn icon small ghost" aria-label={pn.locked ? 'Desbloquear' : 'Bloquear'} onClick={() => upd({ locked: !pn.locked })}>{pn.locked ? <Lock size={16} /> : <Unlock size={16} />}</button>}
+        {p.free && <button type="button" class="btn icon small ghost" aria-label={pn.locked ? tr('spaces.desbloquear') : tr('design.bloquear')} onClick={() => upd({ locked: !pn.locked })}>{pn.locked ? <Lock size={16} /> : <Unlock size={16} />}</button>}
         {MINIMIZABLE.includes(pn.type) && <MinButton label={t.label} onClick={async () => { await shrinkToTray(winRef.current); minimizePanel(p.sp, p.save, pn.id); }} />}
-        <button type="button" class="btn icon small ghost" aria-label="Cerrar panel" onClick={() => p.save({ ...p.sp, panels: p.sp.panels.filter((x) => x.id !== pn.id), sizes: p.sp.panels.filter((x) => x.id !== pn.id).map((_, _i, a) => 1 / a.length) })}><X size={16} /></button>
+        <button type="button" class="btn icon small ghost" aria-label={tr('spaces.cerrar_panel')} onClick={() => p.save({ ...p.sp, panels: p.sp.panels.filter((x) => x.id !== pn.id), sizes: p.sp.panels.filter((x) => x.id !== pn.id).map((_, _i, a) => 1 / a.length) })}><X size={16} /></button>
       </header>
       {(
         <div class="win-body">
-          {p.asleep ? <p class="t2" style={{ padding: '16px' }}>Panel en pausa para cuidar la memoria (máx. {MAX_ACTIVE} activos). Tócalo para reanudar.</p> : <PanelBody panel={pn} onArg={(arg) => upd({ arg })} />}
+          {p.asleep ? <p class="t2" style={{ padding: '16px' }}>{tr('spaces.panel_en_pausa_para_cuidar_la', { MAX_ACTIVE: MAX_ACTIVE })}</p> : <PanelBody panel={pn} onArg={(arg) => upd({ arg })} />}
           {p.free && <div class="win-resize" onPointerDown={start('size')} onPointerMove={move} onPointerUp={() => (dragRef.current = null)} aria-hidden="true" />}
         </div>
       )}
@@ -336,7 +337,7 @@ function FilePicker(p: { exts: string[]; dir: string; onPick: (path: string) => 
         app.changed();
         p.onPick(path);
       }} /></label>
-      {data?.length ? <p class="foot">O elige uno de tu bóveda:</p> : null}
+      {data?.length ? <p class="foot">{tr('spaces.o_elige_uno_de_tu_boveda')}</p> : null}
       {data?.map((x) => <button type="button" class="opt note" style={{ fontSize: 'var(--t-note)' }} onClick={() => p.onPick(x)}>{x}</button>)}
     </div>
   );
@@ -347,21 +348,21 @@ function PanelBody(p: { panel: Panel; onArg: (a: string) => void }) {
   const a = p.panel.arg;
   switch (p.panel.type) {
     case 'pdf': {
-      if (!a) return <FilePicker exts={['pdf']} dir="docs" label="Abrir PDF" onPick={p.onArg} />;
+      if (!a) return <FilePicker exts={['pdf']} dir="docs" label={tr('spaces.abrir_pdf')} onPick={p.onArg} />;
       const [path, frag] = a.split('#');
       return <PdfViewer path={path!} page={frag ? Number(frag.replace(/^p/, '')) : undefined} />;
     }
-    case 'docx': return a ? <DocxView path={a} /> : <FilePicker exts={['docx']} dir="docs" label="Abrir .docx" onPick={p.onArg} />;
-    case 'hoja': return a ? <SheetView path={a} /> : <FilePicker exts={['csv', 'tsv', 'xlsx']} dir="docs" label="Abrir hoja (.csv)" onPick={p.onArg} />;
-    case 'imagen': return a ? <ImageView path={a} /> : <FilePicker exts={['png', 'jpg', 'jpeg', 'webp', 'gif']} dir="media" label="Abrir imagen" onPick={p.onArg} />;
+    case 'docx': return a ? <DocxView path={a} /> : <FilePicker exts={['docx']} dir="docs" label={tr('spaces.abrir_docx')} onPick={p.onArg} />;
+    case 'hoja': return a ? <SheetView path={a} /> : <FilePicker exts={['csv', 'tsv', 'xlsx']} dir="docs" label={tr('spaces.abrir_hoja_csv')} onPick={p.onArg} />;
+    case 'imagen': return a ? <ImageView path={a} /> : <FilePicker exts={['png', 'jpg', 'jpeg', 'webp', 'gif']} dir="media" label={tr('spaces.abrir_imagen')} onPick={p.onArg} />;
     case 'nota': return a ? <NoteView path={a} /> : <NotePick onPick={p.onArg} />;
     case 'estudio': return <div style={{ padding: '12px' }}><Study filter={a || null} embedded /></div>;
     case 'pomodoro': return <div style={{ padding: '12px' }}><PomodoroPanel compact /></div>;
-    case 'simulacro': return <div class="stack" style={{ padding: '16px' }}><p>Los simulacros usan la pantalla completa para el cronómetro.</p><a class="btn primary" href="#/simulacros">Abrir simulacros</a></div>;
+    case 'simulacro': return <div class="stack" style={{ padding: '16px' }}><p>{tr('spaces.los_simulacros_usan_la_pantalla_completa')}</p><a class="btn primary" href="#/simulacros">{tr('spaces.abrir_simulacros')}</a></div>;
     case 'stats': {
       const s = app.settings;
       const tp = todayProgress(app.col?.log ?? [], dayKey(Date.now(), s.timeZone, s.dayStartHour), s.timeZone, s.dayStartHour);
-      return <div class="stack-s" style={{ padding: '16px' }}><div class="kv"><span class="k">Estudiadas hoy</span><span class="v">{tp.studied}</span></div><div class="kv"><span class="k">Minutos</span><span class="v">{tp.minutes}</span></div><div class="kv"><span class="k">Aciertos</span><span class="v">{tp.studied ? `${tp.correct} %` : '—'}</span></div><a class="foot" href="#/estadisticas">Ver estadísticas</a></div>;
+      return <div class="stack-s" style={{ padding: '16px' }}><div class="kv"><span class="k">{tr('spaces.estudiadas_hoy')}</span><span class="v">{tp.studied}</span></div><div class="kv"><span class="k">{tr('heatmap.minutos')}</span><span class="v">{tp.minutes}</span></div><div class="kv"><span class="k">{tr('today.aciertos')}</span><span class="v">{tp.studied ? `${tp.correct} %` : '—'}</span></div><a class="foot" href="#/estadisticas">{tr('spaces.ver_estadisticas')}</a></div>;
     }
   }
 }
@@ -369,7 +370,7 @@ function PanelBody(p: { panel: Panel; onArg: (a: string) => void }) {
 function NotePick(p: { onPick: (a: string) => void }) {
   const app = useApp();
   const { data } = useAsync(() => listNotes(app.vault), [app.version]);
-  return <div class="stack-s" style={{ padding: '14px' }}>{data?.length ? data.map((n) => <button type="button" class="opt note" style={{ fontSize: 'var(--t-note)' }} onClick={() => p.onPick(n.path)}>{n.materia} › {n.title}</button>) : <p class="t2">Sin notas. Créalas en Notas.</p>}</div>;
+  return <div class="stack-s" style={{ padding: '14px' }}>{data?.length ? data.map((n) => <button type="button" class="opt note" style={{ fontSize: 'var(--t-note)' }} onClick={() => p.onPick(n.path)}>{n.materia} › {n.title}</button>) : <p class="t2">{tr('spaces.sin_notas_crealas_en_notas')}</p>}</div>;
 }
 
 function NoteView(p: { path: string }) {
@@ -379,7 +380,7 @@ function NoteView(p: { path: string }) {
   const [draft, setDraft] = useState<string | null>(null);
   return (
     <div style={{ padding: '14px 18px' }}>
-      <div class="row"><span class="grow" /><button type="button" class="btn small" onClick={async () => { if (edit && draft !== null) { await app.vault.write(p.path, draft); app.changed(); } setEdit(!edit); setDraft(null); }}>{edit ? 'Guardar' : 'Editar'}</button><a class="btn small" href={href('notas', ...p.path.split('/').slice(1))}>Abrir</a></div>
+      <div class="row"><span class="grow" /><button type="button" class="btn small" onClick={async () => { if (edit && draft !== null) { await app.vault.write(p.path, draft); app.changed(); } setEdit(!edit); setDraft(null); }}>{edit ? tr('calendar.guardar') : tr('exams.editar')}</button><a class="btn small" href={href('notas', ...p.path.split('/').slice(1))}>{tr('spaces.abrir')}</a></div>
       {edit ? <textarea class="input code" style={{ width: '100%', minHeight: '50dvh' }} value={draft ?? text ?? ''} onInput={(e) => setDraft((e.target as HTMLTextAreaElement).value)} /> : <Html html={renderMarkdown((text ?? '').replace(/^---\n[\s\S]*?\n---\n/, ''))} />}
     </div>
   );
@@ -392,8 +393,8 @@ function DocxView(p: { path: string }) {
     for (const im of r.images) await app.vault.write(`media/${im.name}`, im.data);
     return sanitize(r.html.replace(/src="media:([^"]+)"/g, 'data-media="$1"'));
   }, [p.path]);
-  if (error) return <div class="err">⚠ No se pudo leer el documento.</div>;
-  return <div style={{ padding: '18px 22px' }}>{data ? <Html html={data} /> : <p class="t2">Abriendo…</p>}<p class="foot">Solo lectura. Para editarlo, ábrelo en otra app.</p></div>;
+  if (error) return <div class="err">{tr('spaces.no_se_pudo_leer_el_documento')}</div>;
+  return <div style={{ padding: '18px 22px' }}>{data ? <Html html={data} /> : <p class="t2">{tr('spaces.abriendo')}</p>}<p class="foot">{tr('spaces.solo_lectura_para_editarlo_abrelo_en')}</p></div>;
 }
 
 const ROW_H = 28;
@@ -406,14 +407,14 @@ function SheetView(p: { path: string }) {
   const [top, setTop] = useState(0);
   const box = useRef<HTMLDivElement>(null);
   const rows = useMemo(() => data?.slice(0, 50_000) ?? [], [data]);
-  if (error) return <div class="err" style={{ margin: '12px' }}>⚠ Las hojas .xlsx no se leen en esta versión: guárdala como CSV.</div>;
-  if (!data) return <p class="t2" style={{ padding: '12px' }}>Abriendo…</p>;
+  if (error) return <div class="err" style={{ margin: '12px' }}>{tr('spaces.las_hojas_xlsx_no_se_leen')}</div>;
+  if (!data) return <p class="t2" style={{ padding: '12px' }}>{tr('spaces.abriendo')}</p>;
   const h = box.current?.clientHeight ?? 600;
   const first = Math.max(0, Math.floor(top / ROW_H) - 10);
   const last = Math.min(rows.length, first + Math.ceil(h / ROW_H) + 20);
   return (
     <div ref={box} style={{ overflow: 'auto', height: '100%' }} onScroll={(e) => setTop((e.target as HTMLElement).scrollTop)} data-user-content>
-      {data.length > 50_000 && <div class="err">⚠ La hoja tiene {data.length} filas; se muestran 50 000.</div>}
+      {data.length > 50_000 && <div class="err">{tr('spaces.la_hoja_tiene_n_filas_se', { n: data.length })}</div>}
       <div style={{ height: `${rows.length * ROW_H}px`, position: 'relative' }}>
         <table class="sheet-table" style={{ position: 'absolute', top: `${first * ROW_H}px` }}>
           <tbody>{rows.slice(first, last).map((r, i) => <tr style={{ height: `${ROW_H}px` }}><th>{first + i + 1}</th>{r.map((c) => <td title={c}>{c}</td>)}</tr>)}</tbody>
@@ -426,7 +427,7 @@ function SheetView(p: { path: string }) {
 function ImageView(p: { path: string }) {
   const app = useApp();
   const { data } = useAsync(() => mediaUrl(app.vault, p.path), [p.path]);
-  return data ? <img src={data} alt={p.path} style={{ maxWidth: '100%', display: 'block', margin: '0 auto' }} /> : <p class="t2">Cargando…</p>;
+  return data ? <img src={data} alt={p.path} style={{ maxWidth: '100%', display: 'block', margin: '0 auto' }} /> : <p class="t2">{tr('deck.cargando')}</p>;
 }
 
 

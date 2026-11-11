@@ -130,3 +130,15 @@
 
 ### Pendiente de validar en iPad real
 - Acento en claro y oscuro sobre fondos reales; vincular y abrir desde el calendario; notas a ancho completo en horizontal, vertical y con Stage Manager; deslizar para mostrar u ocultar paneles; minimizar y restaurar con el pomodoro en marcha; recargar y comprobar que todo persiste; VoiceOver en los cuadritos; ícono nuevo en la pantalla de inicio.
+
+## Mejoras 2 — bloque A
+
+### 1 · Idiomas (es / en / fr)
+- Tablas JSON en `src/i18n/{es,en,fr}.json` con claves semánticas `pantalla.slug`; sin dependencia nueva (`Intl` nativo). `t(clave, {params})` interpola `{x}`; los números pasan por `Intl.NumberFormat` (agrupa desde 5 cifras, para no partir años ni IDs). `tn(clave, n)` elige `.one/.other` (y `.zero` si existe) con `Intl.PluralRules`.
+- `settings.lang`: `''` = automático (`navigator.languages[0]` → en/fr, si no es). Cambia al instante sin recargar: el `App` vuelve a montar las pantallas al cambiar de idioma; `<html lang>` se actualiza. Fechas y números con `locale()` (es-MX, en-US, fr-FR); primer día de semana con `Intl.Locale#weekInfo` (respaldo: en → domingo, resto → lunes) y se guarda en `weekStartsMonday` al elegir idioma.
+- Las constantes de módulo con texto se volvieron funciones o *getters*, para no congelarse en el idioma del arranque.
+- **No se traducen** los formatos de archivo ni el contenido del usuario: `Q::`, `Cloze:`, `MATCH::`, `ORD::`, `MC::`, `origen: ia`, `<!-- src -->`, `Caso::`/`Respuesta:`/`Explicación:`/`Tema:` de simulacros, carpeta `Diario`, encabezados `## Fuente`/`## Imágenes`, encabezados de notas Plaud, selectores CSS y SQL. Las plantillas de nota sí se muestran traducidas (su clave interna no cambia).
+- Pseudoidioma `xx` (acentos + 40 % de relleno en «palabras» cortas) seleccionable en `/design` → «Idioma de prueba». La prueba E2E `e2e:mejoras2` recorre 12 pantallas a 1366, 1024 y 834 px sin scroll horizontal ni texto recortado. Para ello `.stack` usa `minmax(0, 1fr)` y los `.btn` dentro de `.wrap` pueden partir línea (en español no cambia nada visible).
+- `tests/i18n.test.ts` falla si a un idioma le falta o le sobra una clave, si los `{marcadores}` no coinciden o si el código usa una clave inexistente; también fija el glosario (Otra vez/Again/Encore…).
+- **Traducciones en/fr pendientes de revisión por hablante nativo.**
+- Las pruebas E2E fijan `locale: 'es-MX'` (el navegador sin configurar es en-US y Engrama abriría en inglés).

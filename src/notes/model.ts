@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * Notas con estructura fija (SPEC §10c): Materia → Tema/Clase → Notas.
  *   notes/<Materia>/<Tema>/<Nota>.md      notas de clase
@@ -31,7 +32,7 @@ export function noteMeta(path: string): NoteMeta {
 }
 
 export function notePath(materia: string, tema: string, title: string): string {
-  const clean = (s: string) => s.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Sin título';
+  const clean = (s: string) => s.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').replace(/\s+/g, ' ').trim() || t('inbox.sin_titulo');
   return materia === DAILY ? `notes/${DAILY}/${clean(title)}.md` : `notes/${clean(materia)}/${clean(tema)}/${clean(title)}.md`;
 }
 
