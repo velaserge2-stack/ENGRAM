@@ -4,7 +4,7 @@ PWA de repetición espaciada (tipo Anki) + notas (tipo Obsidian) para Safari en 
 
 ## Stack
 TypeScript estricto · Vite 8 · Preact 11 (JSX vía `jsxImportSource`, sin Babel) · ts-fsrs · markdown-it + DOMPurify · minisearch · fflate · lucide-preact. Bajo demanda (`import()`/Worker): pdfjs-dist, mammoth, turndown, docx, sql.js. Vitest + Playwright (WebKit si existe; si no, Chromium).
-Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interfaz no tiene color; solo el fondo y los emojis.
+Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interfaz no tiene color; solo el fondo, los emojis y un **acento opcional** limitado a los usos que elige el usuario (`html.acc-*`). Logo: `assets/brand/logo-original.png` (no se modifica; todo se deriva con `scripts/icons.mjs`).
 
 ## Reglas no negociables
 - Los archivos del usuario (`.md`, `.jsonl`, `.json`) son la fuente de verdad. IndexedDB solo como caché reconstruible.
@@ -16,7 +16,8 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 - Feature detection (`'x' in window`), nunca asumir el navegador. Sin `beforeunload`.
 - `navigator.share` solo dentro del gesto, con el `File` ya construido (preparar → entregar).
 - Contraste AA garantizado por el guardián de legibilidad; objetivos táctiles ≥ 44 px; inputs ≥ 16 px.
-- Sin color en la interfaz (croma ≤ 5 %): todo texto o control sobre el fondo va dentro de `.glass`. El contenido del usuario lleva `data-user-content`.
+- Sin color en la interfaz (croma ≤ 5 %) salvo el acento en sus usos activos: todo texto o control sobre el fondo va dentro de `.glass`. El contenido del usuario lleva `data-user-content`.
+- Cambios de formato retrocompatibles y perezosos (p. ej. el `id:` del frontmatter solo se escribe al vincular).
 - `reviews.jsonl` es la verdad de FSRS; `state.json` se reconstruye (`verifyDeterminism`).
 - En estilos inline de Preact 11 los números NO llevan `px` automático: usar cadenas (`'12px'`).
 - Código mínimo (ponytail), pero nunca recortar: escritura segura, integridad, determinismo FSRS, sanitización, accesibilidad.
@@ -31,11 +32,11 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 ## Comandos
 - `npm run dev` · `npm run build` · `npm run preview`
 - `npm test` (Vitest) · `npm run typecheck`
-- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
+- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
 - `node scripts/icons.mjs` regenera íconos desde `scripts/icon.svg`
 
 ## Fase actual
-**Fases 1–11 implementadas** + tema Cristal. Pendiente: validación en iPad real (lista en `docs/DECISIONS.md`) y los límites anotados allí.
+**Fases 1–11** + tema Cristal desplegados (`main`). **Mejoras 1** (acento, vínculos de calendario, notas grandes, paneles minimizables, logo) en la rama `mejoras-1`, pendiente de probar en el iPad antes de unir a `main`.
 
 ## Skills activas
 Mantenimiento: webapp-testing, security-review (importadores), frontend-design (Cristal), ponytail. Máx. 5–6 a la vez.

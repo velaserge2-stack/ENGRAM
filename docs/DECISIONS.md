@@ -97,3 +97,36 @@
 - Que el `.ics` exportado se abra en Calendario con sus alarmas.
 - Screen Wake Lock en Safari 26, HEIC al elegir fotos y `capture` de la cámara.
 - Arrastrar desde otra app en Split View hacia la bandeja.
+
+## Mejoras 1 (rama `mejoras-1`, 2026-11-11)
+
+### 1 · Color de acento
+- `settings.accent = { color, usos }`; por defecto `color: null` («Sin acento», idéntico a antes). Un `accent` antiguo en forma de cadena (fase 1) se lee como «sin acento».
+- Se aplica con clases en `<html>` (`acc-nav`, `acc-progreso`, `acc-enlaces`, `acc-seleccion`, `acc-calor`, `acc-boton`, `acc-calendario`) y variables `--accent` (texto e iconos), `--accent-fill` y `--accent-fg` (rellenos). Nada más lee esas variables.
+- Legibilidad: la variante de texto se aclara (oscuro) u oscurece (claro) hasta 4.5:1 contra el **peor vidrio que permite el guardián** (`#505050` / `#B9B9B9`, donde `--t2` queda justo en 4.5:1). Si se ajustó, Ajustes lo avisa y muestra ambos tonos.
+- La prueba «sin color» acepta el acento solo en los selectores de los usos activos y comprueba que el botón principal sigue neutro si su uso está apagado.
+
+### 2 · Vínculos del calendario
+- `X-ENGRAMA-LINK:engrama://deck|note|topic|tag/<clave>` repetible. Mazos y notas usan un `id:` corto en el frontmatter, escrito solo la primera vez que se vinculan; temas (carpetas) y etiquetas usan su nombre.
+- Resolución: `id` → ruta → nombre → nombre de archivo. Si nada coincide, chip «enlace roto» con «Reparar».
+- `DESCRIPTION` = nota del usuario + «Vínculos: nombres…» (se regenera al exportar y se quita al importar). Las propiedades desconocidas del VEVENT se conservan (`extra`). Un `.ics` sin vínculos se lee igual que antes.
+- El filtro de estudio admite varios destinos separados por `|` y `tag:`; «Iniciar bloque» crea el espacio `.app/spaces/bloque.json` con el estudio filtrado y hasta 2 notas.
+
+### 3 · Notas más grandes
+- Preferencias de vista (explorador, inspector, ancho del explorador, ancho de línea) en `localStorage` (`engrama.notesUI`): son por usuario y dispositivo, no datos de la bóveda; si el almacenamiento falla, valen solo para la sesión.
+- Pantalla completa = una clase en `<body>`; el editor no se vuelve a montar. Los botones de vista usan `preventDefault` en `pointerdown` para no quitar el foco al bloque que se edita (así se conserva el cursor).
+- Con menos de 1100 px el inspector se superpone; con menos de 760 px también el explorador.
+
+### 4 · Paneles minimizables
+- Se reutilizó `Panel.min` de los espacios: antes plegaba la ventana a su barra en el lienzo; ahora la manda a la bandeja. Un espacio guardado con `min: true` abre con ese panel en la bandeja (sin pérdida de datos).
+- Orden de la bandeja en `Space.tray`; el tablero Hoy guarda `{min, hidden}` en `.app/spaces/_hoy.json` (los archivos `_*.json` no se listan como espacios).
+- No se implementó reordenar arrastrando (era opcional). Al restaurar un panel en un mosaico lleno (3), el más antiguo minimizable pasa a la bandeja.
+
+### 5 · Logo
+- Fondo muestreado: `#000006` (no `#000`). La caja del logo en el original está desplazada hacia arriba e izquierda; los íconos la centran exactamente.
+- `favicon.svg` no se generó: una vectorización de los degradados no sería fiel; se usan PNG de 32 y 16 px.
+- Los PNG se generan con canal alfa pero totalmente opacos (verificado en la prueba).
+- iOS guarda en caché el ícono de la pantalla de inicio: para ver el nuevo puede hacer falta quitar Engrama y volver a «Añadir a pantalla de inicio».
+
+### Pendiente de validar en iPad real
+- Acento en claro y oscuro sobre fondos reales; vincular y abrir desde el calendario; notas a ancho completo en horizontal, vertical y con Stage Manager; deslizar para mostrar u ocultar paneles; minimizar y restaurar con el pomodoro en marcha; recargar y comprobar que todo persiste; VoiceOver en los cuadritos; ícono nuevo en la pantalla de inicio.
