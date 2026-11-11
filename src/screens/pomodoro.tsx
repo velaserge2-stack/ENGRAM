@@ -137,7 +137,7 @@ export function PomodoroPanel(props: { compact?: boolean }) {
   const [showStats, setShowStats] = useState(false);
   return (
     <section class="pomo glass panel" aria-label="Pomodoro">
-      {!props.compact && <Ring value={1 - rem / total} size={120} label="Progreso" text=" " />}
+      {!props.compact && <Ring value={1 - rem / total} size={120} label="Progreso" text=" " class="prog" />}
       <div class="time" style={props.compact ? undefined : { marginTop: '-82px', marginBottom: '40px' }} aria-live="off">{fmt(rem)}</div>
       <div class="phase">{PHASE_LABEL[p.state.phase]}{p.state.label ? ` · ${p.state.label}` : ''}</div>
       <div class="ctrls">

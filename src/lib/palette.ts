@@ -64,3 +64,25 @@ export function fillFor(bg: string): { bg: string; fg: '#FFFFFF' | '#000000' } {
   }
   return { bg, fg: '#000000' };
 }
+
+function mixWith(hex: string, target: number, k: number): string {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const ch = (v: number) => Math.round(v + (target - v) * k).toString(16).padStart(2, '0');
+  return `#${ch((n >> 16) & 255)}${ch((n >> 8) & 255)}${ch(n & 255)}`.toUpperCase();
+}
+
+/**
+ * Peor vidrio que el guardián de legibilidad permite (donde el texto secundario
+ * queda justo en 4.5:1). Si el acento cumple 4.5:1 aquí, cumple en cualquier panel.
+ */
+export const WORST_GLASS = { dark: '#505050', light: '#B9B9B9' } as const;
+
+/** Variante del acento con ≥ 4.5:1 sobre el vidrio del modo dado (aclara en oscuro, oscurece en claro). */
+export function accentVariant(hex: string, mode: 'dark' | 'light'): { color: string; adjusted: boolean } {
+  const ref = WORST_GLASS[mode];
+  for (let k = 0; k <= 1.0001; k += 0.02) {
+    const c = k ? mixWith(hex, mode === 'dark' ? 255 : 0, k) : hex.toUpperCase();
+    if (contrast(c, ref) >= 4.5) return { color: c, adjusted: k > 0 };
+  }
+  return { color: mode === 'dark' ? '#FFFFFF' : '#000000', adjusted: true };
+}

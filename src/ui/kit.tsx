@@ -116,13 +116,13 @@ export function KV(props: { k: string; v: number | string; strong?: boolean }) {
   );
 }
 
-export function Ring(props: { value: number; size?: number; label: string; text?: string }) {
+export function Ring(props: { value: number; size?: number; label: string; text?: string; class?: string }) {
   const s = props.size ?? 96;
   const r = s / 2 - 7;
   const c = 2 * Math.PI * r;
   const v = Math.max(0, Math.min(1, props.value));
   return (
-    <svg class="ring" width={s} height={s} viewBox={`0 0 ${s} ${s}`} role="img" aria-label={`${props.label}: ${props.text ?? Math.round(v * 100) + ' %'}`}>
+    <svg class={`ring ${props.class ?? ''}`} width={s} height={s} viewBox={`0 0 ${s} ${s}`} role="img" aria-label={`${props.label}: ${props.text ?? Math.round(v * 100) + ' %'}`}>
       <circle class="track" cx={s / 2} cy={s / 2} r={r} fill="none" stroke-width="7" />
       <circle class="val" cx={s / 2} cy={s / 2} r={r} fill="none" stroke-width="7" stroke-linecap="round" stroke-dasharray={c} stroke-dashoffset={c * (1 - v)} transform={`rotate(-90 ${s / 2} ${s / 2})`} />
       <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" style={{ fill: 'var(--t1)', fontSize: `${s / 5}px`, fontWeight: 600 }}>

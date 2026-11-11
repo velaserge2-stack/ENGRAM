@@ -3,7 +3,8 @@ import { useState } from 'preact/hooks';
 import { verifyDeterminism } from '../data/collection';
 import { exampleFiles } from '../lib/example';
 import type { Background, Settings } from '../lib/settings';
-import { srsParams } from '../lib/settings';
+import { ACCENT_DEFAULT_USES, type AccentUse, srsParams } from '../lib/settings';
+import { accentVariant, COLOR_LABEL, COLOR_NAMES, resolveColor } from '../lib/palette';
 import { formatBytes, isStandalone, requestPersist, storageInfo } from '../lib/storage';
 import { deliver } from '../io/share';
 import { State, workloadEstimate } from '../srs/engine';
@@ -30,6 +31,51 @@ function Slider(p: { label: string; min: number; max: number; step: number; valu
     <Row k={p.label} sub={`${p.value}${p.unit ?? ''}`}>
       <input type="range" aria-label={p.label} min={p.min} max={p.max} step={p.step} value={p.value} onInput={(e) => p.onInput(Number((e.target as HTMLInputElement).value))} />
     </Row>
+  );
+}
+
+const USE_LABEL: Record<AccentUse, string> = {
+  nav: 'Elemento activo de la barra superior',
+  progreso: 'Anillo y barra de progreso (pomodoro, ritmo del examen)',
+  enlaces: 'Enlaces y wikilinks en notas',
+  seleccion: 'Selección de texto y cursor',
+  calor: 'Mapa de calor',
+  boton: 'Botón principal (p. ej. «Bien»)',
+  calendario: 'Etiquetas y bloques del calendario',
+};
+
+function AccentPicker() {
+  const app = useApp();
+  const a = app.settings.accent;
+  const set = (color: string | null) => app.update({ accent: { color, usos: color ? (a.color ? a.usos : ACCENT_DEFAULT_USES) : a.usos } });
+  const hex = a.color ? resolveColor(a.color, false) : '#007AFF';
+  const dk = a.color ? accentVariant(resolveColor(a.color, true), 'dark') : null;
+  const lt = a.color ? accentVariant(resolveColor(a.color, false), 'light') : null;
+  const swatch = (c: string, on: boolean) => ({ width: '36px', height: '36px', borderRadius: '50%', border: 0, background: c, boxShadow: on ? '0 0 0 2px var(--glass-strong), 0 0 0 4px var(--t1)' : 'none' });
+  return (
+    <>
+      <div class="row wrap" style={{ padding: '8px 18px', gap: '10px' }} role="radiogroup" aria-label="Color de acento" data-user-content>
+        <button type="button" role="radio" aria-checked={!a.color} aria-label="Sin acento" onClick={() => set(null)} class="btn small" style={{ minHeight: '36px', boxShadow: !a.color ? '0 0 0 2px var(--t1)' : 'none' }}>Sin acento</button>
+        {COLOR_NAMES.map((c) => <button type="button" role="radio" aria-checked={a.color === c} aria-label={COLOR_LABEL[c]} title={COLOR_LABEL[c]} onClick={() => set(c)} style={swatch(`var(--c-${c}, ${resolveColor(c, false)})`, a.color === c)} />)}
+      </div>
+      <Row k="Color libre" sub="Selector o código hex">
+        <input type="color" aria-label="Color libre" value={hex} onInput={(e) => set((e.target as HTMLInputElement).value)} data-user-content />
+        <input class="input" style={{ width: '110px' }} aria-label="Código hex" value={a.color?.startsWith('#') ? a.color : ''} placeholder="#3A7BD5" onChange={(e) => { const v = (e.target as HTMLInputElement).value.trim(); if (/^#?[0-9a-f]{6}$/i.test(v)) set(v.startsWith('#') ? v : `#${v}`); else if (v) app.toast('Usa un código de 6 dígitos, p. ej. #3A7BD5'); }} />
+      </Row>
+      {a.color && (dk!.adjusted || lt!.adjusted) && (
+        <p class="group-f" style={{ borderTop: 0 }}>⚠ Ajustamos el acento para que se lea sobre el vidrio: <span data-user-content style={{ color: dk!.color, background: '#2c2c2e', padding: '0 6px', borderRadius: '6px' }}>{dk!.color}</span> en oscuro y <span data-user-content style={{ color: lt!.color, background: '#ececec', padding: '0 6px', borderRadius: '6px' }}>{lt!.color}</span> en claro.</p>
+      )}
+      {a.color && (
+        <>
+          <h3 class="group-h">Dónde usar el acento</h3>
+          {(Object.keys(USE_LABEL) as AccentUse[]).map((u) => (
+            <Row k={USE_LABEL[u]}>
+              <Switch label={USE_LABEL[u]} checked={a.usos.includes(u)} onChange={(v) => app.update({ accent: { color: a.color, usos: v ? [...a.usos, u] : a.usos.filter((x) => x !== u) } })} />
+            </Row>
+          ))}
+        </>
+      )}
+    </>
   );
 }
 
@@ -115,6 +161,10 @@ export function SettingsScreen() {
         <Slider label="Tamaño de texto" min={0.8} max={1.6} step={0.05} value={Math.round(s.textScale * 100) / 100} unit="×" onInput={(v) => u({ textScale: v })} />
         <Row k="Color semántico" sub="Excepción opcional: rojo solo en errores y acciones destructivas."><Switch label="Color semántico" checked={s.semanticColor} onChange={(v) => u({ semanticColor: v })} /></Row>
         <Row k="Guardián de legibilidad" sub={`Ajusta el vidrio para mantener 4.5:1. Paneles revisados: ${(window as unknown as { __guard?: { panels: number; adjusted: number; minContrast: number } }).__guard?.panels ?? '—'}; ajustados: ${(window as unknown as { __guard?: { adjusted: number } }).__guard?.adjusted ?? 0}`}><a class="link" href="#/design">Ver /design</a></Row>
+      </Group>
+
+      <Group title="Apariencia · Color de acento" footer="Opcional. Con «Sin acento» la interfaz es neutra. El acento solo aparece donde lo actives.">
+        <AccentPicker />
       </Group>
 
       <Group title="Estudio (FSRS)" footer="Cuatro botones, calibrados para FSRS. La fecha depende de la retención deseada: la tarjeta vuelve cuando su probabilidad de recordarla cae a ese valor.">

@@ -1,4 +1,5 @@
-import type { Settings } from './lib/settings';
+import { ACCENT_USES, type Settings } from './lib/settings';
+import { accentVariant, readableOn, resolveColor } from './lib/palette';
 
 const darkMQ = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
 
@@ -15,6 +16,14 @@ export function applyTheme(s: Settings): void {
   root.style.setProperty('--k', String(s.glass / 100));
   root.classList.toggle('light-mode', s.lightMode);
   root.classList.toggle('semantic', s.semanticColor);
+  // acento: solo se activa en los usos elegidos (clases acc-*); lo demás sigue neutro
+  const base = s.accent.color ? resolveColor(s.accent.color, mode === 'dark') : null;
+  for (const u of ACCENT_USES) root.classList.toggle(`acc-${u}`, !!base && s.accent.usos.includes(u));
+  if (base) {
+    root.style.setProperty('--accent', accentVariant(base, mode).color);
+    root.style.setProperty('--accent-fill', base);
+    root.style.setProperty('--accent-fg', readableOn(base));
+  } else for (const v of ['--accent', '--accent-fill', '--accent-fg']) root.style.removeProperty(v);
   document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', mode === 'dark' ? '#000000' : '#f2f2f7'));
 }
 

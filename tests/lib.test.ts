@@ -100,3 +100,21 @@ describe('paleta y contraste', () => {
     expect(resolveColor('nada', false)).toBe('#007AFF');
   });
 });
+
+import { accentVariant, WORST_GLASS } from '../src/lib/palette';
+describe('acento', () => {
+  it('ajustes antiguos o inválidos = sin acento', () => {
+    expect(mergeSettings({ accent: 'azul' }).accent).toEqual({ color: null, usos: [] });
+    expect(mergeSettings({ accent: { color: '#3a7bd5', usos: ['calor', 'otra'] } }).accent).toEqual({ color: '#3a7bd5', usos: ['calor'] });
+    expect(defaultSettings().accent.color).toBeNull();
+  });
+  it('variantes legibles en claro y oscuro', () => {
+    for (const hex of ['#007AFF', '#FFCC00', '#34C759', '#5856D6', '#000080']) {
+      const d = accentVariant(hex, 'dark');
+      const l = accentVariant(hex, 'light');
+      expect(contrast(d.color, WORST_GLASS.dark)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(l.color, WORST_GLASS.light)).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(accentVariant('#FFCC00', 'light').adjusted).toBe(true);
+  });
+});

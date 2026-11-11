@@ -18,8 +18,9 @@ try { browser = await type.launch(); } catch { type = pw.chromium; browser = awa
 console.log('Navegador:', type.name());
 
 // Recorre el DOM y devuelve colores con croma > 5 % fuera del fondo, emojis y contenido del usuario.
-const NO_COLOR = () => {
+const NO_COLOR = (allow = []) => {
   const bad = [];
+  const allowSel = allow.join(', ');
   const parse = (s) => {
     const out = [];
     for (const m of s.matchAll(/rgba?\(([^)]+)\)|color\(srgb ([^)]+)\)/g)) {
@@ -33,6 +34,7 @@ const NO_COLOR = () => {
   };
   for (const el of document.querySelectorAll('body *')) {
     if (el.closest('[data-user-content], [data-bg], .bg-layer, .bg-veil, canvas, img, input[type="color"]')) continue;
+    if (allowSel && el.closest(allowSel)) continue;
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden') continue;
     for (const prop of ['color', 'background-color', 'border-top-color', 'border-bottom-color', 'border-left-color', 'border-right-color', 'outline-color', 'box-shadow', 'text-shadow', 'fill', 'stroke', 'background-image']) {
@@ -67,6 +69,32 @@ try {
       await page.screenshot({ path: `${OUT}design-${bg}-${modo}.png` });
     }
   }
+  // ── acento: con 3 usos activos solo esos elementos cambian de tono
+  const ALLOW = { nav: ['.seg-nav .slider', '.seg-nav a[aria-current="page"]'], progreso: ['.ring.prog', '.bar.prog'], enlaces: ['.doc .md a'], seleccion: [], calor: ['.heat .c', '.legend .c'], boton: ['.btn.primary', '.grade.inv'], calendario: ['.cal .ev', '.cal .day.today'] };
+  await page.goto(`${URL_}#/ajustes`);
+  await page.getByRole('radio', { name: 'Azul' }).click();
+  await page.waitForTimeout(700);
+  const usos = await page.evaluate(() => [...document.documentElement.classList].filter((c) => c.startsWith('acc-')).map((c) => c.slice(4)));
+  console.log(`${usos.join(',') === 'progreso,enlaces,calor' ? '✓' : '✗'} acento por defecto en: ${usos.join(', ')}`);
+  if (usos.join(',') !== 'progreso,enlaces,calor') failed++;
+  for (const modo of ['dark', 'light']) {
+    await page.goto(`${URL_}#/design?bg=foto&modo=${modo}`);
+    await page.getByRole('heading', { name: 'Diseño · Cristal' }).waitFor();
+    await page.waitForTimeout(900);
+    const strict = await page.evaluate(NO_COLOR);
+    const colored = strict.length > 0 && strict.every((x) => /legend|ring|bar|heat|span\.c|^i\./.test(x) || /svg|circle|^i /.test(x));
+    const allowed = await page.evaluate(NO_COLOR, usos.flatMap((u) => ALLOW[u]));
+    const primary = await page.evaluate(() => getComputedStyle(document.querySelector('.btn.primary')).backgroundColor);
+    const ok = strict.length > 0 && allowed.length === 0 && /rgb\((\d+), \1, \1\)/.test(primary);
+    console.log(`${ok ? '✓' : '✗'} acento ${modo}: ${strict.length} elementos con tono, todos de usos activos; botón principal neutro (${primary})`);
+    if (!ok) (failed++, allowed.forEach((c) => console.log('   ', c)));
+    void colored;
+    await page.screenshot({ path: `${OUT}acento-${modo}.png` });
+  }
+  await page.goto(`${URL_}#/ajustes`);
+  await page.getByRole('radio', { name: 'Sin acento' }).click();
+  await page.waitForTimeout(500);
+
   // pantallas reales en modo auto sobre el fondo por defecto
   for (const r of ['hoy', 'mazos', 'estudiar', 'estadisticas', 'calendario', 'simulacros', 'notas', 'espacios', 'ajustes']) {
     await page.goto(`${URL_}#/${r}`);

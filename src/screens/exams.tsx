@@ -53,7 +53,7 @@ export function ExamCard(props: { exam: Exam; extra: Extra; detailed?: boolean }
       </div>
       <Bar value={p.elapsed} label="Tiempo transcurrido desde que lo creaste" />
       <div class="row" style={{ fontWeight: 700 }}>{st.icon} {st.text}</div>
-      <div class={`bar${st.fill === 'outline' ? ' outline' : ''}`} aria-hidden="true"><i style={{ width: st.fill === 'full' ? '100%' : st.fill === 'half' ? '50%' : `${Math.min(100, (p.actual / Math.max(1, p.needed)) * 100)}%` }} /></div>
+      <div class={`bar prog${st.fill === 'outline' ? ' outline' : ''}`} aria-hidden="true"><i style={{ width: st.fill === 'full' ? '100%' : st.fill === 'half' ? '50%' : `${Math.min(100, (p.actual / Math.max(1, p.needed)) * 100)}%` }} /></div>
       <p class="note">{p.message}</p>
       <p class="note t2">Te faltan {missing} de {topics.length} temas · {newLeft} nuevas restantes</p>
       {props.detailed && (
