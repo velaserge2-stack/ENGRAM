@@ -50,6 +50,7 @@ npm run e2e:flows      # simulacro, bandeja Plaud, notas, espacios con PDF, cale
 npm run e2e:design     # "sin color" y legibilidad en 5 fondos × 2 modos
 npm run e2e:mejoras    # acento, vínculos del calendario, notas grandes, bandeja, logo
 npm run e2e:mejoras2   # idiomas (pseudoidioma sin desbordes), capas, minimizar, tooltips
+npm run e2e:bloquec    # perfil, papelera de mazos, fondos, almacenamiento, buscador, mapa…
 npm run e2e:phone      # iPhone: 6 tamaños × es/fr; MODE=baseline|compare para 0 píxeles en iPad y web
 ```
 Las pruebas E2E usan WebKit de Playwright si está instalado (`npx playwright install webkit`); si no, Chromium.

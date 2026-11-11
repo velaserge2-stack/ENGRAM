@@ -220,3 +220,47 @@
 - Escribir en una nota o en una hoja con el teclado abierto (la barra inferior se oculta y el campo queda visible).
 - Girar a horizontal y volver; Espacios con un PDF y estudio; estudiar con una mano.
 - Tamaño de texto grande y francés en Hoy, Estadísticas y Ajustes.
+
+## Mejoras 2 — bloque C (ajustes y datos)
+
+### 6 · Add-ons dentro de Ajustes
+- La lista de módulos es la sección «Add-ons» de Ajustes (`AddonsGroup`). `#/addons`, `#/ajustes/addons`, la paleta y el botón «Extras» de Espacios abren Ajustes desplazado hasta esa sección; los enlaces antiguos siguen funcionando.
+
+### 7 · Perfil
+- `profile/perfil.md`: frontmatter (`nombre`, `emoji`, `foto`, `carrera`, `institucion`, `anio`, `lema`; claves en español como el resto de formatos, no se traducen) y la bio en el cuerpo. Foto recortada al centro a 512 px en `media/.app/perfil/`; al cambiarla se borra la anterior.
+- Encabezado con avatar (foto → emoji → inicial → icono), bio, estudios, lema y tres cifras (racha actual, tarjetas totales, horas de estudio = misma cuenta que las estadísticas). Avatar en la barra superior (en teléfono, «Perfil» en «Más»), fila en Ajustes y saludo «Hola, <primer nombre>» en el subtítulo de Hoy.
+- Viaja en el respaldo como cualquier archivo de la bóveda; no hay red.
+
+### 8 · Borrar mazos
+- Borrar = mover el `.md` a `.app/papelera-mazos/<id>/` con `meta.json` (rutas, fecha, tarjetas y repasos). Primero se escribe el meta: si la app se cierra a medias, la papelera sabe qué había.
+- **El historial no se mueve**: `reviews.jsonl` solo se agrega (regla de FSRS). Mientras el mazo está en la papelera sus tarjetas cuentan como archivadas; al restaurarlo, los IDs vuelven y la reproducción da exactamente el mismo estado (prueba en `tests/decktrash.test.ts`). «Eliminar definitivamente» borra el archivo, nunca el historial.
+- Submazos = carpeta con el mismo nombre del mazo (`decks/Cardio.md` + `decks/Cardio/…`). En selección múltiple una carpeta se lleva todo lo que contiene.
+- Restaurar sobre un nombre ocupado usa «(2)». Vaciado automático al abrir la app tras `deckTrashDays` (30 por defecto; 0 = nunca), configurable en la propia papelera.
+- Los vínculos del calendario se resuelven contra los mazos actuales: uno borrado aparece como «enlace roto» con «Reparar» (mecanismo de Mejoras 1, sin cambios).
+
+### 9 · Fondos
+- «Gestionar» en la galería: selección múltiple, eliminar (si el fondo está en uso vuelve «Bruma») y «Encuadrar».
+- Encuadre `{x, y, zoom}` por fondo en `.app/fondos.json` (posición 0–100 % y zoom 1–3×). `framedRect` (en `lib/framing.ts`) es la única cuenta: CSS (`object-position` + `scale` desde el mismo punto), muestra del guardián de legibilidad y miniatura regenerada. La regla CSS solo actúa con `img[style]`: sin encuadre se ve igual que antes.
+
+### 10 · Almacenamiento
+- Ajustes → Almacenamiento → Administrar: desglose por tipo (PDF, documentos, hojas, fotos, fondos, audio, caché regenerable, datos), lista de `media/` y `docs/` (no `media/.app/`, que tiene sus propias pantallas) ordenable, selección múltiple y borrado definitivo con confirmación.
+- «Usado en N lugares»: referencias en notas, mazos, bancos, exámenes, bandeja, plantillas y espacios (`![[x]]`, `[[x]]`, `](x)`, `src: x#p`, rutas en JSON), por ruta o por nombre. Al borrar, el renderizador ya mostraba un aviso en lugar del medio; ahora dice «Archivo eliminado: x».
+- Huérfanos solo en `media/`: un PDF de `docs/` sin enlaces es parte de la biblioteca, no basura.
+- Cachés regenerables: `.app/state.json` (se reconstruye desde `reviews.jsonl`) y `.app/cache/`. `reviews.jsonl` nunca es caché.
+
+## Mejoras 2 — bloque D (notas y mapa de calor)
+
+### 11 · Buscador en Notas
+- `src/notes/search.ts` (puro): plegado sin acentos con mapa de posiciones al original, tokens que conservan `120/80`, `37.5`, `5-HT`, `mg/dL` (y sus partes), números exactos (sin prefijo ni difuso), palabras con prefijo y difuso leve desde 5 letras, AND entre términos.
+- MiniSearch (ya en el stack) en un Worker (`search.worker.ts`; si no hay Worker, el mismo núcleo en el hilo principal). Se reconstruye desde los archivos al abrir Notas y se actualiza al guardar cada nota. 500 notas: la búsqueda tarda milisegundos (prueba unitaria).
+- Resultados con fragmento y coincidencias resaltadas (en gris: la interfaz no tiene color), filtros de materia, tema y fecha (`fecha:` del frontmatter). Abrir un resultado monta la nota con «Buscar en esta nota» ya en la primera coincidencia.
+- «Buscar en esta nota» (botón o ⌘F): contador, siguiente/anterior, Intro/Mayús+Intro, Esc. Resalta con la CSS Custom Highlight API (Safari 17.2+); sin ella, selecciona la coincidencia actual.
+- Bug previo corregido: «＋ Escribe o usa / para insertar…» no abría un bloque al final de la nota.
+
+### 12 · Mapa de adherencia
+- `heatWeeks()`: semanas desde la primera actividad (mín. 8, máx. 53). Celdas fijas de 13 px; el panel usa `width: fit-content`. «Ver año completo» recupera 53 semanas y la navegación por año.
+- Meses con `Intl` y «menos» traducido (eran textos fijos en español).
+
+### Pendiente de validar en iPad/iPhone real (C y D)
+- Foto de perfil desde Fotos (HEIC), encuadre con pellizco, borrar un fondo en uso, liberar espacio y ver el cambio en «Espacio usado».
+- Búsqueda con 500 notas reales; resaltado con la Highlight API en Safari 17/18/26.

@@ -36,11 +36,11 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 ## Comandos
 - `npm run dev` · `npm run build` · `npm run preview`
 - `npm test` (Vitest) · `npm run typecheck`
-- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras && npm run e2e:mejoras2 && npm run e2e:phone` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
+- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras && npm run e2e:mejoras2 && npm run e2e:phone && npm run e2e:bloquec` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
 - `node scripts/icons.mjs` regenera íconos desde `scripts/icon.svg`
 
 ## Fase actual
-**Fases 1–11**, tema Cristal, **Mejoras 1** y **Mejoras 2 · bloque A** (idiomas, capas, minimizar todo, tooltips) en `main` (PR #3). **Mejoras 2 · bloque B** (iPhone) en la rama `claude/exciting-cerf-u1rtor`, en espera de prueba en un iPhone real; siguen C (ajustes y datos), D (notas y mapa de calor), E (lienzo conectado y simulacros) y F (calendario). No unir a `main` (rama de despliegue) sin confirmación.
+**Fases 1–11**, tema Cristal, **Mejoras 1** y **Mejoras 2 · A** en `main`. En la rama `claude/exciting-cerf-u1rtor`: Mejoras 2 · B (iPhone), C (Add-ons en Ajustes, perfil, papelera de mazos, fondos, almacenamiento), D (buscador de notas, mapa proporcional), E (lienzo conectado, exámenes) y F (calendario con horas), y después el prompt 5 (`docs/PROMPTS.md`). Pendiente de prueba en dispositivo real. No unir a `main` (rama de despliegue) sin confirmación.
 
 ## Skills activas
 Mantenimiento: webapp-testing, security-review (importadores), frontend-design (Cristal), ponytail. Máx. 5–6 a la vez.
