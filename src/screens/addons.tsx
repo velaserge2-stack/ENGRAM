@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 import { useApp } from '../state';
-import { Group, PageTitle, Row, Switch } from '../ui/kit';
+import { Group, Row, Switch } from '../ui/kit';
 
 /** Sistema de módulos (SPEC §9): {id, nombre, versión, descripción, hooks}. */
 export interface Module {
@@ -31,18 +31,16 @@ export function addonOn(s: { addons: Record<string, boolean> }, id: string): boo
   return s.addons[id] ?? MODULES().find((m) => m.id === id)?.defaultOn ?? false;
 }
 
-export function Addons() {
+/** Sección «Add-ons» de Ajustes (Mejoras 2 · C6: ya no está en la navegación principal). */
+export function AddonsGroup() {
   const app = useApp();
   return (
-    <div class="settings">
-      <PageTitle title={t('addons.add_ons')} sub={t('addons.modulos_integrados_todo_funciona_sin_conex')} />
-      <Group footer={t('addons.los_modulos_solo_cambian_la_interfaz')}>
-        {MODULES().map((m) => (
-          <Row k={<>{m.name} <span class="t3 note">v{m.version}</span></>} sub={m.description}>
-            <Switch label={m.name} checked={addonOn(app.settings, m.id)} onChange={(v) => app.update({ addons: { ...app.settings.addons, [m.id]: v } })} />
-          </Row>
-        ))}
-      </Group>
-    </div>
+    <Group id="addons" title={t('addons.add_ons')} footer={<>{t('addons.modulos_integrados_todo_funciona_sin_conex')} {t('addons.los_modulos_solo_cambian_la_interfaz')}</>}>
+      {MODULES().map((m) => (
+        <Row k={<>{m.name} <span class="t3 note">v{m.version}</span></>} sub={m.description}>
+          <Switch label={m.name} checked={addonOn(app.settings, m.id)} onChange={(v) => app.update({ addons: { ...app.settings.addons, [m.id]: v } })} />
+        </Row>
+      ))}
+    </Group>
   );
 }

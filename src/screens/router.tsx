@@ -14,7 +14,6 @@ const Calendar = lazy(() => import('./calendar').then((m) => ({ default: m.Calen
 const Notes = lazy(() => import('./notes').then((m) => ({ default: m.Notes })));
 const Spaces = lazy(() => import('./spaces').then((m) => ({ default: m.Spaces })));
 const Inbox = lazy(() => import('./inbox').then((m) => ({ default: m.Inbox })));
-const Addons = lazy(() => import('./addons').then((m) => ({ default: m.Addons })));
 const Design = lazy(() => import('./design').then((m) => ({ default: m.Design })));
 
 export function Screen(props: { route: string[] }) {
@@ -26,13 +25,13 @@ export function Screen(props: { route: string[] }) {
     case 'estudiar': el = <Study key={sub} filter={sub || null} />; break;
     case 'explorar': el = <Explorar key={sub} q={sub} />; break;
     case 'estadisticas': el = <Stats />; break;
-    case 'ajustes': el = <SettingsScreen />; break;
+    case 'ajustes': el = <SettingsScreen focus={sub || null} />; break;
     case 'simulacros': el = <Simulacros route={rest} />; break;
     case 'calendario': el = <Calendar />; break;
     case 'notas': el = <Notes route={rest} />; break;
     case 'espacios': el = <Spaces route={rest} />; break;
     case 'bandeja': el = <Inbox />; break;
-    case 'addons': el = <Addons />; break;
+    case 'addons': el = <SettingsScreen focus="addons" />; break; // enlaces antiguos
     case 'design': el = <Design key={location.hash} />; break;
     default: el = <Today />;
   }

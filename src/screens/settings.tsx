@@ -1,6 +1,7 @@
 import { t as tr, deviceLang, firstDayOfWeek, LANGS, setLang } from '../i18n';
 import { Check, FolderOpen, ImagePlus, PlusSquare, Share as ShareIcon } from 'lucide-preact';
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
+import { AddonsGroup } from './addons';
 import { verifyDeterminism } from '../data/collection';
 import { exampleFiles } from '../lib/example';
 import type { Background, Settings } from '../lib/settings';
@@ -135,8 +136,10 @@ function Backgrounds() {
   );
 }
 
-export function SettingsScreen() {
+export function SettingsScreen(props: { focus?: string | null } = {}) {
   const app = useApp();
+  // #/ajustes/<sección>: desplaza hasta ella (p. ej. Add-ons)
+  useEffect(() => { if (props.focus) document.getElementById(props.focus)?.scrollIntoView({ block: 'start' }); }, [props.focus]);
   const s = app.settings;
   const u = (p: Partial<Settings>) => app.update(p);
   const [tick, setTick] = useState(0);
@@ -268,12 +271,13 @@ export function SettingsScreen() {
         <Row k={ig?.problems.length ? `${ig.problems.length} problemas` : tr('settings.sin_problemas')}><button type="button" class="link" onClick={() => void app.recheckIntegrity()}>{tr('settings.comprobar_de_nuevo')}</button></Row>
       </Group>
 
+      <AddonsGroup />
+
       <Group title={tr('settings.instalar')}>
         {isStandalone() ? <Row k={tr('settings.engrama_esta_instalada')} sub={tr('settings.abierta_desde_la_pantalla_de_inicio')} /> : <div class="row-i"><div class="k"><InstallSteps /></div></div>}
       </Group>
 
       <Group title={tr('settings.mas')}>
-        <Row k={tr('addons.add_ons')} onClick={() => (location.hash = '#/addons')}><span class="v">›</span></Row>
         <Row k={tr('settings.pagina_de_diseno')} sub={tr('settings.componentes_sobre_5_fondos_de_prueba')} onClick={() => (location.hash = href('design'))}><span class="v">›</span></Row>
         <Row k={tr('settings.cargar_boveda_de_ejemplo')} sub={tr('settings.anade_mazos_y_notas_de_muestra')}>
           <button type="button" class="link" onClick={async () => {

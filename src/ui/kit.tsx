@@ -38,9 +38,9 @@ export function Row(props: { k: ComponentChildren; sub?: ComponentChildren; chil
   );
 }
 
-export function Group(props: { title?: string; footer?: ComponentChildren; children: ComponentChildren }) {
+export function Group(props: { title?: string; footer?: ComponentChildren; children: ComponentChildren; id?: string }) {
   return (
-    <section class="group glass" style={{ marginTop: '18px' }} aria-label={props.title}>
+    <section class="group glass" style={{ marginTop: '18px' }} aria-label={props.title} id={props.id}>
       {props.title && <h2 class="group-h">{props.title}</h2>}
       {props.children}
       {props.footer && <p class="group-f">{props.footer}</p>}

@@ -290,7 +290,7 @@ function Dock(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
   return (
     <div class="dock no-print">
       {innerWidth >= 900 && !p.ph && <PanelTray sp={p.sp} save={p.save} />}
-      <a class="pill glass" href="#/addons"><Sparkles size={16} />{' '}{tr('design.extras')}</a>
+      <a class="pill glass" href="#/ajustes/addons"><Sparkles size={16} />{' '}{tr('design.extras')}</a>
       <div class="glass" role="toolbar" aria-label={tr('design.anadir_panel')}>
         <span class="note t2" style={{ padding: '0 10px' }}><Plus size={14} />{' '}{tr('design.anadir_panel')}</span>
         {TYPES().map((x) => <button type="button" class="btn icon small ghost" aria-label={tr('spaces.anadir_panel_label', { label: x.label })} onClick={() => add(x.t)}>{x.icon}</button>)}
