@@ -43,6 +43,9 @@ export function stateOf(col: Collection, cid: string): CardState {
 
 export function inDeck(deck: Deck, filter: string | null): boolean {
   if (!filter) return true;
+  // varios filtros separados por "|" (vínculos del calendario): basta con uno
+  if (filter.includes('|')) return filter.split('|').some((f) => inDeck(deck, f));
+  if (filter.startsWith('tag:')) return deck.tags.some((t) => t === filter.slice(4) || t.startsWith(filter.slice(4) + '/'));
   if (filter.endsWith('/')) return deck.path.startsWith(filter);
   return deck.path === filter;
 }

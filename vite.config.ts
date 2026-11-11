@@ -14,7 +14,7 @@ function serviceWorker(): Plugin {
     apply: 'build',
     generateBundle(_, bundle) {
       const files = Object.keys(bundle).filter((f) => !f.endsWith('.map'));
-      const publicFiles = ['manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
+      const publicFiles = ['manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png', 'icons/favicon-16.png', 'brand/logo-256.png', 'brand/logo-64.png'];
       const assets = ['./', ...files, ...publicFiles].map((f) => (f === './' ? f : './' + f));
       const hash = createHash('sha256');
       for (const f of files) {
@@ -22,6 +22,8 @@ function serviceWorker(): Plugin {
         hash.update(f);
         hash.update(c.type === 'chunk' ? c.code : typeof c.source === 'string' ? c.source : Buffer.from(c.source));
       }
+      // los archivos de public/ (íconos, logo) también cuentan: un ícono nuevo = versión nueva del SW
+      for (const f of publicFiles) hash.update(readFileSync(new URL(`./public/${f}`, import.meta.url)));
       const version = `${pkg.version}-${hash.digest('hex').slice(0, 10)}`;
       const src = readFileSync(new URL('./src/sw.js', import.meta.url), 'utf8')
         .replace('__VERSION__', version)

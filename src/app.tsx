@@ -266,6 +266,7 @@ function TopBar(props: { tab: string }) {
   const mm = `${String(Math.floor(Math.ceil(rem / 1000) / 60)).padStart(2, '0')}:${String(Math.ceil(rem / 1000) % 60).padStart(2, '0')}`;
   return (
     <header class="topbar no-print">
+      <a href="#/hoy" class="brand-mark" aria-label="Engrama, ir a Hoy"><img src="brand/logo-64.png" width="28" height="28" alt="" /></a>
       <nav class="seg-nav glass" ref={nav} aria-label="Secciones">
         {slider && <span class="slider" style={{ width: `${slider.w}px`, transform: `translateX(${slider.x - 4}px)`, left: '4px' }} aria-hidden="true" />}
         {TABS.map((t) => (

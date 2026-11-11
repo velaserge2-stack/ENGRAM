@@ -11,6 +11,20 @@ import { PageTitle, Segmented, Sheet } from '../ui/kit';
 import { Html } from '../ui/md';
 import { readTextOr } from '../vault/util';
 import { OcclusionEditor } from './occlusion';
+import { useLinkedEvents } from '../ui/links';
+import { CalendarDays } from 'lucide-preact';
+
+/** Indicador de próximos eventos del calendario vinculados a este mazo. */
+function DeckEvents(p: { path: string }) {
+  const { data } = useLinkedEvents(p.path);
+  if (!data?.next.length) return null;
+  const n = data.next[0]!;
+  return (
+    <a class="btn" href="#/calendario" title={data.next.map((o) => `${o.b.title} · ${new Date(o.start).toLocaleString('es-MX')}`).join('\n')}>
+      <CalendarDays size={18} /> {data.next.length} {data.next.length === 1 ? 'evento' : 'eventos'} · {new Date(n.start).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+    </a>
+  );
+}
 
 const TYPES: [NoteType, string][] = [
   ['basic', 'Básica'], ['reverse', 'Inversa'], ['type', 'Escribir'], ['cloze', 'Cloze'], ['list', 'Lista'],
@@ -171,6 +185,7 @@ export function DeckEditor(props: { path: string }) {
     <>
       <PageTitle title={name} sub={`${props.path} · ${parsed.notes.length} notas · ${parsed.notes.flatMap(cardsOf).length} tarjetas`}>
         <Segmented label="Modo" value={mode} onChange={setMode} options={[['visual', 'Visual'], ['md', 'Ver Markdown']]} />
+        <DeckEvents path={props.path} />
         <a class="btn primary" href={href('estudiar', ...props.path.split('/'))}><BookOpen size={18} /> Estudiar</a>
         <button type="button" class="btn" onClick={() => setCsv(true)}><FileSpreadsheet size={18} /> CSV</button>
         <button type="button" class="btn" onClick={async () => { await saver.flush(); const r = await deliver(new File([text], props.path.split('/').pop()!, { type: 'text/markdown' })); if (r !== 'cancelled') app.toast('Mazo exportado'); }}><Share size={18} /> Exportar</button>

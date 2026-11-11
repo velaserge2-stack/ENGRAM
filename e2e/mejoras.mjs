@@ -1,0 +1,181 @@
+// Flujos de "Mejoras 1": vínculos del calendario, notas grandes, paneles minimizables y logo.
+//   npm run build && npm run e2e:mejoras
+import { spawn } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
+const OUT = new URL('./out/', import.meta.url).pathname;
+mkdirSync(OUT, { recursive: true });
+const PORT = 4177;
+const URL_ = `http://localhost:${PORT}/`;
+const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'pipe' });
+await new Promise((res, rej) => { server.stdout.on('data', (d) => String(d).includes('localhost') && res()); server.on('exit', (c) => rej(new Error('preview ' + c))); });
+let type = pw[process.env.BROWSER || 'webkit'];
+let browser;
+try { browser = await type.launch(); } catch { type = pw.chromium; browser = await type.launch(); }
+console.log('Navegador:', type.name());
+const errors = [];
+const check = (c, m) => { if (!c) throw new Error('FALLÓ: ' + m); console.log('  ✓', m); };
+const only = (process.env.ONLY || 'links,notes,tray,logo').split(',');
+try {
+  const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 } });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => errors.push(String(e)));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  await page.goto(URL_);
+  await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
+  await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
+
+  if (only.includes('links')) {
+    // segunda nota para vincular
+    await page.goto(URL_ + '#/notas/+nueva');
+    const sh = page.locator('.sheet');
+    await sh.getByLabel('Materia').fill('Cardiología');
+    await sh.getByLabel('Tema o clase').fill('ECG');
+    await sh.getByLabel('Título').fill('Ejes');
+    await page.getByRole('button', { name: 'Crear' }).click();
+    await page.locator('.doc').waitFor();
+
+    await page.goto(URL_ + '#/calendario');
+    await page.getByRole('button', { name: 'Bloque' }).click();
+    await page.getByLabel('Título').fill('Repaso ECG');
+    for (const [tab, name] of [['Mazos y temas', 'Cardiología'], ['Notas', 'Clase 1 - ECG básico'], ['Notas', 'Ejes']]) {
+      await page.getByRole('button', { name: 'Vincular' }).click();
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      await page.locator('.sheet .opt').filter({ hasText: name }).first().click();
+      await page.waitForTimeout(300);
+    }
+    check((await page.locator('.sheet [role=listitem]').count()) === 3, 'un mazo y dos notas vinculados (chips)');
+    await page.getByRole('button', { name: 'Guardar' }).click();
+    await page.getByRole('button', { name: /Abrir Cardiología, \d+ vencidas/ }).waitFor();
+    check(true, 'el día muestra datos vivos del mazo vinculado');
+    // renombrar la nota con id no rompe el vínculo
+    await page.goto(URL_ + '#/notas/Cardiología/ECG/Ejes.md');
+    await page.getByRole('button', { name: 'Mover a otra materia o tema' }).click();
+    await page.locator('.sheet').getByLabel('Título').fill('Ejes eléctricos');
+    await page.getByRole('button', { name: 'Mover', exact: true }).click();
+    await page.getByRole('tab', { name: 'Eventos' }).click();
+    await page.locator('.insp').getByText('Repaso ECG').first().waitFor();
+    check(true, 'la nota renombrada muestra el evento en su inspector');
+    await page.goto(URL_ + '#/calendario');
+    await page.getByRole('button', { name: 'Abrir Ejes eléctricos' }).waitFor();
+    check((await page.getByText('enlace roto').count()) === 0, 'renombrar la nota (con id) no rompe el vínculo');
+    await page.getByRole('button', { name: 'Iniciar bloque' }).first().click();
+    await page.locator('.win').nth(2).waitFor();
+    const titles = await page.locator('.win-bar .t').allTextContents();
+    check(titles.length === 3 && titles.some((t) => t.includes('Clase 1')) && titles.some((t) => t.includes('Ejes')), `«Iniciar bloque» abre estudio filtrado y las dos notas (${titles.join(' · ')})`);
+    check(/Cardiología/.test(await page.locator('.win').first().textContent()), 'la sesión de estudio está filtrada al mazo vinculado');
+    await page.screenshot({ path: OUT + 'mejora-bloque.png' });
+  }
+  if (only.includes('notes')) {
+    await page.goto(URL_ + '#/notas/Cardiología/ECG/Clase 1 - ECG básico.md');
+    await page.locator('.doc').waitFor();
+    if (await page.getByRole('button', { name: 'Ocultar explorador' }).count()) await page.getByRole('button', { name: 'Ocultar explorador' }).click();
+    if (await page.getByRole('button', { name: 'Ocultar inspector' }).count()) await page.getByRole('button', { name: 'Ocultar inspector' }).click();
+    await page.getByRole('button', { name: 'Completo' }).click();
+    const [docW, mainW] = await page.evaluate(() => [document.querySelector('.doc-inner').getBoundingClientRect().width, document.querySelector('main').getBoundingClientRect().width]);
+    check(docW > mainW - 90, `explorador e inspector ocultos: el texto usa todo el ancho (${Math.round(docW)} de ${Math.round(mainW)} px)`);
+    // editar sin guardar y pasar a pantalla completa
+    await page.locator('.doc [aria-label="Editar bloque"]').nth(1).click();
+    const ta = page.locator('.doc textarea');
+    await ta.fill('Texto sin guardar todavía');
+    await ta.evaluate((el) => el.setSelectionRange(5, 5));
+    await page.getByRole('button', { name: 'Pantalla completa de notas' }).click();
+    await page.waitForTimeout(200);
+    const st = await page.evaluate(() => ({ top: getComputedStyle(document.querySelector('.topbar')).display, focus: document.activeElement?.tagName, pos: document.activeElement?.selectionStart, val: document.activeElement?.value }));
+    check(st.top === 'none' && st.focus === 'TEXTAREA' && st.pos === 5 && st.val === 'Texto sin guardar todavía', 'pantalla completa: oculta la barra y conserva cursor y texto');
+    await page.screenshot({ path: OUT + 'mejora-notas-completa.png' });
+    await page.getByRole('button', { name: 'Salir de pantalla completa' }).first().click();
+    const back = await page.evaluate(() => ({ top: getComputedStyle(document.querySelector('.topbar')).display, focus: document.activeElement?.tagName, val: document.activeElement?.value }));
+    check(back.top !== 'none' && back.focus === 'TEXTAREA' && back.val === 'Texto sin guardar todavía', 'al salir se conserva el cursor y el texto');
+    await page.reload();
+    await page.locator('.doc').waitFor();
+    check(await page.getByRole('button', { name: 'Mostrar explorador' }).count() === 1, 'se recuerda el estado del explorador');
+    await page.setViewportSize({ width: 820, height: 1180 });
+    await page.getByRole('button', { name: 'Mostrar inspector' }).click();
+    check(await page.locator('.insp-over').count() === 1, 'en vertical, el inspector se superpone en lugar de apretar el editor');
+    await page.screenshot({ path: OUT + 'mejora-notas-vertical.png' });
+    await page.getByRole('button', { name: 'Cerrar inspector' }).click();
+    await page.setViewportSize({ width: 1180, height: 820 });
+  }
+
+  if (only.includes('tray')) {
+    // Hoy: minimizar el pomodoro en marcha
+    await page.goto(URL_ + '#/hoy');
+    // («Iniciar bloque» ya pudo dejarlo en marcha)
+    const startBtn = page.locator('.pomo').getByRole('button', { name: 'Iniciar', exact: true });
+    if (await startBtn.count()) await startBtn.first().click();
+    await page.getByRole('button', { name: 'Minimizar Pomodoro' }).click();
+    const sq = page.getByRole('button', { name: /^Pomodoro, minimizado, \d\d:\d\d restantes$/ });
+    await sq.waitFor();
+    check(await page.locator('.pomo').count() === 0, 'el pomodoro se minimiza a un cuadrito con etiqueta para VoiceOver');
+    await page.getByRole('button', { name: 'Minimizar Pendientes' }).click();
+    await page.waitForTimeout(3000);
+    await page.reload();
+    await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
+    await page.locator('.tray-sq').nth(1).waitFor();
+    const labels = await page.locator('.tray-sq').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+    check(labels.length === 2 && /^Pomodoro/.test(labels[0]) && /^Pendientes/.test(labels[1]), `tras recargar los cuadritos siguen en su orden (${labels.join(' | ')})`);
+    const live = await page.locator('.tray-sq .tray-live').first().textContent();
+    await sq.click();
+    const t = await page.locator('.pomo .time').textContent();
+    const sec = (x) => { const [m, s2] = x.trim().split(':').map(Number); return m * 60 + s2; };
+    check(sec(t) < 25 * 60 && Math.abs(sec(t) - sec(live)) <= 2, `al restaurar, el pomodoro siguió corriendo (${live} → ${t})`);
+    await page.locator('.pomo').getByRole('button', { name: 'Pausar', exact: true }).first().click();
+    // pulsación larga → Cerrar
+    await page.locator('.tray-sq').first().dispatchEvent('contextmenu');
+    await page.locator('.sheet').getByRole('button', { name: 'Cerrar', exact: true }).last().click();
+    await page.getByRole('button', { name: /Mostrar paneles cerrados \(1\)/ }).click();
+    check(await page.getByRole('button', { name: 'Minimizar Pendientes' }).count() === 1, 'pulsación larga → Cerrar, y se puede volver a mostrar');
+    // Espacios: PDF minimizado y restaurado en su lugar
+    await page.goto(URL_ + '#/espacios');
+    if (await page.getByRole('button', { name: 'Repaso' }).count()) await page.getByRole('button', { name: 'Repaso' }).click();
+    else { await page.getByRole('button', { name: 'Nuevo espacio' }).click(); await page.locator('.sheet input[name=n]').fill('Repaso'); await page.locator('.sheet select').selectOption('Repaso'); await page.getByRole('button', { name: 'Crear' }).click(); }
+    await page.getByRole('button', { name: 'Minimizar Estadísticas' }).click();
+    await page.getByRole('button', { name: /^Estadísticas, minimizado$/ }).waitFor();
+    check(await page.getByRole('button', { name: 'Minimizar Estudio' }).count() === 0, 'la sesión de estudio no se puede minimizar');
+    await page.waitForTimeout(600);
+    await page.reload();
+    await page.getByRole('button', { name: /^Estadísticas, minimizado$/ }).click();
+    await page.locator('.win').filter({ hasText: 'Estudiadas hoy' }).waitFor();
+    check(true, 'en un espacio el panel minimizado persiste y se restaura');
+    await page.screenshot({ path: OUT + 'mejora-bandeja.png' });
+  }
+
+  if (only.includes('logo')) {
+    const man = await (await page.request.get(URL_ + 'manifest.webmanifest')).json();
+    const bad = [];
+    for (const ic of man.icons) {
+      const res = await page.request.get(URL_ + ic.src);
+      const dim = await page.evaluate(async (u) => { const i = new Image(); i.src = u; await i.decode(); return `${i.width}x${i.height}`; }, URL_ + ic.src);
+      if (!res.ok() || dim !== ic.sizes) bad.push(`${ic.src} ${dim}`);
+    }
+    check(!bad.length && man.background_color === man.theme_color && /^#[0-9a-f]{6}$/.test(man.background_color), `manifiesto: íconos válidos y color de fondo muestreado ${man.background_color}`);
+    const apple = await page.evaluate(() => document.querySelector('link[rel="apple-touch-icon"]').getAttribute('href'));
+    const corners = await page.evaluate(async (u) => {
+      const i = new Image(); i.src = u; await i.decode();
+      const c = Object.assign(document.createElement('canvas'), { width: i.width, height: i.height });
+      const x = c.getContext('2d'); x.drawImage(i, 0, 0);
+      const d = x.getImageData(0, 0, i.width, i.height).data;
+      let minA = 255; for (let k = 3; k < d.length; k += 4) minA = Math.min(minA, d[k]);
+      return { w: i.width, minA };
+    }, URL_ + apple);
+    check(corners.w === 180 && corners.minA === 255, 'apple-touch-icon 180×180 sin transparencia');
+    await page.goto(URL_ + '#/hoy');
+    const logo = await page.locator('.brand-mark img').evaluate((e) => ({ src: e.getAttribute('src'), w: e.naturalWidth }));
+    check(logo.src === 'brand/logo-64.png' && logo.w <= 256, 'la barra superior usa el logo optimizado (no el original de 1254 px)');
+    await page.screenshot({ path: OUT + 'mejora-logo.png', clip: { x: 0, y: 0, width: 600, height: 80 } });
+  }
+
+  check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.join(' | ') : ''));
+  console.log('\nOK');
+} catch (e) {
+  console.error('Errores de consola:', errors);
+  for (const c of browser.contexts()) for (const [i, pg] of c.pages().entries()) await pg.screenshot({ path: OUT + `mejora-fallo-${i}.png` }).catch(() => {});
+  throw e;
+} finally {
+  await browser.close();
+  server.kill();
+}

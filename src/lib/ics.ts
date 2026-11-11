@@ -17,7 +17,14 @@ export interface StudyBlock {
   alarmMin: number | null;
   readonly?: boolean;
   source?: string;
+  /** vínculos `engrama://deck/<id>`, `engrama://note/<id>`, `engrama://topic/<carpeta>`, `engrama://tag/<etiqueta>` */
+  links?: string[];
+  /** propiedades desconocidas del VEVENT, conservadas tal cual al reexportar */
+  extra?: string[];
 }
+
+/** Marca que separa la nota del usuario de los nombres legibles de los vínculos en DESCRIPTION. */
+export const LINKS_MARK = '\n\nVínculos: ';
 
 const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/([,;])/g, '\\$1');
 const unesc = (s: string) => s.replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1');
@@ -37,15 +44,18 @@ function fold(line: string): string {
   return out.join('\r\n');
 }
 
-export function toICS(blocks: StudyBlock[], name = 'Engrama · estudio'): string {
+export function toICS(blocks: StudyBlock[], name = 'Engrama · estudio', labelOf: (uri: string) => string = (u) => u.replace(/^engrama:\/\/\w+\//, '')): string {
   const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Engrama//ES', 'CALSCALE:GREGORIAN', `X-WR-CALNAME:${esc(name)}`];
   const now = utc(Date.now());
   for (const b of blocks) {
     L.push('BEGIN:VEVENT', `UID:${b.uid}`, `DTSTAMP:${now}`, `DTSTART:${utc(b.start)}`, `DTEND:${utc(b.end)}`, `SUMMARY:${esc(b.title)}`);
-    if (b.note) L.push(`DESCRIPTION:${esc(b.note)}`);
+    const desc = b.note + (b.links?.length ? `${LINKS_MARK}${b.links.map(labelOf).join(', ')}` : '');
+    if (desc) L.push(`DESCRIPTION:${esc(desc)}`);
     if (b.subject) L.push(`CATEGORIES:${esc(b.subject)}`);
     if (b.rrule) L.push(`RRULE:FREQ=${b.rrule}${b.until ? `;UNTIL=${b.until.replace(/-/g, '')}T235959Z` : ''}`);
     if (b.done.length) L.push(`X-ENGRAMA-DONE:${b.done.join(',')}`);
+    for (const l of b.links ?? []) L.push(`X-ENGRAMA-LINK:${l}`);
+    for (const x of b.extra ?? []) L.push(x);
     if (b.alarmMin !== null) L.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc(b.title)}`, `TRIGGER:-PT${b.alarmMin}M`, 'END:VALARM');
     L.push('END:VEVENT');
   }
@@ -69,13 +79,14 @@ export function fromICS(text: string, source = ''): StudyBlock[] {
   let cur: Partial<StudyBlock> | null = null;
   let inAlarm = false;
   for (const line of lines) {
-    if (line === 'BEGIN:VEVENT') cur = { done: [], rrule: '', until: '', note: '', subject: '', alarmMin: null };
+    if (line === 'BEGIN:VEVENT') cur = { done: [], rrule: '', until: '', note: '', subject: '', alarmMin: null, links: [], extra: [] };
     else if (line === 'END:VEVENT' && cur) {
       if (Number.isFinite(cur.start)) {
         out.push({
           uid: cur.uid || `${source}-${out.length}`, start: cur.start!, end: Number.isFinite(cur.end) ? cur.end! : cur.start! + 3600_000,
           title: cur.title || '(sin título)', subject: cur.subject ?? '', note: cur.note ?? '', rrule: cur.rrule ?? '', until: cur.until ?? '',
           done: cur.done ?? [], alarmMin: cur.alarmMin ?? null, ...(source ? { readonly: true, source } : {}),
+          ...(cur.links?.length ? { links: cur.links } : {}), ...(cur.extra?.length ? { extra: cur.extra } : {}),
         });
       }
       cur = null;
@@ -96,7 +107,15 @@ export function fromICS(text: string, source = ''): StudyBlock[] {
         case 'DTSTART': cur.start = parseDate(v, params.join(';')); break;
         case 'DTEND': cur.end = parseDate(v, params.join(';')); break;
         case 'SUMMARY': cur.title = unesc(v); break;
-        case 'DESCRIPTION': cur.note = unesc(v); break;
+        case 'DESCRIPTION': {
+          // los nombres legibles de los vínculos se regeneran al exportar
+          const d = unesc(v);
+          const i = d.indexOf(LINKS_MARK);
+          cur.note = i >= 0 ? d.slice(0, i) : d;
+          break;
+        }
+        case 'X-ENGRAMA-LINK': cur.links!.push(v.trim()); break;
+        case 'DTSTAMP': break;
         case 'CATEGORIES': cur.subject = unesc(v); break;
         case 'X-ENGRAMA-DONE': cur.done = v.split(',').filter(Boolean); break;
         case 'RRULE': {
@@ -104,7 +123,11 @@ export function fromICS(text: string, source = ''): StudyBlock[] {
           cur.rrule = (f?.[1] as StudyBlock['rrule']) ?? '';
           const u = /UNTIL=(\d{4})(\d{2})(\d{2})/.exec(v);
           if (u) cur.until = `${u[1]}-${u[2]}-${u[3]}`;
+          break;
         }
+        default:
+          // propiedades desconocidas (LOCATION, URL, X-…): se conservan
+          if (!['UID', 'DTSTART', 'DTEND', 'SUMMARY', 'CATEGORIES', 'X-ENGRAMA-DONE', 'RRULE'].includes(name!)) cur.extra!.push(line);
       }
     }
   }

@@ -58,7 +58,13 @@ export interface Settings {
   ttsLang: string;
   /** emoji por mazo (ruta → emoji); también puede ir en el frontmatter `emoji:` */
   deckEmoji: Record<string, string>;
+  /** acento opcional: un color y los únicos lugares donde se usa (null = sin acento) */
+  accent: { color: string | null; usos: AccentUse[] };
 }
+
+export const ACCENT_USES = ['nav', 'progreso', 'enlaces', 'seleccion', 'calor', 'boton', 'calendario'] as const;
+export type AccentUse = (typeof ACCENT_USES)[number];
+export const ACCENT_DEFAULT_USES: AccentUse[] = ['enlaces', 'progreso', 'calor'];
 
 export function deviceTimeZone(): string {
   try {
@@ -107,6 +113,7 @@ export function defaultSettings(): Settings {
     showBacklinks: false,
     ttsLang: 'es-MX',
     deckEmoji: {},
+    accent: { color: null, usos: [] },
   };
 }
 
@@ -133,6 +140,10 @@ export function mergeSettings(raw: unknown): Settings {
   const s = out as unknown as Settings;
   if (!['auto', 'dark', 'light'].includes(s.glassMode)) s.glassMode = 'auto';
   s.theme = 'cristal';
+  // acento: valores antiguos (cadena de la fase 1) o inválidos = sin acento
+  const a = s.accent as unknown as { color?: unknown; usos?: unknown };
+  const color = typeof a?.color === 'string' && (/^#[0-9a-f]{6}$/i.test(a.color) || /^[a-z]+$/.test(a.color)) ? a.color : null;
+  s.accent = { color, usos: Array.isArray(a?.usos) ? (a.usos as string[]).filter((u): u is AccentUse => (ACCENT_USES as readonly string[]).includes(u)) : [] };
   s.textScale = Math.min(1.6, Math.max(0.8, s.textScale));
   s.glass = Math.min(100, Math.max(0, s.glass));
   s.bgBlur = Math.min(40, Math.max(0, s.bgBlur));

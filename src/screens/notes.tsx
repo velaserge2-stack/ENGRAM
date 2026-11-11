@@ -1,4 +1,4 @@
-import { Bookmark, ClipboardCopy, ClipboardPaste, Code, FilePlus2, FileText, Folder, History, Import, Link2, ListTree, MoveRight, Network, Share, Sparkles, Star, Trash2 } from 'lucide-preact';
+import { Maximize2, Minimize2, PanelLeft, PanelRight, Bookmark, ClipboardCopy, ClipboardPaste, Code, FilePlus2, FileText, Folder, History, Import, Link2, ListTree, MoveRight, Network, Share, Sparkles, Star, Trash2 } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { normalizeAnswer, parseDeck } from '../cards/parse';
 import { appendCard } from '../data/ops';
@@ -20,8 +20,48 @@ import { NotePreview } from './deck';
 import { search as searchCards } from '../lib/query';
 import { Graph } from './graph';
 import { APP_VERSION } from './backup';
+import { LinkedEvents } from '../ui/links';
 
 const BOOKMARKS = '.app/bookmarks.json';
+
+/** Preferencias de la vista de notas (por usuario y dispositivo: localStorage, no la bóveda). */
+type LineWidth = 'comodo' | 'ancho' | 'completo';
+interface NotesUI { explorer: boolean; inspector: boolean; explorerW: number; width: LineWidth }
+const UI_KEY = 'engrama.notesUI';
+const LINE: Record<LineWidth, string> = { comodo: '68ch', ancho: '120ch', completo: 'none' };
+
+function useNotesUI(): [NotesUI, (p: Partial<NotesUI>) => void] {
+  const narrow = typeof innerWidth === 'number' && innerWidth < 760;
+  const [ui, setUi] = useState<NotesUI>(() => {
+    const def: NotesUI = { explorer: !narrow, inspector: !narrow && innerWidth >= 1100, explorerW: 260, width: 'ancho' };
+    try {
+      return { ...def, ...(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}') as Partial<NotesUI>) };
+    } catch {
+      return def;
+    }
+  });
+  const set = (p: Partial<NotesUI>) => setUi((u) => {
+    const n = { ...u, ...p, explorerW: Math.min(480, Math.max(200, p.explorerW ?? u.explorerW)) };
+    try { localStorage.setItem(UI_KEY, JSON.stringify(n)); } catch { /* sin almacenamiento: solo esta sesión */ }
+    return n;
+  });
+  return [ui, set];
+}
+
+function useWidth() {
+  const [w, setW] = useState(innerWidth);
+  useEffect(() => {
+    const on = () => setW(innerWidth);
+    addEventListener('resize', on);
+    return () => removeEventListener('resize', on);
+  }, []);
+  return w;
+}
+
+/** Pantalla completa de notas: solo una clase en <body>; el editor no se vuelve a montar. */
+function setNotesFull(on: boolean) {
+  document.body.classList.toggle('notes-full', on);
+}
 
 function useNotes() {
   const app = useApp();
@@ -64,11 +104,47 @@ export function Notes(props: { route: string[] }) {
     const t = data.idx.titles.get(decodeURIComponent(props.route.join('/')).toLowerCase().replace(/\.md$/, ''));
     return t ?? path;
   }, [path, data]);
+  const [ui, setUi] = useNotesUI();
+  const width = useWidth();
+  const overlay = width < 1100;
+  const narrow = width < 760;
+  const drag = useRef<{ x: number; w: number } | null>(null);
+  const swipe = useRef<{ x: number; y: number; inTree: boolean; inInsp: boolean } | null>(null);
+  useEffect(() => () => setNotesFull(false), []);
+  const cols = [ui.explorer && !narrow ? `${ui.explorerW}px 10px` : '', 'minmax(0, 1fr)', resolved && ui.inspector && !overlay ? '280px' : ''].filter(Boolean).join(' ');
   return (
     <>
-      <div class={`notes${resolved && (s.showBacklinks || true) ? '' : ' no-insp'}`}>
-        <NoteTree data={data} current={resolved} onNew={() => setCreating(true)} />
-        {resolved ? <NoteEditor key={resolved} path={resolved} data={data} /> : <NotesHome data={data} onNew={() => setCreating(true)} />}
+      <div class="notes" style={{ gridTemplateColumns: cols }}
+        onPointerDown={(e) => {
+          const t = e.target as HTMLElement;
+          if (t.closest('textarea, input, .divider, [contenteditable]')) return;
+          swipe.current = { x: e.clientX, y: e.clientY, inTree: !!t.closest('.tree'), inInsp: !!t.closest('.insp') };
+        }}
+        onPointerUp={(e) => {
+          const s0 = swipe.current;
+          swipe.current = null;
+          if (!s0) return;
+          const dx = e.clientX - s0.x;
+          if (Math.abs(dx) < 80 || Math.abs(e.clientY - s0.y) > 40) return;
+          // deslizar: ocultar el panel en el que empezó, o mostrarlo desde el borde
+          if (dx < 0 && s0.inTree) setUi({ explorer: false });
+          else if (dx > 0 && s0.inInsp) setUi({ inspector: false });
+          else if (dx > 0 && s0.x < 40) setUi({ explorer: true });
+          else if (dx < 0 && s0.x > innerWidth - 40) setUi({ inspector: true });
+        }}>
+        {ui.explorer && (
+          <div class={narrow ? 'tree-over' : ''} style={{ minWidth: 0 }}>
+            <NoteTree data={data} current={resolved} onNew={() => setCreating(true)} />
+          </div>
+        )}
+        {ui.explorer && !narrow && (
+          <div class="divider" role="separator" aria-orientation="vertical" aria-label="Ancho del explorador" tabIndex={0}
+            onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); drag.current = { x: e.clientX, w: ui.explorerW }; }}
+            onPointerMove={(e) => drag.current && setUi({ explorerW: drag.current.w + e.clientX - drag.current.x })}
+            onPointerUp={() => (drag.current = null)}
+            onKeyDown={(e) => (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && setUi({ explorerW: ui.explorerW + (e.key === 'ArrowLeft' ? -20 : 20) })} />
+        )}
+        {resolved ? <NoteEditor key={resolved} path={resolved} data={data} ui={ui} setUi={setUi} overlay={overlay} /> : <NotesHome data={data} onNew={() => setCreating(true)} ui={ui} setUi={setUi} />}
       </div>
       {creating && data && <NewNote notes={data.notes} onClose={() => setCreating(false)} />}
     </>
@@ -137,7 +213,7 @@ function TrashSheet(props: { onClose: () => void }) {
   );
 }
 
-function NotesHome(props: { data: NotesData; onNew: () => void }) {
+function NotesHome(props: { data: NotesData; onNew: () => void; ui: NotesUI; setUi: (p: Partial<NotesUI>) => void }) {
   const app = useApp();
   const [materia, setMateria] = useState('');
   const [since, setSince] = useState<'todo' | '7' | '30'>('todo');
@@ -154,6 +230,7 @@ function NotesHome(props: { data: NotesData; onNew: () => void }) {
   return (
     <section class="stack">
       <PageTitle title="Notas" sub={`${notes.length} notas · Materia → Tema → Notas`}>
+        <button type="button" class="btn icon" aria-label={props.ui.explorer ? 'Ocultar explorador' : 'Mostrar explorador'} aria-pressed={props.ui.explorer} onClick={() => props.setUi({ explorer: !props.ui.explorer })}><PanelLeft size={18} /></button>
         <button type="button" class="btn" onClick={() => app.openSheet('import')}><Import size={18} /> Importar</button>
         <button type="button" class="btn primary" onClick={props.onNew}><FilePlus2 size={18} /> Nueva nota</button>
       </PageTitle>
@@ -255,12 +332,12 @@ const SLASH: [string, string, string][] = [
   ['img', 'Imagen', ''], ['card', 'Tarjeta de estudio', ''], ['code', 'Código', '```\n\n```'], ['link', 'Enlace a nota', '[['],
 ];
 
-function NoteEditor(props: { path: string; data: NotesData }) {
+function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: (p: Partial<NotesUI>) => void; overlay: boolean }) {
   const app = useApp();
   const [text, setText] = useState<string | null>(null);
   const [mode, setMode] = useState<'doc' | 'md'>('doc');
   const [editing, setEditing] = useState<number | null>(null);
-  const [tab, setTab] = useState<'outline' | 'links' | 'props' | 'graph' | 'cards'>('outline');
+  const [tab, setTab] = useState<'outline' | 'links' | 'props' | 'graph' | 'cards' | 'events'>('outline');
   const [sheet, setSheet] = useState<'share' | 'history' | 'move' | 'prompt' | 'card' | null>(null);
   const [cardSeed, setCardSeed] = useState<{ text: string; kind: 'cloze' | 'basic'; para: number } | null>(null);
   const saver = useMemo(() => createAutosave(async (t: string) => {
@@ -281,7 +358,17 @@ function NoteEditor(props: { path: string; data: NotesData }) {
   const cards = app.col ? [...app.col.byCid.values()].map((x) => ({ front: x.ref.note.front, back: x.ref.note.back, src: x.ref.note.src })) : [];
   const cov = coverage(doc.body, cards, props.path);
   const bookmarked = props.data?.bookmarks.includes(props.path);
-  const insp = !(window.innerWidth < 1100);
+  const insp = props.ui.inspector;
+  const [full, setFull] = useState(() => document.body.classList.contains('notes-full'));
+  const toggleFull = (on: boolean) => (setNotesFull(on), setFull(on));
+  useEffect(() => {
+    if (!full) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('.scrim') && toggleFull(false);
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, [full]);
+  // los botones de vista no quitan el foco al editor (se conserva el cursor y el bloque abierto)
+  const keep = { onPointerDown: (e: PointerEvent) => e.preventDefault(), onMouseDown: (e: MouseEvent) => e.preventDefault() };
   return (
     <>
       <section class="stack-s" style={{ minWidth: 0 }}>
@@ -292,6 +379,10 @@ function NoteEditor(props: { path: string; data: NotesData }) {
             <div class="foot">{cov.cards} tarjetas · {cov.total ? `${Math.round((cov.covered.length / cov.total) * 100)} % de párrafos cubiertos` : 'sin párrafos'}</div>
           </div>
           <div class="row wrap">
+            <button type="button" class="btn icon" {...keep} aria-label={props.ui.explorer ? 'Ocultar explorador' : 'Mostrar explorador'} aria-pressed={props.ui.explorer} title="Explorador" onClick={() => props.setUi({ explorer: !props.ui.explorer })}><PanelLeft size={18} /></button>
+            <button type="button" class="btn icon" {...keep} aria-label={insp ? 'Ocultar inspector' : 'Mostrar inspector'} aria-pressed={insp} title="Inspector" onClick={() => props.setUi({ inspector: !insp })}><PanelRight size={18} /></button>
+            <div {...keep}><Segmented label="Ancho de línea" value={props.ui.width} onChange={(w) => props.setUi({ width: w })} options={[['comodo', 'Cómodo'], ['ancho', 'Ancho'], ['completo', 'Completo']]} /></div>
+            <button type="button" class="btn icon" {...keep} aria-label={full ? 'Salir de pantalla completa' : 'Pantalla completa de notas'} aria-pressed={full} title="Pantalla completa" onClick={() => toggleFull(!full)}>{full ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button>
             <Segmented label="Vista" value={mode} onChange={(m) => (setMode(m), setEditing(null))} options={[['doc', 'Documento'], ['md', 'Ver Markdown']]} />
             <button type="button" class="btn icon" aria-label={bookmarked ? 'Quitar marcador' : 'Marcar'} aria-pressed={bookmarked} onClick={async () => { const b = props.data?.bookmarks ?? []; await app.vault.write(BOOKMARKS, JSON.stringify(bookmarked ? b.filter((x) => x !== props.path) : [...b, props.path])); app.changed(); }}>{bookmarked ? <Star size={18} fill="currentColor" /> : <Bookmark size={18} />}</button>
             <button type="button" class="btn icon" aria-label="Crear tarjetas con IA (copiar prompt)" title="Tarjetas desde la nota" onClick={() => setSheet('prompt')}><Sparkles size={18} /></button>
@@ -303,6 +394,7 @@ function NoteEditor(props: { path: string; data: NotesData }) {
         </div>
         <article class="glass strong doc" onPaste={(e) => void onPaste(e as ClipboardEvent)}>
           <div class="print-only"><h1>{meta.title}</h1></div>
+          <div class="doc-inner" style={{ maxWidth: LINE[props.ui.width] }}>
           {mode === 'md' ? (
             <textarea class="input code" style={{ minHeight: '70dvh', width: '100%', border: 0, background: 'transparent' }} value={text} onInput={(e) => set((e.target as HTMLTextAreaElement).value)} aria-label="Markdown de la nota" spellcheck />
           ) : (
@@ -321,17 +413,21 @@ function NoteEditor(props: { path: string; data: NotesData }) {
               <button type="button" class="btn ghost" style={{ justifySelf: 'start' }} onClick={() => { setBody(doc.body.replace(/\s*$/, '') + '\n\n'); setEditing(blocks.length); }}>＋ Escribe o usa «/» para insertar…</button>
             </div>
           )}
+          </div>
         </article>
       </section>
+      {full && <button type="button" class="btn glass strong notes-exit" {...keep} onClick={() => toggleFull(false)}><Minimize2 size={18} /> Salir de pantalla completa</button>}
       {insp && (
-        <aside class="glass panel insp stack-s" aria-label="Inspector">
+        <aside class={`glass panel insp stack-s${props.overlay ? ' insp-over strong' : ''}`} aria-label="Inspector">
+          {props.overlay && <button type="button" class="btn small" style={{ justifySelf: 'end' }} {...keep} onClick={() => props.setUi({ inspector: false })}>Cerrar inspector</button>}
           <div class="seg" role="tablist" aria-label="Panel">
-            {([['outline', 'Esquema'], ...(app.settings.showBacklinks ? [['links', 'Enlaces']] : []), ['props', 'Propiedades'], ['cards', 'Tarjetas'], ...(app.settings.showGraph ? [['graph', 'Grafo']] : [])] as [typeof tab, string][]).map(([k, l]) => <button type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}
+            {([['outline', 'Esquema'], ...(app.settings.showBacklinks ? [['links', 'Enlaces']] : []), ['props', 'Propiedades'], ['cards', 'Tarjetas'], ['events', 'Eventos'], ...(app.settings.showGraph ? [['graph', 'Grafo']] : [])] as [typeof tab, string][]).map(([k, l]) => <button type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}
           </div>
           {tab === 'outline' && (outline(doc.body).map((h) => <div style={{ paddingLeft: `${(h.level - 1) * 12}px` }} class="note">{h.text}</div>) || null)}
           {tab === 'outline' && !outline(doc.body).length && <p class="t2 note">Sin títulos.</p>}
           {tab === 'links' && props.data && <Links path={props.path} title={meta.title} data={props.data} />}
           {tab === 'props' && <Properties fm={doc.data} onChange={setFm} />}
+          {tab === 'events' && <><b class="note">Eventos vinculados</b><LinkedEvents path={props.path} /></>}
           {tab === 'graph' && props.data && <Graph notes={props.data.notes} idx={props.data.idx} texts={props.data.texts} focus={props.path} />}
           {tab === 'cards' && (
             <div class="stack-s">
@@ -502,7 +598,7 @@ function Properties(p: { fm: Frontmatter; onChange: (fm: Frontmatter) => void })
         <div class="row wrap">{decks.map((d) => <button type="button" class="chip" onClick={() => set('mazos', decks.filter((x) => x !== d))}>{d} ✕</button>)}</div>
         <select aria-label="Añadir mazo" value="" onChange={(e) => { const v = (e.target as HTMLSelectElement).value; if (v) set('mazos', [...decks, v]); }}><option value="">Añadir…</option>{app.col?.decks.map((d) => <option>{d.full}</option>)}</select>
       </div>
-      {Object.entries(p.fm).filter(([k]) => !['fecha', 'tags', 'mazos', 'materia', 'tema'].includes(k)).map(([k, v]) => (
+      {Object.entries(p.fm).filter(([k]) => !['fecha', 'tags', 'mazos', 'materia', 'tema', 'id'].includes(k)).map(([k, v]) => (
         <label class="field">{k}<input class="input" value={Array.isArray(v) ? v.join(', ') : String(v ?? '')} onChange={(e) => set(k, (e.target as HTMLInputElement).value)} /></label>
       ))}
     </div>
