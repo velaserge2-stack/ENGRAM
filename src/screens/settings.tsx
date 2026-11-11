@@ -57,7 +57,7 @@ function AccentPicker() {
     <>
       <div class="row wrap" style={{ padding: '8px 18px', gap: '10px' }} role="radiogroup" aria-label={tr('settings.color_de_acento')} data-user-content>
         <button type="button" role="radio" aria-checked={!a.color} aria-label={tr('settings.sin_acento')} onClick={() => set(null)} class="btn small" style={{ minHeight: '36px', boxShadow: !a.color ? '0 0 0 2px var(--t1)' : 'none' }}>{tr('settings.sin_acento')}</button>
-        {COLOR_NAMES.map((c) => <button type="button" role="radio" aria-checked={a.color === c} aria-label={COLOR_LABEL[c]} title={COLOR_LABEL[c]} onClick={() => set(c)} style={swatch(`var(--c-${c}, ${resolveColor(c, false)})`, a.color === c)} />)}
+        {COLOR_NAMES.map((c) => <button type="button" role="radio" aria-checked={a.color === c} aria-label={COLOR_LABEL[c]} onClick={() => set(c)} style={swatch(`var(--c-${c}, ${resolveColor(c, false)})`, a.color === c)} />)}
       </div>
       <Row k={tr('settings.color_libre')} sub={tr('settings.selector_o_codigo_hex')}>
         <input type="color" aria-label={tr('settings.color_libre')} value={hex} onInput={(e) => set((e.target as HTMLInputElement).value)} data-user-content />

@@ -45,7 +45,7 @@ export function growIn(el: Element | null) {
 
 export function MinButton(p: { label: string; onClick: (e: MouseEvent) => void }) {
   return (
-    <button type="button" class="btn icon small ghost min-btn" aria-label={t('tray.minimizar_label', { label: p.label })} title={t('design.minimizar')} onClick={p.onClick}>
+    <button type="button" class="btn icon small ghost min-btn" aria-label={t('tray.minimizar_label', { label: p.label })} onClick={p.onClick}>
       <Minus size={18} />
     </button>
   );
@@ -64,7 +64,7 @@ export function Tray(p: { items: TrayItem[]; onRestore: (id: string) => void; on
       type="button"
       class="tray-sq glass"
       aria-label={t('tray.label_minimizadop', { label: it.label, p: it.liveLabel ? `, ${it.liveLabel}` : '' })}
-      title={t('tray.label_manten_pulsado_para_mas_opciones', { label: it.label })}
+      data-tip={t('tray.label_minimizadop', { label: it.label, p: it.liveLabel ? `, ${it.liveLabel}` : '' })}
       onPointerDown={() => (press.current = { fired: false, t: setTimeout(() => { press.current!.fired = true; setMenu(it); }, 500) })}
       onPointerUp={() => press.current && clearTimeout(press.current.t)}
       onPointerLeave={() => press.current && clearTimeout(press.current.t)}

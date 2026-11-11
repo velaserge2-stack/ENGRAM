@@ -157,3 +157,21 @@
 - El simulacro sigue corriendo porque su reloj es una marca de tiempo (`endAt` en `.app/exam-current.json`); el cuadrito lee ese archivo y muestra el tiempo restante cada segundo. El panel de simulacro ofrece «Continuar simulacro» si hay un intento en curso.
 - «Minimizar todos» / «Restaurar todos» en el dock (iconos) y en la cabecera del espacio (texto). En mosaico, restaurar devuelve los 3 más recientes (el límite del mosaico); en el lienzo, todos.
 - En Hoy también se minimizan el panel de mazos y cada tarjeta de examen (ids `mazos` y `ex:<ruta>` en `_hoy.json`).
+
+### 4 · Tooltip
+- Una sola capa (`src/ui/tooltip.tsx`, montada en `App`) escucha por delegación: cualquier `button`/`a[href]`/`[role=button]` con `aria-label` y sin texto visible, o con `data-tip`, muestra un tooltip de vidrio con **el mismo texto que lee VoiceOver** (ya traducido). Así no hubo que tocar cada botón ni añadir otro texto que traducir.
+- Puntero: 400 ms. Teclado: al instante si el foco es `:focus-visible`. Táctil: pulsación larga de 500 ms; el `click` que sigue se descarta (no se ejecuta la acción) y se evita el menú contextual. Moverse más de 10 px cancela. Los cuadritos de la bandeja no usan la pulsación larga para el tooltip porque ya abre su menú.
+- Se oculta con Esc, al desplazar, al tocar fuera, al cambiar de pantalla o al perder el foco; se coloca encima (o debajo si no cabe) y nunca sale de la pantalla. `aria-hidden` para que VoiceOver no lo lea dos veces. `--z-tooltip`.
+- Se quitaron todos los `title` nativos de la interfaz; donde aportaban información que no está en el `aria-label` (próximos bloques de un mazo, día de racha, problemas de una pregunta, fecha de un repaso, celda de hoja larga) pasaron a `data-tip`.
+
+### Límites encontrados (bloque A)
+- En este contenedor no hay WebKit de Playwright: las pruebas E2E corrieron en Chromium. La causa de los solapes (`backdrop-filter` crea bloque contenedor para `position: fixed`) es la misma en Safari; hay que confirmarlo en el iPad.
+- iOS no expone «hover»: en el iPad con dedo el tooltip solo sale con pulsación larga; con trackpad o ratón, al pasar el puntero.
+- `Intl.Locale#weekInfo` existe en Safari 17+; en versiones anteriores se usa el respaldo (en → domingo, resto → lunes).
+
+### Pendiente de validar en iPad real (bloque A)
+- Cambiar de idioma en Ajustes y ver Hoy, Estudiar, Calendario y Notas sin recargar; fechas y primer día de la semana en inglés.
+- Abrir la Papelera de Notas y las opciones de un mazo desde Hoy: centradas, con velo, Esc o tocar fuera las cierra.
+- Lienzo: añadir 6 paneles sin que se encimen; tocar uno lo trae al frente.
+- Minimizar todos / restaurar todos con un simulacro en marcha (el cuadrito descuenta); minimizar el estudio y volver.
+- Pulsación larga en los botones de la barra superior: aparece la ayuda y no se ejecuta la acción.

@@ -110,7 +110,7 @@ export function Calendar() {
     const high = layers.forecast && avg > 0 && x.load > 1.5 * avg;
     return (
       <button type="button" class={`day${d.slice(0, 7) !== anchor.slice(0, 7) && view === 'mes' ? ' out' : ''}${d === today ? ' today' : ''}${d === sel ? ' sel' : ''}`} data-day={d} onClick={() => setSel(d)} aria-label={tr('calendar.d_load_repasos_previstos', { d: d, load: x.load })}>
-        <span class="row"><span class="n">{Number(d.slice(8))}</span>{x.cards >= s.streakMin && <span title={tr('calendar.dia_de_racha')}>•</span>}<span class="grow" />{layers.forecast && x.load > 0 && <span class="num t2">{x.load}</span>}</span>
+        <span class="row"><span class="n">{Number(d.slice(8))}</span>{x.cards >= s.streakMin && <span data-tip={tr('calendar.dia_de_racha')}>•</span>}<span class="grow" />{layers.forecast && x.load > 0 && <span class="num t2">{x.load}</span>}</span>
         {layers.forecast && x.load > 0 && <span class={`load${high ? ' high' : ''}`} style={{ width: `${Math.min(100, (x.load / Math.max(1, avg * 2)) * 100)}%` }} aria-hidden="true" />}
         {x.exams.map((e) => <span class="ev solid">🎯 {e.name}</span>)}
         {x.blocks.map((o) => (

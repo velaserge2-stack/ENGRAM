@@ -20,6 +20,7 @@ import { type OpenedVault, reconnectFolder } from './vault/open';
 import { onUpdateReady } from './sw-register';
 import { usePomodoro } from './screens/pomodoro';
 import { walk } from './vault/util';
+import { TooltipLayer } from './ui/tooltip';
 
 const DAY = 86_400_000;
 
@@ -252,6 +253,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       {sheet === 'exam' && <ExamSheet path={sheetArg} onClose={() => setSheet(null)} />}
       {sheet === 'palette' && <Palette mode={sheetArg} onClose={() => setSheet(null)} />}
       {toastMsg && <div class="toast glass strong" role="status" aria-live="polite">{toastMsg}</div>}
+      <TooltipLayer />
     </Ctx.Provider>
   );
 }
@@ -278,29 +280,29 @@ function TopBar(props: { tab: string }) {
       <nav class="seg-nav glass" ref={nav} aria-label={t('app.secciones')}>
         {slider && <span class="slider" style={{ width: `${slider.w}px`, transform: `translateX(${slider.x - 4}px)`, left: '4px' }} aria-hidden="true" />}
         {TABS.map((t) => (
-          <a key={t.id} href={`#/${t.id}`} aria-current={props.tab === t.id ? 'page' : undefined} aria-label={t.label} title={t.label}>
+          <a key={t.id} href={`#/${t.id}`} aria-current={props.tab === t.id ? 'page' : undefined} aria-label={t.label} data-tip={props.tab === t.id ? undefined : t.label}>
             <t.icon size={18} aria-hidden="true" />
             <span class="lbl">{t.label}</span>
           </a>
         ))}
       </nav>
       <span class="spacer" />
-      <button type="button" class="pill glass" onClick={() => app.openSheet('add')} aria-label={t('app.anadir_tarjeta')} title={t('app.anadir_tarjeta')}>
+      <button type="button" class="pill glass" onClick={() => app.openSheet('add')} aria-label={t('app.anadir_tarjeta')}>
         <Plus size={18} />
       </button>
-      <button type="button" class="pill glass mini-pomo" onClick={() => (p.state.running ? p.pause() : p.start())} aria-label={p.state.running ? t('app.pausar_enfoque') : t('app.iniciar_enfoque')} title={t('today.pomodoro')}>
+      <button type="button" class="pill glass mini-pomo" onClick={() => (p.state.running ? p.pause() : p.start())} aria-label={p.state.running ? t('app.pausar_enfoque') : t('app.iniciar_enfoque')} data-tip={p.state.running ? t('app.pausar_enfoque') : t('app.iniciar_enfoque')}>
         {p.state.running ? <Pause size={16} /> : <Play size={16} />} {mm}
       </button>
-      <button type="button" class="pill glass" onClick={() => app.openSheet('palette')} aria-label={t('app.buscar_k')} title={t('app.buscar_k')}>
+      <button type="button" class="pill glass" onClick={() => app.openSheet('palette')} aria-label={t('app.buscar_k')}>
         <Search size={18} />
       </button>
-      <a class="pill glass" href="#/bandeja" aria-label={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })} title={t('app.bandeja')}>
+      <a class="pill glass" href="#/bandeja" aria-label={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })} data-tip={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })}>
         <Inbox size={18} /> <span class={`count${app.inboxCount ? '' : ' zero'}`}>{app.inboxCount}</span>
       </a>
-      <button type="button" class="pill glass" onClick={() => app.openSheet('backup')} aria-label={t('app.respaldo')} title={t('app.respaldo')}>
+      <button type="button" class="pill glass" onClick={() => app.openSheet('backup')} aria-label={t('app.respaldo')}>
         <Archive size={18} />
       </button>
-      <a class="pill glass" href="#/ajustes" aria-label={t('app.ajustes')} title={t('app.ajustes')} aria-current={props.tab === 'ajustes' ? 'page' : undefined}>
+      <a class="pill glass" href="#/ajustes" aria-label={t('app.ajustes')} aria-current={props.tab === 'ajustes' ? 'page' : undefined}>
         <Gear size={18} />
       </a>
     </header>

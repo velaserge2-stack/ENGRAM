@@ -21,7 +21,7 @@ function DeckEvents(p: { path: string }) {
   if (!data?.next.length) return null;
   const n = data.next[0]!;
   return (
-    <a class="btn" href="#/calendario" title={data.next.map((o) => `${o.b.title} · ${new Date(o.start).toLocaleString(locale())}`).join('\n')}>
+    <a class="btn" href="#/calendario" data-tip={data.next.map((o) => `${o.b.title} · ${new Date(o.start).toLocaleString(locale())}`).join('\n')}>
       <CalendarDays size={18} /> {tn('plural.events', data.next.length)} · {new Date(n.start).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })}
     </a>
   );

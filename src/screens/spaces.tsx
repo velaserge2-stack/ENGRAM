@@ -103,7 +103,7 @@ export function Spaces(props: { route: string[] }) {
   return (
     <div class="spaces">
       <nav class="rail glass" aria-label={tr('spaces.espacios')}>
-        {spaces?.map((s) => <button type="button" aria-current={sp?.id === s.id} aria-label={s.name} title={s.name} onClick={() => go('espacios', s.id)}>{s.emoji}</button>)}
+        {spaces?.map((s) => <button type="button" aria-current={sp?.id === s.id} aria-label={s.name} data-tip={s.name} onClick={() => go('espacios', s.id)}>{s.emoji}</button>)}
         <button type="button" aria-label={tr('spaces.nuevo_espacio')} onClick={() => setCreating(true)}><Plus size={20} /></button>
         {sp && innerWidth < 900 && <PanelTray sp={sp} save={save} vertical />}
       </nav>
@@ -282,7 +282,7 @@ function Dock(p: { sp: Space; save: (s: Space) => void }) {
       <a class="pill glass" href="#/addons"><Sparkles size={16} />{' '}{tr('design.extras')}</a>
       <div class="glass" role="toolbar" aria-label={tr('design.anadir_panel')}>
         <span class="note t2" style={{ padding: '0 10px' }}><Plus size={14} />{' '}{tr('design.anadir_panel')}</span>
-        {TYPES().map((x) => <button type="button" class="btn icon small ghost" aria-label={tr('spaces.anadir_panel_label', { label: x.label })} title={x.label} onClick={() => add(x.t)}>{x.icon}</button>)}
+        {TYPES().map((x) => <button type="button" class="btn icon small ghost" aria-label={tr('spaces.anadir_panel_label', { label: x.label })} onClick={() => add(x.t)}>{x.icon}</button>)}
       </div>
       <div class="glass" role="toolbar" aria-label={tr('tray.paneles_minimizados')}>
         <button type="button" class="btn icon small ghost" aria-label={tr('spaces.minimizar_todos')} disabled={!visible(p.sp).length} onClick={() => minimizeAll(p.sp, p.save)}><ChevronsDownUp size={18} /></button>
@@ -545,7 +545,7 @@ function SheetView(p: { path: string }) {
       {data.length > 50_000 && <div class="err">{tr('spaces.la_hoja_tiene_n_filas_se', { n: data.length })}</div>}
       <div style={{ height: `${rows.length * ROW_H}px`, position: 'relative' }}>
         <table class="sheet-table" style={{ position: 'absolute', top: `${first * ROW_H}px` }}>
-          <tbody>{rows.slice(first, last).map((r, i) => <tr style={{ height: `${ROW_H}px` }}><th>{first + i + 1}</th>{r.map((c) => <td title={c}>{c}</td>)}</tr>)}</tbody>
+          <tbody>{rows.slice(first, last).map((r, i) => <tr style={{ height: `${ROW_H}px` }}><th>{first + i + 1}</th>{r.map((c) => <td data-tip={c}>{c}</td>)}</tr>)}</tbody>
         </table>
       </div>
     </div>

@@ -164,9 +164,9 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
           <span class="t2 num">{tr('study.quedan_left', { left: left })}</span>
         </div>
         <div class="row">
-          <button type="button" class="btn icon" aria-label={tr('study.deshacer_z')} title={tr('study.deshacer_z')} disabled={!undo.length} onClick={doUndo}><Undo2 size={18} /></button>
-          <button type="button" class="btn icon" aria-label={tr('study.leer_en_voz_alta')} title={tr('study.leer_en_voz_alta')} onClick={() => speak(plainText(revealed ? `${entry.ref.note.front}. ${entry.ref.note.back}` : entry.ref.note.front), lang)}><Volume2 size={18} /></button>
-          <button type="button" class="btn icon" aria-label={tr('study.editar_tarjeta_e')} title={tr('study.editar_e')} onClick={() => setEdit(true)}><Pencil size={18} /></button>
+          <button type="button" class="btn icon" aria-label={tr('study.deshacer_z')} disabled={!undo.length} onClick={doUndo}><Undo2 size={18} /></button>
+          <button type="button" class="btn icon" aria-label={tr('study.leer_en_voz_alta')} onClick={() => speak(plainText(revealed ? `${entry.ref.note.front}. ${entry.ref.note.back}` : entry.ref.note.front), lang)}><Volume2 size={18} /></button>
+          <button type="button" class="btn icon" aria-label={tr('study.editar_tarjeta_e')} onClick={() => setEdit(true)}><Pencil size={18} /></button>
           <button type="button" class="btn" onClick={() => setWhy(true)}><CalendarClock size={18} />{' '}{tr('study.por_que_esta_fecha')}</button>
           <button type="button" class="btn icon" aria-label={tr('study.mas_acciones')} onClick={() => setMore(true)}><MoreHorizontal size={18} /></button>
         </div>
@@ -217,7 +217,7 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
             <div>
               <h3 style={{ fontSize: 'var(--t-body)', marginBottom: '6px' }}>{tr('study.ultimas_respuestas')}</h3>
               {ex.last.length ? (
-                <div class="row wrap">{ex.last.map((h) => <span class={`chip${h.rating === 3 ? ' solid' : ''}`} title={new Date(h.ts).toLocaleString(locale())}>{RATING_LABEL[h.rating]}</span>)}</div>
+                <div class="row wrap">{ex.last.map((h) => <span class={`chip${h.rating === 3 ? ' solid' : ''}`} data-tip={new Date(h.ts).toLocaleString(locale())}>{RATING_LABEL[h.rating]}</span>)}</div>
               ) : <p class="t2">{tr('study.aun_sin_respuestas')}</p>}
             </div>
             <p class="foot">{tr('study.fsrs_calcula_cuando_tu_probabilidad_de')}{' '}{Math.round(s.retention * 100)}{' '}{tr('study.repasar_antes_o_despues_no_rompe')}</p>

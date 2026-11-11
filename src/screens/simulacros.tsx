@@ -408,7 +408,7 @@ function ImportBank() {
                 <tbody>
                   {qs.map((q, i) => (onlyBad && !q.problems.length ? null : (
                     <tr class={q.problems.length ? 'warn' : ''}>
-                      <td class="num">{i + 1}{q.problems.length > 0 && <div class="chip" title={q.problems.join(', ')}>⚠ {q.problems[0]}</div>}</td>
+                      <td class="num">{i + 1}{q.problems.length > 0 && <div class="chip" data-tip={q.problems.join(', ')}>⚠ {q.problems[0]}</div>}</td>
                       <td style={{ minWidth: '220px' }}><textarea class="input wide" rows={2} value={q.text} onChange={(e) => upd(i, { text: (e.target as HTMLTextAreaElement).value })} aria-label={tr('simulacros.pregunta_p', { p: i + 1 })} /></td>
                       <td style={{ minWidth: '200px' }}>{q.options.map((o, k) => <div class="row"><b>{o.key}</b><input class="input grow" value={o.text} onChange={(e) => upd(i, { options: q.options.map((x, j) => (j === k ? { ...x, text: (e.target as HTMLInputElement).value } : x)) })} aria-label={tr('simulacros.opcion_key', { key: o.key })} /></div>)}
                         <button type="button" class="btn small" onClick={() => upd(i, { options: [...q.options, { key: 'ABCDEF'[q.options.length] ?? 'F', text: '' }] })}>{tr('simulacros.opcion')}</button></td>
