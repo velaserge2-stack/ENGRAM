@@ -782,6 +782,7 @@
  "notemove.nuevo_tema_en": "Nouveau thème dans « {m} »",
  "notemove.reemplazar": "Remplacer",
  "notemove.reemplazar_nota": "Renommer la garde comme « Note (2) ». Remplacer envoie l'existante à la corbeille des notes (restaurable).",
+ "notemove.renombrar": "Renommer",
  "notemove.seleccionar_notas": "Sélectionner des notes",
  "notemove.sin_destinos": "Pas encore de thèmes : créez-en un.",
  "notemove.ya_existe": "Il existe déjà une note de ce nom à la destination :",

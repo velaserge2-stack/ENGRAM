@@ -117,6 +117,8 @@ export function MoveNotesSheet(p: { items: NoteItems; all: string[]; current?: s
     setNaming(naming === 'materia' && forNotes ? 'tema' : null);
   };
   const shown = [...new Set([...list, ...(forNotes ? materias : [])])].sort((a, b) => a.localeCompare(b, 'es'));
+  // solo renombrar: sin destino elegido, se queda en su carpeta
+  const target = dest ?? (renamed ? parentOf(p.items.notes[0]!.slice(6)) : null);
   const valid = (f: string | null) => !!f && !here(f) && (!forNotes || depth(f) >= 2 || dests.includes(f));
   return (
     <>
@@ -149,7 +151,7 @@ export function MoveNotesSheet(p: { items: NoteItems; all: string[]; current?: s
           {forNotes && dest && !valid(dest) && !here(dest) && <p class="foot">{tr('notemove.elige_tema')}</p>}
           <div class="row wrap" style={{ justifyContent: 'flex-end' }}>
             <button type="button" class="btn" onClick={p.onClose}>{tr('settings.cancelar')}</button>
-            <button type="button" class="btn primary" disabled={busy || !valid(dest)} onClick={async () => { setBusy(true); await mover.go(renamed ? { ...p.items, title: clean(title) } : p.items, dest!); setBusy(false); }}><FolderInput size={16} />{' '}{tr('move.mover_aqui')}</button>
+            <button type="button" class="btn primary" disabled={busy || !valid(target)} onClick={async () => { setBusy(true); await mover.go(renamed ? { ...p.items, title: clean(title) } : p.items, target!); setBusy(false); }}><FolderInput size={16} />{' '}{dest === null && renamed ? tr('notemove.renombrar') : tr('move.mover_aqui')}</button>
           </div>
         </div>
       </Sheet>

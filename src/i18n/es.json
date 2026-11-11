@@ -782,6 +782,7 @@
  "notemove.nuevo_tema_en": "Nuevo tema en «{m}»",
  "notemove.reemplazar": "Reemplazar",
  "notemove.reemplazar_nota": "Renombrar la deja como «Nota (2)». Reemplazar manda la que ya estaba a la papelera de notas (se puede restaurar).",
+ "notemove.renombrar": "Renombrar",
  "notemove.seleccionar_notas": "Seleccionar notas",
  "notemove.sin_destinos": "Aún no hay temas: crea uno.",
  "notemove.ya_existe": "Ya hay una nota con ese nombre en el destino:",

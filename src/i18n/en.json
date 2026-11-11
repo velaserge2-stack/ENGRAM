@@ -782,6 +782,7 @@
  "notemove.nuevo_tema_en": "New topic in “{m}”",
  "notemove.reemplazar": "Replace",
  "notemove.reemplazar_nota": "Rename keeps it as “Note (2)”. Replace sends the existing one to the notes trash (it can be restored).",
+ "notemove.renombrar": "Rename",
  "notemove.seleccionar_notas": "Select notes",
  "notemove.sin_destinos": "No topics yet: create one.",
  "notemove.ya_existe": "There is already a note with that name at the destination:",
