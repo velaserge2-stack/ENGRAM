@@ -17,7 +17,8 @@
     "e2e:flows": "node e2e/flows.mjs",
     "e2e:mejoras": "node e2e/mejoras.mjs",
     "e2e:mejoras2": "node e2e/mejoras2.mjs",
-    "e2e:phone": "node e2e/phone.mjs"
+    "e2e:phone": "node e2e/phone.mjs",
+    "e2e:bloquec": "node e2e/bloquec.mjs"
   },
   "dependencies": {
     "docx": "^9.15.3",

@@ -155,6 +155,10 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
     <div class="settings">
       <PageTitle title={tr('app.ajustes')} />
 
+      <Group>
+        <Row k={tr('profile.perfil')} sub={tr('profile.ajustes_sub')} onClick={() => (location.hash = href('perfil'))}><span class="v">›</span></Row>
+      </Group>
+
       <Group title={tr('settings.idioma')} footer={tr('settings.idioma_nota')}>
         <div class="row-i">
           <Segmented label={tr('settings.idioma')} value={s.lang === 'xx' ? '' : s.lang} onChange={(v) => { setLang(v || deviceLang()); app.update({ lang: v, weekStartsMonday: firstDayOfWeek() === 1 }, true); }}

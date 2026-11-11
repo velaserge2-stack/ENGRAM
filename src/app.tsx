@@ -23,6 +23,7 @@ import { walk } from './vault/util';
 import { TooltipLayer } from './ui/tooltip';
 import { PhoneTabBar } from './ui/phonebar';
 import { usePhone } from './ui/kit';
+import { Avatar, useProfile } from './screens/profile';
 
 const DAY = 86_400_000;
 
@@ -276,6 +277,7 @@ function TopBar(props: { tab: string }) {
     return () => removeEventListener('resize', measure);
   }, [props.tab]);
   const p = app.pomo;
+  const profile = useProfile();
   const rem = p.state.running && p.state.endAt ? p.state.endAt - p.now : p.state.remaining;
   const mm = `${String(Math.floor(Math.ceil(rem / 1000) / 60)).padStart(2, '0')}:${String(Math.ceil(rem / 1000) % 60).padStart(2, '0')}`;
   return (
@@ -308,6 +310,9 @@ function TopBar(props: { tab: string }) {
       </button>
       <a class="pill glass ph-hide" href="#/ajustes" aria-label={t('app.ajustes')} aria-current={props.tab === 'ajustes' ? 'page' : undefined}>
         <Gear size={18} />
+      </a>
+      <a class="pill glass avatar-pill ph-hide" href="#/perfil" aria-label={t('profile.perfil')} aria-current={props.tab === 'perfil' ? 'page' : undefined}>
+        <Avatar profile={profile} size={32} />
       </a>
     </header>
   );

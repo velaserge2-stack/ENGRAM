@@ -14,6 +14,7 @@ const Calendar = lazy(() => import('./calendar').then((m) => ({ default: m.Calen
 const Notes = lazy(() => import('./notes').then((m) => ({ default: m.Notes })));
 const Spaces = lazy(() => import('./spaces').then((m) => ({ default: m.Spaces })));
 const Inbox = lazy(() => import('./inbox').then((m) => ({ default: m.Inbox })));
+const Profile = lazy(() => import('./profile').then((m) => ({ default: m.ProfileScreen })));
 const Design = lazy(() => import('./design').then((m) => ({ default: m.Design })));
 
 export function Screen(props: { route: string[] }) {
@@ -32,6 +33,7 @@ export function Screen(props: { route: string[] }) {
     case 'espacios': el = <Spaces route={rest} />; break;
     case 'bandeja': el = <Inbox />; break;
     case 'addons': el = <SettingsScreen focus="addons" />; break; // enlaces antiguos
+    case 'perfil': el = <Profile />; break;
     case 'design': el = <Design key={location.hash} />; break;
     default: el = <Today />;
   }

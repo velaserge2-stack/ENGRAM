@@ -12,6 +12,7 @@ import { DeckPanel } from './decks';
 import { AddExamButton, ExamCard } from './exams';
 import { Heatmap } from './heatmap';
 import { PomodoroPanel } from './pomodoro';
+import { useProfile } from './profile';
 
 export function byDeckFn(app: ReturnType<typeof useApp>) {
   return (day: string) => {
@@ -41,6 +42,7 @@ export function Today() {
   const st = streaks(new Map([...act].map(([k, v]) => [k, v.cards])), today, s.streakMin);
   const evening = new Date().getHours() >= 18;
   const tray = useHoyTray();
+  const profile = useProfile();
   const rem = fmt(remaining(app.pomo.state, app.pomo.now));
   const ITEMS: Record<string, TrayItem> = {
     pomodoro: { id: 'pomodoro', label: t('today.pomodoro'), icon: <Timer size={20} />, live: rem, liveLabel: t(app.pomo.state.running ? 'tray.restantes' : 'tray.restantes_pausa', { rem }) },
@@ -53,7 +55,7 @@ export function Today() {
   for (const e of data?.exams ?? []) ITEMS[`ex:${e.path}`] = { id: `ex:${e.path}`, label: e.name, icon: <GraduationCap size={20} /> };
   return (
     <>
-      <PageTitle title={t('today.hoy')} sub={new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', month: 'long', timeZone: s.timeZone }).format(now)}>
+      <PageTitle title={t('today.hoy')} sub={(profile.name.trim() ? `${t('today.hola_name', { name: profile.name.trim().split(/\s+/)[0] })} · ` : '') + new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', month: 'long', timeZone: s.timeZone }).format(now)}>
         <span class="title-chip glass row" data-tip={t('today.racha')}><Flame size={18} /> <b class="num">{st.current}</b> {tn('plural.daysword', st.current)}{st.todayCounts ? t('today.hoy_cuenta') : ''}</span>
         <a class="btn primary" href="#/estudiar"><BookOpen size={18} />{' '}{t('today.estudiar')}{pend ? ` · ${pend.total}` : ''}</a>
       </PageTitle>
