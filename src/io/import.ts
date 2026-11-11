@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * Importar (SPEC §5): .md sueltos, carpetas (webkitdirectory) y .zip de bóveda.
  * Siempre en dos pasos: plan con vista previa → aplicar con la decisión del usuario.
@@ -78,13 +79,13 @@ export async function gather(incoming: IncomingFile[], opts: GatherOptions = {})
   for (const f of incoming) {
     const data = await f.bytes();
     if (data.length > LIMITS.maxFileBytes) {
-      warnings.push(`${f.name}: demasiado grande, omitido`);
+      warnings.push(t('import.name_demasiado_grande_omitido', { name: f.name }));
       continue;
     }
     const ext = extname(f.name);
     if (ext === 'apkg' || ext === 'colpkg') {
       if (!opts.apkg) {
-        warnings.push(`${f.name}: importar .apkg no está disponible aquí`);
+        warnings.push(t('import.name_importar_apkg_no_esta_disponible', { name: f.name }));
         continue;
       }
       try {
@@ -108,7 +109,7 @@ export async function gather(incoming: IncomingFile[], opts: GatherOptions = {})
         const structured = z.manifest || z.files.some((x) => VAULT_ROOTS.some((r) => x.path.startsWith(r)));
         for (const x of z.files) files.push({ path: structured ? x.path : placeLoose(x.path, x.data), data: x.data });
       } catch {
-        warnings.push(`${f.name}: zip dañado o no compatible`);
+        warnings.push(t('import.name_zip_danado_o_no_compatible', { name: f.name }));
       }
       continue;
     }
@@ -118,7 +119,7 @@ export async function gather(incoming: IncomingFile[], opts: GatherOptions = {})
     try {
       files.push({ path: placeLoose(rel, data), data });
     } catch {
-      warnings.push(`${rel}: ruta no permitida, omitido`);
+      warnings.push(t('import.rel_ruta_no_permitida_omitido', { rel: rel }));
     }
   }
   return { files, warnings, fromVaultZip, log };
@@ -221,7 +222,7 @@ export function runApkgWorker(bytes: Uint8Array, history = true): Promise<ApkgRe
       if (e.data.ok) resolve(e.data.result!);
       else reject(new Error(e.data.error));
     };
-    w.onerror = (e) => (w.terminate(), reject(new Error(e.message || 'Error del Worker')));
+    w.onerror = (e) => (w.terminate(), reject(new Error(e.message || t('import.error_del_worker'))));
     w.postMessage({ bytes, history });
   });
 }

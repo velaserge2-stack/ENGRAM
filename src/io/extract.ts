@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n';
 /**
  * Extracción de texto "mejor esfuerzo" (SPEC §9c, §10b): DOCX con mammoth, PDF
  * con pdfjs-dist. Bibliotecas cargadas bajo demanda. Todo archivo es no confiable.
@@ -62,7 +63,7 @@ export async function docxToHtml(bytes: Uint8Array): Promise<{ html: string; ima
 export async function extractText(name: string, bytes: Uint8Array): Promise<{ text: string; warnings: string[] }> {
   const ext = extname(name);
   const warnings: string[] = [];
-  if (bytes.length > MAX_DOC_BYTES) return { text: '', warnings: ['Archivo demasiado grande'] };
+  if (bytes.length > MAX_DOC_BYTES) return { text: '', warnings: [tr('extract.archivo_demasiado_grande')] };
   if (ext === 'docx') {
     const mammoth = (await import('mammoth')).default;
     const r = await mammoth.extractRawText({ arrayBuffer: bytes.slice().buffer as ArrayBuffer });
@@ -71,8 +72,8 @@ export async function extractText(name: string, bytes: Uint8Array): Promise<{ te
   if (ext === 'pdf') {
     const t = await pdfText(bytes);
     const text = t.pages.map((p) => p.lines.map((l) => l.text).join('\n')).join('\n\n');
-    if (text.trim().length < 20) warnings.push('El PDF no tiene texto seleccionable (¿escaneado?). Sin OCR: pega el texto o usa el formato nativo.');
-    else warnings.push('PDF: las columnas complejas pueden mezclar líneas. Revisa la vista previa.');
+    if (text.trim().length < 20) warnings.push(tr('extract.el_pdf_no_tiene_texto_seleccionable'));
+    else warnings.push(tr('extract.pdf_las_columnas_complejas_pueden_mezclar'));
     return { text, warnings };
   }
   return { text: new TextDecoder().decode(bytes), warnings };

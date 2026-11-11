@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /** Operaciones sobre mazos (escritura segura vía SafeVault). */
 import { ensureIds, newId, parseDeck } from '../cards/parse';
 import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
@@ -8,14 +9,14 @@ import type { LogEntry, SrsParams } from '../srs/engine';
 import { newState } from '../srs/engine';
 
 export function safeName(s: string): string {
-  return s.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Sin título';
+  return s.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || t('inbox.sin_titulo');
 }
 
 export async function createDeck(vault: VaultAdapter, name: string, folder = ''): Promise<string> {
   const base = `decks/${folder ? folder + '/' : ''}${safeName(name)}`;
   let path = `${base}.md`;
   for (let i = 2; await vault.exists(path); i++) path = `${base} (${i}).md`;
-  await vault.write(path, stringifyFrontmatter({ deck: name.trim() || 'Nuevo mazo', tags: [] }, '\n'));
+  await vault.write(path, stringifyFrontmatter({ deck: name.trim() || t('ops.nuevo_mazo'), tags: [] }, '\n'));
   return path;
 }
 

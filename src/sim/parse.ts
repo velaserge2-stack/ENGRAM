@@ -1,3 +1,4 @@
+import { t as tr } from '../i18n';
 /**
  * Analizador de simulacros (SPEC §9c). Formato nativo:
  *   Caso:: …            (aplica a las preguntas siguientes hasta el próximo caso)
@@ -51,11 +52,11 @@ function letters(s: string): string[] {
 
 export function finalize(q: Omit<Question, 'id' | 'problems'> & { problems?: string[] }): Question {
   const problems: string[] = [];
-  if (!q.text.trim()) problems.push('Pregunta vacía');
-  if (q.options.length === 0) problems.push('Sin opciones');
-  else if (q.options.length === 1) problems.push('Una sola opción');
-  if (!q.answer.length) problems.push('Sin respuesta marcada');
-  else if (q.answer.some((a) => !q.options.some((o) => o.key === a))) problems.push('La respuesta no coincide con ninguna opción');
+  if (!q.text.trim()) problems.push(tr('parse.pregunta_vacia'));
+  if (q.options.length === 0) problems.push(tr('parse.sin_opciones'));
+  else if (q.options.length === 1) problems.push(tr('parse.una_sola_opcion'));
+  if (!q.answer.length) problems.push(tr('parse.sin_respuesta_marcada'));
+  else if (q.answer.some((a) => !q.options.some((o) => o.key === a))) problems.push(tr('parse.la_respuesta_no_coincide_con_ninguna'));
   return { ...q, problems, id: qid(q.case + q.text, q.options) };
 }
 
@@ -170,9 +171,9 @@ export function parseBankJSON(text: string): Question[] {
 export function summarize(qs: Question[]): string {
   const noAns = qs.filter((q) => q.problems.includes('Sin respuesta marcada')).length;
   const one = qs.filter((q) => q.problems.includes('Una sola opción') || q.problems.includes('Sin opciones')).length;
-  const parts = [`${qs.length} preguntas detectadas`];
-  if (noAns) parts.push(`${noAns} sin respuesta marcada`);
-  if (one) parts.push(`${one} con una sola opción o ninguna`);
+  const parts = [tr('parse.n_preguntas_detectadas', { n: qs.length })];
+  if (noAns) parts.push(tr('parse.noans_sin_respuesta_marcada', { noAns: noAns }));
+  if (one) parts.push(tr('parse.one_con_una_sola_opcion_o', { one: one }));
   return parts.join('; ');
 }
 
@@ -224,7 +225,7 @@ export function score(qs: Question[], answers: Record<string, string[]>, penalty
 export function byTopic(qs: Question[], answers: Record<string, string[]>): { topic: string; n: number; ok: number }[] {
   const m = new Map<string, { n: number; ok: number }>();
   for (const q of qs) {
-    const t = q.topic || 'Sin tema';
+    const t = q.topic || tr('simulacros.sin_tema');
     const x = m.get(t) ?? { n: 0, ok: 0 };
     x.n++;
     if (isCorrect(q, answers[q.id])) x.ok++;

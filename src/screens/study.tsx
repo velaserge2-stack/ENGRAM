@@ -1,3 +1,4 @@
+import { locale, t as tr, tn } from '../i18n';
 import { CalendarClock, Check, Eye, HelpCircle, MoreHorizontal, Pencil, RotateCcw, Undo2, Volume2, X, Zap } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { noteIdOf, replaceBlock } from '../cards/parse';
@@ -13,6 +14,7 @@ import { Empty, PageTitle, Sheet } from '../ui/kit';
 import { readTextOr } from '../vault/util';
 import { CardView, isInteractive } from './cardview';
 import { deckEmoji } from './decks';
+import { modalOpen } from '../ui/overlay';
 
 const ICON: Record<Rating, preact.JSX.Element> = { 1: <RotateCcw size={18} />, 2: <HelpCircle size={18} />, 3: <Check size={18} />, 4: <Zap size={18} /> };
 
@@ -84,7 +86,7 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
     const e = applyReview(f, st, cur, r, Date.now(), ms);
     col.states.set(cur, st);
     await appendLog(app.vault, col, [e], params);
-    if (r === 1 && isLeech(st, s.leechThreshold) && st.card.lapses === s.leechThreshold) app.toast('Sanguijuela: esta tarjeta se olvida mucho. Divídela, añade imagen o mnemotecnia, o suspéndela.');
+    if (r === 1 && isLeech(st, s.leechThreshold) && st.card.lapses === s.leechThreshold) app.toast(tr('study.sanguijuela_esta_tarjeta_se_olvida_mucho'));
     done.add(cur);
     seen.add(noteIdOf(cur));
     // las de aprendizaje vuelven a la cola de la sesión
@@ -108,12 +110,12 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
     setCur(last.id);
     setRevealed(false);
     setCount((c) => c + 1);
-    app.toast('Repaso deshecho');
+    app.toast(tr('study.repaso_deshecho'));
   };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (props.embedded) return;
+      if (props.embedded || modalOpen()) return;
       const t = e.target as HTMLElement;
       if (t.closest('input, textarea, select, [contenteditable]')) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') return e.preventDefault(), void doUndo();
@@ -125,22 +127,22 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
     return () => removeEventListener('keydown', onKey);
   });
 
-  if (!col || !queue) return <p class="t2">Cargando…</p>;
-  const deckName = props.filter ? col.decks.find((d) => d.path === props.filter)?.full ?? props.filter.replace(/^decks\//, '').replace(/\/$/, '') : 'Todos los mazos';
+  if (!col || !queue) return <p class="t2">{tr('deck.cargando')}</p>;
+  const deckName = props.filter ? col.decks.find((d) => d.path === props.filter)?.full ?? props.filter.replace(/^decks\//, '').replace(/\/$/, '') : tr('study.todos_los_mazos');
   const left = queue.learning.filter((c) => !done.has(c)).length + queue.review.filter((c) => !done.has(c)).length + queue.fresh.filter((c) => !done.has(c)).length;
 
   if (!entry || !st || !prev) {
     return (
       <div class="study">
-        <PageTitle title="Estudiar" sub={deckName} />
-        <Empty icon={<Check size={44} />} title={count ? '¡Listo por ahora!' : 'Nada que repasar'} action={
+        <PageTitle title={tr('today.estudiar')} sub={deckName} />
+        <Empty icon={<Check size={44} />} title={count ? tr('study.listo_por_ahora') : tr('study.nada_que_repasar')} action={
           <div class="row wrap" style={{ justifyContent: 'center' }}>
-            <button type="button" class="btn" onClick={() => setExtraNew((n) => n + 10)}>Estudiar 10 nuevas más</button>
-            <a class="btn primary" href="#/hoy">Volver a Hoy</a>
+            <button type="button" class="btn" onClick={() => setExtraNew((n) => n + 10)}>{tr('study.estudiar_10_nuevas_mas')}</button>
+            <a class="btn primary" href="#/hoy">{tr('study.volver_a_hoy')}</a>
           </div>
         }>
-          {count ? `Repasaste ${count} ${count === 1 ? 'tarjeta' : 'tarjetas'} en esta sesión.` : 'No hay tarjetas vencidas ni nuevas disponibles con tus límites diarios.'}
-          {queue.nextLearningAt ? ` La siguiente de aprendizaje vuelve a las ${new Date(queue.nextLearningAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}.` : ''}
+          {count ? tr('study.repasaste_count_p_en_esta_sesion', { count: count, p: tn('plural.cardsword', count) }) : tr('study.no_hay_tarjetas_vencidas_ni_nuevas')}
+          {queue.nextLearningAt ? tr('study.la_siguiente_de_aprendizaje_vuelve_a', { p: new Date(queue.nextLearningAt).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) }) : ''}
           {now ? '' : ''}
         </Empty>
       </div>
@@ -159,76 +161,76 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
         <div class="row" style={{ padding: '0 8px' }}>
           <span aria-hidden="true">{deckEmoji(app, entry.deck)}</span>
           <b>{entry.deck.full}</b>
-          <span class="t2 num">· quedan {left}</span>
+          <span class="t2 num">{tr('study.quedan_left', { left: left })}</span>
         </div>
         <div class="row">
-          <button type="button" class="btn icon" aria-label="Deshacer (⌘Z)" title="Deshacer (⌘Z)" disabled={!undo.length} onClick={doUndo}><Undo2 size={18} /></button>
-          <button type="button" class="btn icon" aria-label="Leer en voz alta" title="Leer en voz alta" onClick={() => speak(plainText(revealed ? `${entry.ref.note.front}. ${entry.ref.note.back}` : entry.ref.note.front), lang)}><Volume2 size={18} /></button>
-          <button type="button" class="btn icon" aria-label="Editar tarjeta (E)" title="Editar (E)" onClick={() => setEdit(true)}><Pencil size={18} /></button>
-          <button type="button" class="btn" onClick={() => setWhy(true)}><CalendarClock size={18} /> ¿Por qué esta fecha?</button>
-          <button type="button" class="btn icon" aria-label="Más acciones" onClick={() => setMore(true)}><MoreHorizontal size={18} /></button>
+          <button type="button" class="btn icon" aria-label={tr('study.deshacer_z')} disabled={!undo.length} onClick={doUndo}><Undo2 size={18} /></button>
+          <button type="button" class="btn icon" aria-label={tr('study.leer_en_voz_alta')} onClick={() => speak(plainText(revealed ? `${entry.ref.note.front}. ${entry.ref.note.back}` : entry.ref.note.front), lang)}><Volume2 size={18} /></button>
+          <button type="button" class="btn icon" aria-label={tr('study.editar_tarjeta_e')} onClick={() => setEdit(true)}><Pencil size={18} /></button>
+          <button type="button" class="btn" onClick={() => setWhy(true)}><CalendarClock size={18} />{' '}{tr('study.por_que_esta_fecha')}</button>
+          <button type="button" class="btn icon" aria-label={tr('study.mas_acciones')} onClick={() => setMore(true)}><MoreHorizontal size={18} /></button>
         </div>
       </div>
       {queue.recovery.active && (
-        <div class="banner glass">⚠ <span class="k"><b>Modo recuperación:</b> tienes {queue.dueTotal} vencidas. Hoy repasas las {queue.recovery.cap} más olvidadas primero. Te pondrás al día en {queue.recovery.daysToCatchUp} días.</span></div>
+        <div class="banner glass">⚠ <span class="k"><b>{tr('study.modo_recuperacion')}</b>{' '}{tr('study.tienes_duetotal_vencidas_hoy_repasas_las', { dueTotal: queue.dueTotal, cap: queue.recovery.cap, daysToCatchUp: queue.recovery.daysToCatchUp })}</span></div>
       )}
       {leech && (
-        <div class="banner glass">⚠ <span class="k"><b>Sanguijuela</b> ({st.card.lapses} lapsos). Sugerencias: divídela en tarjetas más pequeñas, añade una imagen o una mnemotecnia, o suspéndela.</span>
-          <button type="button" class="btn small" onClick={async () => { await stateOp(app.vault, col, [entry.ref.cid], 'suspend', params); done.add(entry.ref.cid); setCur(null); }}>Suspender</button>
+        <div class="banner glass">⚠ <span class="k"><b>{tr('study.sanguijuela')}</b>{' '}{tr('study.lapses_lapsos_sugerencias_dividela_en_tarj', { lapses: st.card.lapses })}</span>
+          <button type="button" class="btn small" onClick={async () => { await stateOp(app.vault, col, [entry.ref.cid], 'suspend', params); done.add(entry.ref.cid); setCur(null); }}>{tr('decks.suspender')}</button>
         </div>
       )}
       <article class="study-card glass strong" aria-live="polite" key={entry.ref.cid}>
-        {entry.ref.note.origin === 'ia' && <span class="chip" style={{ alignSelf: 'flex-start' }}>origen: IA</span>}
+        {entry.ref.note.origin === 'ia' && <span class="chip" style={{ alignSelf: 'flex-start' }}>{tr('notes.origen_ia')}</span>}
         <CardView card={entry.ref} revealed={revealed} onReveal={() => setRevealed(true)} onSuggest={setSuggest} startedAt={started} seed={seed.current + entry.ref.cid} />
-        {entry.ref.note.src && revealed && <a class="foot" href={entry.ref.note.src.includes('.pdf') ? `#/espacios/abrir/${encodeURIComponent(entry.ref.note.src)}` : `#/notas/${encodeURIComponent(entry.ref.note.src.split('#')[0]!)}`}>Ver origen: {entry.ref.note.src}</a>}
+        {entry.ref.note.src && revealed && <a class="foot" href={entry.ref.note.src.includes('.pdf') ? `#/espacios/abrir/${encodeURIComponent(entry.ref.note.src)}` : `#/notas/${encodeURIComponent(entry.ref.note.src.split('#')[0]!)}`}>{tr('study.ver_origen_src', { src: entry.ref.note.src })}</a>}
       </article>
-      <div class="grades glass" role="group" aria-label="Calificación">
+      <div class="grades glass" role="group" aria-label={tr('design.calificacion')}>
         {!revealed ? (
-          isInteractive(entry.ref) ? <p class="t2 center" style={{ gridColumn: '1 / -1', padding: '14px' }}>Responde en la tarjeta para calificar.</p> : (
+          isInteractive(entry.ref) ? <p class="t2 center" style={{ gridColumn: '1 / -1', padding: '14px' }}>{tr('study.responde_en_la_tarjeta_para_calificar')}</p> : (
             <button type="button" class="grade inv" style={{ gridColumn: '1 / -1' }} onClick={() => setRevealed(true)}>
-              <Eye size={18} /> Mostrar respuesta <span class="iv">Espacio · ⌘↩</span>
+              <Eye size={18} />{' '}{tr('study.mostrar_respuesta')}{' '}<span class="iv">{tr('study.espacio')}</span>
             </button>
           )
         ) : (
           ([1, 2, 3, 4] as Rating[]).map((r) => (
-            <button type="button" key={r} class={`grade${r === 3 ? ' inv' : ''}${sug === r ? ' suggested' : ''}`} onClick={() => answer(r)} aria-label={`${RATING_LABEL[r]}, vuelve en ${formatInterval(Date.now(), prev[r].due.getTime())}`} disabled={busy}>
+            <button type="button" key={r} class={`grade${r === 3 ? ' inv' : ''}${sug === r ? ' suggested' : ''}`} onClick={() => answer(r)} aria-label={tr('study.p_vuelve_en_p2', { p: RATING_LABEL[r], p2: formatInterval(Date.now(), prev[r].due.getTime()) })} disabled={busy}>
               {ICON[r]} {RATING_LABEL[r]}
               <span class="iv">{formatInterval(Date.now(), prev[r].due.getTime())} · {r}</span>
             </button>
           ))
         )}
       </div>
-      {sug && revealed && <p class="foot center">Sugerencia resaltada ({RATING_LABEL[sug]}); la decisión es tuya.</p>}
+      {sug && revealed && <p class="foot center">{tr('study.sugerencia_resaltada_p_la_decision_es', { p: RATING_LABEL[sug] })}</p>}
 
       {why && (
-        <Sheet title="¿Por qué esta fecha?" onClose={() => setWhy(false)}>
+        <Sheet title={tr('study.por_que_esta_fecha')} onClose={() => setWhy(false)}>
           <div class="stack">
             <p style={{ fontSize: 'var(--t-3)' }}>{ex.phrase}</p>
             <div>
-              <div class="kv"><span class="k">Dificultad (D)</span><span class="v">{ex.D.toFixed(2)} / 10</span></div>
-              <div class="kv"><span class="k">Estabilidad (S)</span><span class="v">{ex.S.toFixed(1)} días</span></div>
-              <div class="kv"><span class="k">Recuperabilidad actual (R)</span><span class="v">{ex.state === 0 ? '—' : `${Math.round(ex.R * 100)} %`}</span></div>
-              <div class="kv"><span class="k">Lapsos</span><span class="v">{ex.lapses}</span></div>
-              <div class="kv"><span class="k">Repasos</span><span class="v">{ex.reps}</span></div>
-              <div class="kv"><span class="k">Próximo vencimiento</span><span class="v">{new Date(ex.due).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}</span></div>
+              <div class="kv"><span class="k">{tr('study.dificultad_d')}</span><span class="v">{ex.D.toFixed(2)} / 10</span></div>
+              <div class="kv"><span class="k">{tr('study.estabilidad_s')}</span><span class="v">{ex.S.toFixed(1)}{' '}{tr('today.dias')}</span></div>
+              <div class="kv"><span class="k">{tr('study.recuperabilidad_actual_r')}</span><span class="v">{ex.state === 0 ? '—' : `${Math.round(ex.R * 100)} %`}</span></div>
+              <div class="kv"><span class="k">{tr('explorar.lapsos')}</span><span class="v">{ex.lapses}</span></div>
+              <div class="kv"><span class="k">{tr('study.repasos')}</span><span class="v">{ex.reps}</span></div>
+              <div class="kv"><span class="k">{tr('study.proximo_vencimiento')}</span><span class="v">{new Date(ex.due).toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short' })}</span></div>
             </div>
             <div>
-              <h3 style={{ fontSize: 'var(--t-body)', marginBottom: '6px' }}>Últimas respuestas</h3>
+              <h3 style={{ fontSize: 'var(--t-body)', marginBottom: '6px' }}>{tr('study.ultimas_respuestas')}</h3>
               {ex.last.length ? (
-                <div class="row wrap">{ex.last.map((h) => <span class={`chip${h.rating === 3 ? ' solid' : ''}`} title={new Date(h.ts).toLocaleString('es-MX')}>{RATING_LABEL[h.rating]}</span>)}</div>
-              ) : <p class="t2">Aún sin respuestas.</p>}
+                <div class="row wrap">{ex.last.map((h) => <span class={`chip${h.rating === 3 ? ' solid' : ''}`} data-tip={new Date(h.ts).toLocaleString(locale())}>{RATING_LABEL[h.rating]}</span>)}</div>
+              ) : <p class="t2">{tr('study.aun_sin_respuestas')}</p>}
             </div>
-            <p class="foot">FSRS calcula cuándo tu probabilidad de recordarla baja a {Math.round(s.retention * 100)} %. Repasar antes o después no rompe nada: se usa la R real del momento.</p>
+            <p class="foot">{tr('study.fsrs_calcula_cuando_tu_probabilidad_de')}{' '}{Math.round(s.retention * 100)}{' '}{tr('study.repasar_antes_o_despues_no_rompe')}</p>
           </div>
         </Sheet>
       )}
       {edit && <EditNote deckPath={entry.deck.path} noteId={entry.ref.note.id} raw={entry.ref.note.raw} onClose={() => setEdit(false)} />}
       {more && (
-        <Sheet title="Acciones" onClose={() => setMore(false)}>
+        <Sheet title={tr('study.acciones')} onClose={() => setMore(false)}>
           <div class="stack">
-            <button type="button" class="btn" onClick={async () => { await stateOp(app.vault, col, [entry.ref.cid], 'bury', params, dayKey(Date.now(), s.timeZone, s.dayStartHour)); done.add(entry.ref.cid); setMore(false); setCur(null); app.toast('Enterrada hasta mañana'); }}>Enterrar hasta mañana</button>
-            <button type="button" class="btn" onClick={async () => { await stateOp(app.vault, col, [entry.ref.cid], 'suspend', params); done.add(entry.ref.cid); setMore(false); setCur(null); app.toast('Tarjeta suspendida'); }}>Suspender</button>
-            <button type="button" class="btn danger" onClick={async () => { if (!confirm('¿Olvidar esta tarjeta? Vuelve a ser nueva; el historial se conserva.')) return; await stateOp(app.vault, col, [entry.ref.cid], 'forget', params); setMore(false); setCur(null); }}><X size={16} /> Olvidar (reiniciar)</button>
+            <button type="button" class="btn" onClick={async () => { await stateOp(app.vault, col, [entry.ref.cid], 'bury', params, dayKey(Date.now(), s.timeZone, s.dayStartHour)); done.add(entry.ref.cid); setMore(false); setCur(null); app.toast(tr('study.enterrada')); }}>{tr('study.enterrar_hasta_manana')}</button>
+            <button type="button" class="btn" onClick={async () => { await stateOp(app.vault, col, [entry.ref.cid], 'suspend', params); done.add(entry.ref.cid); setMore(false); setCur(null); app.toast(tr('study.tarjeta_suspendida')); }}>{tr('decks.suspender')}</button>
+            <button type="button" class="btn danger" onClick={async () => { if (!confirm(tr('study.confirm_olvidar'))) return; await stateOp(app.vault, col, [entry.ref.cid], 'forget', params); setMore(false); setCur(null); }}><X size={16} />{' '}{tr('study.olvidar_reiniciar')}</button>
           </div>
         </Sheet>
       )}
@@ -241,18 +243,18 @@ export function EditNote(props: { deckPath: string; noteId: string; raw: string;
   const app = useApp();
   const [text, setText] = useState(props.raw.replace(/\s\^[A-Za-z0-9_-]+\s*$/, ''));
   return (
-    <Sheet title="Editar tarjeta" onClose={props.onClose}>
+    <Sheet title={tr('notes.editar_tarjeta')} onClose={props.onClose}>
       <form class="stack" onSubmit={async (e) => {
         e.preventDefault();
         const full = await readTextOr(app.vault, props.deckPath, '');
         await app.vault.write(props.deckPath, replaceBlock(full, props.noteId, text.replace(/\n\s*\n/g, '\n')));
         app.changed();
         props.onClose();
-        app.toast('Tarjeta guardada; conserva su historial');
+        app.toast(tr('study.tarjeta_guardada'));
       }}>
-        <textarea class="input code" style={{ minHeight: '30dvh' }} value={text} onInput={(e) => setText((e.target as HTMLTextAreaElement).value)} aria-label="Texto de la tarjeta" />
-        <p class="foot">El ID ^{props.noteId} se conserva, así la tarjeta mantiene su programación.</p>
-        <button class="btn primary" type="submit">Guardar</button>
+        <textarea class="input code" style={{ minHeight: '30dvh' }} value={text} onInput={(e) => setText((e.target as HTMLTextAreaElement).value)} aria-label={tr('study.texto_de_la_tarjeta')} />
+        <p class="foot">{tr('study.el_id_noteid_se_conserva_asi', { noteId: props.noteId })}</p>
+        <button class="btn primary" type="submit">{tr('calendar.guardar')}</button>
       </form>
     </Sheet>
   );

@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * Fondos personalizables (Cristal §5) y guardián de legibilidad (§6).
  * Los fondos integrados son originales y se dibujan en código (degradados de
@@ -165,7 +166,7 @@ export async function importBackground(vault: VaultAdapter, file: File): Promise
       const ctx = c.getContext('2d')!;
       if (cover) drawCover(ctx, img, max, max);
       else ctx.drawImage(img, 0, 0, c.width, c.height);
-      const blob = await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('No se pudo codificar'))), 'image/jpeg', 0.86));
+      const blob = await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error(t('background.no_se_pudo_codificar')))), 'image/jpeg', 0.86));
       return new Uint8Array(await blob.arrayBuffer());
     };
     const id = Date.now().toString(36);
@@ -283,7 +284,7 @@ export function guard(sample: ImageData, rootMode: 'dark' | 'light', k: number, 
     if (!cells.length) continue;
     const strong = el.classList.contains('strong');
     let mode = rootMode;
-    let a = strong ? 0.82 : glassAlpha(mode, k);
+    let a = strong ? (el.classList.contains('sheet') ? 0.88 : 0.82) : glassAlpha(mode, k);
     let c = panelContrast(cells, mode, a);
     el.style.removeProperty('--glass');
     delete el.dataset.glass;

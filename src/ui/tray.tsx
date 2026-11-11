@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * Paneles minimizables como cuadritos (Mejora 1 · §4). Bandeja de paneles con
  * cuadritos de vidrio de 48 px: tocar restaura; pulsación larga → Restaurar · Cerrar;
@@ -44,7 +45,7 @@ export function growIn(el: Element | null) {
 
 export function MinButton(p: { label: string; onClick: (e: MouseEvent) => void }) {
   return (
-    <button type="button" class="btn icon small ghost min-btn" aria-label={`Minimizar ${p.label}`} title="Minimizar" onClick={p.onClick}>
+    <button type="button" class="btn icon small ghost min-btn" aria-label={t('tray.minimizar_label', { label: p.label })} onClick={p.onClick}>
       <Minus size={18} />
     </button>
   );
@@ -62,8 +63,8 @@ export function Tray(p: { items: TrayItem[]; onRestore: (id: string) => void; on
     <button
       type="button"
       class="tray-sq glass"
-      aria-label={`${it.label}, minimizado${it.liveLabel ? `, ${it.liveLabel}` : ''}`}
-      title={`${it.label} · mantén pulsado para más opciones`}
+      aria-label={t('tray.label_minimizadop', { label: it.label, p: it.liveLabel ? `, ${it.liveLabel}` : '' })}
+      data-tip={t('tray.label_minimizadop', { label: it.label, p: it.liveLabel ? `, ${it.liveLabel}` : '' })}
       onPointerDown={() => (press.current = { fired: false, t: setTimeout(() => { press.current!.fired = true; setMenu(it); }, 500) })}
       onPointerUp={() => press.current && clearTimeout(press.current.t)}
       onPointerLeave={() => press.current && clearTimeout(press.current.t)}
@@ -75,25 +76,25 @@ export function Tray(p: { items: TrayItem[]; onRestore: (id: string) => void; on
     </button>
   );
   return (
-    <div class={`tray${p.vertical ? ' vertical' : ''}${p.floating ? ' floating' : ''}`} data-tray role="toolbar" aria-label="Paneles minimizados">
+    <div class={`tray${p.vertical ? ' vertical' : ''}${p.floating ? ' floating' : ''}`} data-tray role="toolbar" aria-label={t('tray.paneles_minimizados')}>
       {shown.map(square)}
-      {rest.length > 0 && <button type="button" class="tray-sq glass" aria-label={`${rest.length} paneles minimizados más`} onClick={() => setMore(true)}><b>＋{rest.length}</b></button>}
+      {rest.length > 0 && <button type="button" class="tray-sq glass" aria-label={t('tray.n_paneles_minimizados_mas', { n: rest.length })} onClick={() => setMore(true)}><b>＋{rest.length}</b></button>}
       {menu && (
         <Sheet title={menu.label} onClose={() => setMenu(null)}>
           <div class="stack">
-            <button type="button" class="btn primary" onClick={() => (p.onRestore(menu.id), setMenu(null))}>Restaurar</button>
-            <button type="button" class="btn" onClick={() => (p.onClose(menu.id), setMenu(null))}>Cerrar</button>
+            <button type="button" class="btn primary" onClick={() => (p.onRestore(menu.id), setMenu(null))}>{t('notes.restaurar')}</button>
+            <button type="button" class="btn" onClick={() => (p.onClose(menu.id), setMenu(null))}>{t('design.cerrar')}</button>
           </div>
         </Sheet>
       )}
       {more && (
-        <Sheet title="Paneles minimizados" onClose={() => setMore(false)}>
+        <Sheet title={t('tray.paneles_minimizados')} onClose={() => setMore(false)}>
           <div class="stack-s">
             {rest.map((it) => (
               <div class="row-i">
                 <span class="k row">{it.icon} {it.label}{it.live ? <span class="num t2"> · {it.live}</span> : null}</span>
-                <button type="button" class="btn small" onClick={() => (p.onRestore(it.id), setMore(false))}>Restaurar</button>
-                <button type="button" class="btn small" onClick={() => (p.onClose(it.id), setMore(false))}>Cerrar</button>
+                <button type="button" class="btn small" onClick={() => (p.onRestore(it.id), setMore(false))}>{t('notes.restaurar')}</button>
+                <button type="button" class="btn small" onClick={() => (p.onClose(it.id), setMore(false))}>{t('design.cerrar')}</button>
               </div>
             ))}
           </div>

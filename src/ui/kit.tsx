@@ -1,5 +1,7 @@
+import { t } from '../i18n';
 import type { ComponentChildren, JSX } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
+import { Portal, useLayer } from './overlay';
 import { X } from 'lucide-preact';
 
 export function Switch(props: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
@@ -45,35 +47,28 @@ export function Group(props: { title?: string; footer?: ComponentChildren; child
   );
 }
 
-/** Hoja modal con "grabber". Esc o tocar fuera la cierra. */
+/** Hoja modal con "grabber": portal sobre <body>, velo oscuro, foco atrapado; Esc o tocar fuera la cierra. */
 export function Sheet(props: { title: string; onClose: () => void; children: ComponentChildren; actions?: ComponentChildren; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
-    ref.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && props.onClose();
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      prev?.focus?.();
-    };
-  }, []);
+  useLayer(props.onClose, { modal: true, el: () => ref.current });
   return (
-    <div class="scrim" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
-      <div class={`sheet glass strong${props.wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={props.title} tabIndex={-1} ref={ref}>
-        <div class="grabber" aria-hidden="true" />
-        <div class="sheet-h">
-          <h2>{props.title}</h2>
-          <div class="row">
-            {props.actions}
-            <button type="button" class="btn icon small" aria-label="Cerrar" onClick={props.onClose}>
-              <X size={18} />
-            </button>
+    <Portal>
+      <div class="scrim" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
+        <div class={`sheet glass strong${props.wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={props.title} tabIndex={-1} ref={ref}>
+          <div class="grabber" aria-hidden="true" />
+          <div class="sheet-h">
+            <h2>{props.title}</h2>
+            <div class="row">
+              {props.actions}
+              <button type="button" class="btn icon small" aria-label={t('design.cerrar')} onClick={props.onClose}>
+                <X size={18} />
+              </button>
+            </div>
           </div>
+          <div class="sheet-b">{props.children}</div>
         </div>
-        <div class="sheet-b">{props.children}</div>
       </div>
-    </div>
+    </Portal>
   );
 }
 

@@ -1,4 +1,5 @@
-import { BarChart3, BookOpen, CalendarRange, CheckCheck, Flame, ListTodo, Timer } from 'lucide-preact';
+import { locale, t, tn } from '../i18n';
+import { BarChart3, BookOpen, CalendarRange, CheckCheck, Flame, GraduationCap, Layers, ListTodo, Timer } from 'lucide-preact';
 import { Minimizable, Tray, type TrayItem, useHoyTray } from '../ui/tray';
 import { fmt, remaining } from '../lib/pomodoro';
 import { useExtra } from '../data/extra';
@@ -18,7 +19,7 @@ export function byDeckFn(app: ReturnType<typeof useApp>) {
     if (!col) return [];
     const m = new Map<string, number>();
     for (const e of col.log) if (e.rating && dayKey(e.ts, app.settings.timeZone, app.settings.dayStartHour) === day) {
-      const d = col.byCid.get(e.id)?.deck.full ?? '(archivada)';
+      const d = col.byCid.get(e.id)?.deck.full ?? t('today.archivada');
       m.set(d, (m.get(d) ?? 0) + 1);
     }
     return [...m].sort((a, b) => b[1] - a[1]);
@@ -42,61 +43,63 @@ export function Today() {
   const tray = useHoyTray();
   const rem = fmt(remaining(app.pomo.state, app.pomo.now));
   const ITEMS: Record<string, TrayItem> = {
-    pomodoro: { id: 'pomodoro', label: 'Pomodoro', icon: <Timer size={20} />, live: rem, liveLabel: `${rem} restantes${app.pomo.state.running ? '' : ', en pausa'}` },
-    progreso: { id: 'progreso', label: 'Progreso de hoy', icon: <BarChart3 size={20} /> },
-    pendientes: { id: 'pendientes', label: 'Pendientes', icon: <ListTodo size={20} />, live: String(pend?.total ?? 0), liveLabel: `${pend?.total ?? 0} pendientes` },
-    hecho: { id: 'hecho', label: 'Hecho hoy', icon: <CheckCheck size={20} /> },
-    calor: { id: 'calor', label: 'Mapa de adherencia', icon: <CalendarRange size={20} /> },
+    pomodoro: { id: 'pomodoro', label: t('today.pomodoro'), icon: <Timer size={20} />, live: rem, liveLabel: t(app.pomo.state.running ? 'tray.restantes' : 'tray.restantes_pausa', { rem }) },
+    progreso: { id: 'progreso', label: t('today.progreso_de_hoy'), icon: <BarChart3 size={20} /> },
+    pendientes: { id: 'pendientes', label: t('today.pendientes'), icon: <ListTodo size={20} />, live: String(pend?.total ?? 0), liveLabel: t('today.n_pendientes', { n: pend?.total ?? 0 }) },
+    hecho: { id: 'hecho', label: t('today.hecho_hoy'), icon: <CheckCheck size={20} /> },
+    calor: { id: 'calor', label: t('today.mapa_de_adherencia'), icon: <CalendarRange size={20} /> },
+    mazos: { id: 'mazos', label: t('decks.mazos'), icon: <Layers size={20} /> },
   };
+  for (const e of data?.exams ?? []) ITEMS[`ex:${e.path}`] = { id: `ex:${e.path}`, label: e.name, icon: <GraduationCap size={20} /> };
   return (
     <>
-      <PageTitle title="Hoy" sub={new Intl.DateTimeFormat('es-MX', { weekday: 'long', day: 'numeric', month: 'long', timeZone: s.timeZone }).format(now)}>
-        <span class="title-chip glass row" title="Racha"><Flame size={18} /> <b class="num">{st.current}</b> {st.current === 1 ? 'día' : 'días'}{st.todayCounts ? ' · hoy cuenta ✓' : ''}</span>
-        <a class="btn primary" href="#/estudiar"><BookOpen size={18} /> Estudiar{pend ? ` · ${pend.total}` : ''}</a>
+      <PageTitle title={t('today.hoy')} sub={new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', month: 'long', timeZone: s.timeZone }).format(now)}>
+        <span class="title-chip glass row" data-tip={t('today.racha')}><Flame size={18} /> <b class="num">{st.current}</b> {tn('plural.daysword', st.current)}{st.todayCounts ? t('today.hoy_cuenta') : ''}</span>
+        <a class="btn primary" href="#/estudiar"><BookOpen size={18} />{' '}{t('today.estudiar')}{pend ? ` · ${pend.total}` : ''}</a>
       </PageTitle>
       {!st.todayCounts && evening && st.current > 0 && (
-        <div class="banner glass">◐ <span class="k">Hoy aún no cuenta para tu racha de {st.current} días: repasa al menos {s.streakMin} {s.streakMin === 1 ? 'tarjeta' : 'tarjetas'}.</span></div>
+        <div class="banner glass">◐ <span class="k">{t('today.hoy_aun_no_cuenta_para_tu', { current: st.current, streakMin: s.streakMin })}{' '}{tn('plural.cardsword', s.streakMin)}.</span></div>
       )}
       <p class="title-chip glass" style={{ display: 'inline-block', marginBottom: '14px' }}>
-        {tp.studied ? `Estudiaste ${tp.studied} tarjetas en ${tp.minutes} min hoy (${tp.secPerCard} s/tarjeta).` : pend?.total ? `Tienes ${pend.total} tarjetas para hoy (≈ ${pend.estMin} min).` : 'Nada pendiente por ahora.'}
+        {tp.studied ? t('today.estudiaste_studied_tarjetas_en_minutes_min', { studied: tp.studied, minutes: tp.minutes, secPerCard: tp.secPerCard }) : pend?.total ? t('today.tienes_total_tarjetas_para_hoy_estmin', { total: pend.total, estMin: pend.estMin }) : t('today.nada_pendiente_por_ahora')}
       </p>
       <div class="grid hoy">
-        <DeckPanel />
+        <Minimizable id="mazos" label={t('decks.mazos')} tray={tray}>{(b) => <div class="mh">{b}<DeckPanel /></div>}</Minimizable>
         <div class="side">
-          <Minimizable id="pomodoro" label="Pomodoro" tray={tray}>{(b) => <>{b}<PomodoroPanel /></>}</Minimizable>
-          {data?.exams.filter((e) => e.date >= today).map((e) => <ExamCard exam={e} extra={data.extra} />)}
+          <Minimizable id="pomodoro" label={t('today.pomodoro')} tray={tray}>{(b) => <>{b}<PomodoroPanel /></>}</Minimizable>
+          {data?.exams.filter((e) => e.date >= today).map((e) => <Minimizable key={e.path} id={`ex:${e.path}`} label={e.name} tray={tray}>{(b) => <div class="mh">{b}<ExamCard exam={e} extra={data.extra} /></div>}</Minimizable>)}
           <div class="row" style={{ justifyContent: 'center' }}><AddExamButton /></div>
         </div>
         <div class="grid cards3 span-all">
-          <Minimizable id="progreso" label="Progreso de hoy" tray={tray}>{(b) => <>{b}<section class="glass panel statcard" aria-label="Progreso de hoy">
-            <h3>Progreso de hoy</h3>
-            <KV k="Estudiadas" v={tp.studied} />
-            <KV k="Tiempo (min)" v={tp.minutes} />
-            <KV k="Ritmo (s/tarjeta)" v={tp.secPerCard} />
-            <KV k="Promedio (tarjetas/min)" v={tp.perMin} />
-            <KV k="Aciertos" v={tp.studied ? `${tp.correct} %` : '—'} />
+          <Minimizable id="progreso" label={t('today.progreso_de_hoy')} tray={tray}>{(b) => <>{b}<section class="glass panel statcard" aria-label={t('today.progreso_de_hoy')}>
+            <h3>{t('today.progreso_de_hoy')}</h3>
+            <KV k={t('today.estudiadas')} v={tp.studied} />
+            <KV k={t('today.tiempo_min')} v={tp.minutes} />
+            <KV k={t('today.ritmo_s_tarjeta')} v={tp.secPerCard} />
+            <KV k={t('today.promedio_tarjetas_min')} v={tp.perMin} />
+            <KV k={t('today.aciertos')} v={tp.studied ? `${tp.correct} %` : '—'} />
           </section></>}</Minimizable>
-          <Minimizable id="pendientes" label="Pendientes" tray={tray}>{(b) => <>{b}<section class="glass panel statcard" aria-label="Pendientes">
-            <h3>Pendientes</h3>
-            <KV k="Nuevas" v={pend?.new ?? 0} />
-            <KV k="Aprendiendo" v={pend?.learning ?? 0} />
-            <KV k="Vencidas" v={pend?.due ?? 0} strong />
-            <KV k="Total" v={pend?.total ?? 0} />
-            <KV k="Vencen mañana" v={pend?.tomorrow ?? 0} />
-            <KV k="Tiempo estimado (min)" v={pend?.estMin ?? 0} />
+          <Minimizable id="pendientes" label={t('today.pendientes')} tray={tray}>{(b) => <>{b}<section class="glass panel statcard" aria-label={t('today.pendientes')}>
+            <h3>{t('today.pendientes')}</h3>
+            <KV k={t('today.nuevas')} v={pend?.new ?? 0} />
+            <KV k={t('today.aprendiendo')} v={pend?.learning ?? 0} />
+            <KV k={t('today.vencidas')} v={pend?.due ?? 0} strong />
+            <KV k={t('today.total')} v={pend?.total ?? 0} />
+            <KV k={t('today.vencen_manana')} v={pend?.tomorrow ?? 0} />
+            <KV k={t('today.tiempo_estimado_min')} v={pend?.estMin ?? 0} />
           </section></>}</Minimizable>
-          <Minimizable id="hecho" label="Hecho hoy" tray={tray}>{(b) => <>{b}<section class="glass panel statcard" aria-label="Hecho hoy">
-            <h3>Hecho hoy</h3>
-            <KV k="Nuevas aprendidas" v={done?.newLearned ?? 0} />
-            <KV k="Repeticiones de aprendizaje" v={done?.learningReps ?? 0} />
-            <KV k="Repasos vencidos" v={done?.reviews ?? 0} />
-            <KV k="Maduradas" v={done?.matured ?? 0} />
-            <KV k={'Conteo de "Otra vez"'} v={done?.again ?? 0} />
+          <Minimizable id="hecho" label={t('today.hecho_hoy')} tray={tray}>{(b) => <>{b}<section class="glass panel statcard" aria-label={t('today.hecho_hoy')}>
+            <h3>{t('today.hecho_hoy')}</h3>
+            <KV k={t('today.nuevas_aprendidas')} v={done?.newLearned ?? 0} />
+            <KV k={t('today.repeticiones_de_aprendizaje')} v={done?.learningReps ?? 0} />
+            <KV k={t('today.repasos_vencidos')} v={done?.reviews ?? 0} />
+            <KV k={t('today.maduradas')} v={done?.matured ?? 0} />
+            <KV k={t('today.conteo_de_otra_vez')} v={done?.again ?? 0} />
           </section></>}</Minimizable>
         </div>
-        {s.addons.heatmap !== false && <div class="span-all"><Minimizable id="calor" label="Mapa de adherencia" tray={tray}>{(b) => <div class="mh">{b}<Heatmap act={act} today={today} byDeck={byDeckFn(app)} /></div>}</Minimizable></div>}
+        {s.addons.heatmap !== false && <div class="span-all"><Minimizable id="calor" label={t('today.mapa_de_adherencia')} tray={tray}>{(b) => <div class="mh">{b}<Heatmap act={act} today={today} byDeck={byDeckFn(app)} /></div>}</Minimizable></div>}
       </div>
-      {tray.hidden.length > 0 && <div class="row" style={{ justifyContent: 'center', marginTop: '14px' }}><button type="button" class="btn small glass" onClick={tray.reopenAll}>Mostrar paneles cerrados ({tray.hidden.length})</button></div>}
+      {tray.hidden.length > 0 && <div class="row" style={{ justifyContent: 'center', marginTop: '14px' }}><button type="button" class="btn small glass" onClick={tray.reopenAll}>{t('today.mostrar_paneles_cerrados_n', { n: tray.hidden.length })}</button></div>}
       <Tray floating items={tray.min.map((id) => ITEMS[id]).filter((x): x is TrayItem => !!x)} onRestore={tray.restore} onClose={tray.close} />
     </>
   );

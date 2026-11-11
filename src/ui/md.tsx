@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { useEffect, useRef } from 'preact/hooks';
 import { useApp } from '../state';
 import { mediaUrl } from './background';
@@ -14,7 +15,7 @@ export function Html(props: { html: string; class?: string; tag?: 'div' | 'span'
       const path = await resolveMedia(app.vault, m.dataset.media!);
       const url = path ? await mediaUrl(app.vault, path) : null;
       if (url) (m as HTMLImageElement).src = url;
-      else m.replaceWith(Object.assign(document.createElement('span'), { className: 'chip', textContent: `Falta ${m.dataset.media}` }));
+      else m.replaceWith(Object.assign(document.createElement('span'), { className: 'chip', textContent: t('md.falta_media', { media: m.dataset.media }) }));
     });
   }, [props.html]);
   const T = props.tag ?? 'div';

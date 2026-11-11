@@ -16,6 +16,8 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 - Feature detection (`'x' in window`), nunca asumir el navegador. Sin `beforeunload`.
 - `navigator.share` solo dentro del gesto, con el `File` ya construido (preparar → entregar).
 - Contraste AA garantizado por el guardián de legibilidad; objetivos táctiles ≥ 44 px; inputs ≥ 16 px.
+- Todo texto de interfaz pasa por `t()`/`tn()` de `src/i18n` (es/en/fr). Nunca se traducen formatos de archivo (`Q::`, `Respuesta:`, `origen: ia`…) ni contenido del usuario. Constantes de módulo con texto: funciones o *getters*.
+- Todo lo flotante (hojas, menús, popovers) pasa por `src/ui/overlay.tsx` (portal + pila); z-index solo con los tokens `--z-*`. Botones solo-icono: `aria-label` (el tooltip lo toma de ahí); sin `title` nativo.
 - Sin color en la interfaz (croma ≤ 5 %) salvo el acento en sus usos activos: todo texto o control sobre el fondo va dentro de `.glass`. El contenido del usuario lleva `data-user-content`.
 - Cambios de formato retrocompatibles y perezosos (p. ej. el `id:` del frontmatter solo se escribe al vincular).
 - `reviews.jsonl` es la verdad de FSRS; `state.json` se reconstruye (`verifyDeterminism`).
@@ -27,16 +29,17 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 - `src/cards/parse.ts` parser de mazos · `src/srs/` FSRS, `replay`, cola · `src/data/` colección y operaciones.
 - `src/lib/` ajustes, días, estadísticas, exámenes/ritmo, pomodoro, `.ics`, consultas · `src/sim/` simulacros · `src/notes/` notas, Plaud, docx/pdf.
 - `src/io/` importar (zip, CSV, `.apkg` en Worker), extraer texto, compartir · `src/md/` Markdown seguro.
-- `src/ui/` kit, gráficas, fondos + guardián · `src/screens/` pantallas. `src/sw.js` plantilla del service worker.
+- `src/i18n/` idiomas (`index.ts` + `es|en|fr.json`; pseudoidioma `xx` en /design).
+- `src/ui/` kit, gráficas, fondos + guardián, `overlay.tsx` (capas), `tooltip.tsx` · `src/screens/` pantallas. `src/sw.js` plantilla del service worker.
 
 ## Comandos
 - `npm run dev` · `npm run build` · `npm run preview`
 - `npm test` (Vitest) · `npm run typecheck`
-- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
+- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras && npm run e2e:mejoras2` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
 - `node scripts/icons.mjs` regenera íconos desde `scripts/icon.svg`
 
 ## Fase actual
-**Fases 1–11** + tema Cristal desplegados (`main`). **Mejoras 1** (acento, vínculos de calendario, notas grandes, paneles minimizables, logo) en la rama `mejoras-1`, pendiente de probar en el iPad antes de unir a `main`.
+**Fases 1–11**, tema Cristal y **Mejoras 1** desplegados (`main`). **Mejoras 2** en la rama `mejoras-2`: bloque A (idiomas, capas, minimizar todo, tooltips) hecho, en espera de prueba en el iPad; siguen los bloques B (iPhone), C (ajustes y datos), D (notas y mapa de calor), E (lienzo conectado y simulacros) y F (calendario). No unir a `main` sin confirmación.
 
 ## Skills activas
 Mantenimiento: webapp-testing, security-review (importadores), frontend-design (Cristal), ponytail. Máx. 5–6 a la vez.

@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { Archive, Share } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { deliver, stamp } from '../io/share';
@@ -27,7 +28,7 @@ export function BackupSheet(props: { onClose: () => void }) {
       const files = await collectVault(app.vault);
       const zip = await buildZip(files, APP_VERSION);
       setCounts(countFiles(files.map((f) => ({ path: f.path, size: f.data.length }))));
-      setFile(new File([zip as BlobPart], `Engrama_${stamp()}.zip`, { type: 'application/zip' }));
+      setFile(new File([zip as BlobPart], t('backup.engrama_p_zip', { p: stamp() }), { type: 'application/zip' }));
     } finally {
       setBusy(false);
     }
@@ -38,38 +39,31 @@ export function BackupSheet(props: { onClose: () => void }) {
     const r = await deliver(file);
     if (r === 'cancelled') return;
     app.update({ lastExportAt: Date.now(), backupReminderSnoozedUntil: null }, true);
-    app.toast(r === 'shared' ? 'Respaldo listo' : 'Respaldo descargado');
+    app.toast(r === 'shared' ? t('backup.respaldo_listo') : t('backup.respaldo_descargado'));
     props.onClose();
   }
 
   return (
-    <Sheet title="Respaldo" onClose={props.onClose}>
+    <Sheet title={t('app.respaldo')} onClose={props.onClose}>
       <div style={{ display: 'grid', gap: '14px' }}>
-        <p style={{ margin: 0 }}>
-          Safari guarda tu bóveda en un espacio privado que no se ve en Archivos. Exporta regularmente para tener una copia visible.
-        </p>
+        <p style={{ margin: 0 }}>{t('backup.safari_guarda_tu_boveda_en_un')}</p>
         {!file ? (
           <button type="button" class="btn primary" style={{ justifySelf: 'start' }} disabled={busy} onClick={prepare}>
-            <Archive size={18} aria-hidden="true" /> {busy ? 'Preparando…' : 'Preparar respaldo (.zip)'}
+            <Archive size={18} aria-hidden="true" /> {busy ? t('backup.preparando') : t('backup.preparar_respaldo_zip')}
           </button>
         ) : (
           <>
             <p style={{ margin: 0 }}>
               <b>{file.name}</b> · {formatBytes(file.size)}
               <br />
-              <span style={{ color: 'var(--t2)', fontSize: 'var(--t-note)' }}>
-                {counts!.decks} mazos · {counts!.notes} notas · {counts!.media} medios · {counts!.files} archivos en total
-              </span>
+              <span style={{ color: 'var(--t2)', fontSize: 'var(--t-note)' }}>{t('backup.decks_mazos_notes_notas_media_medios', { decks: counts!.decks, notes: counts!.notes, media: counts!.media, files: counts!.files })}</span>
             </p>
             <button type="button" class="btn primary" style={{ justifySelf: 'start' }} onClick={save}>
-              <Share size={18} aria-hidden="true" /> Guardar en Archivos
-            </button>
-            <p class="foot" style={{ padding: 0 }}>En la hoja de compartir elige «Guardar en Archivos». Si tu navegador no puede compartir archivos, se descargará.</p>
+              <Share size={18} aria-hidden="true" />{' '}{t('backup.guardar_en_archivos')}</button>
+            <p class="foot" style={{ padding: 0 }}>{t('backup.en_la_hoja_de_compartir_elige')}</p>
           </>
         )}
-        <p class="foot" style={{ padding: 0 }}>
-          Para restaurar: Importar → elige el .zip. Incluye <code>manifest.json</code> con versión de formato y conteos para validarlo.
-        </p>
+        <p class="foot" style={{ padding: 0 }}>{t('backup.para_restaurar_importar_elige_el_zip')}{' '}<code>manifest.json</code>{' '}{t('backup.con_version_de_formato_y_conteos')}</p>
       </div>
     </Sheet>
   );

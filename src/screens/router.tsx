@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { lazy, Suspense } from 'preact/compat';
 import { Decks } from './decks';
 import { DeckEditor } from './deck';
@@ -35,5 +36,5 @@ export function Screen(props: { route: string[] }) {
     case 'design': el = <Design key={location.hash} />; break;
     default: el = <Today />;
   }
-  return <Suspense fallback={<p class="t2">Cargando…</p>}>{el}</Suspense>;
+  return <Suspense fallback={<p class="t2">{t('deck.cargando')}</p>}>{el}</Suspense>;
 }

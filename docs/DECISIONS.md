@@ -130,3 +130,48 @@
 
 ### Pendiente de validar en iPad real
 - Acento en claro y oscuro sobre fondos reales; vincular y abrir desde el calendario; notas a ancho completo en horizontal, vertical y con Stage Manager; deslizar para mostrar u ocultar paneles; minimizar y restaurar con el pomodoro en marcha; recargar y comprobar que todo persiste; VoiceOver en los cuadritos; ícono nuevo en la pantalla de inicio.
+
+## Mejoras 2 — bloque A
+
+### 1 · Idiomas (es / en / fr)
+- Tablas JSON en `src/i18n/{es,en,fr}.json` con claves semánticas `pantalla.slug`; sin dependencia nueva (`Intl` nativo). `t(clave, {params})` interpola `{x}`; los números pasan por `Intl.NumberFormat` (agrupa desde 5 cifras, para no partir años ni IDs). `tn(clave, n)` elige `.one/.other` (y `.zero` si existe) con `Intl.PluralRules`.
+- `settings.lang`: `''` = automático (`navigator.languages[0]` → en/fr, si no es). Cambia al instante sin recargar: el `App` vuelve a montar las pantallas al cambiar de idioma; `<html lang>` se actualiza. Fechas y números con `locale()` (es-MX, en-US, fr-FR); primer día de semana con `Intl.Locale#weekInfo` (respaldo: en → domingo, resto → lunes) y se guarda en `weekStartsMonday` al elegir idioma.
+- Las constantes de módulo con texto se volvieron funciones o *getters*, para no congelarse en el idioma del arranque.
+- **No se traducen** los formatos de archivo ni el contenido del usuario: `Q::`, `Cloze:`, `MATCH::`, `ORD::`, `MC::`, `origen: ia`, `<!-- src -->`, `Caso::`/`Respuesta:`/`Explicación:`/`Tema:` de simulacros, carpeta `Diario`, encabezados `## Fuente`/`## Imágenes`, encabezados de notas Plaud, selectores CSS y SQL. Las plantillas de nota sí se muestran traducidas (su clave interna no cambia).
+- Pseudoidioma `xx` (acentos + 40 % de relleno en «palabras» cortas) seleccionable en `/design` → «Idioma de prueba». La prueba E2E `e2e:mejoras2` recorre 12 pantallas a 1366, 1024 y 834 px sin scroll horizontal ni texto recortado. Para ello `.stack` usa `minmax(0, 1fr)` y los `.btn` dentro de `.wrap` pueden partir línea (en español no cambia nada visible).
+- `tests/i18n.test.ts` falla si a un idioma le falta o le sobra una clave, si los `{marcadores}` no coinciden o si el código usa una clave inexistente; también fija el glosario (Otra vez/Again/Encore…).
+- **Traducciones en/fr pendientes de revisión por hablante nativo.**
+- Las pruebas E2E fijan `locale: 'es-MX'` (el navegador sin configurar es en-US y Engrama abriría en inglés).
+
+### 2 · Capas y superposición
+- Tokens `--z-base 0 · --z-panel 10 · --z-dock 100 · --z-popover 200 · --z-modal 300 · --z-toast 400 · --z-tooltip 500` en `:root`. Fuera de ellos solo quedan apilados locales (1–5) dentro de un componente.
+- **Causa de los solapes:** las hojas se montaban dentro del panel que las abría; un ancestro con `backdrop-filter` (todo `.glass`) o `transform` (lienzo) se vuelve el bloque contenedor de `position: fixed`, así que la Papelera quedaba dentro del explorador y las opciones del mazo dentro del panel de Hoy. Ahora `src/ui/overlay.tsx` monta todo lo flotante en un **portal sobre `<body>`**.
+- Pila de capas (`useLayer`): solo la de arriba recibe Esc y atrapa el foco (Tab/Mayús+Tab); al cerrar, el foco vuelve a quien la abrió. Se registra con `useLayoutEffect` para que exista desde el primer cuadro. `modalOpen()` silencia los atajos de estudio y simulacro mientras hay un modal.
+- `Sheet` (todas las hojas de la app) = modal centrado de 560 px máx., velo `rgba(0,0,0,.5)`, vidrio `--glass-modal` al 88 % (el guardián parte de 0.88 en hojas); en anchos < 700 px sigue siendo hoja inferior. `Popover` = menú anclado (debajo o encima, dentro de la ventana; se cierra con Esc, tocar fuera o si el ancla se desplaza). Los menús «/» y «[[» del editor de notas pasaron a `Popover`.
+- `.glass.strong[data-guard]` ahora usa el `--glass` que calcula el guardián (antes el vidrio fuerte ignoraba su ajuste).
+- Hoy y Notas ya eran grid; se fijaron las columnas con `minmax(0, …)` para que el contenido largo no ensanche una columna sobre otra.
+- Lienzo: `Panel.z` opcional (perezoso; un espacio antiguo sin `z` apila en orden de lista). Tocar un panel lo trae al frente y renumera 1…n. Un panel nuevo va al primer hueco libre de la vista (tamaño completo, luego 80 % y 60 %); si no hay, al hueco libre más cercano al centro (el lienzo es infinito) y la vista se desplaza hasta mostrarlo; la cascada de 32 px queda como último recurso. Abierto desde otro panel (`#/espacios/abrir/…`) se coloca a su lado, en el mismo espacio.
+
+### 3 · Minimizar todos los paneles
+- Todos los tipos de panel de los espacios son minimizables (también estudio, nota, imagen y simulacro). Minimizar desmonta el panel: el estudio se reconstruye desde la colección al volver y el panel de nota guarda (con `SafeVault`) lo que estuviera editando al desmontarse.
+- El simulacro sigue corriendo porque su reloj es una marca de tiempo (`endAt` en `.app/exam-current.json`); el cuadrito lee ese archivo y muestra el tiempo restante cada segundo. El panel de simulacro ofrece «Continuar simulacro» si hay un intento en curso.
+- «Minimizar todos» / «Restaurar todos» en el dock (iconos) y en la cabecera del espacio (texto). En mosaico, restaurar devuelve los 3 más recientes (el límite del mosaico); en el lienzo, todos.
+- En Hoy también se minimizan el panel de mazos y cada tarjeta de examen (ids `mazos` y `ex:<ruta>` en `_hoy.json`).
+
+### 4 · Tooltip
+- Una sola capa (`src/ui/tooltip.tsx`, montada en `App`) escucha por delegación: cualquier `button`/`a[href]`/`[role=button]` con `aria-label` y sin texto visible, o con `data-tip`, muestra un tooltip de vidrio con **el mismo texto que lee VoiceOver** (ya traducido). Así no hubo que tocar cada botón ni añadir otro texto que traducir.
+- Puntero: 400 ms. Teclado: al instante si el foco es `:focus-visible`. Táctil: pulsación larga de 500 ms; el `click` que sigue se descarta (no se ejecuta la acción) y se evita el menú contextual. Moverse más de 10 px cancela. Los cuadritos de la bandeja no usan la pulsación larga para el tooltip porque ya abre su menú.
+- Se oculta con Esc, al desplazar, al tocar fuera, al cambiar de pantalla o al perder el foco; se coloca encima (o debajo si no cabe) y nunca sale de la pantalla. `aria-hidden` para que VoiceOver no lo lea dos veces. `--z-tooltip`.
+- Se quitaron todos los `title` nativos de la interfaz; donde aportaban información que no está en el `aria-label` (próximos bloques de un mazo, día de racha, problemas de una pregunta, fecha de un repaso, celda de hoja larga) pasaron a `data-tip`.
+
+### Límites encontrados (bloque A)
+- En este contenedor no hay WebKit de Playwright: las pruebas E2E corrieron en Chromium. La causa de los solapes (`backdrop-filter` crea bloque contenedor para `position: fixed`) es la misma en Safari; hay que confirmarlo en el iPad.
+- iOS no expone «hover»: en el iPad con dedo el tooltip solo sale con pulsación larga; con trackpad o ratón, al pasar el puntero.
+- `Intl.Locale#weekInfo` existe en Safari 17+; en versiones anteriores se usa el respaldo (en → domingo, resto → lunes).
+
+### Pendiente de validar en iPad real (bloque A)
+- Cambiar de idioma en Ajustes y ver Hoy, Estudiar, Calendario y Notas sin recargar; fechas y primer día de la semana en inglés.
+- Abrir la Papelera de Notas y las opciones de un mazo desde Hoy: centradas, con velo, Esc o tocar fuera las cierra.
+- Lienzo: añadir 6 paneles sin que se encimen; tocar uno lo trae al frente.
+- Minimizar todos / restaurar todos con un simulacro en marcha (el cuadrito descuenta); minimizar el estudio y volver.
+- Pulsación larga en los botones de la barra superior: aparece la ayuda y no se ejecuta la acción.

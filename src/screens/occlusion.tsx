@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /** Editor de oclusión de imagen (SPEC §9 add-on 3): rectángulos con dedo o Apple Pencil. */
 import { Trash2 } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
@@ -33,7 +34,7 @@ export function OcclusionEditor(props: { url: string; rects: Rect[]; onChange: (
           start.current = null;
           setDraft(null);
         }}
-        aria-label="Dibuja rectángulos sobre la imagen para ocultar zonas"
+        aria-label={t('occlusion.dibuja_rectangulos_sobre_la_imagen_para')}
       >
         <img src={props.url} alt="" style={{ maxWidth: '100%', display: 'block', borderRadius: '10px', pointerEvents: 'none' }} draggable={false} />
         {[...props.rects, ...(draft ? [draft] : [])].map((r, i) => (
@@ -42,7 +43,7 @@ export function OcclusionEditor(props: { url: string; rects: Rect[]; onChange: (
       </div>
       <div class="row wrap">
         {props.rects.map((_, i) => (
-          <button type="button" class="btn small" onClick={() => props.onChange(props.rects.filter((_, k) => k !== i))}><Trash2 size={14} /> Zona {i + 1}</button>
+          <button type="button" class="btn small" onClick={() => props.onChange(props.rects.filter((_, k) => k !== i))}><Trash2 size={14} />{' '}{t('occlusion.zona_p', { p: i + 1 })}</button>
         ))}
       </div>
     </div>

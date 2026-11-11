@@ -1,6 +1,7 @@
 import { render } from 'preact';
 import { App } from './app';
 import { loadSettings } from './lib/settings';
+import { deviceLang, setLang } from './i18n';
 import { requestPersist } from './lib/storage';
 import { registerSW } from './sw-register';
 import { applyTheme, trackKeyboard } from './theme';
@@ -13,6 +14,7 @@ async function boot() {
   registerSW();
   const opened = await openVault();
   const settings = await loadSettings(opened.vault);
+  setLang(settings.lang || deviceLang());
   applyTheme(settings);
   if (settings.welcomeDone) void requestPersist();
   const hasData = (await walk(opened.vault, 'decks')).length + (await walk(opened.vault, 'notes')).length > 0;

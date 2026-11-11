@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * Parser de mazos (SPEC §4 y §4b). Un mazo es Markdown: el texto libre se
  * conserva tal cual y cada tarjeta es un bloque que empieza con un prefijo
@@ -133,9 +134,9 @@ function parseBlock(b: Block): Note {
       const ai = rest.findIndex((l) => /^A::/.test(l));
       const q = [first, ...(ai < 0 ? rest : rest.slice(0, ai))];
       note.front = q.join('\n').trim();
-      if (ai < 0) note.errors.push('Falta la respuesta (A::)');
+      if (ai < 0) note.errors.push(t('parse.falta_la_respuesta_a'));
       else note.back = [rest[ai]!.replace(/^A::\s?/, ''), ...rest.slice(ai + 1)].join('\n').trim();
-      if (!note.front) note.errors.push('Pregunta vacía');
+      if (!note.front) note.errors.push(t('parse.pregunta_vacia'));
       break;
     }
     case 'cloze': {
@@ -154,8 +155,8 @@ function parseBlock(b: Block): Note {
         if (n.length === 4 && n.every((v) => Number.isFinite(v))) note.rects.push({ x: n[0]!, y: n[1]!, w: n[2]!, h: n[3]! });
       }
       note.front = all.replace(/<!--[\s\S]*?-->/g, '').trim();
-      if (!note.image) note.errors.push('Oclusión sin imagen');
-      if (!note.rects.length) note.errors.push('Oclusión sin rectángulos');
+      if (!note.image) note.errors.push(t('parse.oclusion_sin_imagen'));
+      if (!note.rects.length) note.errors.push(t('parse.oclusion_sin_rectangulos'));
       break;
     }
     case 'list':
@@ -163,7 +164,7 @@ function parseBlock(b: Block): Note {
     case 'order': {
       note.front = first;
       note.items = rest.map((l) => listItem(l) ?? l.trim()).filter(Boolean);
-      if (note.items.length < 2) note.errors.push('Se necesitan al menos 2 elementos');
+      if (note.items.length < 2) note.errors.push(t('parse.se_necesitan_al_menos_2_elementos'));
       break;
     }
     case 'mc': {
@@ -175,8 +176,8 @@ function parseBlock(b: Block): Note {
         else if (!note.options.length) q.push(l);
       }
       note.front = q.join('\n').trim();
-      if (note.options.length < 2) note.errors.push('Opción múltiple con menos de 2 opciones');
-      if (!note.options.some((o) => o.correct)) note.errors.push('Sin opción correcta marcada [x]');
+      if (note.options.length < 2) note.errors.push(t('parse.opcion_multiple_con_menos_de_2'));
+      if (!note.options.some((o) => o.correct)) note.errors.push(t('parse.sin_opcion_correcta_marcada_x'));
       break;
     }
     case 'match': {
@@ -200,8 +201,8 @@ export function parseDeck(text: string): ParsedDeck {
   for (const n of notes) {
     if (!n.id) continue;
     if (seen.has(n.id)) {
-      n.errors.push(`ID repetido ^${n.id}`);
-      errors.push(`ID repetido ^${n.id} (línea ${n.line + 1})`);
+      n.errors.push(t('parse.id_repetido_id', { id: n.id }));
+      errors.push(t('parse.id_repetido_id_linea_p', { id: n.id, p: n.line + 1 }));
     }
     seen.add(n.id);
   }

@@ -1,3 +1,4 @@
+import { locale, t } from '../i18n';
 /** Vínculos del calendario: selector, chips, datos vivos e «Iniciar bloque» (Mejora 1 · §2). */
 import { BookOpen, FileText, Folder, Hash, Link2, Unlink } from 'lucide-preact';
 import { useState } from 'preact/hooks';
@@ -45,22 +46,21 @@ export function LinkChips(p: { links: string[]; idx: LinkIndex | null | undefine
   const app = useApp();
   if (!p.links.length) return null;
   return (
-    <div class="row wrap" role="list" aria-label="Vínculos">
+    <div class="row wrap" role="list" aria-label={t('calendar.vinculos')}>
       {p.links.map((u) => {
         const r = p.idx ? resolveLink(u, p.idx) : { uri: u, kind: 'note' as LinkKind, target: null, label: u };
         const data = p.live && r.target ? liveData(app, r) : '';
         return (
           <span role="listitem" class="row" style={{ gap: '4px' }}>
             {r.target ? (
-              <button type="button" class="chip" style={{ minHeight: '32px' }} onClick={() => openLink(r)} aria-label={`Abrir ${r.label}${data ? `, ${data}` : ''}`}>
+              <button type="button" class="chip" style={{ minHeight: '32px' }} onClick={() => openLink(r)} aria-label={t('links.abrir_labelp', { label: r.label, p: data ? `, ${data}` : '' })}>
                 {ICON[r.kind]} {r.label}{data ? <b>: {data}</b> : null}
               </button>
             ) : (
-              <span class="chip" style={{ borderStyle: 'dashed', minHeight: '32px' }}><Unlink size={14} /> {r.label} · enlace roto
-                {p.onRepair && <button type="button" class="link" style={{ minHeight: '28px' }} onClick={() => p.onRepair!(u)}>Reparar</button>}
+              <span class="chip" style={{ borderStyle: 'dashed', minHeight: '32px' }}><Unlink size={14} />{' '}{t('links.label_enlace_roto', { label: r.label })}{p.onRepair && <button type="button" class="link" style={{ minHeight: '28px' }} onClick={() => p.onRepair!(u)}>{t('links.reparar')}</button>}
               </span>
             )}
-            {p.onRemove && <button type="button" class="btn icon small ghost" aria-label={`Quitar vínculo ${r.label}`} onClick={() => p.onRemove!(u)}>✕</button>}
+            {p.onRemove && <button type="button" class="btn icon small ghost" aria-label={t('links.quitar_vinculo_label', { label: r.label })} onClick={() => p.onRemove!(u)}>✕</button>}
           </span>
         );
       })}
@@ -87,12 +87,12 @@ export function LinkPicker(p: { idx: LinkIndex; onPick: (uri: string) => void; o
     p.onPick(makeUri(t.kind, key));
   };
   return (
-    <Sheet title="Vincular" onClose={p.onClose}>
+    <Sheet title={t('calendar.vincular')} onClose={p.onClose}>
       <div class="stack-s">
-        <Segmented label="Tipo" value={tab} onChange={setTab} options={[['decks', 'Mazos y temas'], ['notes', 'Notas']]} />
-        <input class="input wide" type="search" placeholder="Buscar…" value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label="Buscar" />
+        <Segmented label={t('deck.tipo')} value={tab} onChange={setTab} options={[['decks', t('links.mazos_y_temas')], ['notes', t('notes.notas')]]} />
+        <input class="input wide" type="search" placeholder={t('links.buscar')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label={t('inbox.buscar')} />
         {shown.map((t) => <button type="button" class="opt" onClick={() => void pick(t)}>{ICON[t.kind]} <span class="grow ellipsis">{t.name}</span><span class="foot ellipsis" style={{ maxWidth: '45%' }}>{t.kind === 'note' ? t.path.replace(/^notes\//, '') : t.kind === 'topic' ? 'tema' : t.kind === 'tag' ? 'etiqueta' : 'mazo'}</span></button>)}
-        {!shown.length && <p class="t2">Sin resultados.</p>}
+        {!shown.length && <p class="t2">{t('palette.sin_resultados')}</p>}
       </div>
     </Sheet>
   );
@@ -113,7 +113,7 @@ export async function startBlock(app: ReturnType<typeof useApp>, b: StudyBlock, 
     ...(filter ? [{ id: 'study', type: 'estudio', arg: filter, x: 0, y: 0, w: 560, h: 560 }] : []),
     ...notes.map((n, i) => ({ id: `n${i}`, type: 'nota', arg: n.target!.path, x: 600 + i * 40, y: 40 * i, w: 560, h: 560 })),
   ];
-  const space = { id: 'bloque', name: `Bloque: ${b.title}`, emoji: '📅', mode: 'tiles', panels, sizes: panels.map(() => 1 / panels.length), view: { x: 0, y: 0, k: 1 } };
+  const space = { id: 'bloque', name: t('links.bloque_title', { title: b.title }), emoji: '📅', mode: 'tiles', panels, sizes: panels.map(() => 1 / panels.length), view: { x: 0, y: 0, k: 1 } };
   await app.vault.write('.app/spaces/bloque.json', JSON.stringify(space));
   app.changed();
   go('espacios', 'bloque');
@@ -151,16 +151,16 @@ export function useLinkedEvents(path: string) {
 
 export function LinkedEvents(p: { path: string }) {
   const { data } = useLinkedEvents(p.path);
-  if (!data) return <p class="t2 note">Cargando…</p>;
+  if (!data) return <p class="t2 note">{t('deck.cargando')}</p>;
   const row = (o: { start: number; b: StudyBlock }) => (
-    <a class="kv note" href="#/calendario" style={{ textDecoration: 'none' }}><span class="k ellipsis">{o.b.title}</span><span class="v">{new Date(o.start).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></a>
+    <a class="kv note" href="#/calendario" style={{ textDecoration: 'none' }}><span class="k ellipsis">{o.b.title}</span><span class="v">{new Date(o.start).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></a>
   );
   return (
     <div class="stack-s">
-      <b class="note">Próximos ({data.next.length})</b>
-      {data.next.length ? data.next.map(row) : <p class="t2 note">Ninguno.</p>}
-      <b class="note">Pasados ({data.past.length})</b>
-      {data.past.length ? data.past.map(row) : <p class="t2 note">Ninguno.</p>}
+      <b class="note">{t('links.proximos_n', { n: data.next.length })}</b>
+      {data.next.length ? data.next.map(row) : <p class="t2 note">{t('links.ninguno')}</p>}
+      <b class="note">{t('links.pasados_n', { n: data.past.length })}</b>
+      {data.past.length ? data.past.map(row) : <p class="t2 note">{t('links.ninguno')}</p>}
     </div>
   );
 }

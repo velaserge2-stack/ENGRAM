@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * Elige el backend al arrancar (SPEC §3):
  *   1. carpeta real (File System Access) si el usuario la conectó y hay permiso
@@ -73,21 +74,21 @@ export async function openVault(): Promise<OpenedVault> {
     const perm = folder.queryPermission ? await folder.queryPermission({ mode: 'readwrite' }) : 'granted';
     if (perm === 'granted') {
       raw = new FSAccessBackend(folder);
-      detail = `Carpeta del equipo: ${folder.name}`;
+      detail = t('open.carpeta_del_equipo_name', { name: folder.name });
     } else folderNeedsPermission = true;
   }
   if (!raw && OPFSBackend.isSupported()) {
     try {
       const o = await OPFSBackend.open();
       raw = o;
-      detail = `Almacenamiento privado del navegador (OPFS, ${o.strategy === 'sync-access-handle' ? 'createSyncAccessHandle' : 'createWritable'} en Worker)`;
+      detail = t('open.almacenamiento_privado_del_navegador_opfs_', { p: o.strategy === 'sync-access-handle' ? 'createSyncAccessHandle' : 'createWritable' });
     } catch (e) {
       console.warn('OPFS no disponible', e);
     }
   }
   if (!raw) {
     raw = new MemoryBackend();
-    detail = 'Modo temporal en memoria: nada se guarda al cerrar';
+    detail = t('open.modo_temporal_en_memoria_nada_se');
   }
   const vault = new SafeVault(raw);
   const recovery = await vault.recover();

@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * Vista de una tarjeta para estudiar (todos los tipos de SPEC §4 y §4b).
  * Interacción táctil con Pointer Events; alternativa "tocar uno y luego su
@@ -74,7 +75,7 @@ function QA(p: { front: string; back: string; revealed: boolean }) {
   );
 }
 
-const VERDICT: Record<TypedVerdict, string> = { correct: '✓ Correcto', almost: '◐ Casi correcto', wrong: '✗ Incorrecto' };
+const VERDICT = (): Record<TypedVerdict, string> => ({ correct: t('cardview.correcto'), almost: t('cardview.casi_correcto'), wrong: t('cardview.incorrecto') });
 
 function Typed(p: CardViewProps) {
   const n = p.card.note;
@@ -90,12 +91,12 @@ function Typed(p: CardViewProps) {
     <>
       <Html html={renderMarkdown(n.front)} class="front" />
       <form class="row" onSubmit={(e) => (e.preventDefault(), check())}>
-        <input class="input grow" value={val} onInput={(e) => setVal((e.target as HTMLInputElement).value)} placeholder="Escribe tu respuesta" autoFocus disabled={!!v} aria-label="Tu respuesta" autocapitalize="off" autocomplete="off" spellcheck={false} />
-        {!v && <button class="btn primary" type="submit">Comprobar</button>}
+        <input class="input grow" value={val} onInput={(e) => setVal((e.target as HTMLInputElement).value)} placeholder={t('cardview.escribe_tu_respuesta')} autoFocus disabled={!!v} aria-label={t('cardview.tu_respuesta')} autocapitalize="off" autocomplete="off" spellcheck={false} />
+        {!v && <button class="btn primary" type="submit">{t('cardview.comprobar')}</button>}
       </form>
       {v && (
         <>
-          <div class="row" style={{ fontWeight: 700 }}>{VERDICT[v]}</div>
+          <div class="row" style={{ fontWeight: 700 }}>{VERDICT()[v]}</div>
           <hr />
           <Html html={renderMarkdown(n.back)} class="back" />
         </>
@@ -111,10 +112,10 @@ export function Occlusion(p: { image: string; rects: { x: number; y: number; w: 
   useEffect(() => {
     void resolveMedia(app.vault, p.image).then((path) => (path ? mediaUrl(app.vault, path) : null)).then(setUrl);
   }, [p.image]);
-  if (!url) return <div class="err">⚠ Falta la imagen {p.image}</div>;
+  if (!url) return <div class="err">{t('cardview.falta_la_imagen_image', { image: p.image })}</div>;
   return (
     <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }} data-user-content>
-      <img src={url} alt={`Imagen ${p.image}`} style={{ maxWidth: '100%', display: 'block', borderRadius: '12px' }} />
+      <img src={url} alt={t('cardview.imagen_image', { image: p.image })} style={{ maxWidth: '100%', display: 'block', borderRadius: '12px' }} />
       {p.rects.map((r, i) => {
         const isT = p.target === -1 || i === p.target;
         const show = p.revealed ? !isT && p.hideAll : isT || p.hideAll;
@@ -122,7 +123,7 @@ export function Occlusion(p: { image: string; rects: { x: number; y: number; w: 
         return (
           <div
             key={i}
-            aria-label={isT ? (p.revealed ? 'Zona revelada' : 'Zona oculta a recordar') : 'Zona oculta'}
+            aria-label={isT ? (p.revealed ? t('cardview.zona_revelada') : t('cardview.zona_oculta_a_recordar')) : t('cardview.zona_oculta')}
             style={{
               position: 'absolute', left: `${r.x}%`, top: `${r.y}%`, width: `${r.w}%`, height: `${r.h}%`, borderRadius: '6px',
               background: p.revealed && isT ? 'transparent' : isT ? '#111' : '#666',
@@ -150,19 +151,19 @@ function ListRecall(p: CardViewProps) {
   return (
     <>
       <Html html={renderMarkdown(n.front)} class="front" />
-      <p class="foot">{n.type === 'olist' ? 'Recuerda todos, en orden.' : 'Recuerda todos los elementos.'} Revélalos uno a uno.</p>
+      <p class="foot">{n.type === 'olist' ? t('cardview.recuerda_todos_en_orden') : t('cardview.recuerda_todos_los_elementos')}{' '}{t('cardview.revelalos_uno_a_uno')}</p>
       <ol class="stack-s" style={{ paddingLeft: '1.4em', margin: 0 }}>
         {n.items.slice(0, done || p.revealed ? undefined : i).map((it, k) => (
           <li key={k} style={{ textDecoration: errs.includes(k) ? 'underline dashed' : 'none' }}>
-            <Html tag="span" html={renderInline(it)} /> {errs.includes(k) ? <span class="chip">olvidado</span> : <Check size={16} aria-label="recordado" />}
+            <Html tag="span" html={renderInline(it)} /> {errs.includes(k) ? <span class="chip">{t('cardview.olvidado')}</span> : <Check size={16} aria-label={t('cardview.recordado')} />}
           </li>
         ))}
       </ol>
       {!done && !p.revealed && (
         <div class="row wrap">
-          <span class="t2">Elemento {i + 1} de {n.items.length}:</span>
-          <button type="button" class="btn" onClick={() => mark(true)}><Check size={18} /> Lo recordé</button>
-          <button type="button" class="btn outline" onClick={() => mark(false)}><X size={18} /> No lo recordé</button>
+          <span class="t2">{t('cardview.elemento_p_de_n', { p: i + 1, n: n.items.length })}</span>
+          <button type="button" class="btn" onClick={() => mark(true)}><Check size={18} />{' '}{t('cardview.lo_recorde')}</button>
+          <button type="button" class="btn outline" onClick={() => mark(false)}><X size={18} />{' '}{t('cardview.no_lo_recorde')}</button>
         </div>
       )}
     </>
@@ -182,7 +183,7 @@ function MultipleChoice(p: CardViewProps) {
   return (
     <>
       <Html html={renderMarkdown(n.front)} class="front" />
-      {multi && <p class="foot">Puede haber varias correctas.</p>}
+      {multi && <p class="foot">{t('cardview.puede_haber_varias_correctas')}</p>}
       <div class="stack-s" role={multi ? 'group' : 'radiogroup'}>
         {opts.map((o, k) => {
           const on = sel.has(o.i);
@@ -190,12 +191,12 @@ function MultipleChoice(p: CardViewProps) {
           return (
             <button type="button" class={`opt${cls}`} aria-pressed={on} disabled={p.revealed} onClick={() => setSel((s) => { const c = new Set(multi ? s : []); on ? c.delete(o.i) : c.add(o.i); return c; })}>
               <b>{String.fromCharCode(65 + k)}</b> <Html tag="span" html={renderInline(o.text)} />
-              {p.revealed && o.correct && <Check size={18} aria-label="correcta" style={{ marginLeft: 'auto' }} />}
+              {p.revealed && o.correct && <Check size={18} aria-label={t('cardview.correcta')} style={{ marginLeft: 'auto' }} />}
             </button>
           );
         })}
       </div>
-      {!p.revealed && <button type="button" class="btn primary" disabled={!sel.size} onClick={check}>Comprobar</button>}
+      {!p.revealed && <button type="button" class="btn primary" disabled={!sel.size} onClick={check}>{t('cardview.comprobar')}</button>}
       {p.revealed && n.back && (<><hr /><Html html={renderMarkdown(n.back)} /></>)}
     </>
   );
@@ -253,17 +254,17 @@ function Match(p: CardViewProps) {
   };
   return (
     <>
-      <Html html={renderMarkdown(n.front || 'Une cada elemento con su pareja')} class="front" />
-      <p class="foot">Arrastra cada respuesta a su pareja, o toca una respuesta y luego su pareja.</p>
+      <Html html={renderMarkdown(n.front || t('cardview.une_cada_elemento_con_su_pareja'))} class="front" />
+      <p class="foot">{t('cardview.arrastra_cada_respuesta_a_su_pareja')}</p>
       <div class="stack-s">
         {n.pairs.map(([l], li) => {
           const ri = assign[li];
           const ok = p.revealed ? ri === li : null;
           return (
-            <div class="dz" data-drop={li} key={li} role="button" tabIndex={0} aria-label={`Pareja de ${l}`} onClick={() => pick !== null && (place(pick, li), setPick(null))} style={ok === false ? { borderStyle: 'solid', borderWidth: '2px' } : undefined}>
+            <div class="dz" data-drop={li} key={li} role="button" tabIndex={0} aria-label={t('cardview.pareja_de_l', { l: l })} onClick={() => pick !== null && (place(pick, li), setPick(null))} style={ok === false ? { borderStyle: 'solid', borderWidth: '2px' } : undefined}>
               <b class="grow"><Html tag="span" html={renderInline(l)} /></b>
               <span>{ri !== undefined ? <Html tag="span" html={renderInline(n.pairs[ri]![1])} /> : <span class="t3">—</span>}</span>
-              {ok === true && <Check size={18} aria-label="correcta" />}
+              {ok === true && <Check size={18} aria-label={t('cardview.correcta')} />}
               {ok === false && <span class="chip">✗ {n.pairs[li]![1]}</span>}
             </div>
           );
@@ -278,7 +279,7 @@ function Match(p: CardViewProps) {
           ))}
         </div>
       )}
-      {!p.revealed && <button type="button" class="btn primary" disabled={used.size < n.pairs.length} onClick={check}>Comprobar</button>}
+      {!p.revealed && <button type="button" class="btn primary" disabled={used.size < n.pairs.length} onClick={check}>{t('cardview.comprobar')}</button>}
     </>
   );
 }
@@ -304,23 +305,23 @@ function Order(p: CardViewProps) {
   };
   return (
     <>
-      <Html html={renderMarkdown(n.front || 'Ordena')} class="front" />
-      <p class="foot">Arrastra para ordenar o usa las flechas.</p>
+      <Html html={renderMarkdown(n.front || t('cardview.ordena'))} class="front" />
+      <p class="foot">{t('cardview.arrastra_para_ordenar_o_usa_las')}</p>
       <ol class="stack-s" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
         {items.map((x, k) => (
           <li key={x.i} data-drop={k} class="dz" style={p.revealed && x.i !== k ? { borderStyle: 'solid', borderWidth: '2px' } : undefined}>
             <span class="num t2">{k + 1}</span>
             <span {...(p.revealed ? {} : drag(String(x.i)))} class="grow drag"><Html tag="span" html={renderInline(x.t)} /></span>
-            {p.revealed ? (x.i === k ? <Check size={18} aria-label="en su lugar" /> : <span class="chip">va en {x.i + 1}</span>) : (
+            {p.revealed ? (x.i === k ? <Check size={18} aria-label={t('cardview.en_su_lugar')} /> : <span class="chip">{t('cardview.va_en_p', { p: x.i + 1 })}</span>) : (
               <>
-                <button type="button" class="btn icon small" aria-label={`Subir ${x.t}`} disabled={k === 0} onClick={() => move(k, k - 1)}><ArrowUp size={16} /></button>
-                <button type="button" class="btn icon small" aria-label={`Bajar ${x.t}`} disabled={k === items.length - 1} onClick={() => move(k, k + 1)}><ArrowDown size={16} /></button>
+                <button type="button" class="btn icon small" aria-label={t('cardview.subir_t', { t: x.t })} disabled={k === 0} onClick={() => move(k, k - 1)}><ArrowUp size={16} /></button>
+                <button type="button" class="btn icon small" aria-label={t('cardview.bajar_t', { t: x.t })} disabled={k === items.length - 1} onClick={() => move(k, k + 1)}><ArrowDown size={16} /></button>
               </>
             )}
           </li>
         ))}
       </ol>
-      {!p.revealed && <button type="button" class="btn primary" onClick={check}>Comprobar</button>}
+      {!p.revealed && <button type="button" class="btn primary" onClick={check}>{t('cardview.comprobar')}</button>}
     </>
   );
 }

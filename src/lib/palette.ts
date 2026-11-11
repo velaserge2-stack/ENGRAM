@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /** Paleta del sistema (SPEC §7). Valores aproximados; Apple no publica hex garantizados. */
 export const PALETTE = {
   azul: ['#007AFF', '#0A84FF'],
@@ -16,8 +17,8 @@ export type ColorName = keyof typeof PALETTE;
 export const COLOR_NAMES = Object.keys(PALETTE) as ColorName[];
 
 export const COLOR_LABEL: Record<ColorName, string> = {
-  azul: 'Azul', verde: 'Verde', indigo: 'Índigo', naranja: 'Naranja', rosa: 'Rosa',
-  rojo: 'Rojo', morado: 'Morado', turquesa: 'Turquesa', menta: 'Menta', amarillo: 'Amarillo',
+  get azul() { return t('palette.azul'); }, get verde() { return t('palette.verde'); }, get indigo() { return t('palette.indigo'); }, get naranja() { return t('palette.naranja'); }, get rosa() { return t('palette.rosa'); },
+  get rojo() { return t('palette.rojo'); }, get morado() { return t('palette.morado'); }, get turquesa() { return t('palette.turquesa'); }, get menta() { return t('palette.menta'); }, get amarillo() { return t('palette.amarillo'); },
 };
 
 function lin(c: number): number {

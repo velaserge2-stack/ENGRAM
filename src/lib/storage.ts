@@ -1,3 +1,4 @@
+import { locale } from '../i18n';
 export interface StorageInfo {
   persisted: boolean | null;
   usage: number | null;
@@ -46,5 +47,5 @@ export function formatBytes(n: number | null): string {
     v /= 1024;
     i++;
   }
-  return `${v.toLocaleString('es-MX', { maximumFractionDigits: i ? 1 : 0 })} ${u[i]}`;
+  return `${v.toLocaleString(locale(), { maximumFractionDigits: i ? 1 : 0 })} ${u[i]}`;
 }

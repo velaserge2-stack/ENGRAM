@@ -38,7 +38,7 @@ const check = (cond, msg) => {
 };
 
 try {
-  const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, acceptDownloads: true });
+  const ctx = await browser.newContext({ locale: 'es-MX', viewport: { width: 1180, height: 820 }, acceptDownloads: true });
   const page = await ctx.newPage();
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -104,7 +104,7 @@ try {
   await page.waitForTimeout(700);
 
   // Reimportar en un contexto limpio
-  const ctx2 = await browser.newContext({ viewport: { width: 820, height: 1180 } });
+  const ctx2 = await browser.newContext({ locale: 'es-MX', viewport: { width: 820, height: 1180 } });
   const p2 = await ctx2.newPage();
   p2.on('pageerror', (e) => errors.push(String(e)));
   await p2.goto(URL_);
@@ -122,7 +122,7 @@ try {
   await p2.screenshot({ path: OUT + '4-hoy-vertical.png' });
 
   // Oscuro
-  const ctx3 = await browser.newContext({ viewport: { width: 1180, height: 820 }, colorScheme: 'dark' });
+  const ctx3 = await browser.newContext({ locale: 'es-MX', viewport: { width: 1180, height: 820 }, colorScheme: 'dark' });
   const p3 = await ctx3.newPage();
   await p3.goto(URL_);
   await p3.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();

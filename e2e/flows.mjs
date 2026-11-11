@@ -20,7 +20,7 @@ console.log('Navegador:', type.name());
 const errors = [];
 const check = (c, m) => { if (!c) throw new Error('FALLÓ: ' + m); console.log('  ✓', m); };
 try {
-  const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, acceptDownloads: true });
+  const ctx = await browser.newContext({ locale: 'es-MX', viewport: { width: 1180, height: 820 }, acceptDownloads: true });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
