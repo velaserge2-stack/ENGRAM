@@ -22,7 +22,7 @@ export function kindOf(path: string): Kind {
 }
 
 /** Archivos que se pueden borrar desde aquí: lo pesado que el usuario añadió (no sus notas ni mazos). */
-export const DELETABLE = (p: string) => (p.startsWith('media/') || p.startsWith('docs/')) && !p.startsWith('media/.app/');
+export const DELETABLE = (p: string) => (p.startsWith('media/') || p.startsWith('docs/')) && !p.startsWith('media/.app/') && !p.endsWith('.annots.json'); // las anotaciones van con su PDF
 
 /** Referencias en un texto: `![[x]]`, `[[x]]`, `](x)`, `src: x#p3`, rutas entre comillas (JSON de espacios). */
 export function refsIn(text: string): string[] {

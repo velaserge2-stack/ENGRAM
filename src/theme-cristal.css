@@ -652,3 +652,25 @@ mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border
 .ink-dot { display: block; border-radius: 50%; background: var(--t1); }
 .ink-sizes [aria-checked="true"], .ink-toolbar [aria-pressed="true"].btn { background: var(--inverse-bg); color: var(--inverse-fg); }
 .ink-sizes [aria-checked="true"] .ink-dot { background: var(--inverse-fg); }
+/* PDFs (Prompt 5 · C) */
+.pdf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
+.pdf-card { display: grid; grid-template-rows: auto 1fr; overflow: hidden; border-radius: var(--r-inner); }
+.pdf-cover { display: grid; place-items: center; aspect-ratio: 3 / 4; background: #fff; overflow: hidden; color: var(--t3); }
+.pdf-cover img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.drop-over { outline: 2px dashed var(--border-strong); outline-offset: 6px; border-radius: var(--r-panel); }
+.pdf-full { height: calc(100dvh - 190px); min-height: 420px; overflow: hidden; }
+.is-phone .pdf-full { height: calc(100dvh - 210px - var(--tabbar-h)); }
+.pdf-side { width: 170px; flex: none; overflow: auto; padding: 8px; border-right: var(--hair) solid var(--line); }
+.pdf-thumb { display: grid; gap: 2px; justify-items: center; width: 100%; padding: 4px; border: 0; background: none; border-radius: 10px; }
+.pdf-thumb img, .pdf-thumb > span:first-child { width: 96px; min-height: 120px; background: #fff; box-shadow: var(--shadow); display: block; }
+.pdf-thumb.cur { background: var(--fill-sel); }
+.pdf-mark-item { gap: 6px; }
+.pdf-mark { position: absolute; pointer-events: none; z-index: 1; }
+.pdf-mark.highlight { background: color-mix(in srgb, var(--mk) 45%, transparent); mix-blend-mode: multiply; }
+.pdf-mark.underline { border-bottom: 2px solid #0a5cd6; }
+.pdf-mark.strike::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px solid #c4262e; }
+.pdf-page .ink-layer { z-index: 3; }
+.pdf-sticky { position: absolute; z-index: 4; transform: translate(-4px, -4px); }
+.pdf-sticky-btn { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; border: 1px solid rgba(0, 0, 0, .3); background: #ffd60a; color: #222; padding: 0; }
+.pdf-sticky-pop { position: absolute; left: 34px; top: 0; width: 220px; padding: 8px 10px; border-radius: 12px; font-size: var(--t-note); display: flex; gap: 6px; align-items: flex-start; }
+.is-phone .pdf-side { width: 120px; }

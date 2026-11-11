@@ -1,5 +1,5 @@
 import { t } from './i18n';
-import { BarChart3, BookOpen, CalendarDays, ClipboardCheck, Layers, LayoutGrid, NotebookPen, Search, Sun } from 'lucide-preact';
+import { BarChart3, BookOpen, CalendarDays, ClipboardCheck, FileText, Layers, LayoutGrid, NotebookPen, Search, Sun } from 'lucide-preact';
 
 /** Barra superior en píldora (Cristal §7.1). */
 export const TABS = [
@@ -10,6 +10,7 @@ export const TABS = [
   { id: 'simulacros', get label() { return t('calendar.simulacros'); }, icon: ClipboardCheck },
   { id: 'calendario', get label() { return t('calendar.calendario'); }, icon: CalendarDays },
   { id: 'notas', get label() { return t('notes.notas'); }, icon: NotebookPen },
+  { id: 'pdfs', get label() { return t('pdfs.pdfs'); }, icon: FileText },
   { id: 'espacios', get label() { return t('spaces.espacios'); }, icon: LayoutGrid },
   { id: 'estadisticas', get label() { return t('spaces.estadisticas'); }, icon: BarChart3 },
 ] as const;
