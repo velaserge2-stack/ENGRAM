@@ -19,6 +19,22 @@ try { browser = await type.launch(); } catch { type = pw.chromium; browser = awa
 console.log('Navegador:', type.name());
 const errors = [];
 const check = (c, m) => { if (!c) throw new Error('FALLÓ: ' + m); console.log('  ✓', m); };
+
+// Mejoras 2 · E13: sin preajustes; los paneles se añaden con el menú «＋ Añadir panel»
+async function addPanel(page, name) {
+  const b = page.getByRole('button', { name: 'Añadir panel', exact: true });
+  await b.scrollIntoViewIfNeeded();
+  await b.click();
+  await page.getByRole('menuitem', { name: 'Añadir panel ' + name, exact: true }).evaluate((x) => x.click());
+  await page.waitForTimeout(150);
+}
+async function newSpace(page, name, panels = []) {
+  await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
+  await page.locator('.sheet input[name=n]').fill(name);
+  await page.getByRole('button', { name: 'Crear', exact: true }).click();
+  await page.getByText(/Añade paneles/).first().waitFor();
+  for (const p of panels) await addPanel(page, p);
+}
 try {
   const ctx = await browser.newContext({ locale: 'es-MX', viewport: { width: 1180, height: 820 }, acceptDownloads: true });
   const page = await ctx.newPage();
@@ -91,9 +107,9 @@ try {
   await page.locator('.doc').getByText('editado').waitFor();
   check(true, 'editar un bloque de la nota se guarda (autoguardado)');
 
-  // ── Espacios: preajuste PDF + tarjetas y abrir un PDF
+  // ── Espacios: PDF + estudio y abrir un PDF
   await page.goto(URL_ + '#/espacios');
-  await page.getByRole('button', { name: 'PDF + tarjetas' }).click();
+  await newSpace(page, 'PDF + tarjetas', ['PDF', 'Estudio']);
   fc = page.waitForEvent('filechooser');
   await page.getByText('Abrir PDF').click();
   await (await fc).setFiles(EX + 'docs/guia-ecg.pdf');

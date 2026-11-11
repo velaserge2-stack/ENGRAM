@@ -206,7 +206,7 @@ try {
     await page.getByRole('button', { name: 'Crear' }).click();
     for (const k of ['PDF', 'Pomodoro']) {
       await page.getByRole('button', { name: 'Añadir panel' }).click();
-      await page.getByRole('menuitem', { name: `Añadir panel ${k}` }).click();
+      await page.getByRole('menuitem', { name: `Añadir panel ${k}`, exact: true }).evaluate((x) => x.click());
       await page.waitForTimeout(300);
     }
     await page.locator('.tiles > .win').first().waitFor();
