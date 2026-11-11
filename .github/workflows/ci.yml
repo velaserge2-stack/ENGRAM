@@ -25,6 +25,8 @@ jobs:
           npm i --no-save playwright@1.56.1
           npx playwright install --with-deps webkit
           BROWSER=webkit npm run e2e
+          BROWSER=webkit npm run e2e:flows
+          BROWSER=webkit npm run e2e:design
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:
