@@ -571,3 +571,6 @@ pre.preview { background: var(--fill-2); border: var(--hair) solid var(--line); 
 .profile-stats { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; border-top: var(--hair) solid var(--line); padding-top: 12px; text-align: center; }
 .profile-stats > div { display: grid; gap: 2px; }
 .profile-stats b { font-size: var(--t-1); font-weight: 700; letter-spacing: -0.02em; }
+/* papelera de mazos (C8) */
+.decks .pick { width: 22px; height: 22px; flex: none; accent-color: var(--t1); margin: 0 4px 0 0; }
+hr.sep { border: 0; border-top: var(--hair) solid var(--line); margin: 4px 0; width: 100%; }

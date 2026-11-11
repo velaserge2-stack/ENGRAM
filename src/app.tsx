@@ -21,6 +21,7 @@ import { onUpdateReady } from './sw-register';
 import { usePomodoro } from './screens/pomodoro';
 import { walk } from './vault/util';
 import { TooltipLayer } from './ui/tooltip';
+import { autoPurge } from './data/decktrash';
 import { PhoneTabBar } from './ui/phonebar';
 import { usePhone } from './ui/kit';
 import { Avatar, useProfile } from './screens/profile';
@@ -85,6 +86,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const recheckIntegrity = async () => setIntegrity(await checkIntegrity(vault));
   useEffect(() => {
     void recheckIntegrity();
+    // papelera de mazos: vaciado automático a los N días (Ajustes → Mazos → Papelera)
+    autoPurge(vault, settings.deckTrashDays).then((n) => n && setVersion((v) => v + 1), () => {});
     onUpdateReady((apply) => setUpdate(() => apply));
     watchFrames(() => !settings.lightMode && toast(t('app.el_vidrio_va_lento_en_este')));
   }, []);

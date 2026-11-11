@@ -63,6 +63,8 @@ export interface Settings {
   accent: { color: string | null; usos: AccentUse[] };
   /** idioma de la interfaz; '' = el del dispositivo (es, en o fr; si no, es) */
   lang: '' | 'es' | 'en' | 'fr' | 'xx';
+  /** días que un mazo borrado se queda en la papelera antes de vaciarse solo (0 = nunca) */
+  deckTrashDays: number;
 }
 
 export const ACCENT_USES = ['nav', 'progreso', 'enlaces', 'seleccion', 'calor', 'boton', 'calendario'] as const;
@@ -94,6 +96,7 @@ export function defaultSettings(): Settings {
     weekStartsMonday: true,
     streakMin: 1,
     backupReminderDays: 7,
+    deckTrashDays: 30,
     weeklyBackupReminder: true,
     lastExportAt: null,
     backupReminderSnoozedUntil: null,
@@ -155,6 +158,7 @@ export function mergeSettings(raw: unknown): Settings {
   s.bgDim = Math.min(50, Math.max(-50, s.bgDim));
   s.retention = Math.min(0.99, Math.max(0.7, s.retention));
   s.dayStartHour = Math.min(23, Math.max(0, Math.round(s.dayStartHour)));
+  s.deckTrashDays = Math.min(365, Math.max(0, Math.round(s.deckTrashDays)));
   return s;
 }
 

@@ -64,6 +64,43 @@ try {
     check(true, 'el avatar de la barra superior abre el perfil');
   }
 
+  if (run('papelera')) {
+    console.log('Papelera de mazos');
+    await page.goto(URL_ + '#/mazos');
+    const row = page.locator('tr.swipe-row', { hasText: 'Cardiología' });
+    await row.locator('td').first().click({ position: { x: 4, y: 10 } });
+    await page.getByRole('button', { name: 'Opciones de Cardiología' }).click();
+    await page.getByRole('button', { name: 'Eliminar mazo…' }).click();
+    const sheet = page.getByRole('dialog', { name: /Eliminar «Cardiología»/ });
+    await sheet.waitFor();
+    check(/Se moverán a la Papelera: \d+ tarjetas y \d+ repasos/.test(await sheet.innerText()), 'confirmación con cifras de tarjetas y repasos');
+    await sheet.getByRole('button', { name: 'Mover a la Papelera' }).click();
+    await page.waitForTimeout(800);
+    check(await page.locator('tr.swipe-row', { hasText: 'Cardiología' }).count() === 0, 'el mazo desaparece de la lista (dos toques tras el engranaje)');
+    await page.getByRole('button', { name: /Papelera \(1\)/ }).click();
+    const tr = page.getByRole('dialog', { name: 'Papelera de mazos' });
+    await tr.getByRole('button', { name: 'Restaurar' }).click();
+    await page.waitForTimeout(800);
+    await tr.getByRole('button', { name: 'Cerrar' }).click();
+    check(await page.locator('tr.swipe-row', { hasText: 'Cardiología' }).count() === 1, 'restaurar devuelve el mazo íntegro');
+    // selección múltiple: la carpeta Neurología se lleva sus submazos
+    await page.getByRole('button', { name: 'Seleccionar', exact: true }).click();
+    await page.getByRole('checkbox', { name: 'Seleccionar Neurología' }).check();
+    await page.getByRole('button', { name: 'Eliminar (1)' }).click();
+    const multi = page.getByRole('dialog', { name: /Eliminar 2 mazos/ });
+    await multi.waitFor();
+    check((await multi.innerText()).includes('Cefaleas') && (await multi.innerText()).includes('EVC'), 'borrar una carpeta lista todos sus submazos');
+    await multi.getByRole('button', { name: 'Mover a la Papelera' }).click();
+    await page.waitForTimeout(800);
+    check(await page.locator('tr.swipe-row', { hasText: 'Cefaleas' }).count() === 0, 'selección múltiple: varios mazos de una vez');
+    await page.getByRole('button', { name: /Papelera \(1\)/ }).click();
+    const tr2 = page.getByRole('dialog', { name: 'Papelera de mazos' });
+    await tr2.getByRole('button', { name: 'Eliminar definitivamente' }).click();
+    await page.waitForTimeout(600);
+    check(await tr2.getByText('La papelera está vacía.').count() === 1, 'eliminar definitivamente vacía la entrada');
+    await tr2.getByRole('button', { name: 'Cerrar' }).click();
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');
