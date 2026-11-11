@@ -187,7 +187,7 @@ try {
     await more.waitFor();
     for (const name of ['Simulacros', 'Calendario', 'Espacios', 'Estadísticas', 'Ajustes']) check(await more.getByRole('link', { name }).count() === 1, `«Más» abre ${name}`);
     const sb = await more.boundingBox();
-    check(Math.abs(sb.y + sb.height - 844) < 1 && sb.width === 390, 'las hojas son inferiores y a todo el ancho');
+    check(Math.abs(sb.y + sb.height - 844) < 1 && sb.width === 390, `las hojas son inferiores y a todo el ancho (${JSON.stringify(sb)})`);
     await more.getByRole('link', { name: 'Calendario' }).click();
     await page.getByRole('heading', { name: 'Calendario', level: 1 }).waitFor();
     check(await page.locator('.sheet').count() === 0, 'elegir una sección cierra la hoja «Más»');

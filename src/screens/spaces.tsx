@@ -59,6 +59,9 @@ const TYPES = (): { t: PType; label: string; icon: preact.JSX.Element }[] => ([
   { t: 'sonido', label: tr('addons.n_ambient'), icon: <Headphones size={18} /> },
 ]);
 const MAX_ACTIVE = 4;
+/** Id único aunque se creen dos paneles en el mismo milisegundo. */
+let uidSeq = 0;
+const uid = () => `${Date.now().toString(36)}${(++uidSeq).toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 
 /** Reparto inicial del mosaico: un panel de notas arranca con al menos el 60 % del área útil. */
 function initialSizes(panels: Panel[]): number[] {
@@ -104,7 +107,7 @@ export function Spaces(props: { route: string[] }) {
       const type: PType = /\.pdf$/i.test(path!) ? 'pdf' : /\.docx$/i.test(path!) ? 'docx' : /\.(csv|tsv)$/i.test(path!) ? 'hoja' : /\.(png|jpe?g|webp|gif)$/i.test(path!) ? 'imagen' : 'nota';
       const base = sp ?? spaces[0] ?? { id: 'general', name: 'General', emoji: '🗂️', mode: 'tiles' as const, panels: [], sizes: [], view: { x: 0, y: 0, k: 1 } };
       const at = base.mode === 'canvas' ? place(base, 640, 560, live.focus) : { x: 40, y: 40, w: 640, h: 560 };
-      const panel: Panel = { id: Date.now().toString(36), type, arg: frag ? `${path}#${frag}` : path!, ...at, z: base.panels.length + 1 };
+      const panel: Panel = { id: uid(), type, arg: frag ? `${path}#${frag}` : path!, ...at, z: base.panels.length + 1 };
       live.reveal = panel.id;
       const panels = base.mode === 'canvas' ? [...base.panels, panel] : [...base.panels.slice(-2), panel];
       const s = { ...base, panels, sizes: initialSizes(panels) };
@@ -288,7 +291,7 @@ function Dock(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
     const n = p.sp.panels.length;
     const w = t === 'pomodoro' ? 340 : t === 'nota' ? 760 : 560, h = t === 'pomodoro' ? 420 : t === 'nota' ? 640 : 520;
     const at = p.sp.mode === 'canvas' ? place(p.sp, w, h) : { x: 60 + n * 40, y: 60 + n * 40, w, h };
-    const panel: Panel = { id: Date.now().toString(36), type: t, arg, ...at, z: n + 1 };
+    const panel: Panel = { id: uid(), type: t, arg, ...at, z: n + 1 };
     live.reveal = panel.id;
     const vis = visible(p.sp);
     // en mosaico caben 3: los demás visibles pasan a la bandeja si se pueden minimizar
