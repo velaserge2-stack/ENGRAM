@@ -1,7 +1,7 @@
 {
   "name": "engrama",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Repetición espaciada + notas, PWA offline para Safari en iPad. Tus datos son archivos de texto.",
   "license": "MIT",

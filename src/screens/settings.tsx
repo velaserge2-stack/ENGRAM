@@ -275,7 +275,12 @@ export function SettingsScreen() {
             app.toast(n ? `${n} archivos de ejemplo añadidos` : 'Los ejemplos ya estaban');
           }}>Cargar</button>
         </Row>
-        <Row k="Versión" sub="Sin servidores, sin cuentas, sin analítica."><span class="v">{APP_VERSION}</span></Row>
+      </Group>
+      <Group title="Acerca de">
+        <div class="row" style={{ padding: '14px 18px', gap: '16px' }}>
+          <img class="brand-logo" src="brand/logo-256.png" width="72" height="72" alt="Logo de Engrama" style={{ borderRadius: '18px' }} />
+          <div><div style={{ fontWeight: 500, fontSize: 'var(--t-3)' }}>Engrama</div><div class="foot">Versión {APP_VERSION} · sin servidores, sin cuentas, sin analítica</div></div>
+        </div>
       </Group>
       <div style={{ height: '24px' }} />
     </div>

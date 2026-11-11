@@ -104,7 +104,9 @@ try {
   if (only.includes('tray')) {
     // Hoy: minimizar el pomodoro en marcha
     await page.goto(URL_ + '#/hoy');
-    await page.locator('.pomo').getByRole('button', { name: 'Iniciar', exact: true }).first().click();
+    // («Iniciar bloque» ya pudo dejarlo en marcha)
+    const startBtn = page.locator('.pomo').getByRole('button', { name: 'Iniciar', exact: true });
+    if (await startBtn.count()) await startBtn.first().click();
     await page.getByRole('button', { name: 'Minimizar Pomodoro' }).click();
     const sq = page.getByRole('button', { name: /^Pomodoro, minimizado, \d\d:\d\d restantes$/ });
     await sq.waitFor();
@@ -140,6 +142,31 @@ try {
     await page.locator('.win').filter({ hasText: 'Estudiadas hoy' }).waitFor();
     check(true, 'en un espacio el panel minimizado persiste y se restaura');
     await page.screenshot({ path: OUT + 'mejora-bandeja.png' });
+  }
+
+  if (only.includes('logo')) {
+    const man = await (await page.request.get(URL_ + 'manifest.webmanifest')).json();
+    const bad = [];
+    for (const ic of man.icons) {
+      const res = await page.request.get(URL_ + ic.src);
+      const dim = await page.evaluate(async (u) => { const i = new Image(); i.src = u; await i.decode(); return `${i.width}x${i.height}`; }, URL_ + ic.src);
+      if (!res.ok() || dim !== ic.sizes) bad.push(`${ic.src} ${dim}`);
+    }
+    check(!bad.length && man.background_color === man.theme_color && /^#[0-9a-f]{6}$/.test(man.background_color), `manifiesto: íconos válidos y color de fondo muestreado ${man.background_color}`);
+    const apple = await page.evaluate(() => document.querySelector('link[rel="apple-touch-icon"]').getAttribute('href'));
+    const corners = await page.evaluate(async (u) => {
+      const i = new Image(); i.src = u; await i.decode();
+      const c = Object.assign(document.createElement('canvas'), { width: i.width, height: i.height });
+      const x = c.getContext('2d'); x.drawImage(i, 0, 0);
+      const d = x.getImageData(0, 0, i.width, i.height).data;
+      let minA = 255; for (let k = 3; k < d.length; k += 4) minA = Math.min(minA, d[k]);
+      return { w: i.width, minA };
+    }, URL_ + apple);
+    check(corners.w === 180 && corners.minA === 255, 'apple-touch-icon 180×180 sin transparencia');
+    await page.goto(URL_ + '#/hoy');
+    const logo = await page.locator('.brand-mark img').evaluate((e) => ({ src: e.getAttribute('src'), w: e.naturalWidth }));
+    check(logo.src === 'brand/logo-64.png' && logo.w <= 256, 'la barra superior usa el logo optimizado (no el original de 1254 px)');
+    await page.screenshot({ path: OUT + 'mejora-logo.png', clip: { x: 0, y: 0, width: 600, height: 80 } });
   }
 
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.join(' | ') : ''));

@@ -19,7 +19,10 @@ export function Welcome() {
 
   return (
     <main class="welcome">
-      <img class="logo" src="icons/icon-192.png" alt="" />
+      <div class="glass panel center stack-s" style={{ justifyItems: 'center' }}>
+        <img class="brand-logo" src="brand/logo-256.png" width="112" height="112" alt="Logo de Engrama" />
+        <div style={{ fontWeight: 500, fontSize: 'var(--t-2)' }}>Engrama</div>
+      </div>
       <div class="glass panel stack-s">
         <h1 style={{ fontSize: 'var(--t-large)', fontWeight: 700 }}>Bienvenido a Engrama</h1>
         <p class="t2" style={{ fontSize: 'var(--t-3)' }}>
