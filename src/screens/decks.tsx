@@ -1,13 +1,14 @@
-import { t } from '../i18n';
-import { BookOpen, Download, FilePlus2, FolderInput, Import, Pause as PauseIcon, Pencil, Settings2, Layers } from 'lucide-preact';
+import { locale, t } from '../i18n';
+import { BookOpen, Download, FilePlus2, FolderInput, Import, Pause as PauseIcon, Pencil, Settings2, Layers, Trash2, ListChecks, RotateCcw } from 'lucide-preact';
 import { useRef, useState } from 'preact/hooks';
+import { inFolder, listTrash, purgeTrash, restoreTrash, trashDecks, trashPlan, withSubdecks, type TrashEntry } from '../data/decktrash';
 import type { Deck } from '../data/collection';
 import { createDeck, mediaRefs, resolveMedia, setDeckMeta, stateOp } from '../data/ops';
 import { buildZip } from '../io/zip';
 import { deliver } from '../io/share';
 import { srsParams, studyLimits } from '../lib/settings';
 import { deckCounts, newIntroducedToday, type Counts } from '../srs/queue';
-import { go, href, useApp } from '../state';
+import { go, href, useApp, useAsync } from '../state';
 import { Empty, Num, PageTitle, Sheet } from '../ui/kit';
 import { readTextOr } from '../vault/util';
 import { APP_VERSION } from './backup';
@@ -48,7 +49,7 @@ function tree(decks: Deck[], counts: Map<string, Counts>): Node[] {
 }
 
 /** Panel de mazos (Cristal §7.2): jerarquía ＋/－, fila seleccionada en píldora, engranaje, deslizar. */
-export function DeckPanel(props: { title?: string }) {
+export function DeckPanel(props: { title?: string; select?: { keys: Set<string>; toggle: (key: string) => void } }) {
   const app = useApp();
   const col = app.col;
   const [closed, setClosed] = useState<Set<string>>(new Set());
@@ -74,7 +75,7 @@ export function DeckPanel(props: { title?: string }) {
         <tr
           key={n.key}
           class={`swipe-row${isSel ? ' sel' : ''}`}
-          onClick={() => setSel(isSel ? null : n.key)}
+          onClick={() => (props.select ? props.select.toggle(n.key) : setSel(isSel ? null : n.key))}
           onPointerDown={(e) => (swipe.current = { x: e.clientX, key: n.key })}
           onPointerUp={(e) => {
             const s = swipe.current;
@@ -84,6 +85,7 @@ export function DeckPanel(props: { title?: string }) {
         >
           <td>
             <div class="name" style={{ paddingLeft: `${depth * 22}px` }}>
+              {props.select && <input type="checkbox" class="pick" checked={props.select.keys.has(n.key)} aria-label={t('decks.seleccionar_label', { label: n.label })} onClick={(e) => e.stopPropagation()} onChange={() => props.select!.toggle(n.key)} />}
               {n.deck ? <span style={{ width: '28px', textAlign: 'center' }} aria-hidden="true">{deckEmoji(app, n.deck) || '·'}</span> : (
                 <button type="button" class="tog" aria-expanded={open} aria-label={t(open ? 'decks.contraer_label' : 'decks.expandir_label', { label: n.label })} onClick={(e) => (e.stopPropagation(), setClosed((s) => { const c = new Set(s); c.has(n.key) ? c.delete(n.key) : c.add(n.key); return c; }))}>
                   {open ? '－' : '＋'}
@@ -212,13 +214,14 @@ function CreateDeck(props: { onClose: () => void }) {
   );
 }
 
-function DeckOptions(props: { deck: Deck; onClose: () => void }) {
+export function DeckOptions(props: { deck: Deck; onClose: () => void }) {
   const app = useApp();
   const d = props.deck;
   const [name, setName] = useState(d.name);
   const [emoji, setEmoji] = useState(typeof d.data.emoji === 'string' ? d.data.emoji : '');
   const [npd, setNpd] = useState(d.newPerDay ?? app.settings.newPerDay);
   const [lang, setLang] = useState(typeof d.data.lang === 'string' ? d.data.lang : '');
+  const [del, setDel] = useState(false);
   return (
     <Sheet title={t('decks.opciones_name', { name: d.name })} onClose={props.onClose}>
       <form class="stack" onSubmit={async (e) => {
@@ -236,7 +239,69 @@ function DeckOptions(props: { deck: Deck; onClose: () => void }) {
           <a class="btn" href={href('mazos', ...d.path.split('/'))} onClick={props.onClose}><Pencil size={16} />{' '}{t('decks.editar_tarjetas')}</a>
         </div>
         <p class="foot">{t('decks.se_guarda_en_el_frontmatter_del')}</p>
+        <hr class="sep" />
+        <button type="button" class="btn danger" onClick={() => setDel(true)}><Trash2 size={16} />{' '}{t('decks.eliminar_mazo')}</button>
       </form>
+      {del && app.col && <DeleteDecks decks={withSubdecks(app.col, d)} onClose={() => setDel(false)} onDone={props.onClose} />}
+    </Sheet>
+  );
+}
+
+/** Confirmación con cifras (C8): nada se borra, todo va a la papelera de mazos. */
+export function DeleteDecks(props: { decks: Deck[]; onClose: () => void; onDone?: () => void }) {
+  const app = useApp();
+  const col = app.col!;
+  const plan = trashPlan(col, props.decks);
+  const [busy, setBusy] = useState(false);
+  return (
+    <Sheet title={props.decks.length > 1 ? t('decks.eliminar_n_mazos', { n: props.decks.length }) : t('decks.eliminar_mazo_name', { name: props.decks[0]?.full ?? '' })} onClose={props.onClose}>
+      <div class="stack">
+        <p><b>{t('decks.se_moveran_a_la_papelera', { cards: plan.cards, reviews: plan.reviews })}</b></p>
+        {props.decks.length > 1 && <ul class="plan-list" data-user-content>{props.decks.map((d) => <li>{deckEmoji(app, d)} {d.full} <span class="foot">· {t('decks.n_tarjetas', { n: d.cards.length })}</span></li>)}</ul>}
+        <p class="foot">{t('decks.papelera_nota', { days: app.settings.deckTrashDays || '∞' })}</p>
+        <div class="row wrap" style={{ justifyContent: 'flex-end' }}>
+          <button type="button" class="btn" onClick={props.onClose}>{t('settings.cancelar')}</button>
+          <button type="button" class="btn danger primary" disabled={busy || !props.decks.length} onClick={async () => {
+            setBusy(true);
+            await trashDecks(app.vault, col, props.decks);
+            app.changed();
+            app.toast(t('decks.movidos_a_la_papelera', { n: props.decks.length }));
+            props.onClose();
+            props.onDone?.();
+          }}><Trash2 size={16} />{' '}{t('decks.mover_a_la_papelera')}</button>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+function DeckTrash(props: { onClose: () => void }) {
+  const app = useApp();
+  const { data: items } = useAsync(() => listTrash(app.vault), [app.version]);
+  const days = app.settings.deckTrashDays;
+  const left = (e: TrashEntry) => Math.max(0, Math.ceil(days - (Date.now() - e.deletedAt) / 86_400_000));
+  return (
+    <Sheet title={t('decks.papelera_de_mazos')} onClose={props.onClose}>
+      <div class="stack">
+        {!items?.length && <p class="t2">{t('decks.papelera_vacia')}</p>}
+        {items?.map((e) => (
+          <div class="glass inset panel stack-s" style={{ borderRadius: 'var(--r-inner)' }}>
+            <b data-user-content>{e.decks.map((d) => d.name).join(', ')}</b>
+            <span class="foot">{t('decks.n_tarjetas_n2_repasos', { n: e.cards, n2: e.reviews })} · {new Date(e.deletedAt).toLocaleDateString(locale())}{days ? ` · ${t('decks.se_vacia_en', { n: left(e) })}` : ''}</span>
+            <div class="row wrap">
+              <button type="button" class="btn small" onClick={async () => { const r = await restoreTrash(app.vault, e); app.changed(); app.toast(t('decks.restaurado', { n: r.length })); }}><RotateCcw size={14} />{' '}{t('decks.restaurar')}</button>
+              <button type="button" class="btn small danger" onClick={async () => { if (!confirm(t('decks.confirm_definitivo'))) return; await purgeTrash(app.vault, e); app.changed(); }}><Trash2 size={14} />{' '}{t('decks.eliminar_definitivamente')}</button>
+            </div>
+          </div>
+        ))}
+        <label class="field">{t('decks.vaciar_automaticamente')}
+          <select value={days} onChange={(e) => app.update({ deckTrashDays: Number((e.target as HTMLSelectElement).value) })}>
+            {[7, 14, 30, 60, 90].map((d) => <option value={d}>{t('settings.d_dias', { d })}</option>)}
+            <option value={0}>{t('decks.nunca')}</option>
+          </select>
+        </label>
+        <p class="foot">{t('decks.historial_nota')}</p>
+      </div>
     </Sheet>
   );
 }
@@ -244,16 +309,41 @@ function DeckOptions(props: { deck: Deck; onClose: () => void }) {
 export function Decks() {
   const app = useApp();
   const col = app.col;
+  const [picking, setPicking] = useState<Set<string> | null>(null);
+  const [trash, setTrash] = useState(false);
+  const [del, setDel] = useState<Deck[] | null>(null);
+  const { data: trashN } = useAsync(async () => (await listTrash(app.vault)).length, [app.version]);
+  const toggle = (k: string) => setPicking((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  // selección → mazos (una carpeta se lleva todo lo que contiene; un mazo, sus submazos)
+  const picked = (): Deck[] => {
+    if (!col || !picking) return [];
+    const m = new Map<string, Deck>();
+    for (const k of picking) for (const d of col.decks.some((x) => x.path === k) ? withSubdecks(col, col.decks.find((x) => x.path === k)!) : inFolder(col, k)) m.set(d.path, d);
+    return [...m.values()];
+  };
   return (
     <>
       <PageTitle title={t('decks.mazos')} sub={col ? t('decks.n_mazos_size_tarjetas', { n: col.decks.length, size: col.byCid.size }) : undefined}>
-        <a class="btn primary" href="#/estudiar"><BookOpen size={18} />{' '}{t('decks.estudiar_todo')}</a>
+        {picking ? (
+          <>
+            <button type="button" class="btn" onClick={() => setPicking(null)}>{t('settings.cancelar')}</button>
+            <button type="button" class="btn danger primary" disabled={!picking.size} onClick={() => setDel(picked())}><Trash2 size={16} />{' '}{t('decks.eliminar_seleccion', { n: picking.size })}</button>
+          </>
+        ) : (
+          <>
+            {!!col?.decks.length && <button type="button" class="btn" onClick={() => setPicking(new Set())}><ListChecks size={18} />{' '}{t('decks.seleccionar')}</button>}
+            <button type="button" class="btn" onClick={() => setTrash(true)} aria-label={t('decks.papelera_n', { n: trashN ?? 0 })}><Trash2 size={18} />{' '}{t('decks.papelera')}{trashN ? ` · ${trashN}` : ''}</button>
+            <a class="btn primary" href="#/estudiar"><BookOpen size={18} />{' '}{t('decks.estudiar_todo')}</a>
+          </>
+        )}
       </PageTitle>
+      {trash && <DeckTrash onClose={() => setTrash(false)} />}
+      {del && <DeleteDecks decks={del} onClose={() => setDel(null)} onDone={() => setPicking(null)} />}
       {col && col.decks.length === 0 ? (
         <Empty icon={<Layers size={44} />} title={t('decks.sin_mazos_todavia')} action={<button type="button" class="btn primary" onClick={() => app.openSheet('import')}>{t('decks.importar')}</button>}>{t('decks.un_mazo_es_un_archivo_md')}</Empty>
       ) : (
         <div class="stack">
-          <DeckPanel />
+          <DeckPanel select={picking ? { keys: picking, toggle } : undefined} />
           {col && col.decks.some((d) => d.errors.length) && (
             <section class="glass panel">
               <h2 style={{ fontSize: 'var(--t-3)', marginBottom: '8px' }}>{t('decks.tarjetas_con_errores_no_entran_al')}</h2>

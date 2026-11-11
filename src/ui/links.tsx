@@ -1,4 +1,4 @@
-import { locale, t } from '../i18n';
+import { locale, t, t as tr2 } from '../i18n'; // tr2: dentro de .map((t) => …) `t` es el destino
 /** Vínculos del calendario: selector, chips, datos vivos e «Iniciar bloque» (Mejora 1 · §2). */
 import { BookOpen, FileText, Folder, Hash, Link2, Unlink } from 'lucide-preact';
 import { useState } from 'preact/hooks';
@@ -91,7 +91,7 @@ export function LinkPicker(p: { idx: LinkIndex; onPick: (uri: string) => void; o
       <div class="stack-s">
         <Segmented label={t('deck.tipo')} value={tab} onChange={setTab} options={[['decks', t('links.mazos_y_temas')], ['notes', t('notes.notas')]]} />
         <input class="input wide" type="search" placeholder={t('links.buscar')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label={t('inbox.buscar')} />
-        {shown.map((t) => <button type="button" class="opt" onClick={() => void pick(t)}>{ICON[t.kind]} <span class="grow ellipsis">{t.name}</span><span class="foot ellipsis" style={{ maxWidth: '45%' }}>{t.kind === 'note' ? t.path.replace(/^notes\//, '') : t.kind === 'topic' ? 'tema' : t.kind === 'tag' ? 'etiqueta' : 'mazo'}</span></button>)}
+        {shown.map((t) => <button type="button" class="opt" onClick={() => void pick(t)}>{ICON[t.kind]} <span class="grow ellipsis">{t.name}</span><span class="foot ellipsis" style={{ maxWidth: '45%' }}>{t.kind === 'note' ? t.path.replace(/^notes\//, '') : (t.kind === 'topic' ? tr2('spaces.tema') : t.kind === 'tag' ? tr2('notes.etiqueta') : tr2('deck.mazo')).toLowerCase()}</span></button>)}
         {!shown.length && <p class="t2">{t('palette.sin_resultados')}</p>}
       </div>
     </Sheet>

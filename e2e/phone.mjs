@@ -187,7 +187,7 @@ try {
     await more.waitFor();
     for (const name of ['Simulacros', 'Calendario', 'Espacios', 'Estadísticas', 'Ajustes']) check(await more.getByRole('link', { name }).count() === 1, `«Más» abre ${name}`);
     const sb = await more.boundingBox();
-    check(Math.abs(sb.y + sb.height - 844) < 1 && sb.width === 390, 'las hojas son inferiores y a todo el ancho');
+    check(Math.abs(sb.y + sb.height - 844) < 1 && sb.width === 390, `las hojas son inferiores y a todo el ancho (${JSON.stringify(sb)})`);
     await more.getByRole('link', { name: 'Calendario' }).click();
     await page.getByRole('heading', { name: 'Calendario', level: 1 }).waitFor();
     check(await page.locator('.sheet').count() === 0, 'elegir una sección cierra la hoja «Más»');
@@ -201,7 +201,14 @@ try {
     check(lastBottom <= barTop + 1, 'el final de la página queda por encima de la barra inferior');
     // espacios: un panel a la vez; el otro queda como cuadrito y tocarlo lo muestra
     await go(page, 'espacios');
-    await page.getByRole('button', { name: 'PDF + tarjetas' }).click();
+    await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
+    await page.getByLabel(/Nombre/).fill('Cel');
+    await page.getByRole('button', { name: 'Crear' }).click();
+    for (const k of ['PDF', 'Pomodoro']) {
+      await page.getByRole('button', { name: 'Añadir panel' }).click();
+      await page.getByRole('menuitem', { name: `Añadir panel ${k}`, exact: true }).evaluate((x) => x.click());
+      await page.waitForTimeout(300);
+    }
     await page.locator('.tiles > .win').first().waitFor();
     check(await page.locator('.tiles > .win').count() === 1, 'Espacios en teléfono muestra un panel a la vez');
     const sq = page.locator('.rail .tray-sq');

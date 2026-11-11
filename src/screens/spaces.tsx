@@ -1,5 +1,15 @@
 import { t as tr } from '../i18n';
-import { BarChart3, BookOpen, ChevronsDownUp, ChevronsUpDown, ClipboardCheck, FileSpreadsheet, FileText, Image as ImageIcon, Lock, NotebookPen, Plus, Scan, Timer, Unlock, X, LayoutGrid, Inbox as InboxIcon, Sparkles } from 'lucide-preact';
+import { BarChart3, BookOpen, CalendarDays, ChevronsDownUp, ChevronsUpDown, ClipboardCheck, FilePlus2, FileSpreadsheet, FileText, FolderTree, Image as ImageIcon, Layers, Lock, NotebookPen, Plus, Scan, Settings2, Timer, Unlock, X, LayoutGrid, Inbox as InboxIcon, Sparkles } from 'lucide-preact';
+import { Popover } from '../ui/overlay';
+import { Headphones } from 'lucide-preact';
+import { addonOn } from './addons';
+import { AmbientPlayer } from './ambient';
+import { NewNotePanel, NotePanel } from './notes';
+import { SimEmbed } from './simulacros';
+import { Calendar } from './calendar';
+import { DeckEditor } from './deck';
+import { DeckOptions } from './decks';
+import { Explorar } from './explorar';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { docxToHtml } from '../io/extract';
 import { parseCSV } from '../io/csv';
@@ -20,12 +30,12 @@ import { todayProgress } from '../lib/stats';
 import { dayKey } from '../lib/days';
 import { saveImage } from '../notes/images';
 
-type PType = 'estudio' | 'simulacro' | 'nota' | 'pdf' | 'docx' | 'hoja' | 'imagen' | 'pomodoro' | 'stats';
+type PType = 'estudio' | 'simulacro' | 'nota' | 'pdf' | 'docx' | 'hoja' | 'imagen' | 'pomodoro' | 'stats' | 'mazo' | 'tema' | 'calendario' | 'sonido';
 interface Panel { id: string; type: PType; arg: string; x: number; y: number; w: number; h: number; locked?: boolean; min?: boolean; z?: number }
 interface Space { id: string; name: string; emoji: string; mode: 'tiles' | 'canvas'; panels: Panel[]; sizes: number[]; view: { x: number; y: number; k: number }; tray?: string[] }
 
 /** Todos los paneles se pueden minimizar a cuadrito (el simulacro sigue contando: su reloj es una marca de tiempo). */
-const MINIMIZABLE: PType[] = ['estudio', 'simulacro', 'nota', 'pdf', 'docx', 'hoja', 'imagen', 'pomodoro', 'stats'];
+const MINIMIZABLE: PType[] = ['estudio', 'simulacro', 'nota', 'pdf', 'docx', 'hoja', 'imagen', 'pomodoro', 'stats', 'mazo', 'tema', 'calendario', 'sonido'];
 const SIM_CURRENT = '.app/exam-current.json';
 const visible = (sp: Space) => sp.panels.filter((x) => !x.min);
 /** Teléfono: un panel a la vez. `show` es el elegido (si sigue visible); si no, el más reciente. */
@@ -43,8 +53,15 @@ const TYPES = (): { t: PType; label: string; icon: preact.JSX.Element }[] => ([
   { t: 'simulacro', label: tr('simulacros.simulacro'), icon: <ClipboardCheck size={18} /> },
   { t: 'pomodoro', label: tr('today.pomodoro'), icon: <Timer size={18} /> },
   { t: 'stats', label: tr('spaces.estadisticas'), icon: <BarChart3 size={18} /> },
+  { t: 'mazo', label: tr('deck.mazo'), icon: <Layers size={18} /> },
+  { t: 'tema', label: tr('spaces.tema'), icon: <FolderTree size={18} /> },
+  { t: 'calendario', label: tr('calendar.calendario'), icon: <CalendarDays size={18} /> },
+  { t: 'sonido', label: tr('addons.n_ambient'), icon: <Headphones size={18} /> },
 ]);
 const MAX_ACTIVE = 4;
+/** Id único aunque se creen dos paneles en el mismo milisegundo. */
+let uidSeq = 0;
+const uid = () => `${Date.now().toString(36)}${(++uidSeq).toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 
 /** Reparto inicial del mosaico: un panel de notas arranca con al menos el 60 % del área útil. */
 function initialSizes(panels: Panel[]): number[] {
@@ -55,11 +72,7 @@ function initialSizes(panels: Panel[]): number[] {
 /** Tamaño mínimo por tipo (las notas necesitan más). */
 const minFrac = (p: Panel | undefined) => (p?.type === 'nota' ? 0.4 : 0.15);
 
-const PRESETS: Record<string, Omit<Space, 'id'>> = {
-  'PDF + tarjetas': { name: 'PDF + tarjetas', emoji: '📄', mode: 'tiles', panels: [{ id: 'a', type: 'pdf', arg: '', x: 0, y: 0, w: 640, h: 560 }, { id: 'b', type: 'estudio', arg: '', x: 680, y: 0, w: 520, h: 560 }], sizes: [0.6, 0.4], view: { x: 0, y: 0, k: 1 } },
-  'Clase: notas + PDF': { name: 'Clase', emoji: '🎓', mode: 'tiles', panels: [{ id: 'a', type: 'nota', arg: '', x: 0, y: 0, w: 560, h: 560 }, { id: 'b', type: 'pdf', arg: '', x: 600, y: 0, w: 600, h: 560 }], sizes: [0.6, 0.4], view: { x: 0, y: 0, k: 1 } },
-  Repaso: { name: 'Repaso', emoji: '🔁', mode: 'tiles', panels: [{ id: 'a', type: 'estudio', arg: '', x: 0, y: 0, w: 700, h: 560 }, { id: 'b', type: 'pomodoro', arg: '', x: 740, y: 0, w: 340, h: 420 }, { id: 'c', type: 'stats', arg: '', x: 740, y: 440, w: 340, h: 260 }], sizes: [0.55, 0.22, 0.23], view: { x: 0, y: 0, k: 1 } },
-};
+/** Un espacio nuevo empieza vacío (E13): sin preajustes. Los espacios guardados se conservan tal cual. */
 
 async function loadSpaces(vault: ReturnType<typeof useApp>['vault']): Promise<Space[]> {
   const out: Space[] = [];
@@ -94,7 +107,7 @@ export function Spaces(props: { route: string[] }) {
       const type: PType = /\.pdf$/i.test(path!) ? 'pdf' : /\.docx$/i.test(path!) ? 'docx' : /\.(csv|tsv)$/i.test(path!) ? 'hoja' : /\.(png|jpe?g|webp|gif)$/i.test(path!) ? 'imagen' : 'nota';
       const base = sp ?? spaces[0] ?? { id: 'general', name: 'General', emoji: '🗂️', mode: 'tiles' as const, panels: [], sizes: [], view: { x: 0, y: 0, k: 1 } };
       const at = base.mode === 'canvas' ? place(base, 640, 560, live.focus) : { x: 40, y: 40, w: 640, h: 560 };
-      const panel: Panel = { id: Date.now().toString(36), type, arg: frag ? `${path}#${frag}` : path!, ...at, z: base.panels.length + 1 };
+      const panel: Panel = { id: uid(), type, arg: frag ? `${path}#${frag}` : path!, ...at, z: base.panels.length + 1 };
       live.reveal = panel.id;
       const panels = base.mode === 'canvas' ? [...base.panels, panel] : [...base.panels.slice(-2), panel];
       const s = { ...base, panels, sizes: initialSizes(panels) };
@@ -115,8 +128,8 @@ export function Spaces(props: { route: string[] }) {
       </nav>
       <div style={{ minWidth: 0 }}>
         {!sp ? (
-          <div class="empty glass"><LayoutGrid size={44} /><h2>{tr('spaces.espacios')}</h2><p>{tr('spaces.paneles_que_comparten_datos_crea_una')}</p>
-            <div class="row wrap" style={{ justifyContent: 'center' }}>{Object.keys(PRESETS).map((k) => <button type="button" class="btn" onClick={() => { const s = { ...PRESETS[k]!, id: Date.now().toString(36) }; save(s); go('espacios', s.id); }}>{k}</button>)}</div>
+          <div class="empty glass"><LayoutGrid size={44} /><h2>{tr('spaces.espacios')}</h2><p>{tr('spaces.espacio_vacio_explica')}</p>
+            <button type="button" class="btn primary" onClick={() => setCreating(true)}><Plus size={18} />{' '}{tr('spaces.nuevo_espacio')}</button>
           </div>
         ) : (
           <>
@@ -135,10 +148,9 @@ export function Spaces(props: { route: string[] }) {
       </div>
       {creating && (
         <Sheet title={tr('spaces.nuevo_espacio')} onClose={() => setCreating(false)}>
-          <form class="stack" onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget as HTMLFormElement); const preset = PRESETS[String(f.get('p'))]; const s: Space = { ...(preset ?? { mode: 'tiles', panels: [], sizes: [], view: { x: 0, y: 0, k: 1 } }), id: Date.now().toString(36), name: String(f.get('n')) || 'Espacio', emoji: String(f.get('e')) || '🗂️' } as Space; save(s); setCreating(false); go('espacios', s.id); }}>
+          <form class="stack" onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget as HTMLFormElement); const s: Space = { mode: 'tiles', panels: [], sizes: [], view: { x: 0, y: 0, k: 1 }, id: Date.now().toString(36), name: String(f.get('n')) || tr('spaces.espacios'), emoji: String(f.get('e')) || '🗂️' }; save(s); setCreating(false); go('espacios', s.id); }}>
             <label class="field">{tr('spaces.nombre_materia_o_examen')}<input class="input" name="n" required /></label>
             <label class="field">{tr('spaces.emoji')}<input class="input" name="e" maxLength={8} placeholder="🫀" /></label>
-            <label class="field">{tr('spaces.preajuste')}<select name="p"><option value="">{tr('spaces.vacio')}</option>{Object.keys(PRESETS).map((k) => <option>{k}</option>)}</select></label>
             <button class="btn primary" type="submit">{tr('decks.crear')}</button>
           </form>
         </Sheet>
@@ -274,11 +286,12 @@ function PanelTray(p: { sp: Space; save: (s: Space) => void; vertical?: boolean;
 
 function Dock(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
   const app = useApp();
-  const add = (t: PType) => {
+  const [menu, setMenu] = useState<HTMLElement | null>(null);
+  const add = (t: PType, arg = '') => {
     const n = p.sp.panels.length;
     const w = t === 'pomodoro' ? 340 : t === 'nota' ? 760 : 560, h = t === 'pomodoro' ? 420 : t === 'nota' ? 640 : 520;
     const at = p.sp.mode === 'canvas' ? place(p.sp, w, h) : { x: 60 + n * 40, y: 60 + n * 40, w, h };
-    const panel: Panel = { id: Date.now().toString(36), type: t, arg: '', ...at, z: n + 1 };
+    const panel: Panel = { id: uid(), type: t, arg, ...at, z: n + 1 };
     live.reveal = panel.id;
     const vis = visible(p.sp);
     // en mosaico caben 3: los demás visibles pasan a la bandeja si se pueden minimizar
@@ -290,11 +303,14 @@ function Dock(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
   return (
     <div class="dock no-print">
       {innerWidth >= 900 && !p.ph && <PanelTray sp={p.sp} save={p.save} />}
-      <a class="pill glass" href="#/addons"><Sparkles size={16} />{' '}{tr('design.extras')}</a>
-      <div class="glass" role="toolbar" aria-label={tr('design.anadir_panel')}>
-        <span class="note t2" style={{ padding: '0 10px' }}><Plus size={14} />{' '}{tr('design.anadir_panel')}</span>
-        {TYPES().map((x) => <button type="button" class="btn icon small ghost" aria-label={tr('spaces.anadir_panel_label', { label: x.label })} onClick={() => add(x.t)}>{x.icon}</button>)}
-      </div>
+      <a class="pill glass" href="#/ajustes/addons"><Sparkles size={16} />{' '}{tr('design.extras')}</a>
+      <button type="button" class="pill glass" aria-haspopup="menu" aria-expanded={!!menu} onClick={(e) => setMenu(menu ? null : (e.currentTarget as HTMLElement))}><Plus size={16} />{' '}{tr('design.anadir_panel')}</button>
+      {menu && (
+        <Popover anchor={menu} onClose={() => setMenu(null)} label={tr('design.anadir_panel')} role="menu" class="glass strong add-menu">
+          <button type="button" role="menuitem" onClick={() => (setMenu(null), add('nota', '+nueva'))}><FilePlus2 size={18} />{' '}{tr('spaces.nota_nueva')}</button>
+          {ADD_ORDER.filter((k) => k !== 'sonido' || addonOn(app.settings, 'ambient')).map((k) => { const x = TYPES().find((y) => y.t === k)!; return <button type="button" role="menuitem" aria-label={tr('spaces.anadir_panel_label', { label: x.label })} onClick={() => (setMenu(null), add(x.t))}>{x.icon}{' '}{k === 'nota' ? tr('spaces.nota_existente') : k === 'simulacro' ? tr('spaces.simulacro_examen') : x.label}</button>; })}
+        </Popover>
+      )}
       <div class="glass" role="toolbar" aria-label={tr('tray.paneles_minimizados')}>
         <button type="button" class="btn icon small ghost" aria-label={tr('spaces.minimizar_todos')} disabled={!visible(p.sp).length} onClick={() => minimizeAll(p.sp, p.save)}><ChevronsDownUp size={18} /></button>
         <button type="button" class="btn icon small ghost" aria-label={tr('spaces.restaurar_todos')} disabled={!p.sp.panels.some((x) => x.min)} onClick={() => restoreAll(p.sp, p.save)}><ChevronsUpDown size={18} /></button>
@@ -303,6 +319,9 @@ function Dock(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
     </div>
   );
 }
+
+/** Orden del menú «＋ Añadir panel» (E13): todo lo que se puede abrir. */
+const ADD_ORDER: PType[] = ['nota', 'mazo', 'tema', 'simulacro', 'pdf', 'docx', 'hoja', 'imagen', 'pomodoro', 'stats', 'calendario', 'estudio', 'sonido'];
 
 function Tiles(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
   const box = useRef<HTMLDivElement>(null);
@@ -479,10 +498,14 @@ function PanelBody(p: { panel: Panel; onArg: (a: string) => void }) {
     case 'docx': return a ? <DocxView path={a} /> : <FilePicker exts={['docx']} dir="docs" label={tr('spaces.abrir_docx')} onPick={p.onArg} />;
     case 'hoja': return a ? <SheetView path={a} /> : <FilePicker exts={['csv', 'tsv', 'xlsx']} dir="docs" label={tr('spaces.abrir_hoja_csv')} onPick={p.onArg} />;
     case 'imagen': return a ? <ImageView path={a} /> : <FilePicker exts={['png', 'jpg', 'jpeg', 'webp', 'gif']} dir="media" label={tr('spaces.abrir_imagen')} onPick={p.onArg} />;
-    case 'nota': return a ? <NoteView path={a} /> : <NotePick onPick={p.onArg} />;
+    case 'nota': return a && a !== '+nueva' ? <NotePanel path={a} /> : <NotePick onPick={p.onArg} creating={a === '+nueva'} />;
+    case 'mazo': return a ? <DeckPanelBody path={a} /> : <DeckPick onPick={p.onArg} />;
+    case 'tema': return a ? <TopicPanel target={a} /> : <TopicPick onPick={p.onArg} />;
+    case 'calendario': return <div style={{ padding: '12px' }}><Calendar /></div>;
+    case 'sonido': return <div style={{ padding: '12px' }}><AmbientPlayer /></div>;
     case 'estudio': return <div style={{ padding: '12px' }}><Study filter={a || null} embedded /></div>;
     case 'pomodoro': return <div style={{ padding: '12px' }}><PomodoroPanel compact /></div>;
-    case 'simulacro': return <SimPanel />;
+    case 'simulacro': return <div style={{ padding: '12px' }}><SimEmbed /></div>;
     case 'stats': {
       const s = app.settings;
       const tp = todayProgress(app.col?.log ?? [], dayKey(Date.now(), s.timeZone, s.dayStartHour), s.timeZone, s.dayStartHour);
@@ -491,36 +514,71 @@ function PanelBody(p: { panel: Panel; onArg: (a: string) => void }) {
   }
 }
 
-function SimPanel() {
-  const left = useSimLeft(true);
+/** Elegir una nota existente (con buscador) o crear una nueva de verdad en la bóveda (E14). */
+function NotePick(p: { onPick: (a: string) => void; creating?: boolean }) {
+  const app = useApp();
+  const { data } = useAsync(() => listNotes(app.vault), [app.version]);
+  const [q, setQ] = useState('');
+  const [creating, setCreating] = useState(!!p.creating);
+  const f = q.trim().toLowerCase();
+  const list = (data ?? []).filter((n) => !f || `${n.materia} ${n.tema} ${n.title}`.toLowerCase().includes(f));
   return (
-    <div class="stack" style={{ padding: '16px' }}>
-      <p>{tr('spaces.los_simulacros_usan_la_pantalla_completa')}</p>
-      {left && <p class="kv"><span class="k">{tr('simulacros.tiempo_restante_mm', { mm: '' })}</span><span class="v num">{left}</span></p>}
-      <a class="btn primary" href={left ? '#/simulacros/hacer' : '#/simulacros'}>{left ? tr('simulacros.continuar_simulacro') : tr('spaces.abrir_simulacros')}</a>
+    <div class="stack-s" style={{ padding: '14px' }}>
+      <div class="row wrap">
+        <button type="button" class="btn primary" onClick={() => setCreating(true)}><FilePlus2 size={16} />{' '}{tr('spaces.nota_nueva')}</button>
+        <input class="input grow" type="search" value={q} placeholder={tr('spaces.buscar_nota')} aria-label={tr('spaces.buscar_nota')} onInput={(e) => setQ((e.target as HTMLInputElement).value)} />
+      </div>
+      {list.length ? list.slice(0, 200).map((n) => <button type="button" class="opt note" style={{ fontSize: 'var(--t-note)' }} onClick={() => p.onPick(n.path)}>{n.materia ? `${n.materia} › ` : ''}{n.title}</button>) : <p class="t2">{tr('spaces.sin_notas_crealas_en_notas')}</p>}
+      {creating && <NewNotePanel onClose={() => setCreating(false)} onCreated={(path) => p.onPick(path)} />}
     </div>
   );
 }
 
-function NotePick(p: { onPick: (a: string) => void }) {
+function DeckPick(p: { onPick: (a: string) => void }) {
   const app = useApp();
-  const { data } = useAsync(() => listNotes(app.vault), [app.version]);
-  return <div class="stack-s" style={{ padding: '14px' }}>{data?.length ? data.map((n) => <button type="button" class="opt note" style={{ fontSize: 'var(--t-note)' }} onClick={() => p.onPick(n.path)}>{n.materia} › {n.title}</button>) : <p class="t2">{tr('spaces.sin_notas_crealas_en_notas')}</p>}</div>;
+  return <div class="stack-s" style={{ padding: '14px' }}>{app.col?.decks.length ? app.col.decks.map((d) => <button type="button" class="opt note" style={{ fontSize: 'var(--t-note)' }} onClick={() => p.onPick(d.path)}>{d.full}</button>) : <p class="t2">{tr('decks.sin_mazos_todavia')}</p>}</div>;
 }
 
-function NoteView(p: { path: string }) {
+/** Tema = carpeta de submazos (decks/<carpeta>/) o etiqueta (tag:x). */
+function TopicPick(p: { onPick: (a: string) => void }) {
   const app = useApp();
-  const [edit, setEdit] = useState(false);
-  const { data: text } = useAsync(() => readTextOr(app.vault, p.path, ''), [p.path, app.version]);
-  const [draft, setDraft] = useState<string | null>(null);
-  // minimizar desmonta el panel: no perder lo escrito
-  const pend = useRef<string | null>(null);
-  pend.current = edit ? draft : null;
-  useEffect(() => () => { if (pend.current !== null) void app.vault.write(p.path, pend.current).then(() => app.changed()); }, [p.path]);
+  const folders = [...new Set(app.col?.decks.flatMap((d) => d.folder.split('/').map((_, i, a) => a.slice(0, i + 1).join('/'))).filter(Boolean) ?? [])].sort();
+  const tags = [...new Set([...app.settings.tagList, ...(app.col?.decks.flatMap((d) => d.tags) ?? [])])].sort();
   return (
-    <div style={{ padding: '14px 18px' }}>
-      <div class="row"><span class="grow" /><button type="button" class="btn small" onClick={async () => { if (edit && draft !== null) { await app.vault.write(p.path, draft); app.changed(); } setEdit(!edit); setDraft(null); }}>{edit ? tr('calendar.guardar') : tr('exams.editar')}</button><a class="btn small" href={href('notas', ...p.path.split('/').slice(1))}>{tr('spaces.abrir')}</a></div>
-      {edit ? <textarea class="input code" style={{ width: '100%', minHeight: '50dvh' }} value={draft ?? text ?? ''} onInput={(e) => setDraft((e.target as HTMLTextAreaElement).value)} /> : <Html html={renderMarkdown((text ?? '').replace(/^---\n[\s\S]*?\n---\n/, ''))} />}
+    <div class="stack-s" style={{ padding: '14px' }}>
+      {folders.map((f) => <button type="button" class="opt note" style={{ fontSize: 'var(--t-note)' }} onClick={() => p.onPick(`decks/${f}/`)}>📁 {f}</button>)}
+      {tags.map((g) => <button type="button" class="opt note" style={{ fontSize: 'var(--t-note)' }} onClick={() => p.onPick(`tag:${g}`)}>#{g}</button>)}
+      {!folders.length && !tags.length && <p class="t2">{tr('spaces.sin_temas')}</p>}
+    </div>
+  );
+}
+
+/** Mazo como panel (E14): tarjetas (añadir y editar), estudiar y el mismo engranaje de Mazos. */
+function DeckPanelBody(p: { path: string }) {
+  const app = useApp();
+  const [tab, setTab] = useState<'cards' | 'study'>('cards');
+  const [gear, setGear] = useState(false);
+  const deck = app.col?.decks.find((d) => d.path === p.path);
+  return (
+    <div class="stack-s" style={{ padding: '12px' }}>
+      <div class="row wrap">
+        <Segmented label={tr('deck.mazo')} value={tab} onChange={setTab} options={[['cards', tr('heatmap.tarjetas')], ['study', tr('today.estudiar')]]} />
+        <span class="grow" />
+        {deck && <button type="button" class="btn icon small" aria-label={tr('decks.opciones_de_label', { label: deck.name })} onClick={() => setGear(true)}><Settings2 size={16} /></button>}
+      </div>
+      {!deck && app.col ? <div class="err">⚠ {tr('spaces.mazo_no_encontrado', { path: p.path })}</div> : tab === 'cards' ? <DeckEditor path={p.path} onGear={() => setGear(true)} /> : <Study filter={p.path} embedded />}
+      {gear && deck && <DeckOptions deck={deck} onClose={() => setGear(false)} />}
+    </div>
+  );
+}
+
+function TopicPanel(p: { target: string }) {
+  const [tab, setTab] = useState<'cards' | 'study'>('cards');
+  const q = p.target.startsWith('tag:') ? p.target : `deck:${p.target.replace(/^decks\//, '').replace(/\/$/, '')}`;
+  return (
+    <div class="stack-s" style={{ padding: '12px' }}>
+      <Segmented label={tr('spaces.tema')} value={tab} onChange={setTab} options={[['cards', tr('heatmap.tarjetas')], ['study', tr('today.estudiar')]]} />
+      {tab === 'cards' ? <Explorar q={q} /> : <Study filter={p.target} embedded />}
     </div>
   );
 }

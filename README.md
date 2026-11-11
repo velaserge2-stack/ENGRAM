@@ -13,10 +13,11 @@ Tarjetas de estudio con repetición espaciada (FSRS) y notas, como app web insta
 | **Estadísticas** | Retención real, precisión, eficiencia, nuevas aprendidas, pronóstico de 30 días, consistencia, distribuciones S/D, carga estimada según la retención, tarjetas en riesgo. |
 | **Exámenes** | `exams/*.md` con temas, meta de retención y días de repaso final: ritmo (en ritmo / ajustado / atrasado), temas pendientes, retención proyectada, «Ajustar plan». |
 | **Simulacros** | Importa Markdown, CSV, JSON y, con mejor esfuerzo, TXT, DOCX y PDF; vista previa obligatoria (nunca adivina la respuesta); modos simulacro / práctica / repaso de errores; tiempo con `endAt` (sobrevive a cerrar Safari); resultados por tema y «crear tarjetas de las falladas». |
-| **Calendario** | Mes, semana, día y agenda; capas de pronóstico, exámenes, simulacros, tiempo, bloques arrastrables, tareas con fecha e importados; plan semanal sugerido; `.ics` con alarmas. |
+| **Calendario** | Mes, semana y día con horas, agenda; clases, actividades, estudio y exámenes con repetición (diaria, semanal por días, mensual) y excepciones; arrastrar para mover o cambiar duración; capas de pronóstico, exámenes, simulacros y tiempo; plan semanal sugerido; `.ics` en hora local con alarmas. |
 | **Notas** | Materia → Tema → Notas (estructura fija), editor por bloques con «/», enlaces `[[`, propiedades como formulario, plantillas, diarias, historial de versiones, papelera, buscador ⌘K, exportar `.md` / `.docx` / PDF, importar `.docx` y `.pdf`. Grafo y enlaces entrantes ocultos por defecto. |
 | **Bandeja** | Todo entra aquí primero: archivos de Plaud (resumen, transcripción, SRT, audio; se agrupan por grabación), fotos, PDF y Word. Flujo de 4 pasos: asignar → limpiar (glosario, reemplazar en toda la clase) → tarjetas (copiar prompt → pegar → revisar una por una) → archivar. |
-| **Espacios** | Paneles en mosaico (1–3) o lienzo infinito con paneo y zoom: PDF (capa de texto, búsqueda, resaltado y tinta con Pencil guardados aparte), documento, hoja CSV, imagen, nota, estudio, pomodoro. Crear tarjeta o cita desde el PDF guarda la página de origen. |
+| **PDFs** | Biblioteca con miniaturas y progreso; resaltador inteligente con Apple Pencil (se ajusta a las líneas), subrayado, tachado, tinta y notas guardadas aparte; exportar PDF anotado o resumen `.md`. |
+| **Espacios** | Paneles en mosaico (1–3) o lienzo infinito con paneo y zoom, conectados con sus secciones: nota (el mismo editor y documento), mazo, tema, simulacros, PDF, documento, hoja CSV, imagen, pomodoro, estadísticas y calendario. |
 
 ## Instalar en el iPad
 1. Abre la URL de la app en **Safari** (debe ser `https://`; ver *Publicar*).
@@ -50,6 +51,8 @@ npm run e2e:flows      # simulacro, bandeja Plaud, notas, espacios con PDF, cale
 npm run e2e:design     # "sin color" y legibilidad en 5 fondos × 2 modos
 npm run e2e:mejoras    # acento, vínculos del calendario, notas grandes, bandeja, logo
 npm run e2e:mejoras2   # idiomas (pseudoidioma sin desbordes), capas, minimizar, tooltips
+npm run e2e:bloquec    # perfil, papelera de mazos, fondos, almacenamiento, buscador, mapa…
+npm run e2e:p5         # sonido, tinta (Pencil simulado), PDFs, manuscritas, atajos y mando
 npm run e2e:phone      # iPhone: 6 tamaños × es/fr; MODE=baseline|compare para 0 píxeles en iPad y web
 ```
 Las pruebas E2E usan WebKit de Playwright si está instalado (`npx playwright install webkit`); si no, Chromium.
@@ -68,4 +71,4 @@ Ver `docs/DESIGN.md` (tokens, guardián de legibilidad, cómo añadir un tema ca
 - Más detalle y lo que falta validar en un iPad real: `docs/DECISIONS.md`.
 
 ## Licencias de terceros
-Preact, fflate, ts-fsrs, markdown-it, minisearch, turndown, docx, sql.js (MIT) · Lucide (ISC) · DOMPurify (MPL-2.0 / Apache-2.0) · pdfjs-dist (Apache-2.0) · mammoth (BSD-2). Sin SF Symbols ni recursos de Apple.
+Preact, fflate, ts-fsrs, markdown-it, minisearch, turndown, docx, sql.js, perfect-freehand, pdf-lib (MIT) · Lucide (ISC) · DOMPurify (MPL-2.0 / Apache-2.0) · pdfjs-dist (Apache-2.0) · mammoth (BSD-2). Sin SF Symbols ni recursos de Apple.

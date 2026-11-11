@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 import { useApp } from '../state';
-import { Group, PageTitle, Row, Switch } from '../ui/kit';
+import { Group, Row, Switch } from '../ui/kit';
 
 /** Sistema de módulos (SPEC §9): {id, nombre, versión, descripción, hooks}. */
 export interface Module {
@@ -25,24 +25,23 @@ export const MODULES = (): Module[] => ([
   { id: 'xp', name: t('addons.n_xp'), version: '0.9', description: t('addons.1_xp_por_repaso_5_por'), defaultOn: false, hooks: ['onAnswer', 'renderDashboardTile'] },
   { id: 'challenge', name: t('addons.n_challenge'), version: '0.9', description: t('addons.repasa_30_tarjetas_hoy'), defaultOn: false, hooks: ['renderDashboardTile'] },
   { id: 'fact', name: t('addons.n_fact'), version: '0.9', description: t('addons.una_linea_al_azar_de_notes'), defaultOn: false, hooks: ['renderDashboardTile'] },
+  { id: 'ambient', name: t('addons.n_ambient'), version: '1.0', description: t('addons.ambient_desc'), defaultOn: false, hooks: ['registerView'] },
 ]);
 
 export function addonOn(s: { addons: Record<string, boolean> }, id: string): boolean {
   return s.addons[id] ?? MODULES().find((m) => m.id === id)?.defaultOn ?? false;
 }
 
-export function Addons() {
+/** Sección «Add-ons» de Ajustes (Mejoras 2 · C6: ya no está en la navegación principal). */
+export function AddonsGroup() {
   const app = useApp();
   return (
-    <div class="settings">
-      <PageTitle title={t('addons.add_ons')} sub={t('addons.modulos_integrados_todo_funciona_sin_conex')} />
-      <Group footer={t('addons.los_modulos_solo_cambian_la_interfaz')}>
-        {MODULES().map((m) => (
-          <Row k={<>{m.name} <span class="t3 note">v{m.version}</span></>} sub={m.description}>
-            <Switch label={m.name} checked={addonOn(app.settings, m.id)} onChange={(v) => app.update({ addons: { ...app.settings.addons, [m.id]: v } })} />
-          </Row>
-        ))}
-      </Group>
-    </div>
+    <Group id="addons" title={t('addons.add_ons')} footer={<>{t('addons.modulos_integrados_todo_funciona_sin_conex')} {t('addons.los_modulos_solo_cambian_la_interfaz')}</>}>
+      {MODULES().map((m) => (
+        <Row k={<>{m.name} <span class="t3 note">v{m.version}</span></>} sub={m.description}>
+          <Switch label={m.name} checked={addonOn(app.settings, m.id)} onChange={(v) => app.update({ addons: { ...app.settings.addons, [m.id]: v } })} />
+        </Row>
+      ))}
+    </Group>
   );
 }

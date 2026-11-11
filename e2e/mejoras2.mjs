@@ -18,6 +18,22 @@ try { browser = await type.launch(); } catch { type = pw.chromium; browser = awa
 console.log('Navegador:', type.name());
 const errors = [];
 const check = (c, m) => { if (!c) throw new Error('FALLÓ: ' + m); console.log('  ✓', m); };
+
+// Mejoras 2 · E13: sin preajustes; los paneles se añaden con el menú «＋ Añadir panel»
+async function addPanel(page, name) {
+  const b = page.getByRole('button', { name: 'Añadir panel', exact: true });
+  await b.scrollIntoViewIfNeeded();
+  await b.click();
+  await page.getByRole('menuitem', { name: 'Añadir panel ' + name, exact: true }).evaluate((x) => x.click());
+  await page.waitForTimeout(150);
+}
+async function newSpace(page, name, panels = []) {
+  await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
+  await page.locator('.sheet input[name=n]').fill(name);
+  await page.getByRole('button', { name: 'Crear', exact: true }).click();
+  await page.getByText(/Añade paneles/).first().waitFor();
+  for (const p of panels) await addPanel(page, p);
+}
 const only = (process.env.ONLY || 'lang,layers,minall,tips').split(',');
 const EX = new URL('../examples/', import.meta.url).pathname;
 const SCREENS = ['hoy', 'mazos', 'estudiar', 'explorar', 'simulacros', 'calendario', 'notas', 'espacios', 'estadisticas', 'ajustes', 'bandeja', 'addons'];
@@ -120,14 +136,9 @@ try {
 
     // Lienzo: 6 paneles sin solaparse; tocar uno lo trae al frente
     await page.goto(URL_ + '#/espacios');
-    await page.getByRole('button', { name: 'Nuevo espacio' }).click();
-    await page.getByLabel('Nombre (materia o examen)').fill('Capas');
-    await page.getByRole('button', { name: 'Crear', exact: true }).click();
+    await newSpace(page, 'Capas');
     await page.getByRole('group', { name: 'Modo' }).getByRole('button', { name: 'Lienzo' }).click();
-    for (const n of ['Pomodoro', 'Estadísticas', 'Imagen', 'PDF', 'Documento', 'Hoja']) {
-      await page.getByRole('button', { name: 'Añadir panel ' + n }).click();
-      await page.waitForTimeout(150);
-    }
+    for (const n of ['Pomodoro', 'Estadísticas', 'Imagen', 'PDF', 'Documento', 'Hoja']) await addPanel(page, n);
     const rects = await page.locator('.canvas-plane > .win').evaluateAll((els) => els.map((e) => ({ x: e.offsetLeft, y: e.offsetTop, w: e.offsetWidth, h: e.offsetHeight })));
     const over = rects.some((a, i) => rects.some((b, j) => j > i && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h));
     check(rects.length === 6 && !over, `6 paneles en el lienzo sin solaparse (${rects.map((r) => `${r.x},${r.y}`).join(' ')})`);
@@ -157,13 +168,10 @@ try {
     await page.waitForTimeout(400);
 
     await page.goto(URL_ + '#/espacios');
-    await page.getByRole('button', { name: 'Nuevo espacio' }).click();
-    await page.getByLabel('Nombre (materia o examen)').fill('Todo');
-    await page.locator('.sheet select').selectOption('Repaso');
-    await page.getByRole('button', { name: 'Crear', exact: true }).click();
+    await newSpace(page, 'Todo', ['Estudio', 'Pomodoro', 'Estadísticas']);
     await page.locator('.win').first().waitFor();
     check(await page.getByRole('button', { name: 'Minimizar Estudio' }).count() === 1, 'la sesión de estudio tiene botón de minimizar');
-    await page.getByRole('button', { name: 'Añadir panel Simulacro' }).click();
+    await addPanel(page, 'Simulacro');
     await page.getByRole('link', { name: 'Continuar simulacro' }).waitFor();
     check(true, 'el panel de simulacro ofrece continuar el intento en curso');
     await page.getByRole('button', { name: 'Minimizar todos' }).first().click();

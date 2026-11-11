@@ -18,6 +18,22 @@ try { browser = await type.launch(); } catch { type = pw.chromium; browser = awa
 console.log('Navegador:', type.name());
 const errors = [];
 const check = (c, m) => { if (!c) throw new Error('FALLÓ: ' + m); console.log('  ✓', m); };
+
+// Mejoras 2 · E13: sin preajustes; los paneles se añaden con el menú «＋ Añadir panel»
+async function addPanel(page, name) {
+  const b = page.getByRole('button', { name: 'Añadir panel', exact: true });
+  await b.scrollIntoViewIfNeeded();
+  await b.click();
+  await page.getByRole('menuitem', { name: 'Añadir panel ' + name, exact: true }).evaluate((x) => x.click());
+  await page.waitForTimeout(150);
+}
+async function newSpace(page, name, panels = []) {
+  await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
+  await page.locator('.sheet input[name=n]').fill(name);
+  await page.getByRole('button', { name: 'Crear', exact: true }).click();
+  await page.getByText(/Añade paneles/).first().waitFor();
+  for (const p of panels) await addPanel(page, p);
+}
 const only = (process.env.ONLY || 'links,notes,tray,logo').split(',');
 try {
   const ctx = await browser.newContext({ locale: 'es-MX', viewport: { width: 1180, height: 820 } });
@@ -131,8 +147,7 @@ try {
     check(await page.getByRole('button', { name: 'Minimizar Pendientes' }).count() === 1, 'pulsación larga → Cerrar, y se puede volver a mostrar');
     // Espacios: PDF minimizado y restaurado en su lugar
     await page.goto(URL_ + '#/espacios');
-    if (await page.getByRole('button', { name: 'Repaso' }).count()) await page.getByRole('button', { name: 'Repaso' }).click();
-    else { await page.getByRole('button', { name: 'Nuevo espacio' }).click(); await page.locator('.sheet input[name=n]').fill('Repaso'); await page.locator('.sheet select').selectOption('Repaso'); await page.getByRole('button', { name: 'Crear' }).click(); }
+    await newSpace(page, 'Repaso', ['Estudio', 'Pomodoro', 'Estadísticas']);
     await page.getByRole('button', { name: 'Minimizar Estadísticas' }).click();
     await page.getByRole('button', { name: /^Estadísticas, minimizado$/ }).waitFor();
     check(await page.getByRole('button', { name: 'Minimizar Estudio' }).count() === 1, 'la sesión de estudio también se puede minimizar (Mejoras 2)');

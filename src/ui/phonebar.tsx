@@ -1,5 +1,6 @@
 import { t } from '../i18n';
-import { Archive, Ellipsis, Settings as Gear } from 'lucide-preact';
+import { Archive, Ellipsis, Headphones, Settings as Gear, UserRound } from 'lucide-preact';
+import { addonOn } from '../screens/addons';
 import { useState } from 'preact/hooks';
 import { TABS } from '../nav';
 import { useApp } from '../state';
@@ -39,9 +40,17 @@ export function PhoneTabBar(props: { tab: string }) {
                 <x.icon size={20} aria-hidden="true" /><span class="k">{x.label}</span>
               </a>
             ))}
+            <a class="row-i tap" href="#/perfil" aria-current={props.tab === 'perfil' ? 'page' : undefined} onClick={() => setMore(false)}>
+              <UserRound size={20} aria-hidden="true" /><span class="k">{t('profile.perfil')}</span>
+            </a>
             <a class="row-i tap" href="#/ajustes" aria-current={props.tab === 'ajustes' ? 'page' : undefined} onClick={() => setMore(false)}>
               <Gear size={20} aria-hidden="true" /><span class="k">{t('app.ajustes')}</span>
             </a>
+            {addonOn(app.settings, 'ambient') && (
+              <button type="button" class="row-i tap" onClick={() => (setMore(false), app.openSheet('ambient'))}>
+                <Headphones size={20} aria-hidden="true" /><span class="k">{t('addons.n_ambient')}</span>
+              </button>
+            )}
             <button type="button" class="row-i tap" onClick={() => (setMore(false), app.openSheet('backup'))}>
               <Archive size={20} aria-hidden="true" /><span class="k">{t('app.respaldo')}</span>
             </button>

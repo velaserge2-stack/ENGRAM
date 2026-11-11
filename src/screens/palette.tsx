@@ -43,7 +43,7 @@ export function Palette(props: { mode: string | null; onClose: () => void }) {
     { id: 'c-pomo', kind: tr('palette.k_cmd'), title: app.pomo.state.running ? tr('palette.pausar_pomodoro') : tr('palette.iniciar_pomodoro'), run: close(() => (app.pomo.state.running ? app.pomo.pause() : app.pomo.start())) },
     { id: 'c-sim', kind: tr('palette.k_cmd'), title: tr('palette.crear_simulacro'), run: close(() => go('simulacros')) },
     { id: 'c-inbox', kind: tr('palette.k_cmd'), title: tr('palette.procesar_bandeja'), run: close(() => go('bandeja')) },
-    { id: 'c-addons', kind: tr('palette.k_cmd'), title: tr('addons.add_ons'), run: close(() => go('addons')) },
+    { id: 'c-addons', kind: tr('palette.k_cmd'), title: tr('addons.add_ons'), run: close(() => go('ajustes', 'addons')) },
     { id: 'c-design', kind: tr('palette.k_cmd'), title: tr('palette.pagina_de_diseno_design'), run: close(() => go('design')) },
     ...TABS.map((t) => ({ id: 'g-' + t.id, kind: tr('palette.ir_a'), title: t.label, run: close(() => go(t.id)) })),
     { id: 'g-aj', kind: 'Ir a', title: tr('app.ajustes'), run: close(() => go('ajustes')) },

@@ -1,5 +1,6 @@
 import { t, deviceLang, getLang, setLang } from './i18n';
-import { Archive, Inbox, Pause, Play, Plus, RefreshCw, Search, Settings as Gear, ShieldAlert, TriangleAlert } from 'lucide-preact';
+import { Archive, Ellipsis, Inbox, Pause, Play, Plus, RefreshCw, Search, Settings as Gear, ShieldAlert, TriangleAlert } from 'lucide-preact';
+import { Popover } from './ui/overlay';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { loadCollection, type Collection } from './data/collection';
 import { createAutosave } from './lib/autosave';
@@ -21,8 +22,17 @@ import { onUpdateReady } from './sw-register';
 import { usePomodoro } from './screens/pomodoro';
 import { walk } from './vault/util';
 import { TooltipLayer } from './ui/tooltip';
+import { autoPurge } from './data/decktrash';
+import { FRAMING_PATH, normFraming, parseFramings } from './lib/framing';
+import { readTextOr } from './vault/util';
 import { PhoneTabBar } from './ui/phonebar';
 import { usePhone } from './ui/kit';
+import { Avatar, useProfile } from './screens/profile';
+import { addonOn } from './screens/addons';
+import { AmbientController, AmbientPlayer } from './screens/ambient';
+import { Headphones } from 'lucide-preact';
+import { Sheet } from './ui/kit';
+import { GlobalKeys, keymap, ShortcutSheet } from './ui/keys';
 
 const DAY = 86_400_000;
 
@@ -41,6 +51,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const [inboxCount, setInbox] = useState(0);
   const [preview, setPreview] = useState<{ bg: Settings['bg']; mode: 'dark' | 'light' | null } | null>(null);
   const route = useRoute();
+  const [framings, setFramings] = useState<ReturnType<typeof parseFramings>>({});
+  useEffect(() => { readTextOr(vault, FRAMING_PATH, '{}').then((t) => setFramings(parseFramings(t)), () => {}); }, [version]);
   const phone = usePhone();
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const saver = useMemo(() => createAutosave((s: Settings) => vault.write(SETTINGS_PATH, serializeSettings(s))), [vault]);
@@ -84,6 +96,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const recheckIntegrity = async () => setIntegrity(await checkIntegrity(vault));
   useEffect(() => {
     void recheckIntegrity();
+    // papelera de mazos: vaciado automático a los N días (Ajustes → Mazos → Papelera)
+    autoPurge(vault, settings.deckTrashDays).then((n) => n && setVersion((v) => v + 1), () => {});
     onUpdateReady((apply) => setUpdate(() => apply));
     watchFrames(() => !settings.lightMode && toast(t('app.el_vidrio_va_lento_en_este')));
   }, []);
@@ -95,7 +109,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const sample = useRef<ImageData | null>(null);
   const lastBg = useRef('');
   const toastedFor = useRef('');
-  const bgKey = JSON.stringify([eff.bg, eff.bgDim, eff.glassMode]);
+  const framing = eff.bg.kind === 'image' ? normFraming(framings[eff.bg.value]) : undefined;
+  const bgKey = JSON.stringify([eff.bg, eff.bgDim, eff.glassMode, framing]);
   // el guardián siempre lee el estado vigente (evita cierres obsoletos en temporizadores)
   const effRef = useRef(eff);
   effRef.current = eff;
@@ -112,7 +127,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   useEffect(() => {
     let alive = true;
     const resample = () =>
-      sampleBackground(eff.bg, vault, settings.bgDim, innerWidth, innerHeight).then((s) => {
+      sampleBackground(eff.bg, vault, settings.bgDim, innerWidth, innerHeight, framing).then((s) => {
         if (!alive) return;
         sample.current = s;
         lastBg.current = bgKey;
@@ -174,19 +189,19 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     previewBg: (bg, mode = null) => setPreview(bg ? { bg, mode } : null),
   };
 
-  // atajos con teclado externo
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!e.metaKey && !e.ctrlKey) return;
-      const k = e.key.toLowerCase();
-      if (k === 'k' || k === 'p' || k === 'o') (e.preventDefault(), ctx.openSheet('palette', k === 'o' ? 'archivos' : null));
-      else if (k === 'n' && !e.shiftKey) (e.preventDefault(), go('notas', '+nueva'));
-    };
-    addEventListener('keydown', onKey);
-    return () => removeEventListener('keydown', onKey);
-  });
+  // atajos con teclado externo (configurables: Ajustes → Atajos, .app/atajos.json)
+  const [keysHelp, setKeysHelp] = useState(false);
+  useEffect(() => { void keymap.load(vault); }, [vault]);
+  const runGlobal = (id: string) => {
+    if (id === 'global.palette' || id === 'global.files') ctx.openSheet('palette', id === 'global.files' ? 'archivos' : null);
+    else if (id === 'global.newNote') go('notas', '+nueva');
+    else if (id === 'global.newCard') ctx.openSheet('add');
+    else if (id === 'global.help') setKeysHelp(true);
+    else if (id === 'global.find') document.querySelector<HTMLInputElement>('main [role="search"] input, main input[type="search"]')?.focus();
+    else if (id.startsWith('global.go')) go(({ goHoy: 'hoy', goMazos: 'mazos', goNotas: 'notas', goCalendario: 'calendario', goSimulacros: 'simulacros' } as Record<string, string>)[id.slice(7)]!);
+  };
 
-  const bg = <BackgroundLayer bg={eff.bg} blur={settings.bgBlur} dim={settings.bgDim} vault={vault} />;
+  const bg = <BackgroundLayer bg={eff.bg} blur={settings.bgBlur} dim={settings.bgDim} vault={vault} framing={framing} />;
 
   if (!settings.welcomeDone) {
     return (
@@ -256,6 +271,10 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       {sheet === 'exam' && <ExamSheet path={sheetArg} onClose={() => setSheet(null)} />}
       {sheet === 'palette' && <Palette mode={sheetArg} onClose={() => setSheet(null)} />}
       {phone && <PhoneTabBar tab={tabId} />}
+      <GlobalKeys run={runGlobal} />
+      {keysHelp && <ShortcutSheet onClose={() => setKeysHelp(false)} />}
+      {addonOn(settings, 'ambient') && <AmbientController />}
+      {sheet === 'ambient' && <Sheet title={t('addons.n_ambient')} onClose={() => setSheet(null)}><AmbientPlayer /></Sheet>}
       {toastMsg && <div class="toast glass strong" role="status" aria-live="polite">{toastMsg}</div>}
       <TooltipLayer />
     </Ctx.Provider>
@@ -276,6 +295,8 @@ function TopBar(props: { tab: string }) {
     return () => removeEventListener('resize', measure);
   }, [props.tab]);
   const p = app.pomo;
+  const profile = useProfile();
+  const [moreAt, setMoreAt] = useState<HTMLElement | null>(null);
   const rem = p.state.running && p.state.endAt ? p.state.endAt - p.now : p.state.remaining;
   const mm = `${String(Math.floor(Math.ceil(rem / 1000) / 60)).padStart(2, '0')}:${String(Math.ceil(rem / 1000) % 60).padStart(2, '0')}`;
   return (
@@ -303,11 +324,26 @@ function TopBar(props: { tab: string }) {
       <a class="pill glass" href="#/bandeja" aria-label={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })} data-tip={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })}>
         <Inbox size={18} /> <span class={`count${app.inboxCount ? '' : ' zero'}`}>{app.inboxCount}</span>
       </a>
-      <button type="button" class="pill glass ph-hide" onClick={() => app.openSheet('backup')} aria-label={t('app.respaldo')}>
+      <button type="button" class="pill glass ph-hide mid-hide" onClick={() => app.openSheet('backup')} aria-label={t('app.respaldo')}>
         <Archive size={18} />
       </button>
-      <a class="pill glass ph-hide" href="#/ajustes" aria-label={t('app.ajustes')} aria-current={props.tab === 'ajustes' ? 'page' : undefined}>
+      <a class="pill glass ph-hide mid-hide" href="#/ajustes" aria-label={t('app.ajustes')} aria-current={props.tab === 'ajustes' ? 'page' : undefined}>
         <Gear size={18} />
+      </a>
+      {/* iPad (601–1100 px): Respaldo, Ajustes y Sonido ambiente pasan a «⋯» para que quepan todas las secciones */}
+      <button type="button" class="pill glass more-pill" aria-label={t('phone.mas')} aria-haspopup="menu" aria-expanded={!!moreAt} aria-current={props.tab === 'ajustes' ? 'page' : undefined} onClick={(e) => setMoreAt(moreAt ? null : (e.currentTarget as HTMLElement))}>
+        <Ellipsis size={18} />
+      </button>
+      {moreAt && (
+        <Popover anchor={moreAt} onClose={() => setMoreAt(null)} label={t('phone.mas')} role="menu" class="glass strong add-menu">
+          <a role="menuitem" class="add-menu-item" href="#/ajustes" onClick={() => setMoreAt(null)}><Gear size={18} />{' '}{t('app.ajustes')}</a>
+          <button type="button" role="menuitem" onClick={() => (setMoreAt(null), app.openSheet('backup'))}><Archive size={18} />{' '}{t('app.respaldo')}</button>
+          {addonOn(app.settings, 'ambient') && <button type="button" role="menuitem" onClick={() => (setMoreAt(null), app.openSheet('ambient'))}><Headphones size={18} />{' '}{t('addons.n_ambient')}</button>}
+        </Popover>
+      )}
+      {addonOn(app.settings, 'ambient') && <button type="button" class="pill glass ph-hide mid-hide" aria-label={t('addons.n_ambient')} onClick={() => app.openSheet('ambient')}><Headphones size={18} /></button>}
+      <a class="pill glass avatar-pill ph-hide" href="#/perfil" aria-label={t('profile.perfil')} aria-current={props.tab === 'perfil' ? 'page' : undefined}>
+        <Avatar profile={profile} size={32} />
       </a>
     </header>
   );
