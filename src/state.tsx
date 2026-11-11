@@ -44,6 +44,8 @@ export interface AppCtx {
   pomo: PomoCtl;
   inboxCount: number;
   focus(on: boolean): void;
+  /** fondo temporal (página /design, vista previa); null = el de Ajustes */
+  previewBg(bg: import('./lib/settings').Background | null, mode?: 'dark' | 'light' | null): void;
 }
 
 export const Ctx = createContext<AppCtx>(null as unknown as AppCtx);
@@ -70,7 +72,7 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): { data: T | 
 }
 
 export function parseHash(): string[] {
-  return (location.hash.replace(/^#\/?/, '') || 'hoy').split('/').map((s) => {
+  return (location.hash.replace(/^#\/?/, '').split('?')[0] || 'hoy').split('/').map((s) => {
     try {
       return decodeURIComponent(s);
     } catch {

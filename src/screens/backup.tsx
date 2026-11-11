@@ -64,10 +64,10 @@ export function BackupSheet(props: { onClose: () => void }) {
             <button type="button" class="btn primary" style={{ justifySelf: 'start' }} onClick={save}>
               <Share size={18} aria-hidden="true" /> Guardar en Archivos
             </button>
-            <p class="group-f" style={{ padding: 0 }}>En la hoja de compartir elige «Guardar en Archivos». Si tu navegador no puede compartir archivos, se descargará.</p>
+            <p class="foot" style={{ padding: 0 }}>En la hoja de compartir elige «Guardar en Archivos». Si tu navegador no puede compartir archivos, se descargará.</p>
           </>
         )}
-        <p class="group-f" style={{ padding: 0 }}>
+        <p class="foot" style={{ padding: 0 }}>
           Para restaurar: Importar → elige el .zip. Incluye <code>manifest.json</code> con versión de formato y conteos para validarlo.
         </p>
       </div>

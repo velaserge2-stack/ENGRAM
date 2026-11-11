@@ -73,6 +73,27 @@ export const BUILTINS: { id: string; name: string; draw: Draw }[] = [
   },
 ];
 
+// "Foto" de prueba original, generada en código (cielo, sol, colinas y grano)
+BUILTINS.push({
+  id: 'paisaje', name: 'Paisaje', draw: (ctx, w, h) => {
+    const sky = ctx.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#2b6cb0'); sky.addColorStop(0.55, '#f6ad55'); sky.addColorStop(1, '#c05621');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+    const sun = ctx.createRadialGradient(w * 0.7, h * 0.45, 0, w * 0.7, h * 0.45, h * 0.25);
+    sun.addColorStop(0, 'rgba(255,250,220,1)'); sun.addColorStop(1, 'rgba(255,200,120,0)');
+    ctx.fillStyle = sun; ctx.fillRect(0, 0, w, h);
+    const hill = (y: number, amp: number, c: string) => {
+      ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(0, h);
+      for (let x = 0; x <= w; x += w / 40) ctx.lineTo(x, y + Math.sin(x / (w / 6)) * amp + Math.cos(x / (w / 2.3)) * amp * 0.6);
+      ctx.lineTo(w, h); ctx.fill();
+    };
+    hill(h * 0.62, h * 0.05, '#4a5568'); hill(h * 0.72, h * 0.06, '#2d3748'); hill(h * 0.84, h * 0.04, '#1a202c');
+    const img = ctx.getImageData(0, 0, w, h); const r = rng(3);
+    for (let i = 0; i < img.data.length; i += 4) { const n = (r() - 0.5) * 18; img.data[i]! += n; img.data[i + 1]! += n; img.data[i + 2]! += n; }
+    ctx.putImageData(img, 0, 0);
+  },
+});
+
 export const SOLIDS = ['#000000', '#1c1c1e', '#3a3a3c', '#8e8e93', '#d1d1d6', '#ffffff', '#1f2a44', '#3b2f2f', '#2e3b2e'];
 
 /** URL de objeto de un fondo de imagen (caché por ruta). */

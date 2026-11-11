@@ -1,5 +1,5 @@
 import { Archive, Camera, Check, FileUp, Inbox as InboxIcon, Replace, Sparkles } from 'lucide-preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { extractText } from '../io/extract';
 import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
 import { docxToMarkdown, pdfToMarkdown } from '../notes/io';
@@ -107,10 +107,12 @@ export function Inbox() {
   const [cur, setCur] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const take = async (list: FileList | null) => {
-    if (!list?.length || !data) return;
+    if (!list?.length) return;
+    const files = [...list];
     setBusy(true);
     try {
-      const n = await intake(app.vault, [...list], data.tree);
+      const tree = data?.tree ?? buildTree(await listNotes(app.vault)).tree;
+      const n = await intake(app.vault, files, tree);
       app.changed();
       app.toast(`${n} ${n === 1 ? 'elemento' : 'elementos'} en la bandeja`);
     } catch (e) {
@@ -129,7 +131,7 @@ export function Inbox() {
       <div class="drop glass" style={{ marginBottom: '14px' }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => (e.preventDefault(), void take(e.dataTransfer?.files ?? null))}>
         {busy ? 'Procesando…' : 'Suelta aquí archivos de Plaud (resumen, transcripción, mapa mental, audio), fotos, PDF o Word. Se agrupan por grabación.'}
       </div>
-      {!data ? <p class="t2">Cargando…</p> : item ? <Process item={item} tree={data.tree} onDone={(next) => setCur(next ? data.items.find((x) => x.id !== item.id)?.id ?? null : null)} /> : data.items.length === 0 ? (
+      {!data ? <p class="t2">Cargando…</p> : item ? <Process key={item.id} item={item} tree={data.tree} onDone={(next) => setCur(next ? data.items.find((x) => x.id !== item.id)?.id ?? null : null)} /> : data.items.length === 0 ? (
         <Empty icon={<InboxIcon size={44} />} title="Bandeja vacía">Exporta de Plaud el resumen y la transcripción (TXT, SRT, DOCX, PDF o Markdown) y suéltalos aquí. No se usa ninguna API de Plaud.</Empty>
       ) : (
         <section class="glass panel stack-s">
@@ -156,7 +158,6 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
   const [prompt, setPrompt] = useState(false);
   const [cards, setCards] = useState(0);
   const [started] = useState(Date.now());
-  useEffect(() => setIt(p.item), [p.item.id]);
   const save = async (next: Item) => {
     setIt(next);
     await app.vault.write(META(next.id), JSON.stringify(next));
@@ -198,9 +199,9 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
       </div>
       {it.step === 0 && (
         <div class="stack">
-          <label class="field">Título<input class="input" value={it.title} onInput={(e) => setIt({ ...it, title: (e.target as HTMLInputElement).value })} /></label>
-          <label class="field">Materia<input class="input" list="ib-m" value={it.materia} onInput={(e) => setIt({ ...it, materia: (e.target as HTMLInputElement).value })} /><datalist id="ib-m">{materias.map((m) => <option value={m} />)}</datalist></label>
-          <label class="field">Tema o clase<input class="input" list="ib-t" value={it.tema} onInput={(e) => setIt({ ...it, tema: (e.target as HTMLInputElement).value })} /><datalist id="ib-t">{temas.map((t) => <option value={t} />)}</datalist></label>
+          <label class="field">Título<input class="input" value={it.title} onInput={(e) => { const v = (e.target as HTMLInputElement).value; setIt((x) => ({ ...x, title: v })); }} /></label>
+          <label class="field">Materia<input class="input" list="ib-m" value={it.materia} onInput={(e) => { const v = (e.target as HTMLInputElement).value; setIt((x) => ({ ...x, materia: v })); }} /><datalist id="ib-m">{materias.map((m) => <option value={m} />)}</datalist></label>
+          <label class="field">Tema o clase<input class="input" list="ib-t" value={it.tema} onInput={(e) => { const v = (e.target as HTMLInputElement).value; setIt((x) => ({ ...x, tema: v })); }} /><datalist id="ib-t">{temas.map((t) => <option value={t} />)}</datalist></label>
           {suggestPlace(it.title, p.tree) && <p class="foot">Sugerido por nombre: {suggestPlace(it.title, p.tree)!.materia} › {suggestPlace(it.title, p.tree)!.tema}</p>}
           <button type="button" class="btn primary" disabled={!it.materia || !it.tema || !it.title} onClick={() => save({ ...it, step: 1 })}>Siguiente: limpiar</button>
         </div>
@@ -218,7 +219,7 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
             <input class="input" placeholder="Reemplazar por" value={to} onInput={(e) => setTo((e.target as HTMLInputElement).value)} aria-label="Reemplazar por" />
             <button type="button" class="btn" disabled={!from} onClick={() => { const r = replaceAll(doc.body, from, to); void save({ ...it, draft: stringifyFrontmatter(doc.data, r.text) }); app.toast(`${r.n} reemplazos en toda la clase`); }}><Replace size={16} /> Reemplazar en toda la clase</button>
           </div>
-          <textarea class="input code" style={{ minHeight: '45dvh' }} value={it.draft} onInput={(e) => setIt({ ...it, draft: (e.target as HTMLTextAreaElement).value })} onBlur={() => save(it)} aria-label="Borrador de la nota" />
+          <textarea class="input code" style={{ minHeight: '45dvh' }} value={it.draft} onInput={(e) => { const v = (e.target as HTMLTextAreaElement).value; setIt((x) => ({ ...x, draft: v })); }} onBlur={() => save(it)} aria-label="Borrador de la nota" />
           <p class="foot">Quita relleno y corrige términos. Añade términos correctos al glosario en Ajustes → Notas.</p>
           <button type="button" class="btn primary" onClick={() => save({ ...it, step: 2 })}>Siguiente: crear tarjetas</button>
         </div>

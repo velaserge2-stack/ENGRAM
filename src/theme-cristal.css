@@ -117,9 +117,8 @@ button.pill, a.pill { border: var(--hair) solid var(--border); }
 .count { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--inverse-bg); color: var(--inverse-fg); font-size: 12px; font-weight: 700; display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
 .count.zero { background: var(--fill); color: var(--t3); }
 .page { max-width: 1280px; margin: 0 auto; }
-.page-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 4px 4px 18px; }
-.page-title h1 { font-size: var(--t-large); font-weight: 700; line-height: 1.1; text-shadow: 0 1px 12px rgba(0,0,0,.25); }
-[data-glass="light"] .page-title h1 { text-shadow: 0 1px 12px rgba(255,255,255,.45); }
+.page-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 16px; padding: 14px 20px; border-radius: var(--r-panel); }
+.page-title h1 { font-size: var(--t-large); font-weight: 700; line-height: 1.1; }
 .page-title .sub { font-size: var(--t-note); color: var(--t2); margin-top: 2px; }
 .page-title .sub::first-letter { text-transform: uppercase; }
 .title-chip { padding: 8px 16px; border-radius: var(--r-pill); }
@@ -211,10 +210,9 @@ button.pill, a.pill { border: var(--hair) solid var(--border); }
 .chart .b1 { fill: var(--t1); opacity: .85; } .chart .b2 { fill: url(#trama); stroke: var(--t2); stroke-width: .5; }
 
 /* ───────── listas agrupadas ───────── */
-.group-h { font-size: var(--t-note); color: var(--t2); text-transform: uppercase; letter-spacing: .03em; padding: 22px 20px 6px; text-shadow: 0 1px 8px rgba(0,0,0,.25); }
-[data-glass="light"] .group-h { text-shadow: 0 1px 8px rgba(255,255,255,.5); }
+.group-h { font-size: var(--t-note); color: var(--t2); text-transform: uppercase; letter-spacing: .03em; padding: 12px 18px 4px; font-weight: 600; }
 .group { padding: 4px 0; border-radius: var(--r-inner); overflow: hidden; }
-.group-f { font-size: var(--t-note); color: var(--t2); padding: 8px 20px 0; }
+.group-f { font-size: var(--t-note); color: var(--t2); padding: 6px 18px 12px; border-top: var(--hair) solid var(--line); }
 .row-i { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 18px; position: relative; }
 .row-i + .row-i::before { content: ""; position: absolute; top: 0; left: 18px; right: 0; height: var(--hair); background: var(--line); }
 .row-i .k { flex: 1; min-width: 0; }
@@ -323,7 +321,7 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 .win-resize { position: absolute; right: 2px; bottom: 2px; width: 22px; height: 22px; cursor: nwse-resize; touch-action: none; border-right: 2px solid var(--t3); border-bottom: 2px solid var(--t3); border-radius: 0 0 8px 0; }
 .divider { width: 10px; cursor: col-resize; touch-action: none; display: grid; place-items: center; }
 .divider::after { content: ""; width: 4px; height: 40px; border-radius: 2px; background: var(--t3); }
-.dock { position: sticky; bottom: calc(env(safe-area-inset-bottom) + 12px); display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 14px; z-index: 20; flex-wrap: wrap; }
+.dock { position: sticky; bottom: calc(env(safe-area-inset-bottom) + 12px); display: flex; max-width: 100%; overflow-x: auto; align-items: center; justify-content: center; gap: 10px; margin-top: 14px; z-index: 20; flex-wrap: wrap; }
 .dock .glass { display: flex; gap: 4px; padding: 6px; border-radius: var(--r-pill); align-items: center; }
 .canvas-wrap { position: relative; height: calc(100dvh - 190px); overflow: hidden; border-radius: var(--r-panel); touch-action: none; }
 .canvas-plane { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }

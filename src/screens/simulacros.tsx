@@ -1,5 +1,5 @@
 import { Bookmark, ChevronLeft, ChevronRight, ClipboardCheck, FileUp, Flag, Play, Repeat, Sparkles } from 'lucide-preact';
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ATTEMPTS } from '../data/extra';
 import { appendCard, createDeck, safeName } from '../data/ops';
 import { extractText } from '../io/extract';
@@ -168,7 +168,11 @@ function Runner() {
     document.addEventListener('visibilitychange', vis);
     return () => (clearInterval(iv), document.removeEventListener('visibilitychange', vis));
   }, []);
+  // ref con el intento vigente: teclas rápidas seguidas no deben usar un estado viejo
+  const atRef = useRef<Attempt | null>(null);
+  atRef.current = atRef.current && at && atRef.current.id === at.id && (atRef.current.startedAt === at.startedAt) ? atRef.current : at;
   const save = async (next: Attempt) => {
+    atRef.current = next;
     setAt(next);
     await app.vault.write(CURRENT, JSON.stringify(next));
   };
@@ -184,8 +188,10 @@ function Runner() {
     if (at && at.endAt && now >= at.endAt && !at.finishedAt) void finish(at);
   }, [now, at]);
   const q = at?.qs[at.cur];
-  const keyFor = (k: number) => q?.order[k];
+  const keyFor = (k: number) => { const a = atRef.current; return a?.qs[a.cur]?.order[k]; };
   const choose = (key: string) => {
+    const at = atRef.current;
+    const q = at?.qs[at.cur];
     if (!at || !q) return;
     if (at.mode !== 'sim' && at.checked.includes(q.q.id)) return;
     const prevA = at.answers[q.q.id] ?? [];
@@ -195,16 +201,24 @@ function Runner() {
     setShownAt(Date.now());
     void save({ ...at, answers: { ...at.answers, [q.q.id]: nextA }, perQ: { ...at.perQ, [q.q.id]: spent } });
   };
-  const goTo = (i: number) => at && i >= 0 && i < at.qs.length && (setShownAt(Date.now()), void save({ ...at, cur: i, perQ: q ? { ...at.perQ, [q.q.id]: (at.perQ[q.q.id] ?? 0) + (Date.now() - shownAt) } : at.perQ }));
+  const goTo = (i: number) => {
+    const at = atRef.current;
+    const q = at?.qs[at.cur];
+    if (!at || i < 0 || i >= at.qs.length) return;
+    setShownAt(Date.now());
+    void save({ ...at, cur: i, perQ: q ? { ...at.perQ, [q.q.id]: (at.perQ[q.q.id] ?? 0) + (Date.now() - shownAt) } : at.perQ });
+  };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!at || (e.target as HTMLElement).closest('input, textarea')) return;
+      const a = atRef.current;
+      if (!a || (e.target as HTMLElement).closest('input, textarea')) return;
+      const qq = a.qs[a.cur];
       const k = e.key.toUpperCase();
       const i = 'ABCDEF'.indexOf(k);
-      if (i >= 0 && keyFor(i)) choose(keyFor(i)!);
-      else if (e.key === 'ArrowRight') goTo(at.cur + 1);
-      else if (e.key === 'ArrowLeft') goTo(at.cur - 1);
-      else if (k === 'M' && q) void save({ ...at, marked: at.marked.includes(q.q.id) ? at.marked.filter((x) => x !== q.q.id) : [...at.marked, q.q.id] });
+      if (k.length === 1 && i >= 0 && keyFor(i)) choose(keyFor(i)!);
+      else if (e.key === 'ArrowRight') goTo(a.cur + 1);
+      else if (e.key === 'ArrowLeft') goTo(a.cur - 1);
+      else if (k === 'M' && qq) void save({ ...a, marked: a.marked.includes(qq.q.id) ? a.marked.filter((x) => x !== qq.q.id) : [...a.marked, qq.q.id] });
     };
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
@@ -217,10 +231,10 @@ function Runner() {
   const checked = at.mode !== 'sim' && at.checked.includes(q.q.id);
   return (
     <div class="study">
-      <div class="row wrap" style={{ justifyContent: 'space-between' }}>
-        <span class="title-chip glass"><b>{at.title}</b> · {at.mode === 'sim' ? 'Simulacro' : at.mode === 'practice' ? 'Práctica' : 'Repaso de errores'}</span>
-        {mm && <span class="title-chip glass timer" role="timer" aria-label={`Tiempo restante ${mm}`}>{mm}</span>}
-        <button type="button" class="btn glass" onClick={() => setConfirmEnd(true)}><Flag size={18} /> Terminar</button>
+      <div class="row wrap glass" style={{ justifyContent: 'space-between', padding: '8px 12px', borderRadius: 'var(--r-panel)' }}>
+        <span><b>{at.title}</b> · {at.mode === 'sim' ? 'Simulacro' : at.mode === 'practice' ? 'Práctica' : 'Repaso de errores'}</span>
+        {mm && <span class="timer" role="timer" aria-label={`Tiempo restante ${mm}`}>{mm}</span>}
+        <button type="button" class="btn" onClick={() => setConfirmEnd(true)}><Flag size={18} /> Terminar</button>
       </div>
       <section class="glass panel"><div class="qnav" role="navigation" aria-label="Preguntas">
         {at.qs.map((x, i) => <button type="button" class={`${at.answers[x.q.id]?.length ? 'answered' : ''}${at.marked.includes(x.q.id) ? ' marked' : ''}${i === at.cur ? ' cur' : ''}`} aria-label={`Pregunta ${i + 1}${at.answers[x.q.id]?.length ? ', respondida' : ', sin responder'}${at.marked.includes(x.q.id) ? ', marcada' : ''}`} onClick={() => goTo(i)}>{i + 1}</button>)}

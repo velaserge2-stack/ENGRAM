@@ -62,8 +62,21 @@ try {
   await page.getByText('OPFS').first().waitFor();
   const detail = await page.getByText('OPFS').first().textContent();
   check(true, 'backend: ' + detail);
-  check((await page.getByText('Sin problemas').count()) === 1, 'comprobación de integridad sin problemas');
+  check((await page.getByText('✓ Sin problemas').count()) === 1, 'comprobación de integridad sin problemas');
   await page.screenshot({ path: OUT + '2-ajustes.png', fullPage: false });
+
+  // estudiar una tarjeta: mostrar respuesta → Bien; queda en reviews.jsonl
+  await page.goto(URL_ + '#/estudiar');
+  await page.getByRole('button', { name: /Mostrar respuesta/ }).click();
+  await page.getByRole('button', { name: /^Bien, vuelve en/ }).click();
+  await page.waitForTimeout(600);
+  await page.goto(URL_ + '#/hoy');
+  await page.getByText(/Estudiaste 1 tarjetas/).waitFor();
+  check(true, 'estudiar registra el repaso y Hoy lo refleja');
+  await page.goto(URL_ + '#/ajustes');
+  await page.getByRole('button', { name: 'Comprobar', exact: true }).click();
+  await page.getByText(/✓ Idéntico/).waitFor();
+  check(true, 'reconstruir desde reviews.jsonl da el mismo estado que state.json');
 
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.reload(); // ahora controlada por el SW
@@ -85,7 +98,7 @@ try {
   check(/^Engrama_.*\.zip$/.test(download.suggestedFilename()), 'nombre del respaldo: ' + download.suggestedFilename());
   const zip = unzipSync(new Uint8Array(readFileSync(file)));
   const manifest = JSON.parse(strFromU8(zip['manifest.json']));
-  check(manifest.format === 'engrama-vault' && manifest.counts.decks === 3, `zip con manifest.json (${manifest.counts.files} archivos, ${manifest.counts.decks} mazos)`);
+  check(manifest.format === 'engrama-vault' && manifest.counts.decks === 3 && !!zip['.app/reviews.jsonl'], `zip con manifest.json (${manifest.counts.files} archivos, ${manifest.counts.decks} mazos)`);
   check(!Object.keys(zip).some((k) => k.startsWith('.app/tmp') || k === '.app/journal.json'), 'el zip no incluye diario ni temporales');
   await page.getByText('Respaldo descargado').waitFor();
   await page.waitForTimeout(700);
@@ -104,7 +117,8 @@ try {
   await p2.getByRole('button', { name: 'Importar', exact: true }).click();
   await p2.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   await p2.getByRole('link', { name: 'EVC' }).first().waitFor();
-  check(true, 'reimportar el .zip restaura mazos y ajustes (sin bienvenida)');
+  await p2.getByText(/Estudiaste 1 tarjetas/).waitFor();
+  check(true, 'reimportar el .zip restaura mazos, ajustes e historial');
   await p2.screenshot({ path: OUT + '4-hoy-vertical.png' });
 
   // Oscuro

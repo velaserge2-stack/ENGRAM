@@ -35,6 +35,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const [update, setUpdate] = useState<(() => void) | null>(null);
   const [hasData, setHasData] = useState(props.hasData);
   const [inboxCount, setInbox] = useState(0);
+  const [preview, setPreview] = useState<{ bg: Settings['bg']; mode: 'dark' | 'light' | null } | null>(null);
   const route = useRoute();
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const saver = useMemo(() => createAutosave((s: Settings) => vault.write(SETTINGS_PATH, serializeSettings(s))), [vault]);
@@ -45,11 +46,12 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     toastTimer.current = setTimeout(() => setToast(null), 3400);
   };
 
-  // tema
+  // tema (la vista previa puede forzar un fondo y un modo sin tocar Ajustes)
+  const eff: Settings = preview ? { ...settings, bg: preview.bg, glassMode: preview.mode ?? settings.glassMode } : settings;
   useEffect(() => {
-    applyTheme(settings);
-    return onSchemeChange(() => applyTheme(settings));
-  }, [settings]);
+    applyTheme(eff);
+    return onSchemeChange(() => applyTheme(eff));
+  }, [settings, preview]);
 
   // colección (mazos + estado FSRS)
   const paramsKey = JSON.stringify(srsParams(settings));
@@ -80,11 +82,15 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const sample = useRef<ImageData | null>(null);
   const lastBg = useRef('');
   const toastedFor = useRef('');
-  const bgKey = JSON.stringify([settings.bg, settings.bgDim]);
+  const bgKey = JSON.stringify([eff.bg, eff.bgDim, eff.glassMode]);
+  // el guardián siempre lee el estado vigente (evita cierres obsoletos en temporizadores)
+  const effRef = useRef(eff);
+  effRef.current = eff;
   const runGuard = () => {
     if (!sample.current) return;
-    const r = guard(sample.current, resolvedMode(settings), settings.glass / 100);
-    (window as unknown as { __guard: unknown }).__guard = r;
+    const cur = effRef.current;
+    const r = guard(sample.current, resolvedMode(cur), cur.glass / 100);
+    (window as unknown as { __guard: unknown }).__guard = { ...r, key: lastBg.current, mode: resolvedMode(cur) };
     if (r.adjusted && toastedFor.current !== lastBg.current) {
       toastedFor.current = lastBg.current;
       toast('Ajustamos el vidrio para que se lea mejor');
@@ -93,7 +99,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   useEffect(() => {
     let alive = true;
     const resample = () =>
-      sampleBackground(settings.bg, vault, settings.bgDim, innerWidth, innerHeight).then((s) => {
+      sampleBackground(eff.bg, vault, settings.bgDim, innerWidth, innerHeight).then((s) => {
         if (!alive) return;
         sample.current = s;
         lastBg.current = bgKey;
@@ -109,11 +115,12 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     addEventListener('scroll', later, { passive: true, capture: true });
     return () => {
       alive = false;
+      clearTimeout(t);
       mo.disconnect();
       removeEventListener('resize', onResize);
       removeEventListener('scroll', later, { capture: true } as EventListenerOptions);
     };
-  }, [bgKey, settings.glass, settings.glassMode]);
+  }, [bgKey, settings.glass]);
 
   const pomo = usePomodoro(vault, settings, toast, () => setVersion((v) => v + 1));
 
@@ -151,6 +158,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     pomo,
     inboxCount,
     focus: (on) => document.body.classList.toggle('focus', on),
+    previewBg: (bg, mode = null) => setPreview(bg ? { bg, mode } : null),
   };
 
   // atajos con teclado externo
@@ -165,7 +173,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     return () => removeEventListener('keydown', onKey);
   });
 
-  const bg = <BackgroundLayer bg={settings.bg} blur={settings.bgBlur} dim={settings.bgDim} vault={vault} />;
+  const bg = <BackgroundLayer bg={eff.bg} blur={settings.bgBlur} dim={settings.bgDim} vault={vault} />;
 
   if (!settings.welcomeDone) {
     return (

@@ -155,18 +155,18 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
 
   return (
     <div class="study">
-      <div class="row wrap" style={{ justifyContent: 'space-between' }}>
-        <div class="title-chip glass row">
+      <div class="row wrap glass" style={{ justifyContent: 'space-between', padding: '8px 10px', borderRadius: 'var(--r-panel)' }}>
+        <div class="row" style={{ padding: '0 8px' }}>
           <span aria-hidden="true">{deckEmoji(app, entry.deck)}</span>
           <b>{entry.deck.full}</b>
           <span class="t2 num">· quedan {left}</span>
         </div>
         <div class="row">
-          <button type="button" class="btn icon glass" aria-label="Deshacer (⌘Z)" title="Deshacer (⌘Z)" disabled={!undo.length} onClick={doUndo}><Undo2 size={18} /></button>
-          <button type="button" class="btn icon glass" aria-label="Leer en voz alta" title="Leer en voz alta" onClick={() => speak(plainText(revealed ? `${entry.ref.note.front}. ${entry.ref.note.back}` : entry.ref.note.front), lang)}><Volume2 size={18} /></button>
-          <button type="button" class="btn icon glass" aria-label="Editar tarjeta (E)" title="Editar (E)" onClick={() => setEdit(true)}><Pencil size={18} /></button>
-          <button type="button" class="btn glass" onClick={() => setWhy(true)}><CalendarClock size={18} /> ¿Por qué esta fecha?</button>
-          <button type="button" class="btn icon glass" aria-label="Más acciones" onClick={() => setMore(true)}><MoreHorizontal size={18} /></button>
+          <button type="button" class="btn icon" aria-label="Deshacer (⌘Z)" title="Deshacer (⌘Z)" disabled={!undo.length} onClick={doUndo}><Undo2 size={18} /></button>
+          <button type="button" class="btn icon" aria-label="Leer en voz alta" title="Leer en voz alta" onClick={() => speak(plainText(revealed ? `${entry.ref.note.front}. ${entry.ref.note.back}` : entry.ref.note.front), lang)}><Volume2 size={18} /></button>
+          <button type="button" class="btn icon" aria-label="Editar tarjeta (E)" title="Editar (E)" onClick={() => setEdit(true)}><Pencil size={18} /></button>
+          <button type="button" class="btn" onClick={() => setWhy(true)}><CalendarClock size={18} /> ¿Por qué esta fecha?</button>
+          <button type="button" class="btn icon" aria-label="Más acciones" onClick={() => setMore(true)}><MoreHorizontal size={18} /></button>
         </div>
       </div>
       {queue.recovery.active && (

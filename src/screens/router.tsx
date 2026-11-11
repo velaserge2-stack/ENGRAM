@@ -32,7 +32,7 @@ export function Screen(props: { route: string[] }) {
     case 'espacios': el = <Spaces route={rest} />; break;
     case 'bandeja': el = <Inbox />; break;
     case 'addons': el = <Addons />; break;
-    case 'design': el = <Design />; break;
+    case 'design': el = <Design key={location.hash} />; break;
     default: el = <Today />;
   }
   return <Suspense fallback={<p class="t2">Cargando…</p>}>{el}</Suspense>;

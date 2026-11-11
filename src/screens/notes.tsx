@@ -285,7 +285,7 @@ function NoteEditor(props: { path: string; data: NotesData }) {
   return (
     <>
       <section class="stack-s" style={{ minWidth: 0 }}>
-        <div class="row wrap" style={{ justifyContent: 'space-between' }}>
+        <div class="row wrap glass panel" style={{ justifyContent: 'space-between' }}>
           <div>
             <div class="foot">{meta.materia}{meta.tema ? ` › ${meta.tema}` : ''}</div>
             <h1 style={{ fontSize: 'var(--t-1)', fontWeight: 700 }}>{meta.title}</h1>

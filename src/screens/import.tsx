@@ -127,7 +127,7 @@ export function ImportSheet(props: { onClose: () => void }) {
               </li>
             ))}
           </ul>
-          {plan.length > 500 && <p class="group-f">… y {plan.length - 500} más.</p>}
+          {plan.length > 500 && <p class="foot">… y {plan.length - 500} más.</p>}
           <div class="row wrap">
             <button type="button" class="btn primary" disabled={busy || counts!.new + counts!.conflict === 0} onClick={confirm}>
               {busy ? 'Importando…' : 'Importar'}
@@ -157,7 +157,7 @@ export function ImportSheet(props: { onClose: () => void }) {
               <FolderUp size={18} aria-hidden="true" /> Elegir carpeta
             </button>
           </div>
-          <p class="group-f" style={{ padding: 0 }}>
+          <p class="foot" style={{ padding: 0 }}>
             Mazos (.md con <code>deck:</code>) y paquetes de Anki (.apkg) van a decks/, otras notas a notes/, imágenes y audio a media/. Un .zip exportado desde Engrama restaura la bóveda completa. Verás una vista previa antes de confirmar.
           </p>
           <input ref={fileRef} type="file" multiple hidden accept=".md,.markdown,.zip,.txt,.apkg,image/*,audio/*,application/zip" onChange={(e) => void take((e.target as HTMLInputElement).files)} />

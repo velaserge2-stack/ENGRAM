@@ -1,0 +1,5 @@
+Speaker 1: Bueno, hoy vamos a ver los bloqueos auriculoventriculares, que es un tema que siempre preguntan en el examen.
+Speaker 1: El de primer grado es fácil, el intervalo PR mide más de doscientos milisegundos en el electrocardiograma.
+Speaker 1: Luego tenemos el de segundo grado, que tiene dos tipos, el Mobitz uno o Wenckebach y el Mobitz dos.
+Speaker 1: En el Mobits uno el PR se va alargando hasta que una P no conduce, y en el Mobits dos el PR es fijo.
+Speaker 1: Y el de tercer grado es la disociación completa, las aurículas y los ventrículos van cada quien por su lado.

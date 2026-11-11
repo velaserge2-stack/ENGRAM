@@ -37,9 +37,9 @@ export function Row(props: { k: ComponentChildren; sub?: ComponentChildren; chil
 
 export function Group(props: { title?: string; footer?: ComponentChildren; children: ComponentChildren }) {
   return (
-    <section>
+    <section class="group glass" style={{ marginTop: '18px' }} aria-label={props.title}>
       {props.title && <h2 class="group-h">{props.title}</h2>}
-      <div class="group glass">{props.children}</div>
+      {props.children}
       {props.footer && <p class="group-f">{props.footer}</p>}
     </section>
   );
@@ -79,7 +79,7 @@ export function Sheet(props: { title: string; onClose: () => void; children: Com
 
 export function PageTitle(props: { title: ComponentChildren; sub?: string; children?: ComponentChildren }) {
   return (
-    <header class="page-title">
+    <header class="page-title glass">
       <div>
         <h1>{props.title}</h1>
         {props.sub && <div class="sub">{props.sub}</div>}

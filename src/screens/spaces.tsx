@@ -58,7 +58,9 @@ export function Spaces(props: { route: string[] }) {
   const save = (s: Space) => {
     setSp(s);
     clearTimeout(saveT.current);
-    saveT.current = setTimeout(() => void app.vault.write(`${DIR}/${s.id}.json`, JSON.stringify(s)), 400);
+    const isNew = !spaces?.some((x) => x.id === s.id);
+    if (isNew) void app.vault.write(`${DIR}/${s.id}.json`, JSON.stringify(s)).then(() => app.changed());
+    else saveT.current = setTimeout(() => void app.vault.write(`${DIR}/${s.id}.json`, JSON.stringify(s)), 400);
   };
   // abrir un archivo desde un enlace: #/espacios/abrir/<ruta[#pN]>
   useEffect(() => {
@@ -75,7 +77,7 @@ export function Spaces(props: { route: string[] }) {
       return;
     }
     const id = props.route[0];
-    setSp(spaces.find((s) => s.id === id) ?? spaces[0] ?? null);
+    setSp((prev) => (prev && prev.id === id ? prev : spaces.find((s) => s.id === id) ?? (id ? prev : null) ?? spaces[0] ?? null));
   }, [spaces, props.route.join('/')]);
 
   return (
@@ -91,8 +93,8 @@ export function Spaces(props: { route: string[] }) {
           </div>
         ) : (
           <>
-            <div class="row wrap" style={{ marginBottom: '10px' }}>
-              <span class="title-chip glass"><b>{sp.emoji} {sp.name}</b></span>
+            <div class="row wrap glass" style={{ marginBottom: '10px', padding: '8px 12px', borderRadius: 'var(--r-pill)' }}>
+              <b style={{ padding: '0 6px' }}>{sp.emoji} {sp.name}</b>
               <span class="grow" />
               <Segmented label="Modo" value={sp.mode} onChange={(m) => save({ ...sp, mode: m })} options={[['tiles', 'Mosaico'], ['canvas', 'Lienzo']]} />
               <button type="button" class="btn small" onClick={async () => { if (!confirm(`¿Eliminar el espacio "${sp.name}"? Los archivos no se borran.`)) return; await app.vault.remove(`${DIR}/${sp.id}.json`); app.changed(); go('espacios'); }}>Eliminar</button>

@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "node e2e/smoke.mjs"
+    "e2e": "node e2e/smoke.mjs",
+    "e2e:design": "node e2e/design.mjs",
+    "e2e:flows": "node e2e/flows.mjs"
   },
   "dependencies": {
     "docx": "^9.15.3",
