@@ -6,6 +6,8 @@ import { useApp } from '../state';
 import { Bar, Group, KV, PageTitle, Ring, Row, Segmented, Switch } from '../ui/kit';
 import { DeckPanel } from './decks';
 import { PomodoroPanel } from './pomodoro';
+import { InkSurface } from '../ink/InkSurface';
+import { emptyInk } from '../ink/model';
 
 /** Fondos de prueba del tema Cristal (§11): blanco, negro, rayas, degradado vivo y foto. */
 export const TEST_BGS: [string, Background][] = [
@@ -85,6 +87,19 @@ export function Design() {
         </div>
       </div>
       <section class="study-card glass strong"><p>{t('design.superficie_de_lectura_larga_glass_strong')}</p><p class="t2">{t('design.texto_secundario')}</p></section>
+      <InkDemo />
     </div>
+  );
+}
+
+/** Superficie de prueba del motor de tinta (Prompt 5 · B): Pencil, palma, herramientas. */
+function InkDemo() {
+  const [doc, setDoc] = useState(emptyInk());
+  return (
+    <section class="glass strong panel stack-s ink-demo" aria-label={t('ink.superficie_de_prueba')}>
+      <h2 style={{ fontSize: 'var(--t-3)' }}>{t('ink.superficie_de_prueba')}</h2>
+      <p class="foot" data-testid="ink-count">{doc.strokes.length}</p>
+      <InkSurface doc={doc} onChange={setDoc} width={560} height={260} label={t('ink.superficie_de_prueba')} />
+    </section>
   );
 }
