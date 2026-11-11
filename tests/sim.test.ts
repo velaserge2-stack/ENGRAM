@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { setLang } from '../src/i18n';
 import { byTopic, isCorrect, parseBankCSV, parseBankJSON, parseBankMarkdown, parseText, score, serializeBank, summarize, timeLeft } from '../src/sim/parse';
 
 const NATIVE = readFileSync(new URL('../examples/simulacros/cardio-parcial.md', import.meta.url), 'utf8');
@@ -26,6 +27,17 @@ describe('analizador de simulacros', () => {
     const qs = parseText('1) Sin opciones\nRespuesta: A\n\n2. Una sola\nA. única\nRespuesta: A\n\n3. Respuesta inexistente\nA) x\nB) y\nRespuesta: D\n\nTexto suelto que no es pregunta');
     expect(qs.map((q) => q.problems)).toEqual([['Sin opciones', 'La respuesta no coincide con ninguna opción'], ['Una sola opción'], ['La respuesta no coincide con ninguna opción']]);
     expect(summarize(qs)).toBe('3 preguntas detectadas; 2 con una sola opción o ninguna');
+  });
+  it('el resumen cuenta los problemas también en inglés y francés', () => {
+    const txt = '1) Sin opciones\nRespuesta: A\n\n2. Una sola\nA. única\nRespuesta: A\n\n3. Sin marcar\nA) x\nB) y';
+    try {
+      setLang('en');
+      expect(summarize(parseText(txt))).toBe('3 questions detected; 1 with no answer marked; 2 with a single option or none');
+      setLang('fr');
+      expect(summarize(parseText(txt))).toMatch(/^3 .*; 1 .*; 2 /);
+    } finally {
+      setLang('es');
+    }
   });
   it('varias correctas', () => {
     const [q] = parseText('1. Elige dos\nA) a\nB) b\nC) c\nRespuesta: A, C');
