@@ -29,6 +29,7 @@ jobs:
           BROWSER=webkit npm run e2e:design
           BROWSER=webkit npm run e2e:mejoras
           BROWSER=webkit npm run e2e:mejoras2
+          BROWSER=webkit npm run e2e:phone
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:
