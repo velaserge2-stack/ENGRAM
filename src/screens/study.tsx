@@ -14,6 +14,7 @@ import { Empty, PageTitle, Sheet } from '../ui/kit';
 import { readTextOr } from '../vault/util';
 import { CardView, isInteractive } from './cardview';
 import { deckEmoji } from './decks';
+import { modalOpen } from '../ui/overlay';
 
 const ICON: Record<Rating, preact.JSX.Element> = { 1: <RotateCcw size={18} />, 2: <HelpCircle size={18} />, 3: <Check size={18} />, 4: <Zap size={18} /> };
 
@@ -114,7 +115,7 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (props.embedded) return;
+      if (props.embedded || modalOpen()) return;
       const t = e.target as HTMLElement;
       if (t.closest('input, textarea, select, [contenteditable]')) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') return e.preventDefault(), void doUndo();

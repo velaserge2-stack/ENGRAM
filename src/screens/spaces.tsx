@@ -21,7 +21,7 @@ import { dayKey } from '../lib/days';
 import { saveImage } from '../notes/images';
 
 type PType = 'estudio' | 'simulacro' | 'nota' | 'pdf' | 'docx' | 'hoja' | 'imagen' | 'pomodoro' | 'stats';
-interface Panel { id: string; type: PType; arg: string; x: number; y: number; w: number; h: number; locked?: boolean; min?: boolean }
+interface Panel { id: string; type: PType; arg: string; x: number; y: number; w: number; h: number; locked?: boolean; min?: boolean; z?: number }
 interface Space { id: string; name: string; emoji: string; mode: 'tiles' | 'canvas'; panels: Panel[]; sizes: number[]; view: { x: number; y: number; k: number }; tray?: string[] }
 
 /** Paneles que se pueden minimizar a cuadrito (no la sesión de estudio ni un simulacro). */
@@ -85,9 +85,11 @@ export function Spaces(props: { route: string[] }) {
     if (props.route[0] === 'abrir' && props.route[1]) {
       const [path, frag] = decodeURIComponent(props.route.slice(1).join('/')).split('#');
       const type: PType = /\.pdf$/i.test(path!) ? 'pdf' : /\.docx$/i.test(path!) ? 'docx' : /\.(csv|tsv)$/i.test(path!) ? 'hoja' : /\.(png|jpe?g|webp|gif)$/i.test(path!) ? 'imagen' : 'nota';
-      const base = spaces[0] ?? { id: 'general', name: 'General', emoji: '🗂️', mode: 'tiles' as const, panels: [], sizes: [], view: { x: 0, y: 0, k: 1 } };
-      const panel: Panel = { id: Date.now().toString(36), type, arg: frag ? `${path}#${frag}` : path!, x: 40, y: 40, w: 640, h: 560 };
-      const panels = [...base.panels.slice(-2), panel];
+      const base = sp ?? spaces[0] ?? { id: 'general', name: 'General', emoji: '🗂️', mode: 'tiles' as const, panels: [], sizes: [], view: { x: 0, y: 0, k: 1 } };
+      const at = base.mode === 'canvas' ? place(base, 640, 560, live.focus) : { x: 40, y: 40, w: 640, h: 560 };
+      const panel: Panel = { id: Date.now().toString(36), type, arg: frag ? `${path}#${frag}` : path!, ...at, z: base.panels.length + 1 };
+      live.reveal = panel.id;
+      const panels = base.mode === 'canvas' ? [...base.panels, panel] : [...base.panels.slice(-2), panel];
       const s = { ...base, panels, sizes: initialSizes(panels) };
       save(s);
       location.replace(href('espacios', s.id));
@@ -138,6 +140,56 @@ export function Spaces(props: { route: string[] }) {
 
 const restored = new Set<string>();
 
+/** Estado vivo del lienzo (vista y panel con foco) para colocar paneles nuevos sin solaparlos. */
+const live = { view: null as Space['view'] | null, w: 0, h: 0, focus: null as string | null, reveal: null as string | null };
+type Rect = { x: number; y: number; w: number; h: number };
+const hit = (a: Rect, b: Rect, g = 16) => a.x < b.x + b.w + g && b.x < a.x + a.w + g && a.y < b.y + b.h + g && b.y < a.y + a.h + g;
+
+/**
+ * Lienzo: coloca un panel nuevo en el mayor hueco libre de la parte visible (junto al panel de
+ * origen si lo hay); si no cabe ni reducido, en cascada de 32 px desde el último.
+ */
+function place(sp: Space, w: number, h: number, src?: string | null): Rect {
+  const others = visible(sp);
+  const v = live.view ?? sp.view;
+  const vw = (live.w || innerWidth) / v.k, vh = (live.h || innerHeight * 0.7) / v.k;
+  const vx = -v.x / v.k, vy = -v.y / v.k;
+  const free = (r: Rect) => !others.some((o) => hit(r, o));
+  const from = others.find((o) => o.id === src);
+  if (from) for (const r of [{ x: from.x + from.w + 24, y: from.y }, { x: from.x - w - 24, y: from.y }, { x: from.x, y: from.y + from.h + 24 }].map((c) => ({ ...c, w, h }))) if (free(r)) return r;
+  for (const f of [1, 0.8, 0.6]) {
+    const rw = Math.round(w * f), rh = Math.round(h * f);
+    for (let y = vy + 24; y + rh <= vy + vh - 8; y += 24)
+      for (let x = vx + 24; x + rw <= vx + vw - 8; x += 24) {
+        const r = { x: Math.round(x), y: Math.round(y), w: rw, h: rh };
+        if (free(r)) return r;
+      }
+  }
+  // el lienzo es infinito: el hueco libre más cercano al centro de la vista (luego se desplaza hasta él)
+  const X0 = Math.min(vx, ...others.map((o) => o.x)) - w, Y0 = Math.min(vy, ...others.map((o) => o.y)) - h;
+  const X1 = Math.max(vx + vw, ...others.map((o) => o.x + o.w)) + 24, Y1 = Math.max(vy + vh, ...others.map((o) => o.y + o.h)) + 24;
+  const cx = vx + vw / 2, cy = vy + vh / 2;
+  let best: Rect | null = null, bd = Infinity;
+  for (let y = Y0; y <= Y1; y += 32)
+    for (let x = X0; x <= X1; x += 32) {
+      const r = { x: Math.round(x), y: Math.round(y), w, h };
+      const d = Math.hypot(x + w / 2 - cx, y + h / 2 - cy);
+      if (d < bd && free(r)) ((best = r), (bd = d));
+    }
+  if (best) return best;
+  const last = from ?? others[others.length - 1];
+  return last ? { x: last.x + 32, y: last.y + 32, w, h } : { x: Math.round(vx + 32), y: Math.round(vy + 32), w, h };
+}
+
+/** Trae un panel al frente y normaliza los z a 1…n (sin saltos ni números crecientes). */
+function toFront(sp: Space, id: string): Space | null {
+  const order = [...sp.panels].sort((a, b) => (a.z ?? 0) - (b.z ?? 0) || sp.panels.indexOf(a) - sp.panels.indexOf(b));
+  if (order[order.length - 1]?.id === id && order.every((x, i) => x.z === i + 1)) return null;
+  const sorted = [...order.filter((x) => x.id !== id), ...order.filter((x) => x.id === id)];
+  const z = new Map(sorted.map((x, i) => [x.id, i + 1]));
+  return { ...sp, panels: sp.panels.map((x) => ({ ...x, z: z.get(x.id)! })) };
+}
+
 function minimizePanel(sp: Space, save: (s: Space) => void, id: string) {
   const panels = sp.panels.map((x) => (x.id === id ? { ...x, min: true } : x));
   const next = { ...sp, panels, tray: [...(sp.tray ?? []).filter((x) => x !== id), id] };
@@ -178,7 +230,10 @@ function Dock(p: { sp: Space; save: (s: Space) => void }) {
   const app = useApp();
   const add = (t: PType) => {
     const n = p.sp.panels.length;
-    const panel: Panel = { id: Date.now().toString(36), type: t, arg: '', x: 60 + n * 40, y: 60 + n * 40, w: t === 'pomodoro' ? 340 : t === 'nota' ? 760 : 560, h: t === 'pomodoro' ? 420 : t === 'nota' ? 640 : 520 };
+    const w = t === 'pomodoro' ? 340 : t === 'nota' ? 760 : 560, h = t === 'pomodoro' ? 420 : t === 'nota' ? 640 : 520;
+    const at = p.sp.mode === 'canvas' ? place(p.sp, w, h) : { x: 60 + n * 40, y: 60 + n * 40, w, h };
+    const panel: Panel = { id: Date.now().toString(36), type: t, arg: '', ...at, z: n + 1 };
+    live.reveal = panel.id;
     const vis = visible(p.sp);
     // en mosaico caben 3: los demás visibles pasan a la bandeja si se pueden minimizar
     const keep = new Set(p.sp.mode === 'tiles' ? vis.slice(-2).map((x) => x.id) : vis.map((x) => x.id));
@@ -227,6 +282,24 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
   const pts = useRef(new Map<number, { x: number; y: number }>());
   const last = useRef<{ d: number } | null>(null);
   const commit = (nv: typeof v) => (setV(nv), p.save({ ...p.sp, view: nv }));
+  live.view = v;
+  live.focus = focus;
+  useEffect(() => { const r = () => wrap.current && ((live.w = wrap.current.clientWidth), (live.h = wrap.current.clientHeight)); r(); addEventListener('resize', r); return () => (removeEventListener('resize', r), (live.view = null)); }, []);
+  // un panel nuevo fuera de la vista: desplazar (sin cambiar el zoom) hasta que se vea entero
+  useEffect(() => {
+    const pn = p.sp.panels.find((x) => x.id === live.reveal);
+    if (!pn || !wrap.current) return;
+    live.reveal = null;
+    setFocus(pn.id);
+    const W = wrap.current.clientWidth, H = wrap.current.clientHeight;
+    const k = Math.min(v.k, (W - 32) / pn.w, (H - 32) / pn.h);
+    const sx = pn.x * k + v.x * (k / v.k), sy = pn.y * k + v.y * (k / v.k);
+    if (k === v.k && sx >= 0 && sy >= 0 && sx + pn.w * k <= W && sy + pn.h * k <= H) return;
+    const clamp = (x0: number, lo: number, hi: number) => Math.min(Math.max(x0, lo), hi);
+    const nx = clamp(v.x * (k / v.k), 16 - pn.x * k, W - 16 - (pn.x + pn.w) * k), ny = clamp(v.y * (k / v.k), 16 - pn.y * k, H - 16 - (pn.y + pn.h) * k);
+    commit({ k, x: nx, y: ny });
+  }, [p.sp.panels.length]);
+  const front = (id: string) => { setFocus(id); const next = toFront(p.sp, id); if (next) p.save(next); };
   // máximo 4 activos: los menos recientes se "duermen"
   const order = visible(p.sp).sort((a, b) => (a.id === focus ? 1 : b.id === focus ? -1 : 0));
   const awake = new Set(order.slice(-MAX_ACTIVE).map((x) => x.id));
@@ -264,7 +337,7 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
       onPointerUp={(e) => { pts.current.delete(e.pointerId); last.current = null; if (!pts.current.size) p.save({ ...p.sp, view: v }); }}
       onWheel={(e) => { e.preventDefault(); const r = wrap.current!.getBoundingClientRect(); const cx = e.clientX - r.left, cy = e.clientY - r.top; if (e.ctrlKey || e.metaKey) { const k = Math.exp(-e.deltaY / 300); setV((o) => ({ k: Math.min(3, Math.max(0.2, o.k * k)), x: cx - (cx - o.x) * k, y: cy - (cy - o.y) * k })); } else setV((o) => ({ ...o, x: o.x - e.deltaX, y: o.y - e.deltaY })); }}>
       <div class="canvas-plane" style={{ transform: `translate(${v.x}px, ${v.y}px) scale(${v.k})` }}>
-        {visible(p.sp).map((pn) => <Window key={pn.id} panel={pn} sp={p.sp} save={p.save} free scale={v.k} asleep={!awake.has(pn.id)} focused={focus === pn.id} onFocus={() => setFocus(pn.id)} />)}
+        {visible(p.sp).map((pn) => <Window key={pn.id} panel={pn} sp={p.sp} save={p.save} free scale={v.k} asleep={!awake.has(pn.id)} focused={focus === pn.id} onFocus={() => front(pn.id)} />)}
       </div>
       <div class="row" style={{ position: 'absolute', left: '12px', bottom: '12px' }}>
         <button type="button" class="btn small glass" onClick={fit}><Scan size={16} />{' '}{tr('spaces.ajustar_al_contenido')}</button>
@@ -301,7 +374,7 @@ function Window(p: { panel: Panel; sp: Space; save: (s: Space) => void; free?: b
     if (d.mode === 'move') upd({ x: Math.round(d.px + dx), y: Math.round(d.py + dy) });
     else upd({ w: Math.max(pn.type === 'nota' ? 480 : 260, Math.round(d.px + dx)), h: Math.max(pn.type === 'nota' ? 360 : 200, Math.round(d.py + dy)) });
   };
-  const style = p.free ? { left: `${pn.x}px`, top: `${pn.y}px`, width: `${pn.w}px`, height: `${pn.h}px` } : {};
+  const style = p.free ? { left: `${pn.x}px`, top: `${pn.y}px`, width: `${pn.w}px`, height: `${pn.h}px`, zIndex: String(pn.z ?? 0) } : {};
   return (
     <section ref={winRef} class={`win glass${p.focused ? ' focused' : ''}${p.asleep ? ' asleep flat' : ''}`} style={style} aria-label={tr('spaces.panel_label', { label: t.label })} onPointerDown={() => p.onFocus?.()}>
       <header class="win-bar" onPointerDown={start('move')} onPointerMove={move} onPointerUp={() => (dragRef.current = null)}>

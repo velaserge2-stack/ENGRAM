@@ -18,7 +18,7 @@ try { browser = await type.launch(); } catch { type = pw.chromium; browser = awa
 console.log('Navegador:', type.name());
 const errors = [];
 const check = (c, m) => { if (!c) throw new Error('FALLÓ: ' + m); console.log('  ✓', m); };
-const only = (process.env.ONLY || 'lang').split(',');
+const only = (process.env.ONLY || 'lang,layers').split(',');
 const SCREENS = ['hoy', 'mazos', 'estudiar', 'explorar', 'simulacros', 'calendario', 'notas', 'espacios', 'estadisticas', 'ajustes', 'bandeja', 'addons'];
 try {
   const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: 'es-MX' });
@@ -80,6 +80,64 @@ try {
     await page.setViewportSize({ width: 1180, height: 820 });
     await page.goto(URL_ + '#/design');
     await page.getByRole('button', { name: 'ES', exact: true }).click();
+  }
+
+  if (only.includes('layers')) {
+    const dialogOk = async (what) => {
+      const d = page.getByRole('dialog').last();
+      await d.waitFor();
+      const r = await d.evaluate((el) => {
+        const b = el.getBoundingClientRect();
+        const top = document.elementFromPoint(b.left + b.width / 2, b.top + 30);
+        const scrim = el.parentElement;
+        return { inside: b.left >= 0 && b.top >= 0 && b.right <= innerWidth + 0.5 && b.bottom <= innerHeight + 0.5, onTop: el.contains(top), w: b.width,
+          portal: scrim.parentElement === document.body, scrimBg: getComputedStyle(scrim).backgroundColor, cx: Math.abs(b.left + b.width / 2 - innerWidth / 2) };
+      });
+      check(r.inside && r.onTop && r.portal && r.cx < 2 && r.w <= 562 && /0\.5\)$/.test(r.scrimBg), `${what}: modal centrado, dentro del viewport, encima de todo, con velo (${Math.round(r.w)} px)`);
+      // foco atrapado
+      for (let i = 0; i < 25; i++) await page.keyboard.press('Tab');
+      check(await d.evaluate((el) => el.contains(document.activeElement)), `${what}: el foco no sale del modal`);
+      await page.keyboard.press('Escape');
+      await d.waitFor({ state: 'detached' });
+    };
+    // Papelera de Notas (antes quedaba dentro del explorador)
+    await page.goto(URL_ + '#/notas');
+    await page.getByRole('button', { name: 'Papelera' }).click();
+    await dialogOk('Papelera de Notas');
+    // Ajustes del mazo desde Hoy
+    await page.goto(URL_ + '#/hoy');
+    const row = page.locator('tr').filter({ hasText: 'Cardiología' }).first();
+    await row.click({ position: { x: 300, y: 10 } });
+    await page.getByRole('button', { name: /^Opciones de/ }).first().click();
+    await dialogOk('Opciones del mazo desde Hoy');
+    // tocar fuera cierra
+    await page.getByRole('button', { name: /^Opciones de/ }).first().click();
+    await page.getByRole('dialog').waitFor();
+    await page.mouse.click(5, 400);
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
+    check(true, 'tocar fuera cierra el modal');
+
+    // Lienzo: 6 paneles sin solaparse; tocar uno lo trae al frente
+    await page.goto(URL_ + '#/espacios');
+    await page.getByRole('button', { name: 'Nuevo espacio' }).click();
+    await page.getByLabel('Nombre (materia o examen)').fill('Capas');
+    await page.getByRole('button', { name: 'Crear', exact: true }).click();
+    await page.getByRole('group', { name: 'Modo' }).getByRole('button', { name: 'Lienzo' }).click();
+    for (const n of ['Pomodoro', 'Estadísticas', 'Imagen', 'PDF', 'Documento', 'Hoja']) {
+      await page.getByRole('button', { name: 'Añadir panel ' + n }).click();
+      await page.waitForTimeout(150);
+    }
+    const rects = await page.locator('.canvas-plane > .win').evaluateAll((els) => els.map((e) => ({ x: e.offsetLeft, y: e.offsetTop, w: e.offsetWidth, h: e.offsetHeight })));
+    const over = rects.some((a, i) => rects.some((b, j) => j > i && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h));
+    check(rects.length === 6 && !over, `6 paneles en el lienzo sin solaparse (${rects.map((r) => `${r.x},${r.y}`).join(' ')})`);
+    // un panel visible que no esté al frente
+    const idx = await page.locator('.canvas-plane > .win').evaluateAll((els) => { const w = document.querySelector('.canvas-wrap').getBoundingClientRect(); return els.findIndex((e) => { const r = e.querySelector('.win-bar').getBoundingClientRect(); return Number(e.style.zIndex) < 6 && r.left + 80 > w.left && r.left + 80 < w.right && r.top + 10 > w.top && r.top + 10 < w.bottom; }); });
+    const bar = await page.locator('.canvas-plane > .win').nth(idx).locator('.win-bar').boundingBox();
+    await page.mouse.click(bar.x + 80, bar.y + 10);
+    await page.waitForTimeout(200);
+    const zs = await page.locator('.canvas-plane > .win').evaluateAll((els) => els.map((e) => Number(e.style.zIndex)));
+    check(idx >= 0 && zs[idx] === 6 && [...zs].sort().join() === '1,2,3,4,5,6', 'tocar un panel lo trae al frente; z normalizados 1…6');
+    await page.screenshot({ path: OUT + 'mejora2-lienzo.png' });
   }
 
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.join(' | ') : ''));

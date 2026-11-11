@@ -1,4 +1,4 @@
-import { locale, t } from '../i18n';
+import { locale, t, tn } from '../i18n';
 import { ChevronLeft, ChevronRight } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { addDays, daysBetween, heatLevels, streaks, weekdayMon } from '../lib/days';
@@ -36,7 +36,7 @@ export function Heatmap(props: { act: Map<string, DayAct>; today: string; byDeck
     for (let d = 0; d < 7; d++) {
       const day = addDays(wk, d);
       const n = values.get(day) ?? 0;
-      cells.push(<button type="button" class={`c${day > props.today ? ' future' : ''}${day === props.today ? ' today' : ''}`} data-l={lv(n)} style={{ gridColumn: w + 1 }} aria-label={`${day}: ${n} ${metric === 'cards' ? 'tarjetas' : 'min'}`} onClick={() => setOpen(day)} />);
+      cells.push(<button type="button" class={`c${day > props.today ? ' future' : ''}${day === props.today ? ' today' : ''}`} data-l={lv(n)} style={{ gridColumn: w + 1 }} aria-label={`${day}: ${metric === 'cards' ? tn('plural.cards', n) : `${n} min`}`} onClick={() => setOpen(day)} />);
     }
   }
   const a = open ? props.act.get(open) : null;

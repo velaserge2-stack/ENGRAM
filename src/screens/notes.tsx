@@ -22,6 +22,7 @@ import { search as searchCards } from '../lib/query';
 import { Graph } from './graph';
 import { APP_VERSION } from './backup';
 import { LinkedEvents } from '../ui/links';
+import { modalOpen, Popover } from '../ui/overlay';
 
 const BOOKMARKS = '.app/bookmarks.json';
 
@@ -362,7 +363,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
   const toggleFull = (on: boolean) => (setNotesFull(on), setFull(on));
   useEffect(() => {
     if (!full) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('.scrim') && toggleFull(false);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !modalOpen() && !document.querySelector('.scrim') && toggleFull(false);
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
   }, [full]);
@@ -555,13 +556,13 @@ function BlockInput(p: { value: string; notes: NoteMeta[]; onChange: (v: string)
           }
         }} aria-label={tr('notes.editar_bloque_escribe_para_insertar')} />
       {slash !== null && slashItems.length > 0 && (
-        <div class="slash glass strong" role="listbox">{slashItems.map(([k, l], i) => <button type="button" role="option" class={i === pick ? 'on' : ''} aria-selected={i === pick} onMouseDown={(e) => e.preventDefault()} onClick={() => applySlash(k)}>{k === 'code' ? <Code size={16} /> : null}{l}</button>)}</div>
+        <Popover anchor={ref.current} onClose={() => setSlash(null)} role="listbox" class="slash" label={tr('notes.editar_bloque_escribe_para_insertar')}>{slashItems.map(([k, l], i) => <button type="button" role="option" class={i === pick ? 'on' : ''} aria-selected={i === pick} onMouseDown={(e) => e.preventDefault()} onClick={() => applySlash(k)}>{k === 'code' ? <Code size={16} /> : null}{l}</button>)}</Popover>
       )}
       {link !== null && (
-        <div class="slash glass strong" role="listbox">
+        <Popover anchor={ref.current} onClose={() => setLink(null)} role="listbox" class="slash" label={tr('notes.enlazar_a_nota')}>
           {linkItems.map((n, i) => <button type="button" role="option" class={i === pick ? 'on' : ''} aria-selected={i === pick} onMouseDown={(e) => e.preventDefault()} onClick={() => applyLink(n.title)}>{n.title} <span class="foot">{n.materia}</span></button>)}
           <button type="button" role="option" class={pick === linkItems.length ? 'on' : ''} onMouseDown={(e) => e.preventDefault()} onClick={() => applyLink(link || tr('notes.nueva_nota'))}>{tr('notes.crear_nota')}{link || tr('notes.nueva_nota')}»</button>
-        </div>
+        </Popover>
       )}
       <input ref={imgInput} type="file" accept="image/*" hidden onChange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) p.onImage(f); }} />
     </div>

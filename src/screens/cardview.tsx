@@ -191,7 +191,7 @@ function MultipleChoice(p: CardViewProps) {
           return (
             <button type="button" class={`opt${cls}`} aria-pressed={on} disabled={p.revealed} onClick={() => setSel((s) => { const c = new Set(multi ? s : []); on ? c.delete(o.i) : c.add(o.i); return c; })}>
               <b>{String.fromCharCode(65 + k)}</b> <Html tag="span" html={renderInline(o.text)} />
-              {p.revealed && o.correct && <Check size={18} aria-label="correcta" style={{ marginLeft: 'auto' }} />}
+              {p.revealed && o.correct && <Check size={18} aria-label={t('cardview.correcta')} style={{ marginLeft: 'auto' }} />}
             </button>
           );
         })}
@@ -264,7 +264,7 @@ function Match(p: CardViewProps) {
             <div class="dz" data-drop={li} key={li} role="button" tabIndex={0} aria-label={t('cardview.pareja_de_l', { l: l })} onClick={() => pick !== null && (place(pick, li), setPick(null))} style={ok === false ? { borderStyle: 'solid', borderWidth: '2px' } : undefined}>
               <b class="grow"><Html tag="span" html={renderInline(l)} /></b>
               <span>{ri !== undefined ? <Html tag="span" html={renderInline(n.pairs[ri]![1])} /> : <span class="t3">—</span>}</span>
-              {ok === true && <Check size={18} aria-label="correcta" />}
+              {ok === true && <Check size={18} aria-label={t('cardview.correcta')} />}
               {ok === false && <span class="chip">✗ {n.pairs[li]![1]}</span>}
             </div>
           );

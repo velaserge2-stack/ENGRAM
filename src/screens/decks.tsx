@@ -85,7 +85,7 @@ export function DeckPanel(props: { title?: string }) {
           <td>
             <div class="name" style={{ paddingLeft: `${depth * 22}px` }}>
               {n.deck ? <span style={{ width: '28px', textAlign: 'center' }} aria-hidden="true">{deckEmoji(app, n.deck) || '·'}</span> : (
-                <button type="button" class="tog" aria-expanded={open} aria-label={`${open ? 'Contraer' : 'Expandir'} ${n.label}`} onClick={(e) => (e.stopPropagation(), setClosed((s) => { const c = new Set(s); c.has(n.key) ? c.delete(n.key) : c.add(n.key); return c; }))}>
+                <button type="button" class="tog" aria-expanded={open} aria-label={t(open ? 'decks.contraer_label' : 'decks.expandir_label', { label: n.label })} onClick={(e) => (e.stopPropagation(), setClosed((s) => { const c = new Set(s); c.has(n.key) ? c.delete(n.key) : c.add(n.key); return c; }))}>
                   {open ? '－' : '＋'}
                 </button>
               )}

@@ -142,3 +142,12 @@
 - `tests/i18n.test.ts` falla si a un idioma le falta o le sobra una clave, si los `{marcadores}` no coinciden o si el código usa una clave inexistente; también fija el glosario (Otra vez/Again/Encore…).
 - **Traducciones en/fr pendientes de revisión por hablante nativo.**
 - Las pruebas E2E fijan `locale: 'es-MX'` (el navegador sin configurar es en-US y Engrama abriría en inglés).
+
+### 2 · Capas y superposición
+- Tokens `--z-base 0 · --z-panel 10 · --z-dock 100 · --z-popover 200 · --z-modal 300 · --z-toast 400 · --z-tooltip 500` en `:root`. Fuera de ellos solo quedan apilados locales (1–5) dentro de un componente.
+- **Causa de los solapes:** las hojas se montaban dentro del panel que las abría; un ancestro con `backdrop-filter` (todo `.glass`) o `transform` (lienzo) se vuelve el bloque contenedor de `position: fixed`, así que la Papelera quedaba dentro del explorador y las opciones del mazo dentro del panel de Hoy. Ahora `src/ui/overlay.tsx` monta todo lo flotante en un **portal sobre `<body>`**.
+- Pila de capas (`useLayer`): solo la de arriba recibe Esc y atrapa el foco (Tab/Mayús+Tab); al cerrar, el foco vuelve a quien la abrió. Se registra con `useLayoutEffect` para que exista desde el primer cuadro. `modalOpen()` silencia los atajos de estudio y simulacro mientras hay un modal.
+- `Sheet` (todas las hojas de la app) = modal centrado de 560 px máx., velo `rgba(0,0,0,.5)`, vidrio `--glass-modal` al 88 % (el guardián parte de 0.88 en hojas); en anchos < 700 px sigue siendo hoja inferior. `Popover` = menú anclado (debajo o encima, dentro de la ventana; se cierra con Esc, tocar fuera o si el ancla se desplaza). Los menús «/» y «[[» del editor de notas pasaron a `Popover`.
+- `.glass.strong[data-guard]` ahora usa el `--glass` que calcula el guardián (antes el vidrio fuerte ignoraba su ajuste).
+- Hoy y Notas ya eran grid; se fijaron las columnas con `minmax(0, …)` para que el contenido largo no ensanche una columna sobre otra.
+- Lienzo: `Panel.z` opcional (perezoso; un espacio antiguo sin `z` apila en orden de lista). Tocar un panel lo trae al frente y renumera 1…n. Un panel nuevo va al primer hueco libre de la vista (tamaño completo, luego 80 % y 60 %); si no hay, al hueco libre más cercano al centro (el lienzo es infinito) y la vista se desplaza hasta mostrarlo; la cascada de 32 px queda como último recurso. Abierto desde otro panel (`#/espacios/abrir/…`) se coloca a su lado, en el mismo espacio.

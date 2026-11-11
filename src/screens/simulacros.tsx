@@ -10,6 +10,7 @@ import { Bar, Empty, PageTitle, Segmented, Sheet } from '../ui/kit';
 import { extname } from '../vault/paths';
 import { readTextOr, walk } from '../vault/util';
 import { shuffle } from './cardview';
+import { modalOpen } from '../ui/overlay';
 
 const CURRENT = '.app/exam-current.json';
 
@@ -210,7 +211,7 @@ function Runner() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const a = atRef.current;
-      if (!a || (e.target as HTMLElement).closest('input, textarea')) return;
+      if (!a || modalOpen() || (e.target as HTMLElement).closest('input, textarea')) return;
       const qq = a.qs[a.cur];
       const k = e.key.toUpperCase();
       const i = 'ABCDEF'.indexOf(k);

@@ -284,7 +284,7 @@ export function guard(sample: ImageData, rootMode: 'dark' | 'light', k: number, 
     if (!cells.length) continue;
     const strong = el.classList.contains('strong');
     let mode = rootMode;
-    let a = strong ? 0.82 : glassAlpha(mode, k);
+    let a = strong ? (el.classList.contains('sheet') ? 0.88 : 0.82) : glassAlpha(mode, k);
     let c = panelContrast(cells, mode, a);
     el.style.removeProperty('--glass');
     delete el.dataset.glass;
