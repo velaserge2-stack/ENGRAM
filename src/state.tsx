@@ -1,8 +1,23 @@
 import { createContext } from 'preact';
 import { useContext, useEffect, useState } from 'preact/hooks';
+import type { Collection } from './data/collection';
 import type { Settings } from './lib/settings';
+import type { PomoState } from './lib/pomodoro';
 import type { IntegrityReport } from './vault/integrity';
 import type { RecoveryReport, SafeVault } from './vault/safe';
+
+export type SheetId = 'import' | 'backup' | 'add' | 'exam' | 'palette' | null;
+
+export interface PomoCtl {
+  state: PomoState;
+  now: number;
+  start(label?: string): void;
+  pause(): void;
+  reset(): void;
+  skip(): void;
+  setLabel(l: string): void;
+  today: number;
+}
 
 export interface AppCtx {
   vault: SafeVault;
@@ -15,12 +30,20 @@ export interface AppCtx {
   settings: Settings;
   update(patch: Partial<Settings>, immediate?: boolean): void;
   replaceSettings(s: Settings): void;
-  /** Sube cada vez que cambian los archivos; las pantallas recargan con él. */
+  /** Sube cuando cambian los archivos: la colección se recarga. */
   version: number;
   changed(): void;
+  /** Re-render sin recargar (cambios en memoria). */
+  tick: number;
+  refresh(): void;
+  col: Collection | null;
   toast(msg: string): void;
-  sheet: 'import' | 'backup' | null;
-  openSheet(s: 'import' | 'backup' | null): void;
+  sheet: SheetId;
+  sheetArg: string | null;
+  openSheet(s: SheetId, arg?: string | null): void;
+  pomo: PomoCtl;
+  inboxCount: number;
+  focus(on: boolean): void;
 }
 
 export const Ctx = createContext<AppCtx>(null as unknown as AppCtx);
@@ -34,7 +57,10 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): { data: T | 
     set((s) => ({ ...s, loading: true }));
     fn().then(
       (data) => alive && set({ data, error: null, loading: false }),
-      (error) => alive && set({ data: undefined, error, loading: false }),
+      (error) => {
+        console.error(error);
+        if (alive) set({ data: undefined, error, loading: false });
+      },
     );
     return () => {
       alive = false;
@@ -43,17 +69,27 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): { data: T | 
   return state;
 }
 
+export function parseHash(): string[] {
+  return (location.hash.replace(/^#\/?/, '') || 'hoy').split('/').map((s) => {
+    try {
+      return decodeURIComponent(s);
+    } catch {
+      return s;
+    }
+  });
+}
+
 export function useRoute(): string[] {
-  const parse = () => (location.hash.replace(/^#\/?/, '') || 'hoy').split('/').map(decodeURIComponent);
-  const [r, setR] = useState(parse);
+  const [r, setR] = useState(parseHash);
   useEffect(() => {
-    const on = () => setR(parse());
+    const on = () => setR(parseHash());
     addEventListener('hashchange', on);
     return () => removeEventListener('hashchange', on);
   }, []);
   return r;
 }
 
+export const href = (...parts: string[]) => '#/' + parts.map(encodeURIComponent).join('/');
 export const go = (...parts: string[]) => {
-  location.hash = '#/' + parts.map(encodeURIComponent).join('/');
+  location.hash = href(...parts);
 };

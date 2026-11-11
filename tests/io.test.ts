@@ -130,3 +130,22 @@ describe('importar zip sin extensión', () => {
     expect(g.files.map((f) => f.path)).toEqual(['notes/a.md']);
   });
 });
+
+import { guessMapping, parseCSV, rowsToBlocks } from '../src/io/csv';
+describe('CSV de tarjetas', () => {
+  it('comillas, saltos y tipos', () => {
+    const rows = parseCSV('pregunta,respuesta,tipo\n"¿Uno, dos?","Sí ""claro""",\nLa {{c1::FA}},,cloze\nIda,Vuelta,inversa\n');
+    expect(rows[1]).toEqual(['¿Uno, dos?', 'Sí "claro"', '']);
+    const m = guessMapping(rows);
+    expect(m).toMatchObject({ header: true, front: 0, back: 1, type: 2 });
+    const b = rowsToBlocks(rows, m);
+    expect(b.map((x) => x.block.split('::')[0])).toEqual(['Q', 'Cloze: La {{c1', 'QR']);
+    expect(b.every((x) => !x.error)).toBe(true);
+  });
+  it('TSV sin encabezado', () => {
+    const rows = parseCSV('a\tb\nc\t\n');
+    const b = rowsToBlocks(rows, guessMapping(rows));
+    expect(b[0]!.block).toBe('Q:: a\nA:: b');
+    expect(b[1]!.error).toBe('Fila sin respuesta');
+  });
+});

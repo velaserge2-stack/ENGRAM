@@ -1,22 +1,24 @@
-import { AlertTriangle, Archive, Download, MoreHorizontal, RefreshCw, ShieldAlert } from 'lucide-preact';
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { Archive, Inbox, Pause, Play, Plus, RefreshCw, Search, Settings as Gear, ShieldAlert, TriangleAlert } from 'lucide-preact';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { loadCollection, type Collection } from './data/collection';
 import { createAutosave } from './lib/autosave';
-import { backupDue, serializeSettings, SETTINGS_PATH, type Settings } from './lib/settings';
-import { TABS, type TabId } from './nav';
+import { backupDue, serializeSettings, SETTINGS_PATH, type Settings, srsParams } from './lib/settings';
+import { TABS } from './nav';
 import { BackupSheet } from './screens/backup';
-import { DeckView, Decks } from './screens/decks';
 import { ImportSheet } from './screens/import';
-import { Placeholder } from './screens/placeholder';
-import { SettingsScreen } from './screens/settings';
-import { Today } from './screens/today';
+import { Screen } from './screens/router';
 import { Welcome } from './screens/welcome';
-import { type AppCtx, Ctx, go, useRoute } from './state';
-import { applyTheme, onSchemeChange } from './theme';
+import { AddCardSheet } from './screens/deck';
+import { ExamSheet } from './screens/exams';
+import { Palette } from './screens/palette';
+import { type AppCtx, Ctx, go, useApp as ctxHook, useRoute } from './state';
+import { applyTheme, onSchemeChange, resolvedMode, watchFrames } from './theme';
+import { BackgroundLayer, guard, sampleBackground } from './ui/background';
 import { checkIntegrity, type IntegrityReport } from './vault/integrity';
-import type { OpenedVault } from './vault/open';
-import { reconnectFolder } from './vault/open';
-import { Sheet } from './ui/kit';
+import { type OpenedVault, reconnectFolder } from './vault/open';
 import { onUpdateReady } from './sw-register';
+import { usePomodoro } from './screens/pomodoro';
+import { walk } from './vault/util';
 
 const DAY = 86_400_000;
 
@@ -24,34 +26,96 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const { vault } = props.opened;
   const [settings, setSettings] = useState(props.initialSettings);
   const [version, setVersion] = useState(0);
+  const [tick, setTick] = useState(0);
+  const [col, setCol] = useState<Collection | null>(null);
   const [integrity, setIntegrity] = useState<IntegrityReport | null>(null);
   const [toastMsg, setToast] = useState<string | null>(null);
   const [sheet, setSheet] = useState<AppCtx['sheet']>(null);
-  const [more, setMore] = useState(false);
+  const [sheetArg, setSheetArg] = useState<string | null>(null);
   const [update, setUpdate] = useState<(() => void) | null>(null);
   const [hasData, setHasData] = useState(props.hasData);
+  const [inboxCount, setInbox] = useState(0);
   const route = useRoute();
-  const tab = (TABS.some((t) => t.id === route[0]) ? route[0] : 'hoy') as TabId;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
   const saver = useMemo(() => createAutosave((s: Settings) => vault.write(SETTINGS_PATH, serializeSettings(s))), [vault]);
 
+  const toast = (msg: string) => {
+    setToast(msg);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3400);
+  };
+
+  // tema
   useEffect(() => {
     applyTheme(settings);
     return onSchemeChange(() => applyTheme(settings));
   }, [settings]);
 
+  // colección (mazos + estado FSRS)
+  const paramsKey = JSON.stringify(srsParams(settings));
+  useEffect(() => {
+    let alive = true;
+    loadCollection(vault, srsParams(settings)).then((c) => {
+      if (!alive) return;
+      setCol(c);
+      if (c.idsAdded) toast(`Se añadieron ${c.idsAdded} IDs de tarjeta a tus mazos`);
+    }, (e) => console.error(e));
+    walk(vault, 'inbox').then((f) => alive && setInbox(new Set(f.map((x) => x.path.split('/')[1])).size));
+    return () => {
+      alive = false;
+    };
+  }, [version, paramsKey]);
+
   const recheckIntegrity = async () => setIntegrity(await checkIntegrity(vault));
   useEffect(() => {
     void recheckIntegrity();
     onUpdateReady((apply) => setUpdate(() => apply));
+    watchFrames(() => !settings.lightMode && toast('El vidrio va lento en este equipo: prueba el modo ligero en Ajustes → Apariencia'));
   }, []);
   useEffect(() => {
-    if (version > 0) {
-      void recheckIntegrity();
-      setHasData(true);
-    }
+    if (version > 0) (void recheckIntegrity(), setHasData(true));
   }, [version]);
+
+  // guardián de legibilidad
+  const sample = useRef<ImageData | null>(null);
+  const lastBg = useRef('');
+  const toastedFor = useRef('');
+  const bgKey = JSON.stringify([settings.bg, settings.bgDim]);
+  const runGuard = () => {
+    if (!sample.current) return;
+    const r = guard(sample.current, resolvedMode(settings), settings.glass / 100);
+    (window as unknown as { __guard: unknown }).__guard = r;
+    if (r.adjusted && toastedFor.current !== lastBg.current) {
+      toastedFor.current = lastBg.current;
+      toast('Ajustamos el vidrio para que se lea mejor');
+    }
+  };
+  useEffect(() => {
+    let alive = true;
+    const resample = () =>
+      sampleBackground(settings.bg, vault, settings.bgDim, innerWidth, innerHeight).then((s) => {
+        if (!alive) return;
+        sample.current = s;
+        lastBg.current = bgKey;
+        requestAnimationFrame(runGuard);
+      }, () => {});
+    void resample();
+    let t: ReturnType<typeof setTimeout>;
+    const later = () => (clearTimeout(t), (t = setTimeout(runGuard, 180)));
+    const onResize = () => (clearTimeout(t), (t = setTimeout(resample, 250)));
+    const mo = new MutationObserver(later);
+    mo.observe(document.getElementById('app')!, { childList: true, subtree: true });
+    addEventListener('resize', onResize);
+    addEventListener('scroll', later, { passive: true, capture: true });
+    return () => {
+      alive = false;
+      mo.disconnect();
+      removeEventListener('resize', onResize);
+      removeEventListener('scroll', later, { capture: true } as EventListenerOptions);
+    };
+  }, [bgKey, settings.glass, settings.glassMode]);
+
+  const pomo = usePomodoro(vault, settings, toast, () => setVersion((v) => v + 1));
 
   const ctx: AppCtx = {
     vault,
@@ -77,144 +141,153 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     },
     version,
     changed: () => setVersion((v) => v + 1),
-    toast(msg) {
-      setToast(msg);
-      clearTimeout(toastTimer.current);
-      toastTimer.current = setTimeout(() => setToast(null), 3200);
-    },
+    tick,
+    refresh: () => setTick((t) => t + 1),
+    col,
+    toast,
     sheet,
-    openSheet: setSheet,
+    sheetArg,
+    openSheet: (s, arg = null) => (setSheetArg(arg), setSheet(s)),
+    pomo,
+    inboxCount,
+    focus: (on) => document.body.classList.toggle('focus', on),
   };
+
+  // atajos con teclado externo
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.metaKey && !e.ctrlKey) return;
+      const k = e.key.toLowerCase();
+      if (k === 'k' || k === 'p' || k === 'o') (e.preventDefault(), ctx.openSheet('palette', k === 'o' ? 'archivos' : null));
+      else if (k === 'n' && !e.shiftKey) (e.preventDefault(), go('notas', '+nueva'));
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  });
+
+  const bg = <BackgroundLayer bg={settings.bg} blur={settings.bgBlur} dim={settings.bgDim} vault={vault} />;
 
   if (!settings.welcomeDone) {
     return (
       <Ctx.Provider value={ctx}>
-        <div class="backdrop" />
-        <Welcome />
+        {bg}
+        <div class="app">
+          <Welcome />
+        </div>
         {sheet === 'import' && <ImportSheet onClose={() => setSheet(null)} />}
+        {toastMsg && <div class="toast glass strong" role="status">{toastMsg}</div>}
       </Ctx.Provider>
     );
   }
 
   const rec = props.opened.recovery;
-  const showBackup = !ctx.temporary && backupDue(settings, Date.now(), hasData);
+  const showBackup = !ctx.temporary && backupDue(settings, Date.now(), hasData) && route[0] === 'hoy';
+  const tabId = route[0] ?? 'hoy';
 
   return (
     <Ctx.Provider value={ctx}>
-      <div class="backdrop" />
+      {bg}
       <div class="app">
-        <nav class="sidebar glass" aria-label="Secciones">
-          <div class="brand">
-            <img src="icons/icon-192.png" alt="" />
-            Engrama
-          </div>
-          {TABS.map((t) => (
-            <a key={t.id} class="nav-item" href={`#/${t.id}`} aria-current={tab === t.id ? 'page' : undefined}>
-              <t.icon size={20} aria-hidden="true" />
-              {t.label}
-              {t.phase > 1 && <span class="badge">pronto</span>}
-            </a>
-          ))}
-          <div class="grow" />
-          <button type="button" class="nav-item" onClick={() => setSheet('backup')}>
-            <Archive size={20} aria-hidden="true" /> Respaldo
-          </button>
-        </nav>
-
-        <main class="content" id="main">
-          <div class="page" style={{ paddingTop: '12px' }}>
-            {update && (
-              <div class="banner glass" role="status">
-                <RefreshCw size={18} />
-                <span class="k">Nueva versión disponible.</span>
-                <button type="button" class="btn small primary" onClick={update}>Actualizar</button>
-              </div>
-            )}
-            {ctx.temporary && (
-              <div class="banner glass warn" role="alert">
-                <ShieldAlert size={18} />
-                <span class="k"><b>Modo temporal.</b> Este navegador no permite guardar (¿navegación privada?). Exporta antes de cerrar.</span>
-              </div>
-            )}
-            {ctx.folderNeedsPermission && (
-              <div class="banner glass warn">
-                <AlertTriangle size={18} />
-                <span class="k">La carpeta conectada necesita permiso de nuevo. Mientras tanto se usa el almacenamiento privado.</span>
-                <button type="button" class="btn small" onClick={async () => (await reconnectFolder()) && location.reload()}>Reconectar</button>
-              </div>
-            )}
-            {(rec.recovered.length > 0 || rec.discarded.length > 0 || rec.journalCorrupt) && version === 0 && (
-              <div class="banner glass" role="status">
-                <ShieldAlert size={18} />
-                <span class="k">
-                  Se recuperó una escritura interrumpida
-                  {rec.recovered.length ? `: ${rec.recovered.join(', ')}` : ''}
-                  {rec.discarded.length ? `. Se descartó una incompleta en ${rec.discarded.join(', ')} (el archivo anterior quedó intacto)` : ''}.
-                </span>
-              </div>
-            )}
-            {showBackup && tab === 'hoy' && (
-              <div class="banner glass">
-                <Download size={18} />
-                <span class="k">
-                  {settings.lastExportAt ? `Tu último respaldo fue hace ${Math.floor((Date.now() - settings.lastExportAt) / DAY)} días.` : 'Aún no tienes un respaldo visible en Archivos.'}
-                </span>
-                <button type="button" class="btn small" onClick={() => ctx.update({ backupReminderSnoozedUntil: Date.now() + 3 * DAY })}>Luego</button>
-                <button type="button" class="btn small primary" onClick={() => setSheet('backup')}>Respaldar</button>
-              </div>
-            )}
-          </div>
-          <Screen tab={tab} route={route} />
+        <TopBar tab={tabId} />
+        <main class="page" id="main">
+          {update && (
+            <div class="banner glass" role="status">
+              <RefreshCw size={18} />
+              <span class="k">Nueva versión disponible.</span>
+              <button type="button" class="btn small primary" onClick={update}>Actualizar</button>
+            </div>
+          )}
+          {ctx.temporary && (
+            <div class="banner glass" role="alert">
+              <ShieldAlert size={18} />
+              <span class="k"><b>Modo temporal.</b> Este navegador no permite guardar (¿navegación privada?). Exporta antes de cerrar.</span>
+            </div>
+          )}
+          {ctx.folderNeedsPermission && (
+            <div class="banner glass">
+              <TriangleAlert size={18} />
+              <span class="k">La carpeta conectada necesita permiso de nuevo. Mientras tanto se usa el almacenamiento privado.</span>
+              <button type="button" class="btn small" onClick={async () => (await reconnectFolder()) && location.reload()}>Reconectar</button>
+            </div>
+          )}
+          {(rec.recovered.length > 0 || rec.discarded.length > 0 || rec.journalCorrupt) && version === 0 && (
+            <div class="banner glass" role="status">
+              <ShieldAlert size={18} />
+              <span class="k">
+                Se recuperó una escritura interrumpida{rec.recovered.length ? `: ${rec.recovered.join(', ')}` : ''}
+                {rec.discarded.length ? `. Se descartó una incompleta en ${rec.discarded.join(', ')} (el archivo anterior quedó intacto)` : ''}.
+              </span>
+            </div>
+          )}
+          {showBackup && (
+            <div class="banner glass">
+              <Archive size={18} />
+              <span class="k">{settings.lastExportAt ? `Tu último respaldo fue hace ${Math.floor((Date.now() - settings.lastExportAt) / DAY)} días.` : 'Aún no tienes un respaldo visible en Archivos.'}</span>
+              <button type="button" class="btn small" onClick={() => ctx.update({ backupReminderSnoozedUntil: Date.now() + 3 * DAY })}>Luego</button>
+              <button type="button" class="btn small primary" onClick={() => setSheet('backup')}>Respaldar</button>
+            </div>
+          )}
+          <Screen route={route} />
         </main>
       </div>
-
-      <nav class="tabbar glass" aria-label="Secciones">
-        {TABS.filter((t) => 'primary' in t && t.primary).map((t) => (
-          <a key={t.id} href={`#/${t.id}`} aria-current={tab === t.id ? 'page' : undefined}>
-            <t.icon size={22} aria-hidden="true" />
-            {t.label}
-          </a>
-        ))}
-        <button type="button" onClick={() => setMore(true)} aria-haspopup="dialog">
-          <MoreHorizontal size={22} aria-hidden="true" />
-          Más
-        </button>
-      </nav>
-
-      {more && (
-        <Sheet title="Más" onClose={() => setMore(false)}>
-          {TABS.filter((t) => !('primary' in t)).map((t) => (
-            <a key={t.id} class="nav-item" href={`#/${t.id}`} onClick={() => setMore(false)}>
-              <t.icon size={20} aria-hidden="true" /> {t.label}
-            </a>
-          ))}
-          <button type="button" class="nav-item" onClick={() => (setMore(false), setSheet('backup'))}>
-            <Archive size={20} aria-hidden="true" /> Respaldo
-          </button>
-        </Sheet>
-      )}
       {sheet === 'import' && <ImportSheet onClose={() => setSheet(null)} />}
       {sheet === 'backup' && <BackupSheet onClose={() => setSheet(null)} />}
-      {toastMsg && (
-        <div class="toast glass dense" role="status" aria-live="polite">
-          {toastMsg}
-        </div>
-      )}
+      {sheet === 'add' && <AddCardSheet deckPath={sheetArg} onClose={() => setSheet(null)} />}
+      {sheet === 'exam' && <ExamSheet path={sheetArg} onClose={() => setSheet(null)} />}
+      {sheet === 'palette' && <Palette mode={sheetArg} onClose={() => setSheet(null)} />}
+      {toastMsg && <div class="toast glass strong" role="status" aria-live="polite">{toastMsg}</div>}
     </Ctx.Provider>
   );
 }
 
-function Screen(props: { tab: TabId; route: string[] }) {
-  switch (props.tab) {
-    case 'hoy':
-      return <Today />;
-    case 'mazos':
-      return props.route[1] ? <DeckView path={props.route.slice(1).join('/')} /> : <Decks />;
-    case 'ajustes':
-      return <SettingsScreen />;
-    default:
-      return <Placeholder tab={props.tab} />;
-  }
+function TopBar(props: { tab: string }) {
+  const app = ctxHook();
+  const nav = useRef<HTMLElement>(null);
+  const [slider, setSlider] = useState<{ x: number; w: number } | null>(null);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const a = nav.current?.querySelector<HTMLElement>('a[aria-current="page"]');
+      setSlider(a ? { x: a.offsetLeft, w: a.offsetWidth } : null);
+    };
+    measure();
+    addEventListener('resize', measure);
+    return () => removeEventListener('resize', measure);
+  }, [props.tab]);
+  const p = app.pomo;
+  const rem = p.state.running && p.state.endAt ? p.state.endAt - p.now : p.state.remaining;
+  const mm = `${String(Math.floor(Math.ceil(rem / 1000) / 60)).padStart(2, '0')}:${String(Math.ceil(rem / 1000) % 60).padStart(2, '0')}`;
+  return (
+    <header class="topbar no-print">
+      <nav class="seg-nav glass" ref={nav} aria-label="Secciones">
+        {slider && <span class="slider" style={{ width: `${slider.w}px`, transform: `translateX(${slider.x - 4}px)`, left: '4px' }} aria-hidden="true" />}
+        {TABS.map((t) => (
+          <a key={t.id} href={`#/${t.id}`} aria-current={props.tab === t.id ? 'page' : undefined} aria-label={t.label} title={t.label}>
+            <t.icon size={18} aria-hidden="true" />
+            <span class="lbl">{t.label}</span>
+          </a>
+        ))}
+      </nav>
+      <span class="spacer" />
+      <button type="button" class="pill glass" onClick={() => app.openSheet('add')} aria-label="Añadir tarjeta" title="Añadir tarjeta">
+        <Plus size={18} />
+      </button>
+      <button type="button" class="pill glass mini-pomo" onClick={() => (p.state.running ? p.pause() : p.start())} aria-label={p.state.running ? 'Pausar enfoque' : 'Iniciar enfoque'} title="Pomodoro">
+        {p.state.running ? <Pause size={16} /> : <Play size={16} />} {mm}
+      </button>
+      <button type="button" class="pill glass" onClick={() => app.openSheet('palette')} aria-label="Buscar (⌘K)" title="Buscar (⌘K)">
+        <Search size={18} />
+      </button>
+      <a class="pill glass" href="#/bandeja" aria-label={`Bandeja: ${app.inboxCount} pendientes`} title="Bandeja">
+        <Inbox size={18} /> <span class={`count${app.inboxCount ? '' : ' zero'}`}>{app.inboxCount}</span>
+      </a>
+      <button type="button" class="pill glass" onClick={() => app.openSheet('backup')} aria-label="Respaldo" title="Respaldo">
+        <Archive size={18} />
+      </button>
+      <a class="pill glass" href="#/ajustes" aria-label="Ajustes" title="Ajustes" aria-current={props.tab === 'ajustes' ? 'page' : undefined}>
+        <Gear size={18} />
+      </a>
+    </header>
+  );
 }
 
-export { go };
+

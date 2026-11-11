@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAutosave } from '../src/lib/autosave';
 import { addDays, dayKey, heatGrid, heatLevels, streaks, weekdayMon } from '../src/lib/days';
 import { backupDue, defaultSettings, mergeSettings } from '../src/lib/settings';
-import { activityByDay, parseReviews, roughCardCount } from '../src/lib/summary';
 
 const TZ = 'America/Monterrey'; // UTC−6, sin horario de verano
 
@@ -38,10 +37,11 @@ describe('días con corte a las 4:00', () => {
 
 describe('ajustes', () => {
   it('mezcla con valores por defecto y descarta tipos erróneos', () => {
-    const s = mergeSettings({ glass: 500, textScale: 'grande', theme: 'dark', lastExportAt: 5, extra: 1 });
+    const s = mergeSettings({ glass: 500, textScale: 'grande', glassMode: 'dark', lastExportAt: 5, extra: 1, pomo: { work: 50 } });
     expect(s.glass).toBe(100);
     expect(s.textScale).toBe(1);
-    expect(s.theme).toBe('dark');
+    expect(s.glassMode).toBe('dark');
+    expect(s.pomo).toEqual({ work: 50, short: 5, long: 15, every: 4, sound: true });
     expect(s.lastExportAt).toBe(5);
     expect('extra' in s).toBe(false);
   });
@@ -83,19 +83,6 @@ describe('autoguardado', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(saved).toEqual(['x']);
     expect(a.pending).toBe(false);
-  });
-});
-
-describe('resumen', () => {
-  it('conteo preliminar de tarjetas', () => {
-    const body = 'Q:: a\nA:: b ^1\nQR:: c\nA:: d ^2\nCloze: La {{c1::x}} y {{c2::y}} y {{c1::z}} ^3\nIO: ![[x.png]] ^4\ntexto Q:: no\n';
-    expect(roughCardCount(body)).toBe(1 + 2 + 2 + 1);
-  });
-  it('repasos por día con tope de 60 s', () => {
-    const r = parseReviews(['{"id":"a","ts":' + Date.parse('2026-03-10T10:00:00-06:00') + ',"rating":3,"ms":90000}', 'roto', '{"id":"b","ts":' + Date.parse('2026-03-11T02:00:00-06:00') + ',"rating":1,"ms":2000}'].join('\n'));
-    expect(r.length).toBe(2);
-    const m = activityByDay(r, TZ, 4);
-    expect(m.get('2026-03-10')).toEqual({ cards: 2, ms: 62000 });
   });
 });
 

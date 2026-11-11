@@ -6,7 +6,7 @@ import { registerSW } from './sw-register';
 import { applyTheme, trackKeyboard } from './theme';
 import { openVault } from './vault/open';
 import { walk } from './vault/util';
-import './styles.css';
+import './theme-cristal.css';
 
 async function boot() {
   trackKeyboard();

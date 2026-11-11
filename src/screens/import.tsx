@@ -65,7 +65,7 @@ export function ImportSheet(props: { onClose: () => void }) {
           <p>
             <b>{done.written.length}</b> archivos importados · {done.skipped.length} omitidos.
           </p>
-          <div class="toolbar">
+          <div class="row wrap">
             <button type="button" class="btn primary" onClick={props.onClose}>Listo</button>
             <button
               type="button"
@@ -106,11 +106,11 @@ export function ImportSheet(props: { onClose: () => void }) {
           <ul class="plan-list">
             {plan.slice(0, 500).map((p) => (
               <li key={p.path}>
-                <span class={`pill ${p.status}`}>{STATUS[p.status]}</span>
+                <span class={`chip${p.status === "new" ? " solid" : ""}`}>{STATUS[p.status]}</span>
                 <button type="button" class="p" style={{ background: 'none', border: 0, textAlign: 'left', minHeight: '44px', padding: 0 }} onClick={() => setPreview(p)}>
                   {p.path}
                 </button>
-                <span class="pill">{KIND[p.kind]}</span>
+                <span class="chip">{KIND[p.kind]}</span>
                 {p.status === 'conflict' && (
                   <select aria-label={`Qué hacer con ${p.path}`} value={overrides[p.path] ?? policy} onChange={(e) => setOverrides({ ...overrides, [p.path]: (e.target as HTMLSelectElement).value as Resolution })}>
                     <option value="omit">Omitir</option>
@@ -122,7 +122,7 @@ export function ImportSheet(props: { onClose: () => void }) {
             ))}
           </ul>
           {plan.length > 500 && <p class="group-f">… y {plan.length - 500} más.</p>}
-          <div class="toolbar">
+          <div class="row wrap">
             <button type="button" class="btn primary" disabled={busy || counts!.new + counts!.conflict === 0} onClick={confirm}>
               {busy ? 'Importando…' : 'Importar'}
             </button>
@@ -143,7 +143,7 @@ export function ImportSheet(props: { onClose: () => void }) {
           >
             {busy ? 'Leyendo…' : 'Suelta aquí archivos .md, .zip o imágenes'}
           </div>
-          <div class="toolbar">
+          <div class="row wrap">
             <button type="button" class="btn primary" onClick={() => fileRef.current?.click()}>
               <FileUp size={18} aria-hidden="true" /> Elegir archivos
             </button>

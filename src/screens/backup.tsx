@@ -57,7 +57,7 @@ export function BackupSheet(props: { onClose: () => void }) {
             <p style={{ margin: 0 }}>
               <b>{file.name}</b> · {formatBytes(file.size)}
               <br />
-              <span style={{ color: 'var(--label-2)', fontSize: 'var(--t-note)' }}>
+              <span style={{ color: 'var(--t2)', fontSize: 'var(--t-note)' }}>
                 {counts!.decks} mazos · {counts!.notes} notas · {counts!.media} medios · {counts!.files} archivos en total
               </span>
             </p>
