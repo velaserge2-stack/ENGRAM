@@ -11,6 +11,9 @@ import { go, href, useApp, useAsync } from '../state';
 import { PageTitle, Segmented, Sheet, Switch } from '../ui/kit';
 import { readTextOr, walk } from '../vault/util';
 import { loadAttempts } from './simulacros';
+import { LinkChips, LinkPicker, startBlock, useLinkIndex } from '../ui/links';
+import { type LinkIndex, resolveLink } from '../lib/links';
+import { Link2 } from 'lucide-preact';
 
 const CAL = 'calendar/estudio.ics';
 const DOW = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
@@ -54,8 +57,10 @@ export function Calendar() {
   const fc = useMemo(() => (col ? new Map(forecast(col, Date.now(), s.timeZone, s.dayStartHour, 120).map((x) => [x.day, x.n])) : new Map<string, number>()), [col]);
   const act = activity(col?.log ?? [], ex?.extra ?? { pomodoro: [], exams: [] }, s.timeZone, s.dayStartHour);
   const avg = avgDaily(act, today);
+  const { data: lidx } = useLinkIndex();
+  const label = (u: string) => (lidx ? resolveLink(u, lidx).label : u);
   const saveOwn = async (blocks: StudyBlock[]) => {
-    await app.vault.write(CAL, toICS(blocks));
+    await app.vault.write(CAL, toICS(blocks, undefined, label));
     app.changed();
   };
 
@@ -181,11 +186,12 @@ export function Calendar() {
           {d.exams.map((e) => <div class="chip solid">🎯 {e.name}</div>)}
           {[...d.blocks, ...d.imported].map((o) => (
             <div class="inset row" style={{ padding: '8px 10px', borderRadius: 'var(--r-row)' }}>
-              <div class="grow"><b style={{ textDecoration: o.b.done.includes(sel) ? 'line-through' : 'none' }}>{o.b.title}</b><div class="foot">{new Date(o.start).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}–{new Date(o.end).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}{o.b.subject ? ` · ${o.b.subject}` : ''}{o.b.readonly ? ' · importado' : ''}</div></div>
+              <div class="grow stack-s"><b style={{ textDecoration: o.b.done.includes(sel) ? 'line-through' : 'none' }}>{o.b.title}</b><div class="foot">{new Date(o.start).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}–{new Date(o.end).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}{o.b.subject ? ` · ${o.b.subject}` : ''}{o.b.readonly ? ' · importado' : ''}</div>
+                <LinkChips links={o.b.links ?? []} idx={lidx} live onRepair={() => setEdit(o.b)} /></div>
               {!o.b.readonly && (
                 <>
                   <button type="button" class="btn icon small" aria-label="Marcar como hecho" aria-pressed={o.b.done.includes(sel)} onClick={() => data && saveOwn(data.own.map((x) => (x.uid === o.b.uid ? { ...x, done: x.done.includes(sel) ? x.done.filter((y) => y !== sel) : [...x.done, sel] } : x)))}><Check size={16} /></button>
-                  <button type="button" class="btn icon small" aria-label="Iniciar bloque" onClick={() => { app.pomo.start(o.b.title); const dk = col?.decks.find((x) => o.b.subject && (x.full.includes(o.b.subject) || o.b.subject.includes(x.name))); go(dk ? 'estudiar' : 'espacios', ...(dk ? dk.path.split('/') : [])); }}><Play size={16} /></button>
+                  <button type="button" class="btn icon small" aria-label="Iniciar bloque" onClick={() => void startBlock(app, o.b, lidx)}><Play size={16} /></button>
                 </>
               )}
             </div>
@@ -208,7 +214,7 @@ export function Calendar() {
           <div class="row-i"><span class="k">La semana empieza en lunes</span><Switch label="Semana en lunes" checked={s.weekStartsMonday} onChange={(v) => app.update({ weekStartsMonday: v })} /></div>
         </Sheet>
       )}
-      {edit && data && <BlockEditor block={edit} onClose={() => setEdit(null)} onSave={async (b) => { await saveOwn(data.own.some((x) => x.uid === b.uid) ? data.own.map((x) => (x.uid === b.uid ? b : x)) : [...data.own, b]); setEdit(null); }} onDelete={async () => { await saveOwn(data.own.filter((x) => x.uid !== edit.uid)); setEdit(null); }} />}
+      {edit && data && <BlockEditor idx={lidx} block={edit} onClose={() => setEdit(null)} onSave={async (b) => { await saveOwn(data.own.some((x) => x.uid === b.uid) ? data.own.map((x) => (x.uid === b.uid ? b : x)) : [...data.own, b]); setEdit(null); }} onDelete={async () => { await saveOwn(data.own.filter((x) => x.uid !== edit.uid)); setEdit(null); }} />}
       {plan && (
         <Sheet title="Plan sugerido" onClose={() => setPlan(null)}>
           <div class="stack-s">
@@ -222,8 +228,21 @@ export function Calendar() {
   );
 }
 
-function BlockEditor(p: { block: StudyBlock; onClose: () => void; onSave: (b: StudyBlock) => void; onDelete: () => void }) {
+function BlockEditor(p: { idx: LinkIndex | null | undefined; block: StudyBlock; onClose: () => void; onSave: (b: StudyBlock) => void; onDelete: () => void }) {
+  const app = useApp();
   const [b, setB] = useState(p.block);
+  const [picker, setPicker] = useState<{ replace: string | null } | null>(null);
+  const [ac, setAc] = useState<string | null>(null);
+  const links = b.links ?? [];
+  const addLink = (uri: string, replace: string | null = null) => {
+    setB((x) => {
+      const cur = (x.links ?? []).filter((u) => u !== replace);
+      return { ...x, links: cur.includes(uri) ? cur : [...cur, uri] };
+    });
+    app.changed(); // el archivo pudo recibir su `id`
+  };
+  // [[ en la nota: autocompletar mazos y notas
+  const acItems = ac !== null && p.idx ? [...p.idx.decks, ...p.idx.notes].filter((t) => t.name.toLowerCase().includes(ac.toLowerCase())).slice(0, 6) : [];
   const iso = (ms: number) => { const d = new Date(ms); return `${localDay(ms)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
   const dur = Math.round((b.end - b.start) / 60000);
   return (
@@ -237,7 +256,24 @@ function BlockEditor(p: { block: StudyBlock; onClose: () => void; onSave: (b: St
           <label class="field">Repetir<select value={b.rrule} onChange={(e) => setB({ ...b, rrule: (e.target as HTMLSelectElement).value as StudyBlock['rrule'] })}><option value="">No</option><option value="DAILY">Diario</option><option value="WEEKLY">Semanal</option></select></label>
           <label class="field">Recordatorio (min antes, en el .ics)<input class="input" type="number" min={0} value={b.alarmMin ?? ''} onInput={(e) => setB({ ...b, alarmMin: (e.target as HTMLInputElement).value === '' ? null : Number((e.target as HTMLInputElement).value) })} /></label>
         </div>
-        <label class="field">Nota<textarea class="input" rows={2} value={b.note} onInput={(e) => setB({ ...b, note: (e.target as HTMLTextAreaElement).value })} /></label>
+        <div class="field">Vínculos
+          <LinkChips links={links} idx={p.idx} onRemove={(u) => setB({ ...b, links: links.filter((x) => x !== u) })} onRepair={(u) => setPicker({ replace: u })} />
+          <button type="button" class="btn small" style={{ justifySelf: 'start' }} disabled={!p.idx} onClick={() => setPicker({ replace: null })}><Link2 size={16} /> Vincular</button>
+        </div>
+        <label class="field">Nota (escribe [[ para vincular)<textarea class="input" rows={2} value={b.note} onInput={(e) => { const v = (e.target as HTMLTextAreaElement).value; setB({ ...b, note: v }); const m = /\[\[([^\]\n]*)$/.exec(v.slice(0, (e.target as HTMLTextAreaElement).selectionStart)); setAc(m ? m[1]! : null); }} /></label>
+        {acItems.length > 0 && (
+          <div class="glass strong stack-s" style={{ padding: '6px', borderRadius: '14px' }} role="listbox">
+            {acItems.map((t) => <button type="button" role="option" class="opt note" onClick={async () => {
+              const taken = new Set([...p.idx!.decks, ...p.idx!.notes].map((x) => x.id).filter(Boolean) as string[]);
+              const { ensureFileId, makeUri } = await import('../lib/links');
+              const id = await ensureFileId(app.vault, t.path, taken);
+              setB((x) => ({ ...x, note: x.note.replace(/\[\[[^\]\n]*$/, `[[${t.name}]]`) }));
+              addLink(makeUri(t.kind, id));
+              setAc(null);
+            }}>{t.kind === 'deck' ? '📚' : '📄'} {t.name}</button>)}
+          </div>
+        )}
+        {picker && p.idx && <LinkPicker idx={p.idx} onClose={() => setPicker(null)} onPick={(u) => { addLink(u, picker.replace); setPicker(null); }} />}
         <div class="row"><button class="btn primary" type="submit">Guardar</button>{p.block.title && <button type="button" class="btn danger" onClick={p.onDelete}>Eliminar</button>}</div>
       </form>
     </Sheet>

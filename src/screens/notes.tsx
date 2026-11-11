@@ -20,6 +20,7 @@ import { NotePreview } from './deck';
 import { search as searchCards } from '../lib/query';
 import { Graph } from './graph';
 import { APP_VERSION } from './backup';
+import { LinkedEvents } from '../ui/links';
 
 const BOOKMARKS = '.app/bookmarks.json';
 
@@ -260,7 +261,7 @@ function NoteEditor(props: { path: string; data: NotesData }) {
   const [text, setText] = useState<string | null>(null);
   const [mode, setMode] = useState<'doc' | 'md'>('doc');
   const [editing, setEditing] = useState<number | null>(null);
-  const [tab, setTab] = useState<'outline' | 'links' | 'props' | 'graph' | 'cards'>('outline');
+  const [tab, setTab] = useState<'outline' | 'links' | 'props' | 'graph' | 'cards' | 'events'>('outline');
   const [sheet, setSheet] = useState<'share' | 'history' | 'move' | 'prompt' | 'card' | null>(null);
   const [cardSeed, setCardSeed] = useState<{ text: string; kind: 'cloze' | 'basic'; para: number } | null>(null);
   const saver = useMemo(() => createAutosave(async (t: string) => {
@@ -326,12 +327,13 @@ function NoteEditor(props: { path: string; data: NotesData }) {
       {insp && (
         <aside class="glass panel insp stack-s" aria-label="Inspector">
           <div class="seg" role="tablist" aria-label="Panel">
-            {([['outline', 'Esquema'], ...(app.settings.showBacklinks ? [['links', 'Enlaces']] : []), ['props', 'Propiedades'], ['cards', 'Tarjetas'], ...(app.settings.showGraph ? [['graph', 'Grafo']] : [])] as [typeof tab, string][]).map(([k, l]) => <button type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}
+            {([['outline', 'Esquema'], ...(app.settings.showBacklinks ? [['links', 'Enlaces']] : []), ['props', 'Propiedades'], ['cards', 'Tarjetas'], ['events', 'Eventos'], ...(app.settings.showGraph ? [['graph', 'Grafo']] : [])] as [typeof tab, string][]).map(([k, l]) => <button type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}
           </div>
           {tab === 'outline' && (outline(doc.body).map((h) => <div style={{ paddingLeft: `${(h.level - 1) * 12}px` }} class="note">{h.text}</div>) || null)}
           {tab === 'outline' && !outline(doc.body).length && <p class="t2 note">Sin títulos.</p>}
           {tab === 'links' && props.data && <Links path={props.path} title={meta.title} data={props.data} />}
           {tab === 'props' && <Properties fm={doc.data} onChange={setFm} />}
+          {tab === 'events' && <><b class="note">Eventos vinculados</b><LinkedEvents path={props.path} /></>}
           {tab === 'graph' && props.data && <Graph notes={props.data.notes} idx={props.data.idx} texts={props.data.texts} focus={props.path} />}
           {tab === 'cards' && (
             <div class="stack-s">
@@ -502,7 +504,7 @@ function Properties(p: { fm: Frontmatter; onChange: (fm: Frontmatter) => void })
         <div class="row wrap">{decks.map((d) => <button type="button" class="chip" onClick={() => set('mazos', decks.filter((x) => x !== d))}>{d} ✕</button>)}</div>
         <select aria-label="Añadir mazo" value="" onChange={(e) => { const v = (e.target as HTMLSelectElement).value; if (v) set('mazos', [...decks, v]); }}><option value="">Añadir…</option>{app.col?.decks.map((d) => <option>{d.full}</option>)}</select>
       </div>
-      {Object.entries(p.fm).filter(([k]) => !['fecha', 'tags', 'mazos', 'materia', 'tema'].includes(k)).map(([k, v]) => (
+      {Object.entries(p.fm).filter(([k]) => !['fecha', 'tags', 'mazos', 'materia', 'tema', 'id'].includes(k)).map(([k, v]) => (
         <label class="field">{k}<input class="input" value={Array.isArray(v) ? v.join(', ') : String(v ?? '')} onChange={(e) => set(k, (e.target as HTMLInputElement).value)} /></label>
       ))}
     </div>
