@@ -69,6 +69,38 @@ try {
     check(/Cardiología/.test(await page.locator('.win').first().textContent()), 'la sesión de estudio está filtrada al mazo vinculado');
     await page.screenshot({ path: OUT + 'mejora-bloque.png' });
   }
+  if (only.includes('notes')) {
+    await page.goto(URL_ + '#/notas/Cardiología/ECG/Clase 1 - ECG básico.md');
+    await page.locator('.doc').waitFor();
+    if (await page.getByRole('button', { name: 'Ocultar explorador' }).count()) await page.getByRole('button', { name: 'Ocultar explorador' }).click();
+    if (await page.getByRole('button', { name: 'Ocultar inspector' }).count()) await page.getByRole('button', { name: 'Ocultar inspector' }).click();
+    await page.getByRole('button', { name: 'Completo' }).click();
+    const [docW, mainW] = await page.evaluate(() => [document.querySelector('.doc-inner').getBoundingClientRect().width, document.querySelector('main').getBoundingClientRect().width]);
+    check(docW > mainW - 90, `explorador e inspector ocultos: el texto usa todo el ancho (${Math.round(docW)} de ${Math.round(mainW)} px)`);
+    // editar sin guardar y pasar a pantalla completa
+    await page.locator('.doc [aria-label="Editar bloque"]').nth(1).click();
+    const ta = page.locator('.doc textarea');
+    await ta.fill('Texto sin guardar todavía');
+    await ta.evaluate((el) => el.setSelectionRange(5, 5));
+    await page.getByRole('button', { name: 'Pantalla completa de notas' }).click();
+    await page.waitForTimeout(200);
+    const st = await page.evaluate(() => ({ top: getComputedStyle(document.querySelector('.topbar')).display, focus: document.activeElement?.tagName, pos: document.activeElement?.selectionStart, val: document.activeElement?.value }));
+    check(st.top === 'none' && st.focus === 'TEXTAREA' && st.pos === 5 && st.val === 'Texto sin guardar todavía', 'pantalla completa: oculta la barra y conserva cursor y texto');
+    await page.screenshot({ path: OUT + 'mejora-notas-completa.png' });
+    await page.getByRole('button', { name: 'Salir de pantalla completa' }).first().click();
+    const back = await page.evaluate(() => ({ top: getComputedStyle(document.querySelector('.topbar')).display, focus: document.activeElement?.tagName, val: document.activeElement?.value }));
+    check(back.top !== 'none' && back.focus === 'TEXTAREA' && back.val === 'Texto sin guardar todavía', 'al salir se conserva el cursor y el texto');
+    await page.reload();
+    await page.locator('.doc').waitFor();
+    check(await page.getByRole('button', { name: 'Mostrar explorador' }).count() === 1, 'se recuerda el estado del explorador');
+    await page.setViewportSize({ width: 820, height: 1180 });
+    await page.getByRole('button', { name: 'Mostrar inspector' }).click();
+    check(await page.locator('.insp-over').count() === 1, 'en vertical, el inspector se superpone en lugar de apretar el editor');
+    await page.screenshot({ path: OUT + 'mejora-notas-vertical.png' });
+    await page.getByRole('button', { name: 'Cerrar inspector' }).click();
+    await page.setViewportSize({ width: 1180, height: 820 });
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.join(' | ') : ''));
   console.log('\nOK');
 } catch (e) {

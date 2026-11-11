@@ -35,9 +35,18 @@ const TYPES: { t: PType; label: string; icon: preact.JSX.Element }[] = [
 ];
 const MAX_ACTIVE = 4;
 
+/** Reparto inicial del mosaico: un panel de notas arranca con al menos el 60 % del área útil. */
+function initialSizes(panels: Panel[]): number[] {
+  const notes = panels.filter((p) => p.type === 'nota').length;
+  if (notes !== 1 || panels.length === 1) return panels.map(() => 1 / panels.length);
+  return panels.map((p) => (p.type === 'nota' ? 0.6 : 0.4 / (panels.length - 1)));
+}
+/** Tamaño mínimo por tipo (las notas necesitan más). */
+const minFrac = (p: Panel | undefined) => (p?.type === 'nota' ? 0.4 : 0.15);
+
 const PRESETS: Record<string, Omit<Space, 'id'>> = {
   'PDF + tarjetas': { name: 'PDF + tarjetas', emoji: '📄', mode: 'tiles', panels: [{ id: 'a', type: 'pdf', arg: '', x: 0, y: 0, w: 640, h: 560 }, { id: 'b', type: 'estudio', arg: '', x: 680, y: 0, w: 520, h: 560 }], sizes: [0.6, 0.4], view: { x: 0, y: 0, k: 1 } },
-  'Clase: notas + PDF': { name: 'Clase', emoji: '🎓', mode: 'tiles', panels: [{ id: 'a', type: 'nota', arg: '', x: 0, y: 0, w: 560, h: 560 }, { id: 'b', type: 'pdf', arg: '', x: 600, y: 0, w: 600, h: 560 }], sizes: [0.5, 0.5], view: { x: 0, y: 0, k: 1 } },
+  'Clase: notas + PDF': { name: 'Clase', emoji: '🎓', mode: 'tiles', panels: [{ id: 'a', type: 'nota', arg: '', x: 0, y: 0, w: 560, h: 560 }, { id: 'b', type: 'pdf', arg: '', x: 600, y: 0, w: 600, h: 560 }], sizes: [0.6, 0.4], view: { x: 0, y: 0, k: 1 } },
   Repaso: { name: 'Repaso', emoji: '🔁', mode: 'tiles', panels: [{ id: 'a', type: 'estudio', arg: '', x: 0, y: 0, w: 700, h: 560 }, { id: 'b', type: 'pomodoro', arg: '', x: 740, y: 0, w: 340, h: 420 }, { id: 'c', type: 'stats', arg: '', x: 740, y: 440, w: 340, h: 260 }], sizes: [0.55, 0.22, 0.23], view: { x: 0, y: 0, k: 1 } },
 };
 
@@ -71,7 +80,7 @@ export function Spaces(props: { route: string[] }) {
       const base = spaces[0] ?? { id: 'general', name: 'General', emoji: '🗂️', mode: 'tiles' as const, panels: [], sizes: [], view: { x: 0, y: 0, k: 1 } };
       const panel: Panel = { id: Date.now().toString(36), type, arg: frag ? `${path}#${frag}` : path!, x: 40, y: 40, w: 640, h: 560 };
       const panels = [...base.panels.slice(-2), panel];
-      const s = { ...base, panels, sizes: panels.map(() => 1 / panels.length) };
+      const s = { ...base, panels, sizes: initialSizes(panels) };
       save(s);
       location.replace(href('espacios', s.id));
       return;
@@ -122,9 +131,9 @@ function Dock(p: { sp: Space; save: (s: Space) => void }) {
   const app = useApp();
   const add = (t: PType) => {
     const n = p.sp.panels.length;
-    const panel: Panel = { id: Date.now().toString(36), type: t, arg: '', x: 60 + n * 40, y: 60 + n * 40, w: t === 'pomodoro' ? 340 : 560, h: t === 'pomodoro' ? 420 : 520 };
+    const panel: Panel = { id: Date.now().toString(36), type: t, arg: '', x: 60 + n * 40, y: 60 + n * 40, w: t === 'pomodoro' ? 340 : t === 'nota' ? 760 : 560, h: t === 'pomodoro' ? 420 : t === 'nota' ? 640 : 520 };
     const panels = p.sp.mode === 'tiles' ? [...p.sp.panels.slice(-2), panel] : [...p.sp.panels, panel];
-    p.save({ ...p.sp, panels, sizes: panels.map(() => 1 / panels.length) });
+    p.save({ ...p.sp, panels, sizes: initialSizes(panels) });
   };
   return (
     <div class="dock no-print">
@@ -150,9 +159,9 @@ function Tiles(p: { sp: Space; save: (s: Space) => void }) {
       {panels.flatMap((pn, i) => [
         ...(i ? [<div class="divider" role="separator" aria-orientation="vertical" aria-label="Redimensionar paneles" tabIndex={0}
           onPointerDown={(e) => { (e.target as HTMLElement).setPointerCapture(e.pointerId); drag.current = { i, x: e.clientX, s: [...sizes] }; }}
-          onPointerMove={(e) => { const d = drag.current; if (!d) return; const W = box.current!.clientWidth; const dx = (e.clientX - d.x) / W; const tot = d.s[d.i - 1]! + d.s[d.i]!; const a = Math.min(tot - 0.15, Math.max(0.15, d.s[d.i - 1]! + dx)); const s = [...d.s]; s[d.i - 1] = a; s[d.i] = tot - a; p.save({ ...p.sp, sizes: s }); }}
+          onPointerMove={(e) => { const d = drag.current; if (!d) return; const W = box.current!.clientWidth; const dx = (e.clientX - d.x) / W; const tot = d.s[d.i - 1]! + d.s[d.i]!; const a = Math.min(tot - minFrac(panels[d.i]), Math.max(minFrac(panels[d.i - 1]), d.s[d.i - 1]! + dx)); const s = [...d.s]; s[d.i - 1] = a; s[d.i] = tot - a; p.save({ ...p.sp, sizes: s }); }}
           onPointerUp={() => (drag.current = null)}
-          onKeyDown={(e) => { if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; const s = [...sizes]; const dx = e.key === 'ArrowLeft' ? -0.05 : 0.05; s[i - 1] = Math.max(0.15, s[i - 1]! + dx); s[i] = Math.max(0.15, s[i]! - dx); p.save({ ...p.sp, sizes: s }); }} />] : []),
+          onKeyDown={(e) => { if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; const s = [...sizes]; const dx = e.key === 'ArrowLeft' ? -0.05 : 0.05; s[i - 1] = Math.max(minFrac(panels[i - 1]), s[i - 1]! + dx); s[i] = Math.max(minFrac(panels[i]), s[i]! - dx); p.save({ ...p.sp, sizes: s }); }} />] : []),
         <Window key={pn.id} panel={pn} sp={p.sp} save={p.save} />,
       ])}
     </div>
@@ -235,7 +244,7 @@ function Window(p: { panel: Panel; sp: Space; save: (s: Space) => void; free?: b
     const k = p.scale ?? 1;
     const dx = (e.clientX - d.x) / k, dy = (e.clientY - d.y) / k;
     if (d.mode === 'move') upd({ x: Math.round(d.px + dx), y: Math.round(d.py + dy) });
-    else upd({ w: Math.max(260, Math.round(d.px + dx)), h: Math.max(200, Math.round(d.py + dy)) });
+    else upd({ w: Math.max(pn.type === 'nota' ? 480 : 260, Math.round(d.px + dx)), h: Math.max(pn.type === 'nota' ? 360 : 200, Math.round(d.py + dy)) });
   };
   const style = p.free ? { left: `${pn.x}px`, top: `${pn.y}px`, width: `${pn.w}px`, height: pn.min ? '44px' : `${pn.h}px` } : {};
   return (

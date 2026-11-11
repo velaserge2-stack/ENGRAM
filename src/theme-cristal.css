@@ -366,10 +366,17 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 .tbl tr.warn td { border-top: 1.5px solid var(--border-strong); }
 
 /* notas */
-.notes { display: grid; grid-template-columns: 280px minmax(0, 1fr) 280px; gap: 14px; align-items: start; }
-.notes.no-insp { grid-template-columns: 280px minmax(0, 1fr); }
-@media (max-width: 1100px) { .notes, .notes.no-insp { grid-template-columns: 240px minmax(0, 1fr); } .notes .insp { display: none; } }
-@media (max-width: 760px) { .notes, .notes.no-insp { grid-template-columns: 1fr; } }
+.notes { display: grid; gap: 14px; align-items: start; }
+.page:has(> .notes) { max-width: none; }
+.doc-inner { margin: 0 auto; }
+.insp-over { position: fixed; z-index: 45; top: calc(env(safe-area-inset-top) + 72px); right: calc(env(safe-area-inset-right) + 12px); width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 96px); overflow: auto; animation: up .25s var(--spring); }
+.tree-over { position: fixed; z-index: 45; top: calc(env(safe-area-inset-top) + 72px); left: calc(env(safe-area-inset-left) + 12px); width: min(300px, calc(100vw - 24px)); max-height: calc(100dvh - 96px); overflow: auto; }
+/* pantalla completa de notas: oculta barra superior, riel, dock y explorador */
+body.notes-full .topbar, body.notes-full .rail, body.notes-full .dock, body.notes-full .notes > div:has(> .tree), body.notes-full .notes > .divider, body.notes-full .banner { display: none !important; }
+body.notes-full .notes { grid-template-columns: minmax(0, 1fr) auto !important; }
+body.notes-full .doc { min-height: calc(100dvh - 160px); }
+body.notes-full .app { padding-top: calc(env(safe-area-inset-top) + 64px); }
+.notes-exit { position: fixed; z-index: 50; top: calc(env(safe-area-inset-top) + 10px); right: calc(env(safe-area-inset-right) + 12px); }
 .tree a, .tree button.ti { display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border-radius: 10px; text-decoration: none; font-size: .9375rem; width: 100%; text-align: left; border: 0; background: none; }
 .tree a[aria-current="page"] { background: var(--inverse-bg); color: var(--inverse-fg); }
 .tree .lvl1 { padding-left: 22px; } .tree .lvl2 { padding-left: 38px; }
