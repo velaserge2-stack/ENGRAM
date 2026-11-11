@@ -1,4 +1,4 @@
-import { t as tr } from '../i18n';
+import { errMsg, t as tr } from '../i18n';
 /**
  * Visor PDF (SPEC §10d): páginas renderizadas bajo demanda y liberadas fuera de
  * pantalla; escala ≤ 2× y tope de ~16 MP por lienzo (límite de Safari); capa de
@@ -44,7 +44,7 @@ export function PdfViewer(props: { path: string; page?: number }) {
         setDoc(await task!.promise);
         try { setAnn(JSON.parse(await readTextOr(app.vault, annPath, '{"pages":{}}')) as Ann); } catch { /* sin anotaciones */ }
       } catch (e) {
-        setErr((e as Error).message);
+        setErr(errMsg(e));
       }
     })();
     const ro = new ResizeObserver(([e]) => setWidth(Math.max(240, e!.contentRect.width - 24)));

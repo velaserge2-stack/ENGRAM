@@ -4,7 +4,9 @@ import { join } from 'node:path';
 import es from '../src/i18n/es.json';
 import en from '../src/i18n/en.json';
 import fr from '../src/i18n/fr.json';
-import { firstDayOfWeek, setLang, t, tn } from '../src/i18n';
+import { errMsg, firstDayOfWeek, setLang, t, tn } from '../src/i18n';
+import { normalizePath } from '../src/vault/paths';
+import { parseFrontmatter } from '../src/lib/frontmatter';
 
 const TABLES = { es, en, fr } as Record<'es' | 'en' | 'fr', Record<string, string>>;
 const ph = (s = '') => (s.match(/\{\w+\}/g) ?? []).sort().join(',');
@@ -63,5 +65,20 @@ describe('idiomas', () => {
     expect(t('today.hoy')).toMatch(/^⟦.+⟧$/);
     setLang('es');
     expect(tn('plural.days', 1)).toBe('1 día');
+  });
+
+  it('errores de la bóveda y del frontmatter se traducen', () => {
+    let err: unknown;
+    try {
+      normalizePath('a/../b');
+    } catch (e) {
+      err = e;
+    }
+    setLang('en');
+    expect(errMsg(err)).toBe('Path not allowed: a/../b');
+    expect(errMsg(new Error('x'))).toBe('x');
+    expect(parseFrontmatter('---\ndeck: A\n').errors).toEqual(['Unclosed frontmatter (missing "---")']);
+    setLang('es');
+    expect(parseFrontmatter('---\n???\n---\n').errors).toEqual(['Línea 2 no válida: "???"']);
   });
 });

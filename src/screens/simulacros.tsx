@@ -1,4 +1,4 @@
-import { locale, t as tr } from '../i18n';
+import { errMsg, locale, t as tr } from '../i18n';
 import { Bookmark, ChevronLeft, ChevronRight, ClipboardCheck, FileUp, Flag, Play, Repeat, Sparkles } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ATTEMPTS } from '../data/extra';
@@ -369,7 +369,7 @@ function ImportBank() {
       setWarn(t.warnings);
       setQs(parseText(t.text));
     } catch (e) {
-      setWarn([tr('simulacros.no_se_pudo_leer_message_prueba', { message: (e as Error).message })]);
+      setWarn([tr('simulacros.no_se_pudo_leer_message_prueba', { message: errMsg(e) })]);
     }
   };
   const upd = (i: number, patch: Partial<Question>) => setQs((arr) => arr!.map((q, k) => (k === i ? finalize({ ...q, ...patch }) : q)));

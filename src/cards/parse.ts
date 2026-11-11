@@ -142,7 +142,7 @@ function parseBlock(b: Block): Note {
     case 'cloze': {
       note.front = [first, ...rest].join('\n').trim();
       note.clozes = [...new Set([...note.front.matchAll(/\{\{c(\d+)::/g)].map((x) => Number(x[1])))].sort((a, b) => a - b);
-      if (!note.clozes.length) note.errors.push('Cloze sin huecos {{c1::…}}');
+      if (!note.clozes.length) note.errors.push(t('parse.cloze_sin_huecos'));
       break;
     }
     case 'io': {
@@ -186,7 +186,7 @@ function parseBlock(b: Block): Note {
         const p = /^\s*(?:[-*]\s+)?(.+?)\s*(?:=>|→)\s*(.+)$/.exec(l);
         if (p) note.pairs.push([p[1]!.trim(), p[2]!.trim()]);
       }
-      if (note.pairs.length < 2) note.errors.push('Unir necesita al menos 2 pares "a => b"');
+      if (note.pairs.length < 2) note.errors.push(t('parse.unir_necesita_2_pares'));
       break;
     }
   }

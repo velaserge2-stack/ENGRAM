@@ -1,4 +1,4 @@
-import { locale, t, tn } from '../i18n';
+import { errMsg, locale, t, tn } from '../i18n';
 import { Archive, Camera, Check, FileUp, Inbox as InboxIcon, Replace, Sparkles } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { extractText } from '../io/extract';
@@ -117,7 +117,7 @@ export function Inbox() {
       app.changed();
       app.toast(t('inbox.n_p_en_la_bandeja', { n: n, p: tn('plural.itemsword', n) }));
     } catch (e) {
-      app.toast(t('import.no_se_pudo_leer_message', { message: (e as Error).message }));
+      app.toast(t('import.no_se_pudo_leer_message', { message: errMsg(e) }));
     } finally {
       setBusy(false);
     }

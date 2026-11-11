@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * Frontmatter YAML: subconjunto pequeño y estricto, suficiente para los archivos
  * de Engrama y la mayoría de notas de Obsidian:
@@ -58,7 +59,7 @@ export function parseFrontmatter(text: string): ParsedDoc {
   if (!m) return { data: {}, body: src, hasFrontmatter: false, errors: [] };
   const rest = src.slice(m[0].length);
   const end = /^---[ \t]*$/m.exec(rest);
-  if (!end) return { data: {}, body: src, hasFrontmatter: true, errors: ['Frontmatter sin cerrar (falta "---")'] };
+  if (!end) return { data: {}, body: src, hasFrontmatter: true, errors: [t('frontmatter.sin_cerrar')] };
   const yaml = rest.slice(0, end.index);
   const body = rest.slice(end.index + end[0].length).replace(/^\r?\n/, '');
   const data: Frontmatter = {};
@@ -74,7 +75,7 @@ export function parseFrontmatter(text: string): ParsedDoc {
     }
     const kv = /^([A-Za-z0-9_\-áéíóúñÁÉÍÓÚÑü .]+?):(?:\s+(.*))?$/.exec(line);
     if (!kv) {
-      errors.push(`Línea ${i + 2} no válida: "${line.trim().slice(0, 40)}"`);
+      errors.push(t('frontmatter.linea_no_valida', { n: i + 2, text: line.trim().slice(0, 40) }));
       listKey = null;
       return;
     }

@@ -101,6 +101,16 @@ export function firstDayOfWeek(): 0 | 1 {
   return lang === 'en' ? 0 : 1;
 }
 
+/** Mensaje de error para la interfaz: los `VaultError` (técnicos, en la capa de la bóveda) se traducen por su código. */
+export function errMsg(e: unknown): string {
+  const v = e as { name?: string; code?: string; path?: string; message?: string } | null;
+  if (v?.name === 'VaultError' && v.code) {
+    const s = t(`vault.err_${v.code.replace('-', '_')}`);
+    return v.path ? `${s}: ${v.path}` : s;
+  }
+  return String(v?.message ?? e);
+}
+
 export function allKeys(l: Exclude<Lang, 'xx'>): string[] {
   return Object.keys(TABLES[l]);
 }

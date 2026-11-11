@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * Colección: todos los mazos parseados + estado FSRS reproducido desde
  * `reviews.jsonl` (+ caché `state.json`). Reconciliación por ID (SPEC §4):
@@ -100,7 +101,7 @@ export async function loadCollection(vault: VaultAdapter, params: SrsParams, now
     const d: Deck = {
       path, name, full: folder ? `${folder}/${name}` : name, folder, data: p.data, notes: p.notes,
       cards: [], newPerDay: typeof p.data.new_per_day === 'number' ? p.data.new_per_day : null, tags,
-      errors: [...p.errors, ...p.notes.flatMap((n) => n.errors.map((e) => `Línea ${n.line + 1}: ${e}`))],
+      errors: [...p.errors, ...p.notes.flatMap((n) => n.errors.map((e) => t('collection.linea_n_e', { n: n.line + 1, e })))],
     };
     d.cards = p.notes.filter((n) => !n.errors.length).flatMap(cardsOf);
     decks.push(d);
