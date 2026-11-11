@@ -614,3 +614,25 @@ mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border
 .win-body .page-title { position: static; }
 .note-panel { padding: 8px; }
 .note-panel .doc { min-height: 40dvh; }
+/* calendario con horas (F16): semana y día en cuadrícula; tipos por icono, sin color */
+.tgrid { --cols: 7; display: grid; gap: 0; }
+.tg-head, .tg-allday { display: grid; grid-template-columns: 44px repeat(var(--cols), minmax(0, 1fr)); gap: 4px; align-items: start; padding-bottom: 6px; }
+.tg-day { text-align: center; font-size: var(--t-note); color: var(--t2); font-weight: 600; text-transform: capitalize; }
+.tg-day.today { color: var(--t1); text-decoration: underline; text-underline-offset: 4px; }
+.tg-allday > span { display: grid; gap: 2px; min-width: 0; }
+.tg-allday .ev { font-size: 11px; text-align: left; background: none; }
+.tg-body { display: grid; grid-template-columns: 44px repeat(var(--cols), minmax(0, 1fr)); gap: 0 4px; max-height: min(64dvh, 680px); overflow-y: auto; overscroll-behavior: contain; position: relative; }
+.tg-hours span { display: block; font-size: 10px; color: var(--t3); text-align: right; padding-right: 6px; transform: translateY(-6px); font-variant-numeric: tabular-nums; }
+.tg-col { position: relative; border-left: var(--hair) solid var(--line); touch-action: pan-y; cursor: cell; user-select: none; -webkit-user-select: none; }
+.tg-line { position: absolute; left: 0; right: 0; height: 0; border-top: var(--hair) solid var(--line); }
+.tg-ev { position: absolute; box-sizing: border-box; padding: 2px 6px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--glass-strong); overflow: hidden; font-size: 11px; line-height: 1.25; cursor: grab; touch-action: none; display: flex; flex-direction: column; gap: 1px; }
+.tg-ev.lift { box-shadow: var(--shadow-deep); z-index: 3; cursor: grabbing; }
+.tg-ev.ghost { border-style: dashed; background: var(--fill-sel); pointer-events: none; }
+.tg-ev.ro { border-style: dotted; cursor: default; }
+.tg-ev.done { opacity: .55; text-decoration: line-through; }
+.tg-ev .tg-t { display: flex; gap: 4px; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-ev .tg-loc { color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-size { position: absolute; left: 0; right: 0; bottom: 0; height: 10px; cursor: ns-resize; }
+.tg-size::after { content: ""; position: absolute; left: 50%; bottom: 3px; width: 18px; height: 3px; margin-left: -9px; border-radius: 2px; background: var(--t3); }
+.is-phone .tg-head, .is-phone .tg-allday, .is-phone .tg-body { grid-template-columns: 34px repeat(var(--cols), minmax(0, 1fr)); gap: 0 2px; }
+.is-phone .tg-ev { padding: 1px 3px; font-size: 10px; }

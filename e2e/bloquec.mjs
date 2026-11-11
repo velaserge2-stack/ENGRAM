@@ -341,6 +341,100 @@ try {
     check((await page.evaluate(() => location.hash)).startsWith('#/espacios'), 'crear un examen desde el panel sin salir del espacio');
   }
 
+  if (run('calendario')) {
+    console.log('Calendario con horas');
+    // lunes siguientes a la fecha del sistema
+    const today = await page.evaluate(() => { const d = new Date(); return [d.getFullYear(), d.getMonth(), d.getDate(), (d.getDay() + 6) % 7]; });
+    const ymd = (k) => { const d = new Date(today[0], today[1], today[2] + k); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const mon1 = ymd(7 - today[3]), mon2 = ymd(14 - today[3]), mon3 = ymd(21 - today[3]);
+    await page.goto(URL_ + '#/calendario');
+    const newEntry = async (title, kind, date, from, to, extra) => {
+      await page.getByRole('button', { name: 'Bloque', exact: true }).click();
+      const f = page.getByRole('dialog');
+      await f.getByLabel('Título').fill(title);
+      await f.getByRole('radio', { name: kind }).click();
+      await f.getByLabel('Fecha').fill(date);
+      await f.getByLabel('Inicio').fill(from);
+      await f.getByLabel('Fin', { exact: true }).fill(to);
+      if (extra) await extra(f);
+      await f.getByRole('button', { name: 'Guardar' }).click();
+      await f.waitFor({ state: 'detached' });
+    };
+    await newEntry('Anatomía', 'Clase', mon1, '08:00', '10:00', async (f) => { await f.getByLabel('Repetir').selectOption('WEEKLY'); await f.getByLabel('Lugar').fill('Aula 3'); });
+    await newEntry('Repasar Neuro', 'Estudio', mon1, '17:00', '18:00', async (f) => {
+      await f.getByRole('button', { name: 'Vincular' }).click();
+      await page.locator('.sheet .opt', { hasText: 'Neurología' }).first().click();
+    });
+    // borrar solo el segundo lunes
+    const dayCell = (d) => page.locator(`.cal .day[data-day="${d}"]`);
+    if (!(await dayCell(mon2).count())) await page.getByRole('button', { name: 'Siguiente' }).click();
+    await dayCell(mon2).click();
+    await page.getByRole('button', { name: 'Editar Anatomía' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Eliminar' }).click();
+    await page.getByRole('button', { name: 'Solo este día' }).click();
+    await page.waitForTimeout(500);
+    const monthHas = async (d, t) => (await dayCell(d).count()) ? (await dayCell(d).innerText()).includes(t) : null;
+    const check4 = async (tag) => {
+      // Mes
+      await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Mes' }).click();
+      await page.getByRole('button', { name: 'Hoy', exact: true }).click();
+      const m = [];
+      for (const d of [mon1, mon2, mon3]) { let v = await monthHas(d, 'Anatomía'); if (v === null) { await page.getByRole('button', { name: 'Siguiente' }).click(); v = await monthHas(d, 'Anatomía'); await page.getByRole('button', { name: 'Hoy', exact: true }).click(); } m.push(v); }
+      check(m[0] && !m[1] && m[2], `${tag}: Mes muestra la clase los lunes salvo el borrado`);
+      // Semana del primer lunes: la clase de 8:00 y el estudio de 17:00 con horas
+      await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Semana' }).click();
+      await page.getByRole('button', { name: 'Hoy', exact: true }).click();
+      if (!(await page.locator(`.tg-col[data-col="${mon1}"]`).count())) await page.getByRole('button', { name: 'Siguiente' }).click();
+      const col = page.locator(`.tg-col[data-col="${mon1}"]`);
+      check((await col.getByRole('button', { name: /Clase: Anatomía, 08:00–10:00/ }).count()) === 1 && (await col.getByRole('button', { name: /Estudio: Repasar Neuro, 17:00–18:00/ }).count()) === 1, `${tag}: Semana muestra Clase 8:00–10:00 y Estudio 17:00–18:00`);
+      await page.getByRole('button', { name: 'Siguiente' }).click();
+      check((await page.locator(`.tg-col[data-col="${mon2}"]`).getByText('Anatomía').count()) === 0, `${tag}: el lunes borrado no tiene la clase`);
+      // Día del tercer lunes
+      await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Día' }).click();
+      await page.getByRole('button', { name: 'Hoy', exact: true }).click();
+      for (let i = 0; i < 25 && !(await page.locator(`.tg-col[data-col="${mon3}"]`).count()); i++) await page.getByRole('button', { name: 'Siguiente' }).click();
+      check((await page.locator(`.tg-col[data-col="${mon3}"]`).getByText('Anatomía').count()) === 1, `${tag}: vista Día`);
+      // Agenda
+      await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Agenda' }).click();
+      await page.getByRole('button', { name: 'Hoy', exact: true }).click();
+      const ag = await page.locator('main .glass.panel').first().innerText();
+      check(/08:00\S*( a\. ?m\.)? Anatomía/.test(ag) && /(17:00|05:00 p\. ?m\.) Repasar Neuro/.test(ag) && !ag.includes(mon2.slice(8) + ' nov\n08'), `${tag}: Agenda`);
+    };
+    await check4('antes de recargar');
+    await page.reload();
+    await page.getByRole('heading', { name: 'Calendario', level: 1 }).waitFor();
+    await check4('al reabrir');
+    // el bloque de estudio vinculado muestra su vínculo y se puede iniciar
+    await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Mes' }).click();
+    await page.getByRole('button', { name: 'Hoy', exact: true }).click();
+    if (!(await dayCell(mon1).count())) await page.getByRole('button', { name: 'Siguiente' }).click();
+    await dayCell(mon1).click();
+    const side = page.getByRole('region', { name: 'Día seleccionado' });
+    check((await side.innerText()).includes('Neurología') && (await side.getByRole('button', { name: 'Iniciar bloque' }).count()) >= 1, 'el bloque de estudio muestra el tema vinculado y «Iniciar»');
+    // cuadrícula: tocar una franja crea 1 h; arrastrar la entrada la mueve de hora
+    await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Semana' }).click();
+    await page.getByRole('button', { name: 'Hoy', exact: true }).click();
+    if (!(await page.locator(`.tg-col[data-col="${mon1}"]`).count())) await page.getByRole('button', { name: 'Siguiente' }).click();
+    const col = page.locator(`.tg-col[data-col="${mon1}"]`);
+    await col.evaluate((c) => { c.closest('.tg-body').scrollTop = 12 * 44; });
+    const cb = await col.boundingBox();
+    const y13 = cb.y + 13 * 44 + 4;
+    await page.mouse.click(cb.x + cb.width / 2, y13);
+    const f = page.getByRole('dialog');
+    check(await f.getByLabel('Inicio').inputValue() === '13:00' && await f.getByLabel('Fin', { exact: true }).inputValue() === '14:00', 'tocar la franja de las 13:00 crea una entrada de 1 h');
+    await f.getByLabel('Título').fill('Tutoría');
+    await f.getByRole('button', { name: 'Guardar' }).click();
+    await f.waitFor({ state: 'detached' });
+    const ev = col.getByRole('button', { name: /Tutoría, 13:00–14:00/ });
+    const eb = await ev.boundingBox();
+    await page.mouse.move(eb.x + eb.width / 2, eb.y + 8);
+    await page.mouse.down();
+    await page.mouse.move(eb.x + eb.width / 2, eb.y + 8 + 2 * 44, { steps: 8 });
+    await page.mouse.up();
+    await col.getByRole('button', { name: /Tutoría, 15:00–16:00/ }).waitFor();
+    check(true, 'arrastrar la entrada 2 h abajo la mueve a 15:00–16:00');
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');

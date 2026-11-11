@@ -5,7 +5,9 @@ import { useExtra } from '../data/extra';
 import { deliver } from '../io/share';
 import { addDays, dayKey, daysBetween, weekdayMon } from '../lib/days';
 import { decksForTopic, fmtDate, topicStats } from '../lib/exams';
-import { fromICS, occurrences, type StudyBlock, toICS } from '../lib/ics';
+import { type EventKind, fromICS, KINDS, occurrences, type StudyBlock, toICS, WEEKDAYS } from '../lib/ics';
+import { deleteOccurrence, editOccurrence, onDate, type Scope } from '../lib/calendar-edit';
+import { type GridItem, KIND_ICON, kindLabel, TimeGrid } from './timegrid';
 import { srsParams } from '../lib/settings';
 import { activity, avgDaily, forecast, studyMs } from '../lib/stats';
 import { go, href, useApp, useAsync } from '../state';
@@ -49,7 +51,9 @@ export function Calendar() {
   const [anchor, setAnchor] = useState(today);
   const [sel, setSel] = useState(today);
   const [layers, setLayers] = useState<Record<Layer, boolean>>({ forecast: true, exams: true, sims: true, focus: true, blocks: true, tasks: true, imported: true });
-  const [edit, setEdit] = useState<StudyBlock | null>(null);
+  // entrada en edición: la base de la serie y, si se abrió desde un día, esa fecha
+  const [edit, setEdit] = useState<{ block: StudyBlock; date: string | null } | null>(null);
+  const [ask, setAsk] = useState<{ op: 'edit' | 'delete'; uid: string; date: string; next?: StudyBlock } | null>(null);
   const [plan, setPlan] = useState<StudyBlock[] | null>(null);
   const [showLayers, setShowLayers] = useState(false);
   const { data } = useAsync(() => loadBlocks(app.vault), [app.version]);
@@ -101,8 +105,8 @@ export function Calendar() {
     if (!data) return;
     const b = data.own.find((x) => x.uid === uid);
     if (!b || b.rrule) return app.toast(b?.rrule ? tr('calendar.los_bloques_repetidos_se_editan_desde') : '');
-    const delta = daysBetween(localDay(b.start), date) * 86_400_000;
-    await saveOwn(data.own.map((x) => (x.uid === uid ? { ...x, start: x.start + delta, end: x.end + delta } : x)));
+    const start = onDate(b.start, date);
+    await saveOwn(data.own.map((x) => (x.uid === uid ? { ...x, start, end: start + (x.end - x.start) } : x)));
   };
 
   const cell = (d: string) => {
@@ -121,8 +125,8 @@ export function Calendar() {
               const target = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>('[data-day]');
               setDrag(null);
               if (moved && target?.dataset.day && target.dataset.day !== d) void dropOn(o.b.uid, target.dataset.day);
-              else setEdit(o.b);
-            }}>{new Date(o.start).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })} {o.b.title}</span>
+              else setEdit({ block: o.b, date: d });
+            }}>{o.b.kind && KIND_ICON[o.b.kind]({ size: 11 })} {o.b.allDay ? '' : new Date(o.start).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })} {o.b.title}</span>
         ))}
         {x.imported.map((o) => <span class="ev" style={{ borderStyle: 'dotted' }}>{o.b.title}</span>)}
         {x.sims.map((a) => <span class="ev">{tr('calendar.simulacro')}</span>)}
@@ -156,6 +160,24 @@ export function Calendar() {
     setPlan(blocks);
   };
 
+  // F16: entradas con hora (cuadrícula de semana y día)
+  const at = (date: string, min: number) => { const [y, m, dd] = date.split('-').map(Number) as [number, number, number]; return new Date(y, m - 1, dd, 0, min).getTime(); };
+  const blank = (date: string, a = 18 * 60, b = 19 * 60): StudyBlock => ({ uid: `${Date.now().toString(36)}@engrama`, start: at(date, a), end: at(date, b), title: '', subject: '', note: '', rrule: '', until: '', done: [], alarmMin: 10, kind: 'estudio', floating: true });
+  const gridItems: GridItem[] = [...own, ...imp];
+  const apply = async (op: 'edit' | 'delete', uid: string, date: string | null, next: StudyBlock | undefined, scope: Scope) => {
+    if (!data) return;
+    const list = op === 'delete' ? deleteOccurrence(data.own, uid, date ?? '', date ? scope : 'series') : data.own.some((x) => x.uid === uid) ? (date ? editOccurrence(data.own, uid, date, next!, scope) : data.own.map((x) => (x.uid === uid ? next! : x))) : [...data.own, next!];
+    await saveOwn(list);
+    setAsk(null);
+    setEdit(null);
+  };
+  /** Las series preguntan «solo este día» o «toda la serie». */
+  const commit = (op: 'edit' | 'delete', uid: string, date: string | null, next?: StudyBlock) => {
+    const base = data?.own.find((x) => x.uid === uid);
+    if (base?.rrule && date) setAsk({ op, uid, date, next });
+    else void apply(op, uid, date, next, 'series');
+  };
+
   return (
     <>
       <PageTitle title={tr('calendar.calendario')} sub={title}>
@@ -169,10 +191,15 @@ export function Calendar() {
       <div class="grid phone-stack" style={{ gridTemplateColumns: 'minmax(0, 3fr) minmax(260px, 1fr)', alignItems: 'start' }}>
         <section class="glass panel">
           {view === 'agenda' ? (
-            <div class="stack-s">{days.map((k) => { const x = byDay(k); const items = [...x.exams.map((e) => `🎯 ${e.name}`), ...x.blocks.map((o) => `${new Date(o.start).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })} ${o.b.title}`), ...x.imported.map((o) => o.b.title), ...x.tasks.map((t) => `☐ ${t.text}`)]; return items.length || x.load ? <button type="button" class="row-i tap" style={{ border: 0, background: 'none', width: '100%', textAlign: 'left' }} onClick={() => setSel(k)}><div class="k"><b>{fmtDate(k)}</b><small>{items.join(' · ') || '—'}</small></div><span class="v">{x.load} repasos</span></button> : null; })}</div>
+            <div class="stack-s">{days.map((k) => { const x = byDay(k); const items = [...x.exams.map((e) => `🎯 ${e.name}`), ...x.blocks.map((o) => `${new Date(o.start).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })} ${o.b.title}`), ...x.imported.map((o) => o.b.title), ...x.tasks.map((t) => `☐ ${t.text}`)]; return items.length || x.load ? <button type="button" class="row-i tap" style={{ border: 0, background: 'none', width: '100%', textAlign: 'left' }} onClick={() => setSel(k)}><div class="k"><b>{fmtDate(k)}</b><small>{items.join(' · ') || '—'}</small></div><span class="v">{tr('cal.n_repasos', { n: x.load })}</span></button> : null; })}</div>
+          ) : view === 'semana' || view === 'dia' ? (
+            <TimeGrid days={days} items={gridItems} today={today}
+              onSlot={(date, a, b) => (setSel(date), setEdit({ block: blank(date, a, b), date: null }))}
+              onOpen={(it) => (setSel(it.date), it.b.readonly ? undefined : setEdit({ block: it.b, date: it.date }))}
+              onChange={(it, date, a, b) => commit('edit', it.b.uid, it.date, { ...it.b, start: at(date, a), end: at(date, b), floating: true })} />
           ) : (
-            <div class="cal" style={view === 'dia' ? { gridTemplateColumns: '1fr' } : undefined}>
-              {view !== 'dia' && (s.weekStartsMonday ? DOW : [DOW[6]!, ...DOW.slice(0, 6)]).map((w) => <span class="dow">{w}</span>)}
+            <div class="cal">
+              {(s.weekStartsMonday ? DOW : [DOW[6]!, ...DOW.slice(0, 6)]).map((w) => <span class="dow">{w}</span>)}
               {days.map(cell)}
             </div>
           )}
@@ -187,19 +214,20 @@ export function Calendar() {
           {d.exams.map((e) => <div class="chip solid">🎯 {e.name}</div>)}
           {[...d.blocks, ...d.imported].map((o) => (
             <div class="inset row" style={{ padding: '8px 10px', borderRadius: 'var(--r-row)' }}>
-              <div class="grow stack-s"><b style={{ textDecoration: o.b.done.includes(sel) ? 'line-through' : 'none' }}>{o.b.title}</b><div class="foot">{new Date(o.start).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}–{new Date(o.end).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}{o.b.subject ? ` · ${o.b.subject}` : ''}{o.b.readonly ? tr('calendar.importado') : ''}</div>
-                <LinkChips links={o.b.links ?? []} idx={lidx} live onRepair={() => setEdit(o.b)} /></div>
+              <div class="grow stack-s"><b style={{ textDecoration: o.b.done.includes(sel) ? 'line-through' : 'none' }}>{o.b.kind && KIND_ICON[o.b.kind]({})} {o.b.title}</b><div class="foot">{o.b.kind ? `${kindLabel(o.b.kind)} · ` : ''}{o.b.allDay ? tr('cal.todo_el_dia') : `${new Date(o.start).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}–${new Date(o.end).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}`}{o.b.location ? ` · ${o.b.location}` : ''}{o.b.subject ? ` · ${o.b.subject}` : ''}{o.b.rrule ? ` · ${tr('cal.se_repite')}` : ''}{o.b.readonly ? tr('calendar.importado') : ''}</div>
+                <LinkChips links={o.b.links ?? []} idx={lidx} live onRepair={() => setEdit({ block: o.b, date: sel })} /></div>
               {!o.b.readonly && (
                 <>
                   <button type="button" class="btn icon small" aria-label={tr('calendar.marcar_como_hecho')} aria-pressed={o.b.done.includes(sel)} onClick={() => data && saveOwn(data.own.map((x) => (x.uid === o.b.uid ? { ...x, done: x.done.includes(sel) ? x.done.filter((y) => y !== sel) : [...x.done, sel] } : x)))}><Check size={16} /></button>
                   <button type="button" class="btn icon small" aria-label={tr('calendar.iniciar_bloque')} onClick={() => void startBlock(app, o.b, lidx)}><Play size={16} /></button>
+                  <button type="button" class="btn icon small" aria-label={tr('cal.editar_x', { name: o.b.title })} onClick={() => setEdit({ block: o.b, date: sel })}><CalendarPlus size={16} /></button>
                 </>
               )}
             </div>
           ))}
           {d.tasks.map((t) => <a class="note" href={href('notas', ...t.note.split('/').slice(1))}>☐ {t.text}</a>)}
           <div class="row wrap">
-            <button type="button" class="btn small" onClick={() => { const [y, m, dd] = sel.split('-').map(Number) as [number, number, number]; const st = new Date(y, m - 1, dd, 18, 0).getTime(); setEdit({ uid: `${Date.now().toString(36)}@engrama`, start: st, end: st + 3600_000, title: '', subject: '', note: '', rrule: '', until: '', done: [], alarmMin: 10 }); }}><CalendarPlus size={16} />{' '}{tr('calendar.bloque')}</button>
+            <button type="button" class="btn small" onClick={() => setEdit({ block: blank(sel), date: null })}><CalendarPlus size={16} />{' '}{tr('calendar.bloque')}</button>
             <a class="btn small" href={href('notas', '+diaria', sel)}><NotebookPen size={16} />{' '}{tr('calendar.nota_diaria')}</a>
           </div>
           <div class="row wrap" style={{ marginTop: '8px' }}>
@@ -215,7 +243,19 @@ export function Calendar() {
           <div class="row-i"><span class="k">{tr('calendar.la_semana_empieza_en_lunes')}</span><Switch label={tr('calendar.semana_en_lunes')} checked={s.weekStartsMonday} onChange={(v) => app.update({ weekStartsMonday: v })} /></div>
         </Sheet>
       )}
-      {edit && data && <BlockEditor idx={lidx} block={edit} onClose={() => setEdit(null)} onSave={async (b) => { await saveOwn(data.own.some((x) => x.uid === b.uid) ? data.own.map((x) => (x.uid === b.uid ? b : x)) : [...data.own, b]); setEdit(null); }} onDelete={async () => { await saveOwn(data.own.filter((x) => x.uid !== edit.uid)); setEdit(null); }} />}
+      {edit && data && <BlockEditor idx={lidx} block={edit.block} date={edit.date} onClose={() => setEdit(null)} onSave={(b) => commit('edit', edit.block.uid, data.own.some((x) => x.uid === edit.block.uid) ? edit.date : null, b)} onDelete={() => commit('delete', edit.block.uid, edit.date)} />}
+      {ask && (
+        <Sheet title={ask.op === 'delete' ? tr('cal.borrar_repeticion') : tr('cal.editar_repeticion')} onClose={() => setAsk(null)}>
+          <div class="stack">
+            <p>{tr('cal.es_parte_de_una_serie', { date: fmtDate(ask.date) })}</p>
+            <div class="row wrap">
+              <button type="button" class="btn primary" onClick={() => void apply(ask.op, ask.uid, ask.date, ask.next, 'one')}>{tr('cal.solo_este_dia')}</button>
+              <button type="button" class="btn" onClick={() => void apply(ask.op, ask.uid, ask.date, ask.next, 'series')}>{tr('cal.toda_la_serie')}</button>
+              <button type="button" class="btn ghost" onClick={() => setAsk(null)}>{tr('settings.cancelar')}</button>
+            </div>
+          </div>
+        </Sheet>
+      )}
       {plan && (
         <Sheet title={tr('calendar.plan_sugerido')} onClose={() => setPlan(null)}>
           <div class="stack-s">
@@ -229,9 +269,10 @@ export function Calendar() {
   );
 }
 
-function BlockEditor(p: { idx: LinkIndex | null | undefined; block: StudyBlock; onClose: () => void; onSave: (b: StudyBlock) => void; onDelete: () => void }) {
+function BlockEditor(p: { idx: LinkIndex | null | undefined; block: StudyBlock; date: string | null; onClose: () => void; onSave: (b: StudyBlock) => void; onDelete: () => void }) {
   const app = useApp();
-  const [b, setB] = useState(p.block);
+  // se edita la ocurrencia del día elegido (la serie conserva su fecha de inicio)
+  const [b, setB] = useState<StudyBlock>(() => (p.date ? { ...p.block, start: onDate(p.block.start, p.date), end: onDate(p.block.start, p.date) + (p.block.end - p.block.start) } : p.block));
   const [picker, setPicker] = useState<{ replace: string | null } | null>(null);
   const [ac, setAc] = useState<string | null>(null);
   const links = b.links ?? [];
@@ -244,19 +285,44 @@ function BlockEditor(p: { idx: LinkIndex | null | undefined; block: StudyBlock; 
   };
   // [[ en la nota: autocompletar mazos y notas
   const acItems = ac !== null && p.idx ? [...p.idx.decks, ...p.idx.notes].filter((t) => t.name.toLowerCase().includes(ac.toLowerCase())).slice(0, 6) : [];
-  const iso = (ms: number) => { const d = new Date(ms); return `${localDay(ms)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
-  const dur = Math.round((b.end - b.start) / 60000);
+  const hm = (ms: number) => { const d = new Date(ms); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  const at = (date: string, time: string) => { const [y, m, dd] = date.split('-').map(Number) as [number, number, number]; const [h, mi] = time.split(':').map(Number) as [number, number]; return new Date(y, m - 1, dd, h || 0, mi || 0).getTime(); };
+  const date = localDay(b.start);
+  const setTimes = (d: string, from: string, to: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+    const s0 = at(d, from);
+    let e0 = at(d, to);
+    if (e0 <= s0) e0 += 86_400_000; // termina al día siguiente
+    setB({ ...b, start: s0, end: e0 });
+  };
+  const toggleDay = (w: string) => setB({ ...b, byday: (b.byday ?? []).includes(w) ? (b.byday ?? []).filter((x) => x !== w) : [...(b.byday ?? []), w].sort((x, y) => WEEKDAYS.indexOf(x as (typeof WEEKDAYS)[number]) - WEEKDAYS.indexOf(y as (typeof WEEKDAYS)[number])) });
+  const save = (x: StudyBlock): StudyBlock => {
+    // horas locales flotantes para todo lo que se guarda desde aquí; «todo el día» va de 0:00 a 0:00
+    const y = { ...x, floating: true };
+    if (y.allDay) { const s0 = at(localDay(y.start), '00:00'); return { ...y, start: s0, end: s0 + 86_400_000 }; }
+    return y;
+  };
   return (
     <Sheet title={p.block.title ? tr('calendar.bloque_de_estudio') : tr('calendar.nuevo_bloque')} onClose={p.onClose}>
-      <form class="stack" onSubmit={(e) => (e.preventDefault(), p.onSave(b))}>
+      <form class="stack" onSubmit={(e) => (e.preventDefault(), p.onSave(save(b)))}>
         <label class="field">{tr('calendar.titulo')}<input class="input" required value={b.title} onInput={(e) => setB({ ...b, title: (e.target as HTMLInputElement).value })} placeholder={tr('calendar.repasar_ecg')} /></label>
-        <label class="field">{tr('calendar.materia_tema')}<input class="input" value={b.subject} onInput={(e) => setB({ ...b, subject: (e.target as HTMLInputElement).value })} /></label>
+        <div class="field" role="radiogroup" aria-label={tr('cal.tipo')}>{tr('cal.tipo')}
+          <div class="row wrap">{KINDS.map((k: EventKind) => <button type="button" role="radio" class="btn small" aria-checked={b.kind === k} aria-pressed={b.kind === k} onClick={() => setB({ ...b, kind: k })}>{KIND_ICON[k]({ size: 16 })}{' '}{kindLabel(k)}</button>)}</div>
+        </div>
         <div class="row wrap">
-          <label class="field">{tr('calendar.inicio')}<input class="input" type="datetime-local" value={iso(b.start)} onInput={(e) => { const t = new Date((e.target as HTMLInputElement).value).getTime(); if (Number.isFinite(t)) setB({ ...b, start: t, end: t + dur * 60000 }); }} /></label>
-          <label class="field">{tr('calendar.duracion_min')}<input class="input" type="number" min={5} value={dur} onInput={(e) => setB({ ...b, end: b.start + Number((e.target as HTMLInputElement).value) * 60000 })} /></label>
-          <label class="field">{tr('calendar.repetir')}<select value={b.rrule} onChange={(e) => setB({ ...b, rrule: (e.target as HTMLSelectElement).value as StudyBlock['rrule'] })}><option value="">{tr('calendar.no')}</option><option value="DAILY">{'Diario'}</option><option value="WEEKLY">{tr('calendar.semanal')}</option></select></label>
+          <label class="field">{tr('cal.fecha')}<input class="input" type="date" value={date} onInput={(e) => setTimes((e.target as HTMLInputElement).value, hm(b.start), hm(b.end))} /></label>
+          {!b.allDay && <label class="field">{tr('calendar.inicio')}<input class="input" type="time" step={300} value={hm(b.start)} onInput={(e) => setTimes(date, (e.target as HTMLInputElement).value, hm(b.end))} /></label>}
+          {!b.allDay && <label class="field">{tr('cal.fin')}<input class="input" type="time" step={300} value={hm(b.end)} onInput={(e) => setTimes(date, hm(b.start), (e.target as HTMLInputElement).value)} /></label>}
+          <span class="row" style={{ gap: '8px', alignSelf: 'end', minHeight: '44px' }}><Switch label={tr('cal.todo_el_dia')} checked={!!b.allDay} onChange={(v) => setB({ ...b, allDay: v })} /><span class="note">{tr('cal.todo_el_dia')}</span></span>
+        </div>
+        <div class="row wrap">
+          <label class="field">{tr('calendar.repetir')}<select value={b.rrule} onChange={(e) => { const v = (e.target as HTMLSelectElement).value as StudyBlock['rrule']; setB({ ...b, rrule: v, byday: v === 'WEEKLY' ? (b.byday?.length ? b.byday : [WEEKDAYS[(new Date(b.start).getDay() + 6) % 7]!]) : undefined }); }}><option value="">{tr('cal.no_se_repite')}</option><option value="DAILY">{tr('cal.diaria')}</option><option value="WEEKLY">{tr('calendar.semanal')}</option><option value="MONTHLY">{tr('cal.mensual')}</option></select></label>
+          {b.rrule && <label class="field">{tr('cal.hasta')}<input class="input" type="date" value={b.until} onInput={(e) => setB({ ...b, until: (e.target as HTMLInputElement).value })} /></label>}
           <label class="field">{tr('calendar.recordatorio_min_antes_en_el_ics')}<input class="input" type="number" min={0} value={b.alarmMin ?? ''} onInput={(e) => setB({ ...b, alarmMin: (e.target as HTMLInputElement).value === '' ? null : Number((e.target as HTMLInputElement).value) })} /></label>
         </div>
+        {b.rrule === 'WEEKLY' && <div class="row wrap" role="group" aria-label={tr('cal.dias_de_la_semana')}>{WEEKDAYS.map((w, i) => <button type="button" class="btn small icon" aria-pressed={(b.byday ?? []).includes(w)} aria-label={new Intl.DateTimeFormat(locale(), { weekday: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, 10, 16 + i, 12)))} onClick={() => toggleDay(w)}>{new Intl.DateTimeFormat(locale(), { weekday: 'narrow', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, 10, 16 + i, 12)))}</button>)}</div>}
+        <label class="field">{tr('cal.lugar')}<input class="input" value={b.location ?? ''} onInput={(e) => setB({ ...b, location: (e.target as HTMLInputElement).value || undefined })} placeholder={tr('cal.lugar_ph')} /></label>
+        <label class="field">{tr('calendar.materia_tema')}<input class="input" value={b.subject} onInput={(e) => setB({ ...b, subject: (e.target as HTMLInputElement).value })} /></label>
         <div class="field">{tr('calendar.vinculos')}<LinkChips links={links} idx={p.idx} onRemove={(u) => setB({ ...b, links: links.filter((x) => x !== u) })} onRepair={(u) => setPicker({ replace: u })} />
           <button type="button" class="btn small" style={{ justifySelf: 'start' }} disabled={!p.idx} onClick={() => setPicker({ replace: null })}><Link2 size={16} />{' '}{tr('calendar.vincular')}</button>
         </div>
@@ -275,6 +341,7 @@ function BlockEditor(p: { idx: LinkIndex | null | undefined; block: StudyBlock; 
         )}
         {picker && p.idx && <LinkPicker idx={p.idx} onClose={() => setPicker(null)} onPick={(u) => { addLink(u, picker.replace); setPicker(null); }} />}
         <div class="row"><button class="btn primary" type="submit">{tr('calendar.guardar')}</button>{p.block.title && <button type="button" class="btn danger" onClick={p.onDelete}>{tr('calendar.eliminar')}</button>}</div>
+        {p.block.rrule && p.date && <p class="foot">{tr('cal.al_guardar_preguntara')}</p>}
       </form>
     </Sheet>
   );
