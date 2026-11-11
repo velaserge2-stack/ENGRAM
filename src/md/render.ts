@@ -48,15 +48,30 @@ function engine(): MD {
     for (let i = 0; i < t.length; i++) {
       if (t[i]!.type !== 'blockquote_open') continue;
       const inline = t[i + 2];
-      const m = inline?.type === 'inline' ? /^\[!(\w+)\][+-]?\s*(.*)/.exec(inline.content) : null;
+      const m = inline?.type === 'inline' ? /^\[!(\w+)\]([+-]?)\s*(.*)/.exec(inline.content) : null;
       if (!m) continue;
       t[i]!.attrSet('class', 'callout');
       t[i]!.attrSet('data-kind', m[1]!.toLowerCase());
-      const title = m[2]!.split('\n')[0] || m[1]!;
+      const folded = m[2] === '-';
+      if (folded) {
+        // plegable: <details><summary>…</summary>…</details>
+        t[i]!.tag = 'details';
+        let depth = 0;
+        for (let j = i; j < t.length; j++) {
+          if (t[j]!.type === 'blockquote_open') depth++;
+          if (t[j]!.type === 'blockquote_close' && --depth === 0) {
+            t[j]!.tag = 'details';
+            break;
+          }
+        }
+        if (t[i + 1]?.type === 'paragraph_open') t[i + 1]!.hidden = true;
+        if (t[i + 3]?.type === 'paragraph_close') t[i + 3]!.hidden = true;
+      }
+      const title = m[3]!.split('\n')[0] || m[1]!;
       const rest = inline!.content.split('\n').slice(1).join('\n');
       inline!.children = [];
       const tok = new state.Token('html_inline', '', 0);
-      tok.content = `<span class="callout-t">${esc(title)}</span>${rest ? '<br>' + md!.renderInline(rest) : ''}`;
+      tok.content = folded ? `<summary class="callout-t">${esc(title)}</summary>${rest ? '<p>' + md!.renderInline(rest) + '</p>' : ''}` : `<span class="callout-t">${esc(title)}</span>${rest ? '<br>' + md!.renderInline(rest) : ''}`;
       inline!.children.push(tok);
     }
   });
@@ -77,9 +92,10 @@ function engine(): MD {
 }
 
 const PURIFY = {
-  ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|blob):|#|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+  ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|blob|media):|#|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
   ADD_ATTR: ['data-media', 'data-wl', 'data-kind', 'target'],
   FORBID_TAGS: ['style', 'iframe', 'form', 'object', 'embed'],
+  ADD_TAGS: ['details', 'summary'],
 };
 
 export function sanitize(html: string): string {

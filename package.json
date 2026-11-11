@@ -24,13 +24,13 @@
     "minisearch": "^7.2.0",
     "pdfjs-dist": "^6.5.438",
     "preact": "^11.2.0",
+    "sql.js": "^1.16.0",
     "ts-fsrs": "^5.4.2",
     "turndown": "^7.2.5"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.2.0",
-    "@types/turndown": "^5.0.6",
-    "happy-dom": "^21.0.4",
+    "jsdom": "^31.0.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.0"

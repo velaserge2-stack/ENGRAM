@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { plainText, renderCloze, renderMarkdown } from '../src/md/render';
 
@@ -24,5 +24,13 @@ describe('markdown', () => {
     expect(renderCloze(t, 2, false)).toContain('FA');
     expect(renderCloze(t, 1, true)).toContain('<span class="cloze">FA</span>');
     expect(plainText(t)).toBe('La FA no tiene ondas P');
+  });
+});
+describe('callout plegable', () => {
+  it('se convierte en details', () => {
+    const h = renderMarkdown('> [!quote]- Transcripción\n> línea uno\n> línea dos');
+    expect(h).toContain('<details');
+    expect(h).toContain('<summary class="callout-t">Transcripción</summary>');
+    expect(h).toContain('línea dos');
   });
 });

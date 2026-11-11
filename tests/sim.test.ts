@@ -1,4 +1,3 @@
-// @ts-expect-error: módulo de Node solo en pruebas
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { byTopic, isCorrect, parseBankCSV, parseBankJSON, parseBankMarkdown, parseText, score, serializeBank, summarize, timeLeft } from '../src/sim/parse';

@@ -7,6 +7,8 @@ import { basename, extname, normalizePath, withSuffix } from '../vault/paths';
 import type { VaultAdapter } from '../vault/types';
 import { bytesEqual, decodeText } from '../vault/util';
 import { LIMITS } from './limits';
+import type { ApkgResult } from './apkg';
+import type { LogEntry } from '../srs/engine';
 import { parseZip, type VaultFile } from './zip';
 
 const VAULT_ROOTS = ['decks/', 'notes/', 'media/', 'templates/', 'exams-bank/', 'exams/', 'docs/', 'calendar/', '.app/'];
@@ -56,11 +58,18 @@ export interface Gathered {
   files: VaultFile[];
   warnings: string[];
   fromVaultZip: boolean;
+  /** historial importado (p. ej. revlog de Anki) para combinar con reviews.jsonl */
+  log: LogEntry[];
 }
 
-export async function gather(incoming: IncomingFile[]): Promise<Gathered> {
+export interface GatherOptions {
+  apkg?: (bytes: Uint8Array) => Promise<ApkgResult>;
+}
+
+export async function gather(incoming: IncomingFile[], opts: GatherOptions = {}): Promise<Gathered> {
   const files: VaultFile[] = [];
   const warnings: string[] = [];
+  const log: LogEntry[] = [];
   let fromVaultZip = false;
   // Carpeta elegida: quitar el primer segmento (nombre de la carpeta) si dentro hay estructura de bóveda
   const rels = incoming.map((f) => f.relativePath).filter(Boolean) as string[];
@@ -73,6 +82,22 @@ export async function gather(incoming: IncomingFile[]): Promise<Gathered> {
       continue;
     }
     const ext = extname(f.name);
+    if (ext === 'apkg' || ext === 'colpkg') {
+      if (!opts.apkg) {
+        warnings.push(`${f.name}: importar .apkg no está disponible aquí`);
+        continue;
+      }
+      try {
+        const r = await opts.apkg(data);
+        warnings.push(...r.warnings.map((w) => `${f.name}: ${w}`));
+        for (const d of r.decks) files.push({ path: d.path, data: new TextEncoder().encode(d.text) });
+        for (const m of r.media) files.push({ path: `media/${m.name}`, data: m.data });
+        log.push(...r.log);
+      } catch (e) {
+        warnings.push(`${f.name}: ${(e as Error).message}`);
+      }
+      continue;
+    }
     const zipMagic = data[0] === 0x50 && data[1] === 0x4b && data[2] === 0x03 && data[3] === 0x04;
     // .docx/.xlsx/.apkg también son zip: solo se abren como bóveda los .zip (o sin extensión)
     if (ext === 'zip' || (ext === '' && zipMagic)) {
@@ -96,7 +121,7 @@ export async function gather(incoming: IncomingFile[]): Promise<Gathered> {
       warnings.push(`${rel}: ruta no permitida, omitido`);
     }
   }
-  return { files, warnings, fromVaultZip };
+  return { files, warnings, fromVaultZip, log };
 }
 
 export type ItemStatus = 'new' | 'same' | 'conflict';
@@ -167,4 +192,36 @@ export async function undoImport(vault: VaultAdapter, res: ApplyResult): Promise
     if (prev === null) await vault.remove(path);
     else await vault.write(path, prev);
   }
+}
+
+/** Combina un historial importado con reviews.jsonl sin duplicar (id + ts). */
+export async function mergeLog(vault: VaultAdapter, entries: LogEntry[]): Promise<number> {
+  if (!entries.length) return 0;
+  const path = '.app/reviews.jsonl';
+  const prev = (await vault.exists(path)) ? decodeText(await vault.read(path)) : '';
+  const seen = new Set<string>();
+  for (const l of prev.split('\n')) {
+    try {
+      const e = JSON.parse(l) as LogEntry;
+      seen.add(`${e.id}@${e.ts}`);
+    } catch {
+      /* línea vacía */
+    }
+  }
+  const add = entries.filter((e) => !seen.has(`${e.id}@${e.ts}`));
+  if (add.length) await vault.write(path, (prev && !prev.endsWith('\n') ? prev + '\n' : prev) + add.map((e) => JSON.stringify(e)).join('\n') + '\n');
+  return add.length;
+}
+
+export function runApkgWorker(bytes: Uint8Array, history = true): Promise<ApkgResult> {
+  return new Promise((resolve, reject) => {
+    const w = new Worker(new URL('./apkg.worker.ts', import.meta.url), { type: 'module' });
+    w.onmessage = (e: MessageEvent<{ ok: boolean; result?: ApkgResult; error?: string }>) => {
+      w.terminate();
+      if (e.data.ok) resolve(e.data.result!);
+      else reject(new Error(e.data.error));
+    };
+    w.onerror = (e) => (w.terminate(), reject(new Error(e.message || 'Error del Worker')));
+    w.postMessage({ bytes, history });
+  });
 }

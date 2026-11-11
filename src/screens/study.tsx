@@ -24,7 +24,7 @@ export function speak(text: string, lang: string) {
   speechSynthesis.speak(u);
 }
 
-export function Study(props: { filter: string | null }) {
+export function Study(props: { filter: string | null; embedded?: boolean }) {
   const app = useApp();
   const col = app.col;
   const s = app.settings;
@@ -48,6 +48,7 @@ export function Study(props: { filter: string | null }) {
   const seed = useRef(String(Date.now()));
 
   useEffect(() => {
+    if (props.embedded) return;
     app.focus(true);
     return () => app.focus(false);
   }, []);
@@ -112,6 +113,7 @@ export function Study(props: { filter: string | null }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (props.embedded) return;
       const t = e.target as HTMLElement;
       if (t.closest('input, textarea, select, [contenteditable]')) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') return e.preventDefault(), void doUndo();

@@ -1,6 +1,7 @@
 import { FileUp, FolderUp, Undo2 } from 'lucide-preact';
 import { useRef, useState } from 'preact/hooks';
-import { type ApplyResult, applyPlan, buildPlan, fromFileList, gather, type PlanItem, type Resolution, undoImport } from '../io/import';
+import { type ApplyResult, applyPlan, buildPlan, fromFileList, gather, mergeLog, type PlanItem, type Resolution, runApkgWorker, undoImport } from '../io/import';
+import type { LogEntry } from '../srs/engine';
 import { loadSettings, SETTINGS_PATH } from '../lib/settings';
 import { useApp } from '../state';
 import { Segmented, Sheet } from '../ui/kit';
@@ -20,13 +21,16 @@ export function ImportSheet(props: { onClose: () => void }) {
   const [overrides, setOverrides] = useState<Record<string, Resolution>>({});
   const [preview, setPreview] = useState<PlanItem | null>(null);
   const [done, setDone] = useState<ApplyResult | null>(null);
+  const [log, setLog] = useState<LogEntry[]>([]);
+  const [withLog, setWithLog] = useState(true);
 
   async function take(list: FileList | File[] | null) {
     if (!list || !list.length) return;
     setBusy(true);
     try {
-      const g = await gather(fromFileList(list));
+      const g = await gather(fromFileList(list), { apkg: (b) => runApkgWorker(b, true) });
       setWarnings(g.warnings);
+      setLog(g.log);
       setPlan(await buildPlan(app.vault, g.files));
       if (g.fromVaultZip) setPolicy('replace');
     } catch (e) {
@@ -41,6 +45,7 @@ export function ImportSheet(props: { onClose: () => void }) {
     setBusy(true);
     try {
       const res = await applyPlan(app.vault, plan, (i) => overrides[i.path] ?? policy);
+      if (withLog && log.length) app.toast(`${await mergeLog(app.vault, log)} repasos de historial importados`);
       // Si llegaron ajustes (restaurar respaldo), adoptarlos en vez de sobrescribirlos con los de memoria
       if (res.written.includes(SETTINGS_PATH)) app.replaceSettings({ ...(await loadSettings(app.vault)), welcomeDone: true });
       app.changed();
@@ -98,8 +103,9 @@ export function ImportSheet(props: { onClose: () => void }) {
               <Segmented label="Si ya existe" value={policy} onChange={setPolicy} options={[['omit', 'Omitir'], ['replace', 'Reemplazar'], ['duplicate', 'Duplicar']]} />
             </div>
           )}
+          {log.length > 0 && <label class="row note"><input type="checkbox" checked={withLog} onChange={(e) => setWithLog((e.target as HTMLInputElement).checked)} /> Incluir historial de repasos ({log.length}); FSRS lo reproduce para programar cada tarjeta</label>}
           {warnings.length > 0 && (
-            <ul style={{ margin: 0, color: 'var(--c-naranja)', fontSize: 'var(--t-note)' }}>
+            <ul style={{ margin: 0, fontSize: 'var(--t-note)' }}>
               {warnings.slice(0, 20).map((w) => <li>{w}</li>)}
             </ul>
           )}
@@ -152,9 +158,9 @@ export function ImportSheet(props: { onClose: () => void }) {
             </button>
           </div>
           <p class="group-f" style={{ padding: 0 }}>
-            Mazos (.md con <code>deck:</code>) van a decks/, otras notas a notes/, imágenes y audio a media/. Un .zip exportado desde Engrama restaura la bóveda completa. Verás una vista previa antes de confirmar.
+            Mazos (.md con <code>deck:</code>) y paquetes de Anki (.apkg) van a decks/, otras notas a notes/, imágenes y audio a media/. Un .zip exportado desde Engrama restaura la bóveda completa. Verás una vista previa antes de confirmar.
           </p>
-          <input ref={fileRef} type="file" multiple hidden accept=".md,.markdown,.zip,.txt,image/*,audio/*,application/zip" onChange={(e) => void take((e.target as HTMLInputElement).files)} />
+          <input ref={fileRef} type="file" multiple hidden accept=".md,.markdown,.zip,.txt,.apkg,image/*,audio/*,application/zip" onChange={(e) => void take((e.target as HTMLInputElement).files)} />
           <input ref={dirRef} type="file" multiple hidden {...{ webkitdirectory: '' }} onChange={(e) => void take((e.target as HTMLInputElement).files)} />
         </div>
       )}
