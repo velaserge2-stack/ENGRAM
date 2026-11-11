@@ -885,6 +885,7 @@
  "settings.ultimo_respaldo": "Último respaldo",
  "settings.un_termino_correcto_por_linea": "Un término correcto por línea",
  "settings.usa_hex": "Usa un código de 6 dígitos, p. ej. #3A7BD5",
+ "settings.usado_de": "{used} de {quota}",
  "settings.usar_una_carpeta_de_este_equipo": "Usar una carpeta de este equipo",
  "settings.vacio_por_defecto": "Vacío = por defecto",
  "settings.vencidas_se_repasan_primero_las_mas": "vencidas; se repasan primero las más olvidadas, con tope diario",

@@ -885,6 +885,7 @@
  "settings.ultimo_respaldo": "Last backup",
  "settings.un_termino_correcto_por_linea": "One correct term per line",
  "settings.usa_hex": "Use a 6-digit code, e.g. #3A7BD5",
+ "settings.usado_de": "{used} of {quota}",
  "settings.usar_una_carpeta_de_este_equipo": "Use a folder on this device",
  "settings.vacio_por_defecto": "Empty = default",
  "settings.vencidas_se_repasan_primero_las_mas": "due; the most forgotten are reviewed first, with a daily cap",

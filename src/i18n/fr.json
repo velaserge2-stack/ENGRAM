@@ -885,6 +885,7 @@
  "settings.ultimo_respaldo": "Dernière sauvegarde",
  "settings.un_termino_correcto_por_linea": "Un terme correct par ligne",
  "settings.usa_hex": "Utilisez un code à 6 chiffres, p. ex. #3A7BD5",
+ "settings.usado_de": "{used} sur {quota}",
  "settings.usar_una_carpeta_de_este_equipo": "Utiliser un dossier de cet appareil",
  "settings.vacio_por_defecto": "Vide = par défaut",
  "settings.vencidas_se_repasan_primero_las_mas": "à réviser ; les plus oubliées passent en premier, avec un plafond quotidien",
