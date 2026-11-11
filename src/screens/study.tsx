@@ -23,6 +23,9 @@ export function speak(text: string, lang: string) {
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = lang;
+  // «Atenuar al estudiar» del sonido ambiente escucha estos avisos
+  u.onstart = () => dispatchEvent(new CustomEvent('engrama-duck', { detail: true }));
+  u.onend = u.onerror = () => dispatchEvent(new CustomEvent('engrama-duck', { detail: false }));
   speechSynthesis.speak(u);
 }
 

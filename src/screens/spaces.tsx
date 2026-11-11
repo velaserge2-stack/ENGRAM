@@ -1,6 +1,9 @@
 import { t as tr } from '../i18n';
 import { BarChart3, BookOpen, CalendarDays, ChevronsDownUp, ChevronsUpDown, ClipboardCheck, FilePlus2, FileSpreadsheet, FileText, FolderTree, Image as ImageIcon, Layers, Lock, NotebookPen, Plus, Scan, Settings2, Timer, Unlock, X, LayoutGrid, Inbox as InboxIcon, Sparkles } from 'lucide-preact';
 import { Popover } from '../ui/overlay';
+import { Headphones } from 'lucide-preact';
+import { addonOn } from './addons';
+import { AmbientPlayer } from './ambient';
 import { NewNotePanel, NotePanel } from './notes';
 import { SimEmbed } from './simulacros';
 import { Calendar } from './calendar';
@@ -27,12 +30,12 @@ import { todayProgress } from '../lib/stats';
 import { dayKey } from '../lib/days';
 import { saveImage } from '../notes/images';
 
-type PType = 'estudio' | 'simulacro' | 'nota' | 'pdf' | 'docx' | 'hoja' | 'imagen' | 'pomodoro' | 'stats' | 'mazo' | 'tema' | 'calendario';
+type PType = 'estudio' | 'simulacro' | 'nota' | 'pdf' | 'docx' | 'hoja' | 'imagen' | 'pomodoro' | 'stats' | 'mazo' | 'tema' | 'calendario' | 'sonido';
 interface Panel { id: string; type: PType; arg: string; x: number; y: number; w: number; h: number; locked?: boolean; min?: boolean; z?: number }
 interface Space { id: string; name: string; emoji: string; mode: 'tiles' | 'canvas'; panels: Panel[]; sizes: number[]; view: { x: number; y: number; k: number }; tray?: string[] }
 
 /** Todos los paneles se pueden minimizar a cuadrito (el simulacro sigue contando: su reloj es una marca de tiempo). */
-const MINIMIZABLE: PType[] = ['estudio', 'simulacro', 'nota', 'pdf', 'docx', 'hoja', 'imagen', 'pomodoro', 'stats', 'mazo', 'tema', 'calendario'];
+const MINIMIZABLE: PType[] = ['estudio', 'simulacro', 'nota', 'pdf', 'docx', 'hoja', 'imagen', 'pomodoro', 'stats', 'mazo', 'tema', 'calendario', 'sonido'];
 const SIM_CURRENT = '.app/exam-current.json';
 const visible = (sp: Space) => sp.panels.filter((x) => !x.min);
 /** Teléfono: un panel a la vez. `show` es el elegido (si sigue visible); si no, el más reciente. */
@@ -53,6 +56,7 @@ const TYPES = (): { t: PType; label: string; icon: preact.JSX.Element }[] => ([
   { t: 'mazo', label: tr('deck.mazo'), icon: <Layers size={18} /> },
   { t: 'tema', label: tr('spaces.tema'), icon: <FolderTree size={18} /> },
   { t: 'calendario', label: tr('calendar.calendario'), icon: <CalendarDays size={18} /> },
+  { t: 'sonido', label: tr('addons.n_ambient'), icon: <Headphones size={18} /> },
 ]);
 const MAX_ACTIVE = 4;
 
@@ -301,7 +305,7 @@ function Dock(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
       {menu && (
         <Popover anchor={menu} onClose={() => setMenu(null)} label={tr('design.anadir_panel')} role="menu" class="glass strong add-menu">
           <button type="button" role="menuitem" onClick={() => (setMenu(null), add('nota', '+nueva'))}><FilePlus2 size={18} />{' '}{tr('spaces.nota_nueva')}</button>
-          {ADD_ORDER.map((k) => { const x = TYPES().find((y) => y.t === k)!; return <button type="button" role="menuitem" aria-label={tr('spaces.anadir_panel_label', { label: x.label })} onClick={() => (setMenu(null), add(x.t))}>{x.icon}{' '}{k === 'nota' ? tr('spaces.nota_existente') : k === 'simulacro' ? tr('spaces.simulacro_examen') : x.label}</button>; })}
+          {ADD_ORDER.filter((k) => k !== 'sonido' || addonOn(app.settings, 'ambient')).map((k) => { const x = TYPES().find((y) => y.t === k)!; return <button type="button" role="menuitem" aria-label={tr('spaces.anadir_panel_label', { label: x.label })} onClick={() => (setMenu(null), add(x.t))}>{x.icon}{' '}{k === 'nota' ? tr('spaces.nota_existente') : k === 'simulacro' ? tr('spaces.simulacro_examen') : x.label}</button>; })}
         </Popover>
       )}
       <div class="glass" role="toolbar" aria-label={tr('tray.paneles_minimizados')}>
@@ -314,7 +318,7 @@ function Dock(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
 }
 
 /** Orden del menú «＋ Añadir panel» (E13): todo lo que se puede abrir. */
-const ADD_ORDER: PType[] = ['nota', 'mazo', 'tema', 'simulacro', 'pdf', 'docx', 'hoja', 'imagen', 'pomodoro', 'stats', 'calendario', 'estudio'];
+const ADD_ORDER: PType[] = ['nota', 'mazo', 'tema', 'simulacro', 'pdf', 'docx', 'hoja', 'imagen', 'pomodoro', 'stats', 'calendario', 'estudio', 'sonido'];
 
 function Tiles(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
   const box = useRef<HTMLDivElement>(null);
@@ -495,6 +499,7 @@ function PanelBody(p: { panel: Panel; onArg: (a: string) => void }) {
     case 'mazo': return a ? <DeckPanelBody path={a} /> : <DeckPick onPick={p.onArg} />;
     case 'tema': return a ? <TopicPanel target={a} /> : <TopicPick onPick={p.onArg} />;
     case 'calendario': return <div style={{ padding: '12px' }}><Calendar /></div>;
+    case 'sonido': return <div style={{ padding: '12px' }}><AmbientPlayer /></div>;
     case 'estudio': return <div style={{ padding: '12px' }}><Study filter={a || null} embedded /></div>;
     case 'pomodoro': return <div style={{ padding: '12px' }}><PomodoroPanel compact /></div>;
     case 'simulacro': return <div style={{ padding: '12px' }}><SimEmbed /></div>;

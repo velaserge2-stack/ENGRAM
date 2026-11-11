@@ -27,6 +27,10 @@ import { readTextOr } from './vault/util';
 import { PhoneTabBar } from './ui/phonebar';
 import { usePhone } from './ui/kit';
 import { Avatar, useProfile } from './screens/profile';
+import { addonOn } from './screens/addons';
+import { AmbientController, AmbientPlayer } from './screens/ambient';
+import { Headphones } from 'lucide-preact';
+import { Sheet } from './ui/kit';
 
 const DAY = 86_400_000;
 
@@ -265,6 +269,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       {sheet === 'exam' && <ExamSheet path={sheetArg} onClose={() => setSheet(null)} />}
       {sheet === 'palette' && <Palette mode={sheetArg} onClose={() => setSheet(null)} />}
       {phone && <PhoneTabBar tab={tabId} />}
+      {addonOn(settings, 'ambient') && <AmbientController />}
+      {sheet === 'ambient' && <Sheet title={t('addons.n_ambient')} onClose={() => setSheet(null)}><AmbientPlayer /></Sheet>}
       {toastMsg && <div class="toast glass strong" role="status" aria-live="polite">{toastMsg}</div>}
       <TooltipLayer />
     </Ctx.Provider>
@@ -319,6 +325,7 @@ function TopBar(props: { tab: string }) {
       <a class="pill glass ph-hide" href="#/ajustes" aria-label={t('app.ajustes')} aria-current={props.tab === 'ajustes' ? 'page' : undefined}>
         <Gear size={18} />
       </a>
+      {addonOn(app.settings, 'ambient') && <button type="button" class="pill glass ph-hide" aria-label={t('addons.n_ambient')} onClick={() => app.openSheet('ambient')}><Headphones size={18} /></button>}
       <a class="pill glass avatar-pill ph-hide" href="#/perfil" aria-label={t('profile.perfil')} aria-current={props.tab === 'perfil' ? 'page' : undefined}>
         <Avatar profile={profile} size={32} />
       </a>

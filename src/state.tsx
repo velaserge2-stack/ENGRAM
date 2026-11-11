@@ -6,7 +6,7 @@ import type { PomoState } from './lib/pomodoro';
 import type { IntegrityReport } from './vault/integrity';
 import type { RecoveryReport, SafeVault } from './vault/safe';
 
-export type SheetId = 'import' | 'backup' | 'add' | 'exam' | 'palette' | null;
+export type SheetId = 'import' | 'backup' | 'add' | 'exam' | 'palette' | 'ambient' | null;
 
 export interface PomoCtl {
   state: PomoState;

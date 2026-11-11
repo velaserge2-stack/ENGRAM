@@ -18,7 +18,8 @@
     "e2e:mejoras": "node e2e/mejoras.mjs",
     "e2e:mejoras2": "node e2e/mejoras2.mjs",
     "e2e:phone": "node e2e/phone.mjs",
-    "e2e:bloquec": "node e2e/bloquec.mjs"
+    "e2e:bloquec": "node e2e/bloquec.mjs",
+    "e2e:p5": "node e2e/p5.mjs"
   },
   "dependencies": {
     "docx": "^9.15.3",
@@ -28,7 +29,9 @@
     "mammoth": "^1.13.0",
     "markdown-it": "^15.0.3",
     "minisearch": "^7.2.0",
+    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.5.438",
+    "perfect-freehand": "^1.2.3",
     "preact": "^11.2.0",
     "sql.js": "^1.16.0",
     "ts-fsrs": "^5.4.2",

@@ -363,7 +363,7 @@ try {
     await newEntry('Anatomía', 'Clase', mon1, '08:00', '10:00', async (f) => { await f.getByLabel('Repetir').selectOption('WEEKLY'); await f.getByLabel('Lugar').fill('Aula 3'); });
     await newEntry('Repasar Neuro', 'Estudio', mon1, '17:00', '18:00', async (f) => {
       await f.getByRole('button', { name: 'Vincular' }).click();
-      await page.locator('.sheet .opt', { hasText: 'Neurología' }).first().click();
+      await page.locator('.sheet .opt', { hasText: 'Cardiología' }).first().click(); // Neurología pudo borrarse en «papelera»
     });
     // borrar solo el segundo lunes
     const dayCell = (d) => page.locator(`.cal .day[data-day="${d}"]`);
@@ -410,7 +410,7 @@ try {
     if (!(await dayCell(mon1).count())) await page.getByRole('button', { name: 'Siguiente' }).click();
     await dayCell(mon1).click();
     const side = page.getByRole('region', { name: 'Día seleccionado' });
-    check((await side.innerText()).includes('Neurología') && (await side.getByRole('button', { name: 'Iniciar bloque' }).count()) >= 1, 'el bloque de estudio muestra el tema vinculado y «Iniciar»');
+    check((await side.innerText()).includes('Cardiología') && (await side.getByRole('button', { name: 'Iniciar bloque' }).count()) >= 1, 'el bloque de estudio muestra el mazo vinculado y «Iniciar»');
     // cuadrícula: tocar una franja crea 1 h; arrastrar la entrada la mueve de hora
     await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Semana' }).click();
     await page.getByRole('button', { name: 'Hoy', exact: true }).click();

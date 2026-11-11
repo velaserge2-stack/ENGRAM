@@ -65,6 +65,10 @@ export interface Settings {
   lang: '' | 'es' | 'en' | 'fr' | 'xx';
   /** días que un mazo borrado se queda en la papelera antes de vaciarse solo (0 = nunca) */
   deckTrashDays: number;
+  /** add-on «Sonido ambiente» (Prompt 5 · A): volúmenes 0–1 por sonido y opciones */
+  ambient: { levels: Record<string, number>; background: boolean; onlyFocus: boolean; duck: boolean; musicUrl: string; loop: boolean; shuffle: boolean };
+  /** tinta (Prompt 5 · B): qué hace el dedo sobre una superficie de tinta */
+  inkFinger: 'pencil' | 'scroll' | 'draw';
 }
 
 export const ACCENT_USES = ['nav', 'progreso', 'enlaces', 'seleccion', 'calor', 'boton', 'calendario'] as const;
@@ -97,6 +101,8 @@ export function defaultSettings(): Settings {
     streakMin: 1,
     backupReminderDays: 7,
     deckTrashDays: 30,
+    ambient: { levels: {}, background: false, onlyFocus: false, duck: true, musicUrl: '', loop: true, shuffle: false },
+    inkFinger: 'pencil',
     weeklyBackupReminder: true,
     lastExportAt: null,
     backupReminderSnoozedUntil: null,
@@ -159,6 +165,7 @@ export function mergeSettings(raw: unknown): Settings {
   s.retention = Math.min(0.99, Math.max(0.7, s.retention));
   s.dayStartHour = Math.min(23, Math.max(0, Math.round(s.dayStartHour)));
   s.deckTrashDays = Math.min(365, Math.max(0, Math.round(s.deckTrashDays)));
+  if (!['pencil', 'scroll', 'draw'].includes(s.inkFinger)) s.inkFinger = 'pencil';
   return s;
 }
 

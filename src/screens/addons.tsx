@@ -25,6 +25,7 @@ export const MODULES = (): Module[] => ([
   { id: 'xp', name: t('addons.n_xp'), version: '0.9', description: t('addons.1_xp_por_repaso_5_por'), defaultOn: false, hooks: ['onAnswer', 'renderDashboardTile'] },
   { id: 'challenge', name: t('addons.n_challenge'), version: '0.9', description: t('addons.repasa_30_tarjetas_hoy'), defaultOn: false, hooks: ['renderDashboardTile'] },
   { id: 'fact', name: t('addons.n_fact'), version: '0.9', description: t('addons.una_linea_al_azar_de_notes'), defaultOn: false, hooks: ['renderDashboardTile'] },
+  { id: 'ambient', name: t('addons.n_ambient'), version: '1.0', description: t('addons.ambient_desc'), defaultOn: false, hooks: ['registerView'] },
 ]);
 
 export function addonOn(s: { addons: Record<string, boolean> }, id: string): boolean {

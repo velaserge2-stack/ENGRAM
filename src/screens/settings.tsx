@@ -367,6 +367,10 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
         <Row k={ig?.problems.length ? tr('settings.n_problemas', { n: ig.problems.length }) : tr('settings.sin_problemas')}><button type="button" class="link" onClick={() => void app.recheckIntegrity()}>{tr('settings.comprobar_de_nuevo')}</button></Row>
       </Group>
 
+      <Group title={tr('ink.apple_pencil')} footer={tr('ink.pencil_nota')}>
+        <div class="row-i"><Segmented label={tr('ink.el_dedo')} value={s.inkFinger} onChange={(v) => u({ inkFinger: v })} options={[['pencil', tr('ink.solo_pencil')], ['scroll', tr('ink.dedo_desplaza')], ['draw', tr('ink.dedo_dibuja')]]} /></div>
+      </Group>
+
       <AddonsGroup />
 
       <Group title={tr('settings.instalar')}>
