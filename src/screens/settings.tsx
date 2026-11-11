@@ -185,7 +185,7 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
         <Row k={tr('settings.limite_de_repasos_por_dia')}><input class="input" style={{ width: '90px' }} type="number" min={10} value={s.reviewLimit} onChange={(e) => u({ reviewLimit: Number((e.target as HTMLInputElement).value) })} /></Row>
         <Row k={tr('settings.pasos_de_aprendizaje')} sub={tr('settings.p_ej_1m_10m')}><input class="input" style={{ width: '130px' }} value={s.learningSteps.join(' ')} onChange={(e) => u({ learningSteps: (e.target as HTMLInputElement).value.split(/\s+/).filter((x) => /^\d+[mhd]$/.test(x)) })} /></Row>
         <Row k={tr('settings.pasos_de_reaprendizaje')}><input class="input" style={{ width: '130px' }} value={s.relearningSteps.join(' ')} onChange={(e) => u({ relearningSteps: (e.target as HTMLInputElement).value.split(/\s+/).filter((x) => /^\d+[mhd]$/.test(x)) })} /></Row>
-        <Row k={tr('settings.sanguijuela_tras')} sub="lapsos"><input class="input" style={{ width: '90px' }} type="number" min={3} value={s.leechThreshold} onChange={(e) => u({ leechThreshold: Number((e.target as HTMLInputElement).value) })} /></Row>
+        <Row k={tr('settings.sanguijuela_tras')} sub={tr('settings.lapsos')}><input class="input" style={{ width: '90px' }} type="number" min={3} value={s.leechThreshold} onChange={(e) => u({ leechThreshold: Number((e.target as HTMLInputElement).value) })} /></Row>
         <Row k={tr('settings.modo_recuperacion_si_hay_mas_de')} sub={tr('settings.vencidas_se_repasan_primero_las_mas')}><input class="input" style={{ width: '90px' }} type="number" min={20} value={s.recoveryThreshold} onChange={(e) => u({ recoveryThreshold: Number((e.target as HTMLInputElement).value) })} /></Row>
         <Row k={tr('settings.sugerir_boton_por_tiempo_de_respuesta')} sub={tr('settings.solo_lo_resalta_nunca_califica_por')}><Switch label={tr('settings.sugerir_por_tiempo')} checked={s.suggestByTime} onChange={(v) => u({ suggestByTime: v })} /></Row>
         <Row k={tr('settings.el_dia_empieza_a_las')} sub={tr('settings.zona_horaria_timezone', { timeZone: s.timeZone })}>
@@ -223,7 +223,7 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
         <Row k={tr('settings.trabajo_min')}><input class="input" style={{ width: '80px' }} type="number" min={1} value={s.pomo.work} onChange={(e) => u({ pomo: { ...s.pomo, work: Number((e.target as HTMLInputElement).value) } })} /></Row>
         <Row k={tr('settings.descanso_min')}><input class="input" style={{ width: '80px' }} type="number" min={1} value={s.pomo.short} onChange={(e) => u({ pomo: { ...s.pomo, short: Number((e.target as HTMLInputElement).value) } })} /></Row>
         <Row k={tr('settings.descanso_largo_min')}><input class="input" style={{ width: '80px' }} type="number" min={1} value={s.pomo.long} onChange={(e) => u({ pomo: { ...s.pomo, long: Number((e.target as HTMLInputElement).value) } })} /></Row>
-        <Row k={tr('settings.descanso_largo_cada')} sub="ciclos"><input class="input" style={{ width: '80px' }} type="number" min={2} value={s.pomo.every} onChange={(e) => u({ pomo: { ...s.pomo, every: Number((e.target as HTMLInputElement).value) } })} /></Row>
+        <Row k={tr('settings.descanso_largo_cada')} sub={tr('settings.ciclos')}><input class="input" style={{ width: '80px' }} type="number" min={2} value={s.pomo.every} onChange={(e) => u({ pomo: { ...s.pomo, every: Number((e.target as HTMLInputElement).value) } })} /></Row>
         <Row k={tr('settings.sonido_al_terminar')} sub={tr('settings.solo_tras_tocar_iniciar_safari_exige')}><Switch label={tr('settings.sonido')} checked={s.pomo.sound} onChange={(v) => u({ pomo: { ...s.pomo, sound: v } })} /></Row>
       </Group>
 
@@ -268,7 +268,7 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
       <Group title={tr('settings.integridad')} footer={tr('settings.se_comprueba_al_abrir_engrama_nunca')}>
         <Row k={tr('settings.archivos')} sub={ig ? Object.entries(ig.byFolder).map(([k, n]) => `${k}: ${n}`).join(' · ') || tr('settings.boveda_vacia') : tr('settings.comprobando')}><span class="v">{ig?.files ?? '—'}</span></Row>
         {ig?.problems.map((p) => <Row k={<code style={{ wordBreak: 'break-all' }}>{p.path}</code>} sub={`⚠ ${p.reason}`} />)}
-        <Row k={ig?.problems.length ? `${ig.problems.length} problemas` : tr('settings.sin_problemas')}><button type="button" class="link" onClick={() => void app.recheckIntegrity()}>{tr('settings.comprobar_de_nuevo')}</button></Row>
+        <Row k={ig?.problems.length ? tr('settings.n_problemas', { n: ig.problems.length }) : tr('settings.sin_problemas')}><button type="button" class="link" onClick={() => void app.recheckIntegrity()}>{tr('settings.comprobar_de_nuevo')}</button></Row>
       </Group>
 
       <AddonsGroup />
