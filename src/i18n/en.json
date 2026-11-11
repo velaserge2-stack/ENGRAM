@@ -716,6 +716,7 @@
  "pdf.se_guarda_en_tu_primer_mazo": "Saved in your first deck with its source (page {page}); move it later if you want.",
  "pdf.tarjeta_creada_origen": "Card created with source {src}",
  "pdf.tarjeta_desde_el_pdf": "Card from the PDF",
+ "phone.mas": "More",
  "plural.cards.one": "{n} card",
  "plural.cards.other": "{n} cards",
  "plural.cardsword.one": "card",

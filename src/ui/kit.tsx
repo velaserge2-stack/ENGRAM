@@ -1,7 +1,8 @@
 import { t } from '../i18n';
 import type { ComponentChildren, JSX } from 'preact';
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { Portal, useLayer } from './overlay';
+import { isPhone, trackPhone } from '../theme';
 import { X } from 'lucide-preact';
 
 export function Switch(props: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
@@ -48,6 +49,13 @@ export function Group(props: { title?: string; footer?: ComponentChildren; child
 }
 
 /** Hoja modal con "grabber": portal sobre <body>, velo oscuro, foco atrapado; Esc o tocar fuera la cierra. */
+/** ¿Teléfono? (regla única de `theme.ts`); se actualiza al girar o cambiar de tamaño. */
+export function usePhone(): boolean {
+  const [phone, setPhone] = useState(isPhone());
+  useEffect(() => trackPhone(setPhone), []);
+  return phone;
+}
+
 export function Sheet(props: { title: string; onClose: () => void; children: ComponentChildren; actions?: ComponentChildren; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useLayer(props.onClose, { modal: true, el: () => ref.current });

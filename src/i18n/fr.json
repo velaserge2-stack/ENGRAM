@@ -716,6 +716,7 @@
  "pdf.se_guarda_en_tu_primer_mazo": "Enregistrée dans votre premier paquet avec sa source (page {page}) ; déplacez-la ensuite si vous voulez.",
  "pdf.tarjeta_creada_origen": "Carte créée avec la source {src}",
  "pdf.tarjeta_desde_el_pdf": "Carte depuis le PDF",
+ "phone.mas": "Plus",
  "plural.cards.one": "{n} carte",
  "plural.cards.other": "{n} cartes",
  "plural.cardsword.one": "carte",

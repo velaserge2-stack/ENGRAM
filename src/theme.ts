@@ -32,11 +32,31 @@ export function onSchemeChange(fn: () => void): () => void {
   return () => darkMQ?.removeEventListener('change', fn);
 }
 
-/** Teclado en pantalla: expone su altura como --kb-inset (visualViewport). */
+/**
+ * Teléfono (Mejoras 2 · bloque B): una sola regla, que un iPad nunca cumple. Todo el CSS de móvil
+ * cuelga de `html.is-phone` y todo el JS de `isPhone()`; iPad y web no cambian.
+ */
+export const PHONE_QUERY = '(max-width: 600px), (max-height: 500px) and (orientation: landscape)';
+const phoneMQ = typeof matchMedia === 'function' ? matchMedia(PHONE_QUERY) : null;
+export const isPhone = (): boolean => !!phoneMQ?.matches;
+
+/** Mantiene `html.is-phone` al día (rotar, Split View) y avisa a quien escuche. */
+export function trackPhone(fn?: (phone: boolean) => void): () => void {
+  const on = () => (document.documentElement.classList.toggle('is-phone', isPhone()), fn?.(isPhone()));
+  on();
+  phoneMQ?.addEventListener('change', on);
+  return () => phoneMQ?.removeEventListener('change', on);
+}
+
+/** Teclado en pantalla: expone su altura como --kb-inset (visualViewport) y `html.kb-open`. */
 export function trackKeyboard(): void {
   const vv = window.visualViewport;
   if (!vv) return;
-  const on = () => document.documentElement.style.setProperty('--kb-inset', `${Math.max(0, innerHeight - vv.height - vv.offsetTop)}px`);
+  const on = () => {
+    const inset = Math.max(0, innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty('--kb-inset', `${inset}px`);
+    document.documentElement.classList.toggle('kb-open', inset > 80);
+  };
   vv.addEventListener('resize', on);
   vv.addEventListener('scroll', on);
 }

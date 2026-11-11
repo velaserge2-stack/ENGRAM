@@ -4,7 +4,7 @@ import { loadSettings } from './lib/settings';
 import { deviceLang, errMsg, setLang, t } from './i18n';
 import { requestPersist } from './lib/storage';
 import { registerSW } from './sw-register';
-import { applyTheme, trackKeyboard } from './theme';
+import { applyTheme, trackKeyboard, trackPhone } from './theme';
 import { openVault } from './vault/open';
 import { walk } from './vault/util';
 import './theme-cristal.css';
@@ -13,6 +13,7 @@ let langSet = false;
 
 async function boot() {
   trackKeyboard();
+  trackPhone();
   registerSW();
   const opened = await openVault();
   const settings = await loadSettings(opened.vault);

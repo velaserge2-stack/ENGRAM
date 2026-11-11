@@ -60,7 +60,7 @@ export function Explorar(props: { q?: string }) {
   return (
     <>
       <PageTitle title={t('explorar.explorar')} sub={t('explorar.n_de_size_tarjetas', { n: res.length, size: col.byCid.size })} />
-      <div class="grid" style={{ gridTemplateColumns: 'minmax(0, 3fr) minmax(280px, 2fr)', alignItems: 'start' }}>
+      <div class="grid phone-stack" style={{ gridTemplateColumns: 'minmax(0, 3fr) minmax(280px, 2fr)', alignItems: 'start' }}>
         <section class="glass panel stack-s">
           <input class="input wide" type="search" placeholder='tag:ecg due:<3 is:leech deck:Cardio "frase" -is:new' value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label={t('explorar.consulta')} />
           <div class="row wrap">

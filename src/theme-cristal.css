@@ -475,3 +475,88 @@ pre.preview { background: var(--fill-2); border: var(--hair) solid var(--line); 
 .brand-mark { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: #000006; box-shadow: var(--shadow); }
 .brand-mark img { width: 28px; height: 28px; border-radius: 6px; display: block; }
 .brand-logo { border-radius: 26px; background: #000006; box-shadow: var(--shadow); display: block; }
+
+/* ═════════ Teléfono (Mejoras 2 · bloque B) ═════════
+   Todo cuelga de html.is-phone (regla única en theme.ts:
+   (max-width: 600px), (max-height: 500px) and (orientation: landscape)). Un iPad nunca la cumple:
+   nada de lo que sigue cambia iPad ni web. */
+.is-phone { --blur: 14px; --tabbar-h: 60px; }
+.is-phone .glass.strong { -webkit-backdrop-filter: blur(22px) saturate(var(--sat)); backdrop-filter: blur(22px) saturate(var(--sat)); }
+.is-phone .app { padding: calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 12px) calc(env(safe-area-inset-bottom) + var(--tabbar-h) + 28px) calc(env(safe-area-inset-left) + 12px); }
+.is-phone.kb-open .app { padding-bottom: calc(var(--kb-inset) + 16px); }
+
+/* barra superior: sin la píldora de secciones (está abajo); Respaldo y Ajustes pasan a «Más».
+   No es fija: sus píldoras sueltas dejaban ver el contenido entre ellas al desplazar. */
+.is-phone .topbar { position: static; gap: 8px; margin-bottom: 14px; flex-wrap: nowrap; }
+.is-phone .topbar .seg-nav, .is-phone .topbar .ph-hide { display: none; }
+.is-phone .topbar .pill { padding: 0 12px; min-width: 44px; justify-content: center; }
+
+/* barra inferior */
+.phone-tabbar { position: fixed; z-index: var(--z-dock); left: calc(env(safe-area-inset-left) + 10px); right: calc(env(safe-area-inset-right) + 10px); bottom: calc(env(safe-area-inset-bottom) + 8px); max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 4px; border-radius: var(--r-pill); }
+.phone-tabbar > * { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; min-height: 52px; padding: 0 2px; border: 0; border-radius: var(--r-pill); background: none; color: var(--t2); text-decoration: none; font-size: 10.5px; font-weight: 600; line-height: 1.1; -webkit-touch-callout: none; }
+.phone-tabbar .lbl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.phone-tabbar > [aria-current="page"] { background: var(--inverse-bg); color: var(--inverse-fg); }
+.acc-nav .phone-tabbar > [aria-current="page"] { background: var(--accent-fill); color: var(--accent-fg); }
+.is-phone.kb-open .phone-tabbar { display: none; }
+.phone-more .row-i { width: 100%; border: 0; background: none; text-align: left; text-decoration: none; color: var(--t1); font-size: var(--t-body); min-height: 52px; }
+.phone-more .row-i[aria-current="page"] { font-weight: 700; }
+
+/* lo que flota se apoya encima de la barra inferior */
+.is-phone .toast { bottom: calc(env(safe-area-inset-bottom) + var(--tabbar-h) + 22px); }
+.is-phone .tray.floating { bottom: calc(env(safe-area-inset-bottom) + var(--tabbar-h) + 22px); left: calc(env(safe-area-inset-left) + 12px); }
+.is-phone .dock { position: static; justify-content: flex-start; }
+.is-phone .dock .glass { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.is-phone .dock .glass > * { flex: none; }
+
+/* hojas y modales: siempre inferiores y a todo el ancho */
+.is-phone .scrim { padding: calc(env(safe-area-inset-top) + 12px) 0 0; align-items: flex-end; }
+.is-phone .sheet, .is-phone .sheet.wide { width: 100%; max-height: calc(100dvh - env(safe-area-inset-top) - 12px - var(--kb-inset)); border-radius: var(--r-panel) var(--r-panel) 0 0; }
+.is-phone .sheet-h { padding: 6px 10px 8px 18px; }
+.is-phone .sheet-b { padding: 0 16px calc(16px + env(safe-area-inset-bottom)); }
+.is-phone .popover { max-width: calc(100vw - 16px); }
+
+/* una columna */
+.is-phone .phone-stack { grid-template-columns: minmax(0, 1fr) !important; }
+.is-phone .page-title { padding: 12px 16px; }
+.is-phone .page-title h1 { font-size: var(--t-1); }
+.is-phone .panel { padding: 14px 14px; }
+.is-phone .big { font-size: 2.5rem; }
+.is-phone .kv .v { flex: none; white-space: nowrap; }
+.is-phone .banner { flex-wrap: wrap; } .is-phone .banner .k { flex: 1 1 60%; }
+.is-phone .btn { white-space: normal; text-align: center; line-height: 1.2; } /* texto grande o francés: baja de línea en vez de desbordar */
+
+/* tablas compactas (sin scroll horizontal de la página) */
+.is-phone .decks { table-layout: fixed; }
+.is-phone .decks th { padding: 0 4px 6px; font-size: 11px; line-height: 1.15; white-space: normal; overflow-wrap: anywhere; hyphens: auto; vertical-align: bottom; }
+.is-phone .decks th:not(:first-child) { width: min(3.6rem, 17vw); }
+.is-phone .decks th:first-child { padding-left: 6px; }
+.is-phone .decks td { padding: 0 4px; font-size: .9375rem; overflow: hidden; text-overflow: ellipsis; }
+.is-phone .decks td:first-child { padding-left: 6px; }
+.is-phone .tbl { font-size: var(--t-foot); }
+.is-phone .tbl td, .is-phone .tbl th { padding: 6px 4px; overflow-wrap: anywhere; }
+
+/* estudio */
+.is-phone .study { gap: 10px; }
+.is-phone .study .row { flex-wrap: wrap; }
+.is-phone .study-card { padding: 22px 18px; min-height: 38dvh; font-size: 1.25rem; }
+.is-phone .grades { gap: 6px; padding: 6px; }
+.is-phone .grade { min-width: 0; padding: 8px 2px; font-size: .9375rem; overflow-wrap: anywhere; }
+
+/* editor y notas */
+.is-phone .code { font-size: 16px !important; }
+.is-phone .doc { padding: 18px 16px; }
+.is-phone .tree-over, .is-phone .insp-over { top: calc(env(safe-area-inset-top) + 64px); max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--tabbar-h) - 96px); }
+
+/* calendario */
+.is-phone .cal { gap: 3px; }
+.is-phone .cal .day { min-height: 52px; padding: 4px; border-radius: 10px; font-size: 10px; }
+.is-phone .cal .ev { padding: 0 3px; }
+
+/* espacios: un panel a la vez; el riel pasa arriba en horizontal */
+.is-phone .spaces { grid-template-columns: minmax(0, 1fr); gap: 10px; min-height: 0; }
+.is-phone .rail { flex-direction: row; position: static; overflow-x: auto; padding: 6px; border-radius: var(--r-pill); scrollbar-width: none; }
+.is-phone .rail::-webkit-scrollbar { display: none; }
+.is-phone .rail button { flex: none; width: 44px; height: 44px; }
+.is-phone .tiles { grid-template-columns: minmax(0, 1fr) !important; height: auto !important; min-height: 0; }
+.is-phone .tiles > .win { height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--tabbar-h) - 250px); min-height: 300px; }
+.is-phone .win-resize { display: none; }
