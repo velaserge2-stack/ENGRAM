@@ -1,0 +1,97 @@
+import { createContext } from 'preact';
+import { useContext, useEffect, useState } from 'preact/hooks';
+import type { Collection } from './data/collection';
+import type { Settings } from './lib/settings';
+import type { PomoState } from './lib/pomodoro';
+import type { IntegrityReport } from './vault/integrity';
+import type { RecoveryReport, SafeVault } from './vault/safe';
+
+export type SheetId = 'import' | 'backup' | 'add' | 'exam' | 'palette' | null;
+
+export interface PomoCtl {
+  state: PomoState;
+  now: number;
+  start(label?: string): void;
+  pause(): void;
+  reset(): void;
+  skip(): void;
+  setLabel(l: string): void;
+  today: number;
+}
+
+export interface AppCtx {
+  vault: SafeVault;
+  detail: string;
+  temporary: boolean;
+  folderNeedsPermission: boolean;
+  recovery: RecoveryReport;
+  integrity: IntegrityReport | null;
+  recheckIntegrity(): Promise<void>;
+  settings: Settings;
+  update(patch: Partial<Settings>, immediate?: boolean): void;
+  replaceSettings(s: Settings): void;
+  /** Sube cuando cambian los archivos: la colección se recarga. */
+  version: number;
+  changed(): void;
+  /** Re-render sin recargar (cambios en memoria). */
+  tick: number;
+  refresh(): void;
+  col: Collection | null;
+  toast(msg: string): void;
+  sheet: SheetId;
+  sheetArg: string | null;
+  openSheet(s: SheetId, arg?: string | null): void;
+  pomo: PomoCtl;
+  inboxCount: number;
+  focus(on: boolean): void;
+  /** fondo temporal (página /design, vista previa); null = el de Ajustes */
+  previewBg(bg: import('./lib/settings').Background | null, mode?: 'dark' | 'light' | null): void;
+}
+
+export const Ctx = createContext<AppCtx>(null as unknown as AppCtx);
+export const useApp = () => useContext(Ctx);
+
+/** Carga asíncrona que se repite cuando cambian `deps`. */
+export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): { data: T | undefined; error: unknown; loading: boolean } {
+  const [state, set] = useState<{ data: T | undefined; error: unknown; loading: boolean }>({ data: undefined, error: null, loading: true });
+  useEffect(() => {
+    let alive = true;
+    set((s) => ({ ...s, loading: true }));
+    fn().then(
+      (data) => alive && set({ data, error: null, loading: false }),
+      (error) => {
+        console.error(error);
+        if (alive) set({ data: undefined, error, loading: false });
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, deps);
+  return state;
+}
+
+export function parseHash(): string[] {
+  return (location.hash.replace(/^#\/?/, '').split('?')[0] || 'hoy').split('/').map((s) => {
+    try {
+      return decodeURIComponent(s);
+    } catch {
+      return s;
+    }
+  });
+}
+
+export function useRoute(): string[] {
+  const [r, setR] = useState(parseHash);
+  useEffect(() => {
+    const on = () => setR(parseHash());
+    addEventListener('hashchange', on);
+    return () => removeEventListener('hashchange', on);
+  }, []);
+  return r;
+}
+
+export const href = (...parts: string[]) => '#/' + parts.map(encodeURIComponent).join('/');
+export const go = (...parts: string[]) => {
+  location.hash = href(...parts);
+};
