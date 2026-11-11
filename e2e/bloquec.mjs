@@ -222,6 +222,21 @@ try {
     check((await page.locator('.search-hit').first().innerText()).includes('Hipertensión'), 'el índice se actualiza al guardar (incremental)');
   }
 
+  if (run('calor')) {
+    console.log('Mapa de adherencia proporcional');
+    await page.goto(URL_ + '#/hoy');
+    const panel = page.locator('.heat-panel');
+    await panel.waitFor();
+    const cells = () => panel.locator('.heat .c').count();
+    check(await cells() === 56, 'sin historial largo: 8 semanas (56 días), no un año');
+    const w = (await panel.boundingBox()).width;
+    check(w < 600, `el panel se ajusta a su contenido (${Math.round(w)} px)`);
+    await panel.getByRole('button', { name: 'Ver año completo' }).click();
+    check(await cells() === 371, '«Ver año completo» muestra 53 semanas');
+    await panel.getByRole('button', { name: 'Ver solo mi actividad' }).click();
+    check(await cells() === 56, 'volver a la vista proporcional');
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');

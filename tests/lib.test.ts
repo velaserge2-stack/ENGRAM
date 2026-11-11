@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAutosave } from '../src/lib/autosave';
-import { addDays, dayKey, heatGrid, heatLevels, streaks, weekdayMon } from '../src/lib/days';
+import { addDays, dayKey, heatGrid, heatLevels, heatWeeks, streaks, weekdayMon } from '../src/lib/days';
 import { backupDue, defaultSettings, mergeSettings } from '../src/lib/settings';
 
 const TZ = 'America/Monterrey'; // UTC−6, sin horario de verano
@@ -116,5 +116,15 @@ describe('acento', () => {
       expect(contrast(l.color, WORST_GLASS.light)).toBeGreaterThanOrEqual(4.5);
     }
     expect(accentVariant('#FFCC00', 'light').adjusted).toBe(true);
+  });
+});
+
+describe('mapa de adherencia proporcional', () => {
+  it('desde la primera actividad, mínimo 8 semanas y máximo un año', () => {
+    expect(heatWeeks(undefined, '2026-11-11')).toBe(8);
+    expect(heatWeeks('2026-11-02', '2026-11-11')).toBe(8); // 10 días de actividad → panel pequeño
+    expect(heatWeeks('2026-06-01', '2026-11-11')).toBe(24);
+    expect(heatWeeks('2024-01-01', '2026-11-11')).toBe(53); // más de un año → año completo
+    expect(heatWeeks('2026-11-02', '2026-11-11', true)).toBe(53); // «Ver año completo»
   });
 });

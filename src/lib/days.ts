@@ -85,6 +85,16 @@ export function heatGrid(today: string, weeks = 53): string[][] {
   return Array.from({ length: weeks }, (_, w) => Array.from({ length: 7 }, (_, d) => addDays(start, w * 7 + d)));
 }
 
+/**
+ * Semanas del mapa de adherencia proporcional (D12): desde la semana de la primera actividad
+ * hasta la de hoy, con un mínimo de 8 y un máximo de 53 (un año). `full` = año completo.
+ */
+export function heatWeeks(first: string | undefined, today: string, full = false, min = 8, max = 53): number {
+  if (full || !first) return full ? max : min;
+  const weeks = Math.floor(daysBetween(addDays(first, -weekdayMon(first)), addDays(today, -weekdayMon(today))) / 7) + 1;
+  return Math.min(max, Math.max(min, weeks));
+}
+
 export function daysBetween(a: string, b: string): number {
   return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86_400_000);
 }

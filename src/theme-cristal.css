@@ -599,3 +599,7 @@ mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border
 .find-bar .input { border: 0; background: transparent; min-width: 120px; }
 ::highlight(engrama-find) { background-color: rgba(128, 128, 128, .38); }
 ::highlight(engrama-find-cur) { background-color: rgba(128, 128, 128, .85); color: #fff; }
+/* mapa de adherencia proporcional (D12): celdas fijas; el panel se ajusta a su contenido */
+.heat.prop { grid-auto-columns: 13px; }
+.heat-panel.fit { width: fit-content; min-width: min(100%, 360px); max-width: 100%; }
+.heat-panel.fit .panel-h { flex-wrap: wrap; }
