@@ -1,5 +1,5 @@
 import { locale, t as tr } from '../i18n';
-import { Maximize2, Minimize2, PanelLeft, PanelRight, Bookmark, ClipboardCopy, ClipboardPaste, Code, FilePlus2, FileText, Folder, History, Import, Link2, ListTree, MoveRight, Network, Share, Sparkles, Star, Trash2 } from 'lucide-preact';
+import { Search, Maximize2, Minimize2, PanelLeft, PanelRight, Bookmark, ClipboardCopy, ClipboardPaste, Code, FilePlus2, FileText, Folder, History, Import, Link2, ListTree, MoveRight, Network, Share, Sparkles, Star, Trash2 } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { normalizeAnswer, parseDeck } from '../cards/parse';
 import { appendCard } from '../data/ops';
@@ -23,6 +23,9 @@ import { Graph } from './graph';
 import { APP_VERSION } from './backup';
 import { LinkedEvents } from '../ui/links';
 import { modalOpen, Popover } from '../ui/overlay';
+import { FindBar, pendingFind } from '../notes/find';
+import { notesIndex } from '../notes/search-client';
+import type { Filters, Result } from '../notes/search-core';
 
 const BOOKMARKS = '.app/bookmarks.json';
 
@@ -114,8 +117,21 @@ export function Notes(props: { route: string[] }) {
   const swipe = useRef<{ x: number; y: number; inTree: boolean; inInsp: boolean } | null>(null);
   useEffect(() => () => setNotesFull(false), []);
   const cols = [ui.explorer && !narrow ? `${ui.explorerW}px 10px` : '', 'minmax(0, 1fr)', resolved && ui.inspector && !overlay ? '280px' : ''].filter(Boolean).join(' ');
+  // buscador (D11): el índice es una caché que se reconstruye desde los archivos
+  const [q, setQ] = useState('');
+  const [filters, setFilters] = useState<Filters>({});
+  const [results, setResults] = useState<Result[] | null>(null);
+  useEffect(() => { if (data) void notesIndex.reset(data.texts); }, [data]);
+  useEffect(() => {
+    if (!q.trim()) return setResults(null);
+    let alive = true;
+    const tm = setTimeout(() => void notesIndex.query(q, filters).then((r) => alive && setResults(r)), 120);
+    return () => { alive = false; clearTimeout(tm); };
+  }, [q, filters, data]);
   return (
     <>
+      <NotesSearchBar q={q} setQ={setQ} filters={filters} setFilters={setFilters} data={data} />
+      {results ? <SearchResults results={results} q={q} onOpen={(r) => { pendingFind.path = r.id; pendingFind.q = q; setQ(''); go('notas', ...r.id.split('/').slice(1)); }} /> : (
       <div class="notes" style={{ gridTemplateColumns: cols }}
         onPointerDown={(e) => {
           const t = e.target as HTMLElement;
@@ -147,13 +163,48 @@ export function Notes(props: { route: string[] }) {
             onKeyDown={(e) => (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && setUi({ explorerW: ui.explorerW + (e.key === 'ArrowLeft' ? -20 : 20) })} />
         )}
         {resolved ? <NoteEditor key={resolved} path={resolved} data={data} ui={ui} setUi={setUi} overlay={overlay} /> : <NotesHome data={data} onNew={() => setCreating(true)} ui={ui} setUi={setUi} />}
-      </div>
+      </div>)}
       {creating && data && <NewNote notes={data.notes} onClose={() => setCreating(false)} />}
     </>
   );
 }
 
 type NotesData = ReturnType<typeof useNotes>['data'];
+
+/** Barra de búsqueda siempre visible en Notas (también en teléfono), con filtros. */
+function NotesSearchBar(p: { q: string; setQ: (q: string) => void; filters: Filters; setFilters: (f: Filters) => void; data: NotesData }) {
+  const materias = [...new Set(p.data?.notes.map((n) => n.materia).filter((m) => m && m !== DAILY) ?? [])];
+  const temas = [...new Set(p.data?.notes.filter((n) => !p.filters.materia || n.materia === p.filters.materia).map((n) => n.tema).filter(Boolean) ?? [])];
+  const since = p.filters.since ? (Date.now() - p.filters.since < 8 * 86_400_000 ? '7' : '30') : 'todo';
+  return (
+    <div class="notes-search glass row wrap" role="search">
+      <Search size={18} aria-hidden="true" />
+      <input class="input grow" type="search" value={p.q} placeholder={tr('find.buscar_en_notas')} aria-label={tr('find.buscar_en_notas')} onInput={(e) => p.setQ((e.target as HTMLInputElement).value)} onKeyDown={(e) => e.key === 'Escape' && p.setQ('')} />
+      {p.q.trim() && (
+        <>
+          <select aria-label={tr('inbox.materia')} value={p.filters.materia ?? ''} onChange={(e) => p.setFilters({ ...p.filters, materia: (e.target as HTMLSelectElement).value || undefined, tema: undefined })}><option value="">{tr('notes.todas_las_materias')}</option>{materias.map((m) => <option>{m}</option>)}</select>
+          <select aria-label={tr('find.tema')} value={p.filters.tema ?? ''} onChange={(e) => p.setFilters({ ...p.filters, tema: (e.target as HTMLSelectElement).value || undefined })}><option value="">{tr('find.todos_los_temas')}</option>{temas.map((m) => <option>{m}</option>)}</select>
+          <Segmented label={tr('exams.fecha')} value={since} onChange={(v) => p.setFilters({ ...p.filters, since: v === 'todo' ? undefined : Date.now() - Number(v) * 86_400_000 })} options={[['todo', tr('notes.todo')], ['7', tr('notes.7_dias')], ['30', tr('notes.30_dias')]]} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function SearchResults(p: { results: Result[]; q: string; onOpen: (r: Result) => void }) {
+  return (
+    <section class="glass panel stack-s" aria-label={tr('find.resultados')}>
+      <p class="foot" aria-live="polite">{tr('find.n_resultados', { n: p.results.length })}</p>
+      {!p.results.length && <p class="t2">{tr('find.sin_resultados_notas')}</p>}
+      {p.results.map((r) => (
+        <button type="button" class="search-hit" onClick={() => p.onOpen(r)}>
+          <span class="row"><b class="grow ellipsis" data-user-content>{r.title}</b><span class="foot">{r.materia}{r.tema ? ` › ${r.tema}` : ''}{r.fecha ? ` · ${r.fecha}` : ''}</span></span>
+          <span class="note t2" data-user-content>{r.parts.map((x) => (x.hit ? <mark class="hit">{x.t}</mark> : x.t))}</span>
+        </button>
+      ))}
+    </section>
+  );
+}
 
 function NoteTree(props: { data: NotesData; current: string | null; onNew: () => void }) {
   const app = useApp();
@@ -343,7 +394,16 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
   const saver = useMemo(() => createAutosave(async (t: string) => {
     await app.vault.write(props.path, t);
     await snapshot(app.vault, props.path, t);
+    void notesIndex.upsert(props.path, t); // índice incremental al guardar
   }), [props.path]);
+  const [find, setFind] = useState<string | null>(() => (pendingFind.path === props.path ? ((pendingFind.path = null), pendingFind.q) : null));
+  const docRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    // ⌘F / Ctrl+F dentro de una nota: buscar en esta nota
+    const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f' && !modalOpen()) (e.preventDefault(), setMode('doc'), setEditing(null), setFind((f) => f ?? '')); };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, []);
   useEffect(() => {
     void readTextOr(app.vault, props.path, '').then(setText);
     return () => { void saver.flush(); saver.dispose(); };
@@ -385,6 +445,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
             <button type="button" class="btn icon" {...keep} aria-label={full ? tr('notes.salir_de_pantalla_completa') : tr('notes.pantalla_completa_de_notas')} aria-pressed={full} onClick={() => toggleFull(!full)}>{full ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button>
             <Segmented label={tr('calendar.vista')} value={mode} onChange={(m) => (setMode(m), setEditing(null))} options={[['doc', tr('notes.documento')], ['md', tr('deck.ver_markdown')]]} />
             <button type="button" class="btn icon" aria-label={bookmarked ? tr('notes.quitar_marcador') : tr('notes.marcar')} aria-pressed={bookmarked} onClick={async () => { const b = props.data?.bookmarks ?? []; await app.vault.write(BOOKMARKS, JSON.stringify(bookmarked ? b.filter((x) => x !== props.path) : [...b, props.path])); app.changed(); }}>{bookmarked ? <Star size={18} fill="currentColor" /> : <Bookmark size={18} />}</button>
+            <button type="button" class="btn icon" aria-label={tr('find.buscar_en_esta_nota')} aria-pressed={find !== null} onClick={() => (setMode('doc'), setEditing(null), setFind(find === null ? '' : null))}><Search size={18} /></button>
             <button type="button" class="btn icon" aria-label={tr('notes.crear_tarjetas_con_ia_copiar_prompt')} onClick={() => setSheet('prompt')}><Sparkles size={18} /></button>
             <button type="button" class="btn icon" aria-label={tr('notes.historial_de_versiones')} onClick={() => setSheet('history')}><History size={18} /></button>
             <button type="button" class="btn icon" aria-label={tr('notes.mover_a_otra_materia_o_tema')} onClick={() => setSheet('move')}><MoveRight size={18} /></button>
@@ -392,14 +453,16 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
             <button type="button" class="btn icon" aria-label={tr('notes.enviar_a_la_papelera')} onClick={async () => { if (!confirm(tr('notes.confirm_papelera'))) return; await saver.flush(); await trash(app.vault, props.path); app.changed(); go('notas'); }}><Trash2 size={18} /></button>
           </div>
         </div>
-        <article class="glass strong doc" onPaste={(e) => void onPaste(e as ClipboardEvent)}>
+        {find !== null && <FindBar root={() => docRef.current} initial={find} dep={text + mode} onClose={() => setFind(null)} />}
+        <article class="glass strong doc" ref={docRef} onPaste={(e) => void onPaste(e as ClipboardEvent)}>
           <div class="print-only"><h1>{meta.title}</h1></div>
           <div class="doc-inner" style={{ maxWidth: LINE[props.ui.width] }}>
           {mode === 'md' ? (
             <textarea class="input code" style={{ minHeight: '70dvh', width: '100%', border: 0, background: 'transparent' }} value={text} onInput={(e) => set((e.target as HTMLTextAreaElement).value)} aria-label={tr('notes.markdown_de_la_nota')} spellcheck />
           ) : (
             <div class="stack-s">
-              {blocks.map((b, i) => (editing === i ? (
+              {/* «＋ Escribe…» abre un bloque vacío al final (en la misma lista, para no perder el foco) */}
+              {(editing === blocks.length ? [...blocks, ''] : blocks).map((b, i) => (editing === i ? (
                 <BlockInput key={i} value={b} notes={props.data?.notes ?? []} onChange={(v) => setBody([...blocks.slice(0, i), v, ...blocks.slice(i + 1)].join('\n\n'))}
                   onDone={() => setEditing(null)} onSplit={(a, rest) => { setBody([...blocks.slice(0, i), a, rest, ...blocks.slice(i + 1)].join('\n\n')); setEditing(i + 1); }}
                   onCard={(sel, kind) => { setCardSeed({ text: sel, kind, para: i }); setSheet('card'); }}
@@ -410,7 +473,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
                   <Html html={renderMarkdown(props.data ? expandQueries(b, props.data, app.col) : b)} />
                 </div>
               )))}
-              <button type="button" class="btn ghost" style={{ justifySelf: 'start' }} onClick={() => { setBody(doc.body.replace(/\s*$/, '') + '\n\n'); setEditing(blocks.length); }}>{tr('notes.escribe_o_usa_para_insertar')}</button>
+              <button type="button" class="btn ghost" style={{ justifySelf: 'start' }} onClick={() => setEditing(blocks.length)}>{tr('notes.escribe_o_usa_para_insertar')}</button>
             </div>
           )}
           </div>

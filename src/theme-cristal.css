@@ -588,3 +588,14 @@ hr.sep { border: 0; border-top: var(--hair) solid var(--line); margin: 4px 0; wi
 .storage-list { max-height: 46dvh; overflow: auto; }
 .storage-list input[type="checkbox"] { width: 22px; height: 22px; flex: none; accent-color: var(--t1); }
 .storage-actions { position: sticky; bottom: 0; padding-top: 6px; }
+/* buscador de notas (D11): coincidencias en neutro (la interfaz no tiene color) */
+.notes-search { padding: 6px 10px 6px 16px; border-radius: var(--r-pill); margin-bottom: 14px; gap: 8px; }
+.notes-search .input { border: 0; background: transparent; min-width: 160px; }
+.search-hit { display: grid; gap: 4px; width: 100%; text-align: left; padding: 10px 12px; min-height: 44px; border: 0; border-top: var(--hair) solid var(--line); background: none; border-radius: 0; }
+.search-hit:first-of-type { border-top: 0; }
+.search-hit:active { background: var(--fill); }
+mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border-radius: 3px; padding: 0 1px; }
+.find-bar { padding: 4px 6px 4px 14px; border-radius: var(--r-pill); gap: 4px; position: sticky; top: calc(env(safe-area-inset-top) + 64px); z-index: 3; }
+.find-bar .input { border: 0; background: transparent; min-width: 120px; }
+::highlight(engrama-find) { background-color: rgba(128, 128, 128, .38); }
+::highlight(engrama-find-cur) { background-color: rgba(128, 128, 128, .85); color: #fff; }

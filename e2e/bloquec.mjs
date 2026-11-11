@@ -125,13 +125,12 @@ try {
     await page.mouse.up();
     await page.getByRole('slider', { name: 'Acercar' }).fill('1.5');
     await page.getByRole('button', { name: 'Guardar' }).click();
-    await page.waitForTimeout(800);
+    await page.waitForFunction(() => document.querySelector('.bg-layer img')?.style.getPropertyValue('--bg-zoom') === '1.5', null, { timeout: 10000 });
     const pos = () => page.locator('.bg-layer img').evaluate((i) => [i.style.getPropertyValue('--bg-pos'), i.style.getPropertyValue('--bg-zoom')]);
     const p1 = await pos();
     check(p1[0] && p1[0] !== '50% 50%' && p1[1] === '1.5', `el encuadre se aplica al fondo (${p1.join(' · ')})`);
     await page.reload();
-    await page.locator('.bg-layer img').waitFor();
-    await page.waitForTimeout(500);
+    await page.waitForFunction(() => document.querySelector('.bg-layer img')?.style.getPropertyValue('--bg-zoom') === '1.5', null, { timeout: 10000 });
     check(JSON.stringify(await pos()) === JSON.stringify(p1), 'el encuadre se conserva al volver a abrir la app');
     await page.goto(URL_ + '#/ajustes');
     await page.getByRole('button', { name: 'Gestionar' }).click();
@@ -176,6 +175,51 @@ try {
     await page.getByRole('link', { name: /Con imagen/ }).first().click();
     await page.getByText('Archivo eliminado: usado.png').waitFor();
     check(true, 'la nota muestra «Archivo eliminado» en lugar de una imagen rota');
+  }
+
+  if (run('buscar')) {
+    console.log('Buscador de notas');
+    await page.goto(URL_ + '#/ajustes');
+    await page.getByRole('region', { name: 'Respaldo' }).getByRole('button', { name: /Importar/ }).click();
+    await page.locator('.sheet input[type=file]').first().setInputFiles([
+      { name: 'Hipertensión.md', mimeType: 'text/markdown', buffer: Buffer.from('# Hipertensión\n\nPrimer párrafo sin cifras.\n\nMeta de presión 120/80 en diabéticos.\n\nOtra vez la presión: 130/80.\n') },
+      { name: 'Gasometría.md', mimeType: 'text/markdown', buffer: Buffer.from('# Gasometría\n\npH 7.4 normal y bicarbonato 24 mEq/L.\n') },
+    ]);
+    await page.locator('.sheet .btn.primary').filter({ hasText: /Importar/ }).click();
+    await page.getByRole('button', { name: 'Listo' }).click();
+    await page.goto(URL_ + '#/notas');
+    const box = page.getByRole('searchbox', { name: /Buscar en todas las notas/ });
+    await box.waitFor();
+    check(await box.isVisible(), 'barra de búsqueda siempre visible en Notas');
+    await box.fill('120/80');
+    await page.locator('.search-hit').first().waitFor();
+    check(await page.locator('.search-hit').count() === 1 && (await page.locator('.search-hit mark.hit').first().innerText()) === '120/80', '«120/80» encuentra la nota y resalta la coincidencia');
+    await box.fill('PH');
+    await page.waitForTimeout(400);
+    check((await page.locator('.search-hit').first().innerText()).includes('Gasometría'), '«pH» sin distinguir mayúsculas');
+    await box.fill('130/8');
+    await page.waitForTimeout(400);
+    check(await page.locator('.search-hit').count() === 0, 'los números son exactos («130/8» no encuentra «130/80»)');
+    await box.fill('presion');
+    await page.locator('.search-hit').first().waitFor();
+    await page.locator('.search-hit').first().click();
+    const fb = page.getByRole('search', { name: 'Buscar en esta nota' });
+    await fb.waitFor();
+    await page.waitForTimeout(500);
+    check((await fb.innerText()).includes('1 de 2'), 'abre la nota con «Buscar en esta nota» en la primera coincidencia (1 de 2)');
+    const hl = await page.evaluate(() => (typeof CSS !== 'undefined' && CSS.highlights ? CSS.highlights.get('engrama-find-cur')?.size ?? 0 : -1));
+    check(hl === 1 || hl === -1, 'la coincidencia actual está resaltada');
+    await fb.getByRole('button', { name: 'Coincidencia siguiente' }).click();
+    check((await fb.innerText()).includes('2 de 2'), 'siguiente / anterior con contador');
+    // escribir en la nota no se pierde y el índice se actualiza al guardar
+    await fb.getByRole('button', { name: 'Cerrar' }).click();
+    await page.getByRole('button', { name: /Escribe o usa/ }).click();
+    await page.locator('.doc textarea').last().click();
+    await page.keyboard.type('Dato nuevo 37.5 grados');
+    await page.waitForTimeout(1200);
+    await box.fill('37.5');
+    await page.locator('.search-hit').first().waitFor();
+    check((await page.locator('.search-hit').first().innerText()).includes('Hipertensión'), 'el índice se actualiza al guardar (incremental)');
   }
 
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
