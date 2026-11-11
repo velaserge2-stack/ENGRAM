@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { DEFAULT_FRAMING, framingStyle, FRAMING_PATH, normFraming, parseFramings, type Framing } from '../lib/framing';
 import { AddonsGroup } from './addons';
 import { StorageSheet } from './storage';
+import { KeySettings } from './keysettings';
 import { verifyDeterminism } from '../data/collection';
 import { exampleFiles } from '../lib/example';
 import type { Background, Settings } from '../lib/settings';
@@ -370,6 +371,8 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
       <Group title={tr('ink.apple_pencil')} footer={tr('ink.pencil_nota')}>
         <div class="row-i"><Segmented label={tr('ink.el_dedo')} value={s.inkFinger} onChange={(v) => u({ inkFinger: v })} options={[['pencil', tr('ink.solo_pencil')], ['scroll', tr('ink.dedo_desplaza')], ['draw', tr('ink.dedo_dibuja')]]} /></div>
       </Group>
+
+      <KeySettings />
 
       <AddonsGroup />
 

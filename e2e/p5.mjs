@@ -223,6 +223,97 @@ try {
     check(await page.locator('.search-hit', { hasText: 'Fórmulas' }).count() === 0, 'la referencia del dibujo no se indexa como texto');
   }
 
+  if (run('atajos')) {
+    console.log('Atajos de teclado y mando');
+    // mazo de 25 tarjetas nuevas (sin tocar la pantalla para repasar)
+    const deck = '---\ndeck: Teclado\nnew_per_day: 40\n---\n' + Array.from({ length: 25 }, (_, i) => `Q:: Pregunta ${i + 1}\nA:: Respuesta ${i + 1} ^tk${i + 1}`).join('\n\n') + '\n';
+    await page.goto(URL_ + '#/ajustes');
+    await page.getByRole('region', { name: 'Respaldo' }).getByRole('button', { name: /Importar/ }).click();
+    await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'Teclado.md', mimeType: 'text/markdown', buffer: Buffer.from(deck) });
+    await page.locator('.sheet .btn.primary').filter({ hasText: /Importar/ }).click();
+    await page.getByRole('button', { name: 'Listo' }).click();
+    await page.goto(URL_ + '#/estudiar/decks/Teclado.md');
+    await page.locator('.study-card').waitFor();
+    await page.locator('body').click({ position: { x: 2, y: 2 } }).catch(() => {});
+    const before = await page.evaluate(() => document.querySelectorAll('.study-card').length);
+    for (let i = 0; i < 20; i++) {
+      await page.keyboard.press('Space');
+      await page.getByRole('group', { name: 'Calificación' }).getByRole('button', { name: /^Bien/ }).waitFor();
+      await page.keyboard.press(i % 5 === 4 ? '4' : '3');
+      await page.waitForTimeout(120);
+    }
+    await page.goto(URL_ + '#/hoy');
+    await page.getByText(/Estudiaste 20 tarjetas/).waitFor({ timeout: 8000 });
+    check(before === 1, 'estudiar 20 tarjetas solo con el teclado (Espacio, 3, 4) sin tocar la pantalla');
+    // clicker (PageDown = mostrar o Bien) y mando simulado (A = mostrar/Bien, B = Otra vez)
+    await page.goto(URL_ + '#/estudiar/decks/Teclado.md');
+    await page.locator('.study-card').waitFor();
+    const q1 = await page.locator('.study-card').innerText();
+    await page.keyboard.press('PageDown');
+    await page.keyboard.press('PageDown');
+    await page.waitForTimeout(250);
+    check(await page.locator('.study-card').innerText() !== q1 && (await page.locator('.key-feedback').innerText()).includes('Mostrar respuesta o Bien'), 'clicker: PageDown muestra y califica, con indicador del último botón');
+    await page.evaluate(() => {
+      const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }));
+      const pad = { id: 'Mando de prueba', index: 0, connected: true, mapping: 'standard', buttons, axes: [0, 0, 0, 0], timestamp: 0 };
+      window.__pad = pad;
+      navigator.getGamepads = () => [pad, null, null, null];
+      window.dispatchEvent(Object.assign(new Event('gamepadconnected'), { gamepad: pad }));
+    });
+    const press = async (i) => { await page.evaluate((i) => (window.__pad.buttons[i].pressed = true), i); await page.waitForTimeout(80); await page.evaluate((i) => (window.__pad.buttons[i].pressed = false), i); await page.waitForTimeout(120); };
+    const q2 = await page.locator('.study-card').innerText();
+    await press(0); // A: mostrar
+    check(await page.getByRole('group', { name: 'Calificación' }).getByRole('button', { name: /^Bien/ }).count() === 1, 'mando: A muestra la respuesta');
+    await press(1); // B: Otra vez
+    await page.waitForTimeout(200);
+    await page.locator('.key-feedback', { hasText: '🎮 B → Otra vez' }).waitFor({ timeout: 3000 });
+    check(await page.getByRole('button', { name: /Mostrar respuesta/ }).count() === 1, 'mando: B = Otra vez (califica y pasa a la siguiente)');
+    void q2;
+    // reasignar «Bien» a «b» y que persista
+    await page.goto(URL_ + '#/ajustes/atajos');
+    await page.getByRole('button', { name: 'Cambiar tecla de «Bien»' }).click();
+    await page.keyboard.press('b');
+    await page.waitForTimeout(400);
+    await page.reload();
+    await page.goto(URL_ + '#/ajustes/atajos');
+    await page.getByRole('region', { name: /Atajos/ }).waitFor();
+    check((await page.getByRole('button', { name: 'Restablecer «Bien»' }).count()) === 1 && (await page.locator('.key-row', { has: page.getByRole('button', { name: 'Restablecer «Bien»' }) }).locator('kbd').allInnerTexts()).join() === 'B', 'reasignar una tecla y que persista tras recargar (.app/atajos.json)');
+    await page.goto(URL_ + '#/estudiar/decks/Teclado.md');
+    await page.locator('.study-card').waitFor();
+    await page.keyboard.press('Space');
+    await page.getByRole('group', { name: 'Calificación' }).getByRole('button', { name: /^Bien/ }).waitFor();
+    const q3 = await page.locator('.study-card').innerText();
+    await page.keyboard.press('3');
+    await page.waitForTimeout(200);
+    check(await page.locator('.study-card').innerText() === q3, 'tras reasignar, «3» ya no califica');
+    await page.keyboard.press('b');
+    await page.waitForTimeout(250);
+    check(await page.locator('.study-card').innerText() !== q3, 'y «b» califica Bien');
+    // escribir en una nota no dispara ningún atajo
+    await page.goto(URL_ + '#/notas/+nueva');
+    const f = page.getByRole('dialog', { name: 'Nueva nota' });
+    await f.getByLabel('Materia').fill('Atajos');
+    await f.getByLabel('Tema o clase').fill('Prueba');
+    await f.getByLabel('Título').fill('Escribir');
+    await f.getByRole('button', { name: 'Crear' }).click();
+    await page.getByRole('button', { name: /Escribe o usa/ }).click();
+    await page.locator('.doc textarea').last().click();
+    const hash = await page.evaluate(() => location.hash);
+    await page.keyboard.type('g h 3 e s * f ? b z');
+    await page.waitForTimeout(300);
+    check(await page.evaluate(() => location.hash) === hash && await page.locator('.doc textarea').last().inputValue() === 'g h 3 e s * f ? b z' && await page.getByRole('dialog').count() === 0, 'escribir en una nota no dispara ningún atajo');
+    await page.locator('.doc textarea').last().blur();
+    await page.locator('body').click({ position: { x: 2, y: 2 } }).catch(() => {});
+    await page.keyboard.press('?');
+    await page.getByRole('dialog', { name: 'Atajos de teclado y mando' }).waitFor();
+    check(true, '«?» fuera de un campo abre la hoja de atajos');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('g');
+    await page.keyboard.press('c');
+    await page.waitForFunction(() => location.hash === '#/calendario');
+    check(true, 'secuencia G y luego C va al Calendario');
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');

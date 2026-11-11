@@ -9,7 +9,11 @@ import { srsParams, studyLimits } from '../lib/settings';
 import { plainText } from '../md/render';
 import { applyReview, explain, formatInterval, type LogEntry, previews, type Rating, RATING_LABEL, replay, scheduler } from '../srs/engine';
 import { buildQueue, isLeech, nextCard, stateOf } from '../srs/queue';
-import { useApp } from '../state';
+import { go, useApp } from '../state';
+import { KeyFeedback, keymap, useKeyScope, type Via } from '../ui/keys';
+
+/** Marcas del repaso («*» marcar, «F» no la sé / favorita): aparte del historial FSRS. */
+const MARKS = '.app/marcas.json';
 import { Empty, PageTitle, Sheet } from '../ui/kit';
 import { readTextOr } from '../vault/util';
 import { CardView, isInteractive } from './cardview';
@@ -116,19 +120,29 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
     app.toast(tr('study.repaso_deshecho'));
   };
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (props.embedded || modalOpen()) return;
-      const t = e.target as HTMLElement;
-      if (t.closest('input, textarea, select, [contenteditable]')) return;
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') return e.preventDefault(), void doUndo();
-      if ((e.key === ' ' || ((e.metaKey || e.ctrlKey) && e.key === 'Enter')) && !revealed && entry && !isInteractive(entry.ref)) return e.preventDefault(), setRevealed(true);
-      if (revealed && ['1', '2', '3', '4'].includes(e.key)) return e.preventDefault(), void answer(Number(e.key) as Rating);
-      if (e.key.toLowerCase() === 'e' && entry) setEdit(true);
-    };
-    addEventListener('keydown', onKey);
-    return () => removeEventListener('keydown', onKey);
-  });
+  // teclado, clicker y mando (configurables en Ajustes → Atajos); el repaso se hace sin tocar la pantalla
+  const [lastKey, setLastKey] = useState<{ via: Via; action: string; at: number } | null>(null);
+  const [marks, setMarks] = useState<Record<string, { mark?: boolean; flag?: boolean }>>({});
+  useEffect(() => { void readTextOr(app.vault, MARKS, '{}').then((t) => { try { setMarks(JSON.parse(t) as typeof marks); } catch { /* dañado */ } }); }, []);
+  const toggleMark = async (cid: string, k: 'mark' | 'flag') => {
+    const next = { ...marks, [cid]: { ...marks[cid], [k]: !marks[cid]?.[k] } };
+    setMarks(next);
+    await app.vault.write(MARKS, JSON.stringify(next));
+  };
+  useKeyScope('study', (id, via) => {
+    if (!entry) return;
+    const canReveal = !revealed && !isInteractive(entry.ref);
+    setLastKey({ via, action: id, at: Date.now() });
+    if (id === 'study.show') { if (canReveal) setRevealed(true); else if (revealed && keymap.cfg.spaceGood) void answer(3); }
+    else if (id === 'study.advance') { if (canReveal) setRevealed(true); else if (revealed) void answer(3); }
+    else if (revealed && ['study.again', 'study.hard', 'study.good', 'study.easy'].includes(id)) void answer((['study.again', 'study.hard', 'study.good', 'study.easy'].indexOf(id) + 1) as Rating);
+    else if (id === 'study.undo') void doUndo();
+    else if (id === 'study.edit') setEdit(true);
+    else if (id === 'study.bury' && col) void stateOp(app.vault, col, [entry.ref.cid], 'bury', params, dayKey(Date.now(), s.timeZone, s.dayStartHour)).then(() => (done.add(entry.ref.cid), setCur(null), app.toast(tr('keys.enterrada'))));
+    else if (id === 'study.mark') void toggleMark(entry.ref.cid, 'mark');
+    else if (id === 'study.flag') void toggleMark(entry.ref.cid, 'flag');
+    else if (id === 'study.exit') go('hoy');
+  }, !props.embedded);
 
   if (!col || !queue) return <p class="t2">{tr('deck.cargando')}</p>;
   const deckName = props.filter ? col.decks.find((d) => d.path === props.filter)?.full ?? props.filter.replace(/^decks\//, '').replace(/\/$/, '') : tr('study.todos_los_mazos');
@@ -184,9 +198,11 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
       )}
       <article class="study-card glass strong" aria-live="polite" key={entry.ref.cid}>
         {entry.ref.note.origin === 'ia' && <span class="chip" style={{ alignSelf: 'flex-start' }}>{tr('notes.origen_ia')}</span>}
+        {(marks[entry.ref.cid]?.mark || marks[entry.ref.cid]?.flag) && <span class="row" style={{ gap: '6px' }}>{marks[entry.ref.cid]?.mark && <span class="chip">★ {tr('keys.marcada')}</span>}{marks[entry.ref.cid]?.flag && <span class="chip">⚑ {tr('keys.no_la_se')}</span>}</span>}
         <CardView card={entry.ref} revealed={revealed} onReveal={() => setRevealed(true)} onSuggest={setSuggest} startedAt={started} seed={seed.current + entry.ref.cid} />
         {entry.ref.note.src && revealed && <a class="foot" href={entry.ref.note.src.includes('.pdf') ? `#/espacios/abrir/${encodeURIComponent(entry.ref.note.src)}` : `#/notas/${encodeURIComponent(entry.ref.note.src.split('#')[0]!)}`}>{tr('study.ver_origen_src', { src: entry.ref.note.src })}</a>}
       </article>
+      <KeyFeedback last={lastKey} />
       <div class="grades glass" role="group" aria-label={tr('design.calificacion')}>
         {!revealed ? (
           isInteractive(entry.ref) ? <p class="t2 center" style={{ gridColumn: '1 / -1', padding: '14px' }}>{tr('study.responde_en_la_tarjeta_para_calificar')}</p> : (

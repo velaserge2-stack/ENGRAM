@@ -1,6 +1,7 @@
 import { t } from '../i18n';
 import { Eraser, GripVertical, Highlighter, Lasso, PenLine, Redo2, Ruler, Undo2 } from 'lucide-preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useKeyScope } from '../ui/keys';
 import { acceptPointer, eraseArea, eraseStrokes, type FingerMode, type History, INK_COLORS, type InkDoc, lassoSelect, moveStrokes, outline, type Pt, SIZES, type Stroke, straighten, strokeId, type Tool } from './model';
 
 export interface InkTools { tool: Tool; color: string; size: number; eraser: 'stroke' | 'area'; ruler: boolean }
@@ -189,8 +190,6 @@ export function InkLayer(p: { doc: InkDoc; onChange: (d: InkDoc) => void; histor
   );
 }
 
-const TOOL_KEYS: Record<string, Tool> = { p: 'pen', h: 'highlighter', e: 'eraser' };
-const typing = () => { const a = document.activeElement as HTMLElement | null; return !!a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); };
 
 /** Barra flotante de vidrio, movible, con atajos (P, H, E, ⌘Z / ⇧⌘Z). */
 export function InkToolbar(p: { tools: InkTools; set: (t: InkTools) => void; onUndo: () => void; onRedo: () => void; canUndo: boolean; canRedo: boolean; extra?: preact.ComponentChildren }) {
@@ -198,16 +197,12 @@ export function InkToolbar(p: { tools: InkTools; set: (t: InkTools) => void; onU
   const drag = useRef<{ dx: number; dy: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const tl = p.tools;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (typing() || e.altKey) return;
-      const k = e.key.toLowerCase();
-      if ((e.metaKey || e.ctrlKey) && k === 'z') return e.preventDefault(), e.shiftKey ? p.onRedo() : p.onUndo();
-      if (!e.metaKey && !e.ctrlKey && TOOL_KEYS[k]) (e.preventDefault(), p.set({ ...tl, tool: TOOL_KEYS[k]! }));
-    };
-    addEventListener('keydown', onKey);
-    return () => removeEventListener('keydown', onKey);
-  }, [tl, p.onUndo, p.onRedo]);
+  // P bolígrafo, H resaltador, E borrador, ⌘Z / ⇧⌘Z (configurables en Ajustes → Atajos)
+  useKeyScope('ink', (id) => {
+    if (id === 'ink.undo') p.onUndo();
+    else if (id === 'ink.redo') p.onRedo();
+    else p.set({ ...tl, tool: ({ 'ink.pen': 'pen', 'ink.highlighter': 'highlighter', 'ink.eraser': 'eraser' } as Record<string, Tool>)[id]! });
+  });
   const btn = (tool: Tool, icon: preact.JSX.Element, label: string) => <button type="button" class="btn icon small" aria-label={label} aria-pressed={tl.tool === tool} onClick={() => p.set({ ...tl, tool })}>{icon}</button>;
   return (
     <div ref={ref} class="ink-toolbar glass strong" role="toolbar" aria-label={t('ink.herramientas')} style={pos ? { left: `${pos.x}px`, top: `${pos.y}px`, position: 'fixed' } : undefined}>

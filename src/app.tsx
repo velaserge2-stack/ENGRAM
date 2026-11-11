@@ -31,6 +31,7 @@ import { addonOn } from './screens/addons';
 import { AmbientController, AmbientPlayer } from './screens/ambient';
 import { Headphones } from 'lucide-preact';
 import { Sheet } from './ui/kit';
+import { GlobalKeys, keymap, ShortcutSheet } from './ui/keys';
 
 const DAY = 86_400_000;
 
@@ -187,17 +188,17 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     previewBg: (bg, mode = null) => setPreview(bg ? { bg, mode } : null),
   };
 
-  // atajos con teclado externo
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!e.metaKey && !e.ctrlKey) return;
-      const k = e.key.toLowerCase();
-      if (k === 'k' || k === 'p' || k === 'o') (e.preventDefault(), ctx.openSheet('palette', k === 'o' ? 'archivos' : null));
-      else if (k === 'n' && !e.shiftKey) (e.preventDefault(), go('notas', '+nueva'));
-    };
-    addEventListener('keydown', onKey);
-    return () => removeEventListener('keydown', onKey);
-  });
+  // atajos con teclado externo (configurables: Ajustes → Atajos, .app/atajos.json)
+  const [keysHelp, setKeysHelp] = useState(false);
+  useEffect(() => { void keymap.load(vault); }, [vault]);
+  const runGlobal = (id: string) => {
+    if (id === 'global.palette' || id === 'global.files') ctx.openSheet('palette', id === 'global.files' ? 'archivos' : null);
+    else if (id === 'global.newNote') go('notas', '+nueva');
+    else if (id === 'global.newCard') ctx.openSheet('add');
+    else if (id === 'global.help') setKeysHelp(true);
+    else if (id === 'global.find') document.querySelector<HTMLInputElement>('main [role="search"] input, main input[type="search"]')?.focus();
+    else if (id.startsWith('global.go')) go(({ goHoy: 'hoy', goMazos: 'mazos', goNotas: 'notas', goCalendario: 'calendario', goSimulacros: 'simulacros' } as Record<string, string>)[id.slice(7)]!);
+  };
 
   const bg = <BackgroundLayer bg={eff.bg} blur={settings.bgBlur} dim={settings.bgDim} vault={vault} framing={framing} />;
 
@@ -269,6 +270,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       {sheet === 'exam' && <ExamSheet path={sheetArg} onClose={() => setSheet(null)} />}
       {sheet === 'palette' && <Palette mode={sheetArg} onClose={() => setSheet(null)} />}
       {phone && <PhoneTabBar tab={tabId} />}
+      <GlobalKeys run={runGlobal} />
+      {keysHelp && <ShortcutSheet onClose={() => setKeysHelp(false)} />}
       {addonOn(settings, 'ambient') && <AmbientController />}
       {sheet === 'ambient' && <Sheet title={t('addons.n_ambient')} onClose={() => setSheet(null)}><AmbientPlayer /></Sheet>}
       {toastMsg && <div class="toast glass strong" role="status" aria-live="polite">{toastMsg}</div>}

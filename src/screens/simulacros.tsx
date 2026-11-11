@@ -14,7 +14,7 @@ import { Bar, Empty, PageTitle, Segmented, Sheet } from '../ui/kit';
 import { extname } from '../vault/paths';
 import { readTextOr, walk } from '../vault/util';
 import { shuffle } from './cardview';
-import { modalOpen } from '../ui/overlay';
+import { useKeyScope } from '../ui/keys';
 
 const CURRENT = '.app/exam-current.json';
 
@@ -245,20 +245,16 @@ function Runner() {
     setShownAt(Date.now());
     void save({ ...at, cur: i, perQ: q ? { ...at.perQ, [q.q.id]: (at.perQ[q.q.id] ?? 0) + (Date.now() - shownAt) } : at.perQ });
   };
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const a = atRef.current;
-      if (!a || modalOpen() || (e.target as HTMLElement).closest('input, textarea')) return;
-      const qq = a.qs[a.cur];
-      const k = e.key.toUpperCase();
-      const i = 'ABCDEF'.indexOf(k);
-      if (k.length === 1 && i >= 0 && keyFor(i)) choose(keyFor(i)!);
-      else if (e.key === 'ArrowRight') goTo(a.cur + 1);
-      else if (e.key === 'ArrowLeft') goTo(a.cur - 1);
-      else if (k === 'M' && qq) void save({ ...a, marked: a.marked.includes(qq.q.id) ? a.marked.filter((x) => x !== qq.q.id) : [...a.marked, qq.q.id] });
-    };
-    addEventListener('keydown', onKey);
-    return () => removeEventListener('keydown', onKey);
+  // A–E o 1–5 eligen, J/K o flechas navegan, M marca (configurables; también con mando)
+  useKeyScope('sim', (id) => {
+    const a = atRef.current;
+    if (!a) return;
+    const qq = a.qs[a.cur];
+    const i = 'ABCDE'.indexOf(id.replace('sim.opt', ''));
+    if (id.startsWith('sim.opt') && i >= 0 && keyFor(i)) choose(keyFor(i)!);
+    else if (id === 'sim.next') goTo(a.cur + 1);
+    else if (id === 'sim.prev') goTo(a.cur - 1);
+    else if (id === 'sim.mark' && qq) void save({ ...a, marked: a.marked.includes(qq.q.id) ? a.marked.filter((x) => x !== qq.q.id) : [...a.marked, qq.q.id] });
   });
   if (!at) return <Empty icon={<ClipboardCheck size={44} />} title={tr('simulacros.no_hay_un_simulacro_en_curso')} action={<a class="btn primary" href="#/simulacros">{tr('simulacros.volver')}</a>}>{tr('simulacros.crea_uno_desde_simulacros')}</Empty>;
   if (!q) return null;
