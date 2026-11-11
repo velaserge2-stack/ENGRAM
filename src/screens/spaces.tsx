@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, ClipboardCheck, FileSpreadsheet, FileText, Image as ImageIcon, Lock, Maximize2, Minimize2, NotebookPen, Plus, Scan, Timer, Unlock, X, LayoutGrid, Inbox as InboxIcon, Sparkles } from 'lucide-preact';
+import { BarChart3, BookOpen, ClipboardCheck, FileSpreadsheet, FileText, Image as ImageIcon, Lock, NotebookPen, Plus, Scan, Timer, Unlock, X, LayoutGrid, Inbox as InboxIcon, Sparkles } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { docxToHtml } from '../io/extract';
 import { parseCSV } from '../io/csv';
@@ -11,6 +11,8 @@ import { mediaUrl } from '../ui/background';
 import { extname } from '../vault/paths';
 import { readTextOr, walk } from '../vault/util';
 import { PdfViewer } from './pdf';
+import { growIn, MinButton, shrinkToTray, Tray, type TrayItem } from '../ui/tray';
+import { fmt, remaining } from '../lib/pomodoro';
 import { PomodoroPanel } from './pomodoro';
 import { Study } from './study';
 import { todayProgress } from '../lib/stats';
@@ -19,7 +21,11 @@ import { saveImage } from '../notes/images';
 
 type PType = 'estudio' | 'simulacro' | 'nota' | 'pdf' | 'docx' | 'hoja' | 'imagen' | 'pomodoro' | 'stats';
 interface Panel { id: string; type: PType; arg: string; x: number; y: number; w: number; h: number; locked?: boolean; min?: boolean }
-interface Space { id: string; name: string; emoji: string; mode: 'tiles' | 'canvas'; panels: Panel[]; sizes: number[]; view: { x: number; y: number; k: number } }
+interface Space { id: string; name: string; emoji: string; mode: 'tiles' | 'canvas'; panels: Panel[]; sizes: number[]; view: { x: number; y: number; k: number }; tray?: string[] }
+
+/** Paneles que se pueden minimizar a cuadrito (no la sesión de estudio ni un simulacro). */
+const MINIMIZABLE: PType[] = ['pomodoro', 'stats', 'pdf', 'docx', 'hoja'];
+const visible = (sp: Space) => sp.panels.filter((x) => !x.min);
 
 const DIR = '.app/spaces';
 const TYPES: { t: PType; label: string; icon: preact.JSX.Element }[] = [
@@ -53,6 +59,7 @@ const PRESETS: Record<string, Omit<Space, 'id'>> = {
 async function loadSpaces(vault: ReturnType<typeof useApp>['vault']): Promise<Space[]> {
   const out: Space[] = [];
   for (const f of await walk(vault, DIR)) {
+    if (f.name.startsWith('_')) continue; // estado del tablero Hoy, no es un espacio
     try { out.push(JSON.parse(await readTextOr(vault, f.path, '')) as Space); } catch { /* dañado */ }
   }
   return out.sort((a, b) => a.name.localeCompare(b.name, 'es'));
@@ -94,6 +101,7 @@ export function Spaces(props: { route: string[] }) {
       <nav class="rail glass" aria-label="Espacios">
         {spaces?.map((s) => <button type="button" aria-current={sp?.id === s.id} aria-label={s.name} title={s.name} onClick={() => go('espacios', s.id)}>{s.emoji}</button>)}
         <button type="button" aria-label="Nuevo espacio" onClick={() => setCreating(true)}><Plus size={20} /></button>
+        {sp && innerWidth < 900 && <PanelTray sp={sp} save={save} vertical />}
       </nav>
       <div style={{ minWidth: 0 }}>
         {!sp ? (
@@ -127,16 +135,58 @@ export function Spaces(props: { route: string[] }) {
   );
 }
 
+const restored = new Set<string>();
+
+function minimizePanel(sp: Space, save: (s: Space) => void, id: string) {
+  const panels = sp.panels.map((x) => (x.id === id ? { ...x, min: true } : x));
+  const next = { ...sp, panels, tray: [...(sp.tray ?? []).filter((x) => x !== id), id] };
+  save({ ...next, sizes: initialSizes(visible(next).slice(0, 3)) });
+}
+
+function restorePanel(sp: Space, save: (s: Space) => void, id: string) {
+  restored.add(id);
+  let panels = sp.panels.map((x) => (x.id === id ? { ...x, min: false } : x));
+  // en mosaico caben 3: el que vuelve desplaza al más antiguo visible a la bandeja
+  let tray = (sp.tray ?? []).filter((x) => x !== id);
+  if (sp.mode === 'tiles') {
+    const vis = panels.filter((x) => !x.min);
+    if (vis.length > 3) {
+      const out = vis.find((x) => x.id !== id && MINIMIZABLE.includes(x.type));
+      if (out) (panels = panels.map((x) => (x.id === out.id ? { ...x, min: true } : x)), (tray = [...tray, out.id]));
+    }
+  }
+  const next = { ...sp, panels, tray };
+  save({ ...next, sizes: initialSizes(visible(next).slice(0, 3)) });
+}
+
+function PanelTray(p: { sp: Space; save: (s: Space) => void; vertical?: boolean }) {
+  const app = useApp();
+  const order = [...(p.sp.tray ?? []), ...p.sp.panels.filter((x) => x.min).map((x) => x.id)];
+  const ids = [...new Set(order)].filter((id) => p.sp.panels.some((x) => x.id === id && x.min));
+  const rem = fmt(remaining(app.pomo.state, app.pomo.now));
+  const items: TrayItem[] = ids.map((id) => {
+    const pn = p.sp.panels.find((x) => x.id === id)!;
+    const t = TYPES.find((x) => x.t === pn.type)!;
+    const name = pn.arg ? `${t.label}: ${pn.arg.split('/').pop()}` : t.label;
+    return pn.type === 'pomodoro' ? { id, label: name, icon: t.icon, live: rem, liveLabel: `${rem} restantes${app.pomo.state.running ? '' : ', en pausa'}` } : { id, label: name, icon: t.icon };
+  });
+  return <Tray items={items} vertical={p.vertical} max={p.vertical ? 4 : 6} onRestore={(id) => restorePanel(p.sp, p.save, id)} onClose={(id) => { const panels = p.sp.panels.filter((x) => x.id !== id); p.save({ ...p.sp, panels, tray: (p.sp.tray ?? []).filter((x) => x !== id), sizes: initialSizes(panels.filter((x) => !x.min).slice(0, 3)) }); }} />;
+}
+
 function Dock(p: { sp: Space; save: (s: Space) => void }) {
   const app = useApp();
   const add = (t: PType) => {
     const n = p.sp.panels.length;
     const panel: Panel = { id: Date.now().toString(36), type: t, arg: '', x: 60 + n * 40, y: 60 + n * 40, w: t === 'pomodoro' ? 340 : t === 'nota' ? 760 : 560, h: t === 'pomodoro' ? 420 : t === 'nota' ? 640 : 520 };
-    const panels = p.sp.mode === 'tiles' ? [...p.sp.panels.slice(-2), panel] : [...p.sp.panels, panel];
-    p.save({ ...p.sp, panels, sizes: initialSizes(panels) });
+    const vis = visible(p.sp);
+    // en mosaico caben 3: los demás visibles pasan a la bandeja si se pueden minimizar
+    const keep = new Set(p.sp.mode === 'tiles' ? vis.slice(-2).map((x) => x.id) : vis.map((x) => x.id));
+    const panels = [...p.sp.panels.map((x) => (!x.min && !keep.has(x.id) && MINIMIZABLE.includes(x.type) ? { ...x, min: true } : x)).filter((x) => x.min || keep.has(x.id)), panel];
+    p.save({ ...p.sp, panels, sizes: initialSizes(panels.filter((x) => !x.min).slice(0, 3)) });
   };
   return (
     <div class="dock no-print">
+      {innerWidth >= 900 && <PanelTray sp={p.sp} save={p.save} />}
       <a class="pill glass" href="#/addons"><Sparkles size={16} /> Extras</a>
       <div class="glass" role="toolbar" aria-label="Añadir panel">
         <span class="note t2" style={{ padding: '0 10px' }}><Plus size={14} /> Añadir panel</span>
@@ -149,8 +199,8 @@ function Dock(p: { sp: Space; save: (s: Space) => void }) {
 
 function Tiles(p: { sp: Space; save: (s: Space) => void }) {
   const box = useRef<HTMLDivElement>(null);
-  const panels = p.sp.panels.slice(0, 3);
-  const sizes = panels.map((_, i) => p.sp.sizes[i] ?? 1 / panels.length);
+  const panels = visible(p.sp).slice(0, 3);
+  const sizes = p.sp.sizes.length === panels.length ? p.sp.sizes : initialSizes(panels);
   const drag = useRef<{ i: number; x: number; s: number[] } | null>(null);
   if (!panels.length) return <div class="empty glass"><p>Añade paneles desde el dock (1 a 3 en mosaico).</p></div>;
   const cols = sizes.flatMap((s, i) => (i ? ['10px', `${s}fr`] : [`${s}fr`])).join(' ');
@@ -177,7 +227,7 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
   const last = useRef<{ d: number } | null>(null);
   const commit = (nv: typeof v) => (setV(nv), p.save({ ...p.sp, view: nv }));
   // máximo 4 activos: los menos recientes se "duermen"
-  const order = [...p.sp.panels].sort((a, b) => (a.id === focus ? 1 : b.id === focus ? -1 : 0));
+  const order = visible(p.sp).sort((a, b) => (a.id === focus ? 1 : b.id === focus ? -1 : 0));
   const awake = new Set(order.slice(-MAX_ACTIVE).map((x) => x.id));
   const fit = () => {
     const ps = p.sp.panels;
@@ -213,7 +263,7 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
       onPointerUp={(e) => { pts.current.delete(e.pointerId); last.current = null; if (!pts.current.size) p.save({ ...p.sp, view: v }); }}
       onWheel={(e) => { e.preventDefault(); const r = wrap.current!.getBoundingClientRect(); const cx = e.clientX - r.left, cy = e.clientY - r.top; if (e.ctrlKey || e.metaKey) { const k = Math.exp(-e.deltaY / 300); setV((o) => ({ k: Math.min(3, Math.max(0.2, o.k * k)), x: cx - (cx - o.x) * k, y: cy - (cy - o.y) * k })); } else setV((o) => ({ ...o, x: o.x - e.deltaX, y: o.y - e.deltaY })); }}>
       <div class="canvas-plane" style={{ transform: `translate(${v.x}px, ${v.y}px) scale(${v.k})` }}>
-        {p.sp.panels.map((pn) => <Window key={pn.id} panel={pn} sp={p.sp} save={p.save} free scale={v.k} asleep={!awake.has(pn.id)} focused={focus === pn.id} onFocus={() => setFocus(pn.id)} />)}
+        {visible(p.sp).map((pn) => <Window key={pn.id} panel={pn} sp={p.sp} save={p.save} free scale={v.k} asleep={!awake.has(pn.id)} focused={focus === pn.id} onFocus={() => setFocus(pn.id)} />)}
       </div>
       <div class="row" style={{ position: 'absolute', left: '12px', bottom: '12px' }}>
         <button type="button" class="btn small glass" onClick={fit}><Scan size={16} /> Ajustar al contenido</button>
@@ -232,6 +282,10 @@ function Window(p: { panel: Panel; sp: Space; save: (s: Space) => void; free?: b
   const t = TYPES.find((x) => x.t === pn.type)!;
   const upd = (patch: Partial<Panel>) => p.save({ ...p.sp, panels: p.sp.panels.map((x) => (x.id === pn.id ? { ...x, ...patch } : x)) });
   const dragRef = useRef<{ x: number; y: number; px: number; py: number; mode: 'move' | 'size' } | null>(null);
+  const winRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (restored.has(pn.id)) (restored.delete(pn.id), growIn(winRef.current));
+  }, []);
   const start = (mode: 'move' | 'size') => (e: PointerEvent) => {
     if (!p.free || pn.locked || (e.target as HTMLElement).closest('button')) return;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -246,19 +300,19 @@ function Window(p: { panel: Panel; sp: Space; save: (s: Space) => void; free?: b
     if (d.mode === 'move') upd({ x: Math.round(d.px + dx), y: Math.round(d.py + dy) });
     else upd({ w: Math.max(pn.type === 'nota' ? 480 : 260, Math.round(d.px + dx)), h: Math.max(pn.type === 'nota' ? 360 : 200, Math.round(d.py + dy)) });
   };
-  const style = p.free ? { left: `${pn.x}px`, top: `${pn.y}px`, width: `${pn.w}px`, height: pn.min ? '44px' : `${pn.h}px` } : {};
+  const style = p.free ? { left: `${pn.x}px`, top: `${pn.y}px`, width: `${pn.w}px`, height: `${pn.h}px` } : {};
   return (
-    <section class={`win glass${p.focused ? ' focused' : ''}${p.asleep ? ' asleep flat' : ''}`} style={style} aria-label={`Panel ${t.label}`} onPointerDown={() => p.onFocus?.()}>
+    <section ref={winRef} class={`win glass${p.focused ? ' focused' : ''}${p.asleep ? ' asleep flat' : ''}`} style={style} aria-label={`Panel ${t.label}`} onPointerDown={() => p.onFocus?.()}>
       <header class="win-bar" onPointerDown={start('move')} onPointerMove={move} onPointerUp={() => (dragRef.current = null)}>
         {t.icon}
         <span class="t ellipsis">{pn.arg ? pn.arg.split('/').pop() : t.label}</span>
         <span class="chip">{p.asleep ? 'en pausa' : t.label}</span>
         <span class="grow" />
         {p.free && <button type="button" class="btn icon small ghost" aria-label={pn.locked ? 'Desbloquear' : 'Bloquear'} onClick={() => upd({ locked: !pn.locked })}>{pn.locked ? <Lock size={16} /> : <Unlock size={16} />}</button>}
-        {p.free && <button type="button" class="btn icon small ghost" aria-label={pn.min ? 'Expandir' : 'Minimizar'} onClick={() => upd({ min: !pn.min })}>{pn.min ? <Maximize2 size={16} /> : <Minimize2 size={16} />}</button>}
+        {MINIMIZABLE.includes(pn.type) && <MinButton label={t.label} onClick={async () => { await shrinkToTray(winRef.current); minimizePanel(p.sp, p.save, pn.id); }} />}
         <button type="button" class="btn icon small ghost" aria-label="Cerrar panel" onClick={() => p.save({ ...p.sp, panels: p.sp.panels.filter((x) => x.id !== pn.id), sizes: p.sp.panels.filter((x) => x.id !== pn.id).map((_, _i, a) => 1 / a.length) })}><X size={16} /></button>
       </header>
-      {!pn.min && (
+      {(
         <div class="win-body">
           {p.asleep ? <p class="t2" style={{ padding: '16px' }}>Panel en pausa para cuidar la memoria (máx. {MAX_ACTIVE} activos). Tócalo para reanudar.</p> : <PanelBody panel={pn} onArg={(arg) => upd({ arg })} />}
           {p.free && <div class="win-resize" onPointerDown={start('size')} onPointerMove={move} onPointerUp={() => (dragRef.current = null)} aria-hidden="true" />}

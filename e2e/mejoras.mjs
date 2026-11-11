@@ -101,6 +101,47 @@ try {
     await page.setViewportSize({ width: 1180, height: 820 });
   }
 
+  if (only.includes('tray')) {
+    // Hoy: minimizar el pomodoro en marcha
+    await page.goto(URL_ + '#/hoy');
+    await page.locator('.pomo').getByRole('button', { name: 'Iniciar', exact: true }).first().click();
+    await page.getByRole('button', { name: 'Minimizar Pomodoro' }).click();
+    const sq = page.getByRole('button', { name: /^Pomodoro, minimizado, \d\d:\d\d restantes$/ });
+    await sq.waitFor();
+    check(await page.locator('.pomo').count() === 0, 'el pomodoro se minimiza a un cuadrito con etiqueta para VoiceOver');
+    await page.getByRole('button', { name: 'Minimizar Pendientes' }).click();
+    await page.waitForTimeout(3000);
+    await page.reload();
+    await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
+    await page.locator('.tray-sq').nth(1).waitFor();
+    const labels = await page.locator('.tray-sq').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+    check(labels.length === 2 && /^Pomodoro/.test(labels[0]) && /^Pendientes/.test(labels[1]), `tras recargar los cuadritos siguen en su orden (${labels.join(' | ')})`);
+    const live = await page.locator('.tray-sq .tray-live').first().textContent();
+    await sq.click();
+    const t = await page.locator('.pomo .time').textContent();
+    const sec = (x) => { const [m, s2] = x.trim().split(':').map(Number); return m * 60 + s2; };
+    check(sec(t) < 25 * 60 && Math.abs(sec(t) - sec(live)) <= 2, `al restaurar, el pomodoro siguió corriendo (${live} → ${t})`);
+    await page.locator('.pomo').getByRole('button', { name: 'Pausar', exact: true }).first().click();
+    // pulsación larga → Cerrar
+    await page.locator('.tray-sq').first().dispatchEvent('contextmenu');
+    await page.locator('.sheet').getByRole('button', { name: 'Cerrar', exact: true }).last().click();
+    await page.getByRole('button', { name: /Mostrar paneles cerrados \(1\)/ }).click();
+    check(await page.getByRole('button', { name: 'Minimizar Pendientes' }).count() === 1, 'pulsación larga → Cerrar, y se puede volver a mostrar');
+    // Espacios: PDF minimizado y restaurado en su lugar
+    await page.goto(URL_ + '#/espacios');
+    if (await page.getByRole('button', { name: 'Repaso' }).count()) await page.getByRole('button', { name: 'Repaso' }).click();
+    else { await page.getByRole('button', { name: 'Nuevo espacio' }).click(); await page.locator('.sheet input[name=n]').fill('Repaso'); await page.locator('.sheet select').selectOption('Repaso'); await page.getByRole('button', { name: 'Crear' }).click(); }
+    await page.getByRole('button', { name: 'Minimizar Estadísticas' }).click();
+    await page.getByRole('button', { name: /^Estadísticas, minimizado$/ }).waitFor();
+    check(await page.getByRole('button', { name: 'Minimizar Estudio' }).count() === 0, 'la sesión de estudio no se puede minimizar');
+    await page.waitForTimeout(600);
+    await page.reload();
+    await page.getByRole('button', { name: /^Estadísticas, minimizado$/ }).click();
+    await page.locator('.win').filter({ hasText: 'Estudiadas hoy' }).waitFor();
+    check(true, 'en un espacio el panel minimizado persiste y se restaura');
+    await page.screenshot({ path: OUT + 'mejora-bandeja.png' });
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.join(' | ') : ''));
   console.log('\nOK');
 } catch (e) {
