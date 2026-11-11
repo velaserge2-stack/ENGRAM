@@ -711,3 +711,7 @@ mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border
 .move-tree .opt[aria-checked="true"] { background: var(--fill-sel); }
 .pick-note { display: grid; grid-template-columns: 44px 1fr; align-items: center; }
 .pick-note .pick { justify-self: center; }
+.tree a, .tree .ti { -webkit-touch-callout: none; }
+.tree .dragging { opacity: .45; }
+.tree .ti.drop-over, .tree a.drop-over { background: var(--fill-sel); border-radius: 10px; }
+.tree .pick-row { display: flex; align-items: center; gap: 6px; min-height: 44px; }

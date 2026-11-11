@@ -110,6 +110,78 @@ try {
     check(true, 'verifyDeterminism: el estado reconstruido es idéntico');
   }
 
+  if (run('notas')) {
+    console.log('Mover notas y temas');
+    await page.goto(URL_ + '#/notas/+nueva');
+    const sh = page.locator('.sheet');
+    await sh.getByLabel('Materia').fill('Urgencias');
+    await sh.getByLabel('Tema o clase').fill('Arritmias');
+    await sh.getByLabel('Título').fill('Taquicardias');
+    await page.getByRole('button', { name: 'Crear' }).click();
+    await page.locator('.doc').waitFor();
+    // desde la barra de acciones de la nota
+    await page.goto(URL_ + '#/notas/Cardiolog%C3%ADa/ECG/Clase%201%20-%20ECG%20b%C3%A1sico.md');
+    await page.locator('.doc').waitFor();
+    await page.getByRole('button', { name: 'Mover a otra materia o tema' }).click();
+    const mv = page.getByRole('dialog', { name: 'Mover a…' });
+    check(await mv.getByRole('radio', { name: 'ECG' }).isDisabled(), 'el tema actual aparece como «aquí»');
+    await mv.getByRole('radio', { name: 'Arritmias' }).click();
+    await mv.getByRole('button', { name: 'Mover aquí' }).click();
+    await page.waitForURL(/Urgencias\/Arritmias\/Clase/);
+    await page.locator('.doc').waitFor();
+    check((await page.locator('.doc').innerText()).includes('ECG básico'), 'la nota se abre en su nueva ruta');
+    await page.getByRole('searchbox', { name: /Buscar en todas las notas/ }).fill('derivaciones');
+    await page.getByRole('region', { name: 'Resultados de la búsqueda' }).waitFor();
+    check((await page.getByRole('region', { name: 'Resultados de la búsqueda' }).innerText()).includes('Arritmias'), 'el buscador la encuentra en su nueva ubicación');
+    await page.getByRole('searchbox', { name: /Buscar en todas las notas/ }).fill('');
+    await page.locator('.toast').getByRole('button', { name: 'Deshacer' }).click();
+    await page.waitForURL(/Cardiolog%C3%ADa\/ECG\/Clase|Cardiología\/ECG\/Clase/);
+    check(true, '«Deshacer» la devuelve a Cardiología/ECG');
+
+    // otra nota en otro tema para tener destinos
+    await page.locator('.tree').getByRole('button', { name: 'Nota', exact: true }).click();
+    await page.locator('.sheet').getByLabel('Materia').fill('Urgencias');
+    await page.locator('.sheet').getByLabel('Tema o clase').fill('Choque');
+    await page.locator('.sheet').getByLabel('Título').fill('Sepsis');
+    await page.locator('.sheet').getByRole('button', { name: 'Crear', exact: true }).click();
+    await page.waitForURL(/Sepsis/);
+    await page.locator('.doc').waitFor();
+
+    // árbol: menú contextual (clic derecho) en una nota
+    await page.locator('.tree a', { hasText: 'Taquicardias' }).click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Mover a…' }).click();
+    await page.getByRole('dialog', { name: 'Mover a…' }).getByRole('radio', { name: 'ECG' }).click();
+    await page.getByRole('dialog', { name: 'Mover a…' }).getByRole('button', { name: 'Mover aquí' }).click();
+    await page.locator('.toast', { hasText: 'Cardiología/ECG' }).waitFor();
+    await page.locator('.tree button.ti', { hasText: 'Arritmias' }).waitFor({ state: 'detached' });
+    check(true, 'menú contextual del árbol: Taquicardias a Cardiología/ECG');
+
+    // arrastrar un tema entero a otra materia: Cardiología/ECG → Urgencias
+    const src = await page.locator('.tree button.ti', { hasText: 'ECG' }).boundingBox();
+    const dst = await page.locator('.tree button.ti', { hasText: 'Urgencias' }).boundingBox();
+    await page.mouse.move(src.x + 40, src.y + src.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.move(src.x + 44, src.y + src.height / 2 + 12, { steps: 3 });
+    await page.mouse.move(dst.x + 40, dst.y + dst.height / 2, { steps: 8 });
+    check(await page.locator('.tree .ti.drop-over').count() === 1, 'al arrastrar se marca la materia de destino');
+    await page.mouse.up();
+    await page.locator('.toast', { hasText: '2 nota' }).waitFor();
+    await page.locator('.tree button.ti', { hasText: 'Cardiología' }).waitFor({ state: 'detached' });
+    check(true, 'arrastrar: el tema completo (2 notas) pasa a Urgencias');
+
+    // selección múltiple
+    await page.getByRole('button', { name: 'Seleccionar notas' }).click();
+    await page.locator('.tree .pick-row', { hasText: 'Taquicardias' }).getByRole('checkbox').check();
+    await page.locator('.tree .pick-row', { hasText: 'Clase 1' }).getByRole('checkbox').check();
+    await page.getByRole('button', { name: 'Mover (2)' }).click();
+    await page.getByRole('dialog', { name: 'Mover a…' }).getByRole('radio', { name: 'Choque' }).click();
+    await page.getByRole('dialog', { name: 'Mover a…' }).getByRole('button', { name: 'Mover aquí' }).click();
+    await page.locator('.toast', { hasText: 'Urgencias/Choque' }).waitFor();
+    await page.locator('.tree button.ti', { hasText: 'ECG' }).waitFor({ state: 'detached' });
+    check(true, 'varias notas a la vez (selección)');
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');

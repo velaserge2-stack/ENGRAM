@@ -1,5 +1,5 @@
 import { locale, t as tr } from '../i18n';
-import { Search, Maximize2, Minimize2, PanelLeft, PanelRight, Bookmark, ClipboardCopy, ClipboardPaste, Code, FilePlus2, FileText, Folder, History, Import, Link2, ListTree, MoveRight, Network, Share, Sparkles, Star, Trash2 } from 'lucide-preact';
+import { Search, Maximize2, Minimize2, PanelLeft, PanelRight, Bookmark, ClipboardCopy, ClipboardPaste, Code, FilePlus2, FileText, Folder, FolderOutput, History, Import, Link2, ListChecks, ListTree, MoveRight, Network, Share, Sparkles, Star, Trash2 } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { normalizeAnswer, parseDeck } from '../cards/parse';
 import { appendCard } from '../data/ops';
@@ -26,6 +26,8 @@ import { FindBar, pendingFind } from '../notes/find';
 import { notesIndex } from '../notes/search-client';
 import { noteStore, onNoteSaved } from '../notes/store';
 import { createDrawing, DRAW_RE, DrawingBlock } from '../ink/DrawingBlock';
+import { pressArmed, usePressDrag } from '../ui/pressdrag';
+import { MoveNotesSheet, type NoteItems, useNoteMover } from './notemove';
 
 // tras cada guardado (venga de la pestaña o de un panel): historial de versiones e índice de búsqueda
 onNoteSaved(async (vault, path, text) => { await snapshot(vault, path, text); void notesIndex.upsert(path, text); });
@@ -145,7 +147,7 @@ export function Notes(props: { route: string[] }) {
         onPointerUp={(e) => {
           const s0 = swipe.current;
           swipe.current = null;
-          if (!s0) return;
+          if (!s0 || pressArmed()) return;
           const dx = e.clientX - s0.x;
           if (Math.abs(dx) < 80 || Math.abs(e.clientY - s0.y) > 40) return;
           // deslizar: ocultar el panel en el que empezó, o mostrarlo desde el borde
@@ -231,24 +233,53 @@ function NoteTree(props: { data: NotesData; current: string | null; onNew: () =>
   const app = useApp();
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [trashOpen, setTrashOpen] = useState(false);
+  // mover (Prompt 6 · A2): menú contextual, arrastrar y soltar, selección múltiple
+  const [picking, setPicking] = useState<Set<string> | null>(null);
+  const [moving, setMoving] = useState<NoteItems | null>(null);
+  const [menu, setMenu] = useState<{ item: string; el: HTMLElement } | null>(null);
+  const mover = useNoteMover(props.current);
+  const itemsOf = (k: string): NoteItems => (k.startsWith('notes/') ? { notes: [k], folders: [] } : { notes: [], folders: [k] });
+  const pd = usePressDrag<string>({
+    label: (k) => k.split('/').pop()!.replace(/\.md$/, ''),
+    onMenu: (item, el) => setMenu({ item, el }),
+    onDrop: (k, dest) => {
+      // una nota cae en un tema; un tema cae en una materia
+      if (k.startsWith('notes/') ? dest.includes('/') : !dest.includes('/') && !k.startsWith(dest + '/')) void mover.go(itemsOf(k), dest);
+    },
+  });
+  const over = (k: string) => (pd.drag && pd.drag.over === k && pd.drag.item !== k ? ' drop-over' : '');
   if (!props.data) return <aside class="glass panel tree"><p class="t2">{tr('deck.cargando')}</p></aside>;
   const { tree, loose, daily } = buildTree(props.data.notes);
   const tog = (k: string) => setClosed((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
-  const link = (n: NoteMeta, lvl: number) => (
-    <a class={`lvl${lvl}`} href={href('notas', ...n.path.split('/').slice(1))} aria-current={props.current === n.path ? 'page' : undefined}><FileText size={16} /> <span class="ellipsis">{n.title}</span></a>
+  const link = (n: NoteMeta, lvl: number) => picking ? (
+    <label class={`lvl${lvl} pick-row`}><input type="checkbox" class="pick" checked={picking.has(n.path)} onChange={() => setPicking((s) => { const x = new Set(s); x.has(n.path) ? x.delete(n.path) : x.add(n.path); return x; })} /><FileText size={16} /> <span class="ellipsis">{n.title}</span></label>
+  ) : (
+    <a class={`lvl${lvl}${pd.drag?.item === n.path ? ' dragging' : ''}`} href={href('notas', ...n.path.split('/').slice(1))} aria-current={props.current === n.path ? 'page' : undefined} {...pd.bind(n.path)}><FileText size={16} /> <span class="ellipsis">{n.title}</span></a>
   );
   return (
     <aside class="glass panel tree stack-s" aria-label={tr('notes.materias_y_notas')}>
-      <div class="row"><b class="grow">{tr('notes.materias')}</b><button type="button" class="btn small" onClick={props.onNew}><FilePlus2 size={16} />{' '}{tr('notes.nota')}</button></div>
+      <div class="row wrap"><b class="grow">{tr('notes.materias')}</b>
+        {picking ? (
+          <>
+            <button type="button" class="btn small" onClick={() => setPicking(null)}>{tr('settings.cancelar')}</button>
+            <button type="button" class="btn small primary" disabled={!picking.size} onClick={() => setMoving({ notes: [...picking], folders: [] })}><FolderOutput size={16} />{' '}{tr('move.mover_n', { n: picking.size })}</button>
+          </>
+        ) : (
+          <>
+            <button type="button" class="btn small icon" aria-label={tr('notemove.seleccionar_notas')} onClick={() => setPicking(new Set())}><ListChecks size={16} /></button>
+            <button type="button" class="btn small" onClick={props.onNew}><FilePlus2 size={16} />{' '}{tr('notes.nota')}</button>
+          </>
+        )}
+      </div>
       {props.data.bookmarks.length > 0 && (
         <div><div class="foot">{tr('notes.marcadores')}</div>{props.data.bookmarks.filter((b) => props.data!.notes.some((n) => n.path === b)).map((b) => link(noteMeta(b), 0))}</div>
       )}
       {tree.map((m) => (
         <div>
-          <button type="button" class="ti" aria-expanded={!closed.has(m.materia)} onClick={() => tog(m.materia)}><Folder size={16} /> <b>{m.materia}</b></button>
+          <button type="button" class={`ti${over(m.materia)}`} data-drop={m.materia} aria-expanded={!closed.has(m.materia)} onClick={() => tog(m.materia)}><Folder size={16} /> <b>{m.materia}</b></button>
           {!closed.has(m.materia) && m.temas.map((t) => (
             <div>
-              <button type="button" class="ti lvl1" aria-expanded={!closed.has(m.materia + '/' + t.tema)} onClick={() => tog(m.materia + '/' + t.tema)}><ListTree size={16} /> {t.tema}</button>
+              <button type="button" class={`ti lvl1${over(m.materia + '/' + t.tema)}${pd.drag?.item === m.materia + '/' + t.tema ? ' dragging' : ''}`} data-drop={m.materia + '/' + t.tema} aria-expanded={!closed.has(m.materia + '/' + t.tema)} onClick={() => tog(m.materia + '/' + t.tema)} {...(picking ? {} : pd.bind(m.materia + '/' + t.tema))}><ListTree size={16} /> {t.tema}</button>
               {!closed.has(m.materia + '/' + t.tema) && t.notes.map((n) => link(n, 2))}
             </div>
           ))}
@@ -268,6 +299,15 @@ function NoteTree(props: { data: NotesData; current: string | null; onNew: () =>
       )}
       <button type="button" class="ti" onClick={() => setTrashOpen(true)}><Trash2 size={16} />{' '}{tr('notes.papelera')}</button>
       {trashOpen && <TrashSheet onClose={() => setTrashOpen(false)} />}
+      {pd.ghost}
+      {menu && (
+        <Popover anchor={menu.el} onClose={() => setMenu(null)} label={tr('move.acciones_de', { label: menu.item.split('/').pop()!.replace(/\.md$/, '') })} class="glass strong add-menu">
+          <button type="button" role="menuitem" onClick={() => { const m = menu; setMenu(null); setMoving(itemsOf(m.item)); }}><FolderOutput size={18} />{' '}{tr('move.mover_a')}</button>
+          {menu.item.startsWith('notes/') && <a role="menuitem" class="add-menu-item" href={href('notas', ...menu.item.split('/').slice(1))} onClick={() => setMenu(null)}><FileText size={18} />{' '}{tr('notemove.abrir')}</a>}
+        </Popover>
+      )}
+      {moving && <MoveNotesSheet items={moving} all={props.data.notes.map((n) => n.path)} current={props.current} onClose={() => setMoving(null)} onDone={() => setPicking(null)} />}
+      {mover.sheet}
       {app.settings.showGraph && <a href={href('notas')} class="foot">{tr('notes.ver_grafo_en_la_vista_general')}</a>}
     </aside>
   );
@@ -528,7 +568,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
       )}
       {sheet === 'share' && <ShareNote path={props.path} title={meta.title} text={text} onClose={() => setSheet(null)} />}
       {sheet === 'history' && <HistorySheet path={props.path} onRestore={(t) => (set(t), setSheet(null))} onClose={() => setSheet(null)} />}
-      {sheet === 'move' && props.data && <MoveNote path={props.path} notes={props.data.notes} onClose={() => setSheet(null)} onBeforeMove={async () => { await saver.flush(); await noteStore.forget(props.path); }} />}
+      {sheet === 'move' && props.data && <MoveNotesSheet items={{ notes: [props.path], folders: [] }} all={props.data.notes.map((n) => n.path)} current={props.embedded ? null : props.path} onClose={() => setSheet(null)} />}
       {sheet === 'prompt' && <PromptSheet path={props.path} title={meta.title} body={doc.body} onClose={() => setSheet(null)} />}
       {sheet === 'card' && cardSeed && <CardFromNote seed={cardSeed} path={props.path} paraIdx={paragraphs(doc.body).find((p) => p.text.includes(cardSeed.text.slice(0, 40)))?.idx ?? cardSeed.para} onClose={() => setSheet(null)} />}
     </>
@@ -742,39 +782,6 @@ function HistorySheet(p: { path: string; onRestore: (t: string) => void; onClose
         <div class="stack-s">{data?.length ? data.map((ts) => <button type="button" class={`btn small${view?.ts === ts ? ' primary' : ''}`} onClick={async () => setView({ ts, text: await readVersion(app.vault, p.path, ts) })}>{new Date(ts).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' })}</button>) : <p class="t2">{tr('notes.sin_instantaneas_aun_se_guardan_cada')}</p>}</div>
         <div class="stack-s">{view && (<><pre class="preview">{view.text}</pre><button type="button" class="btn primary" onClick={() => p.onRestore(view.text)}>{tr('notes.restaurar_esta_version')}</button></>)}</div>
       </div>
-    </Sheet>
-  );
-}
-
-function MoveNote(p: { path: string; notes: NoteMeta[]; onClose: () => void; onBeforeMove: () => Promise<void> }) {
-  const app = useApp();
-  const m = noteMeta(p.path);
-  const [materia, setMateria] = useState(m.structured ? m.materia : '');
-  const [tema, setTema] = useState(m.tema);
-  const [title, setTitle] = useState(m.title);
-  const tree = buildTree(p.notes).tree;
-  return (
-    <Sheet title={tr('notes.mover_nota')} onClose={p.onClose}>
-      <form class="stack" onSubmit={async (e) => {
-        e.preventDefault();
-        await p.onBeforeMove();
-        const to = notePath(materia, tema, title);
-        if (to !== p.path) {
-          if (await app.vault.exists(to)) return app.toast(tr('notes.ya_existe_nota'));
-          await app.vault.move(p.path, to);
-          const t = await readTextOr(app.vault, to, '');
-          const d = parseFrontmatter(t);
-          if (materia !== DAILY) await app.vault.write(to, stringifyFrontmatter({ ...d.data, materia, tema }, d.body));
-        }
-        app.changed();
-        p.onClose();
-        go('notas', ...to.split('/').slice(1));
-      }}>
-        <label class="field">{tr('inbox.materia')}<input class="input" list="mv-m" required value={materia} onInput={(e) => setMateria((e.target as HTMLInputElement).value)} /><datalist id="mv-m">{tree.map((x) => <option value={x.materia} />)}</datalist></label>
-        <label class="field">{tr('exams.tema')}<input class="input" list="mv-t" required value={tema} onInput={(e) => setTema((e.target as HTMLInputElement).value)} /><datalist id="mv-t">{tree.find((x) => x.materia === materia)?.temas.map((t) => <option value={t.tema} />)}</datalist></label>
-        <label class="field">{tr('calendar.titulo')}<input class="input" required value={title} onInput={(e) => setTitle((e.target as HTMLInputElement).value)} /></label>
-        <button class="btn primary" type="submit">{tr('notes.mover')}</button>
-      </form>
     </Sheet>
   );
 }

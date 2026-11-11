@@ -108,6 +108,22 @@ export async function rewriteDeckRefs(vault: VaultAdapter, log: Undo, names: [st
   }
 }
 
+/** Paneles del lienzo (`.app/spaces/*.json`) que apuntan a un archivo o carpeta movidos. */
+export async function rewriteSpaces(vault: VaultAdapter, log: Undo, fix: (type: string, arg: string) => string): Promise<void> {
+  for (const f of await walk(vault, '.app/spaces')) {
+    if (!f.path.endsWith('.json')) continue;
+    const text = await readTextOr(vault, f.path, '');
+    let sp: { panels?: { type: string; arg: string }[] };
+    try { sp = JSON.parse(text) as typeof sp; } catch { continue; }
+    let touched = false;
+    for (const p of sp.panels ?? []) {
+      const next = fix(p.type, p.arg);
+      if (next !== p.arg) (p.arg = next, (touched = true));
+    }
+    if (touched) await write(vault, log, f.path, JSON.stringify(sp, null, 1));
+  }
+}
+
 /** Copia las notas de `text` (sin frontmatter) al final del mazo `target`. */
 function appendBody(target: string, text: string): string {
   const body = parseFrontmatter(text).body.trim();
@@ -177,8 +193,16 @@ export async function moveDeck(vault: VaultAdapter, col: Collection, d: Deck, fo
   }
   if (subs.length && (await vault.exists(oldSub)) && !(await walk(vault, oldSub)).length) await vault.remove(oldSub);
   await rewriteDeckRefs(vault, log, [[d.full, newFull]], paths);
+  await rewriteSpaces(vault, log, spaceFix([[d.full, newFull]], paths));
   return log;
 }
+
+/** Paneles «mazo» (ruta) y «tema» (`decks/<carpeta>/`). */
+const spaceFix = (names: [string, string][], paths: [string, string][]) => (type: string, arg: string) => {
+  if (type === 'mazo') return paths.find(([a]) => a === arg)?.[1] ?? arg;
+  if (type === 'tema' && arg.startsWith('decks/')) return `decks/${names.reduce((acc, [a, b]) => renamePrefix(acc, a, b), arg.slice(6, -1))}/`;
+  return arg;
+};
 
 /** Mueve varios mazos; los que son descendientes de otro de la lista viajan con su padre. */
 export async function moveDecks(vault: VaultAdapter, col: Collection, decks: Deck[], folder: string, clash: Clash = 'rename'): Promise<Undo> {
@@ -264,5 +288,6 @@ export async function moveFolder(vault: VaultAdapter, col: Collection, folder: s
   }
   if ((await vault.exists(`decks/${folder}`)) && !(await walk(vault, `decks/${folder}`)).length) await vault.remove(`decks/${folder}`);
   await rewriteDeckRefs(vault, log, [[folder, target]], paths);
+  await rewriteSpaces(vault, log, spaceFix([[folder, target]], paths));
   return log;
 }

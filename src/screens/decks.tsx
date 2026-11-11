@@ -1,6 +1,6 @@
 import { locale, t } from '../i18n';
 import { BookOpen, Download, FilePlus2, FolderInput, FolderOutput, Import, Pause as PauseIcon, Pencil, Settings2, Layers, Trash2, ListChecks, RotateCcw } from 'lucide-preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { inFolder, listTrash, purgeTrash, restoreTrash, trashDecks, trashPlan, withSubdecks, type TrashEntry } from '../data/decktrash';
 import type { Deck } from '../data/collection';
 import { createDeck, mediaRefs, resolveMedia, setDeckMeta, stateOp } from '../data/ops';
@@ -10,7 +10,8 @@ import { srsParams, studyLimits } from '../lib/settings';
 import { deckCounts, newIntroducedToday, type Counts } from '../srs/queue';
 import { go, href, useApp, useAsync } from '../state';
 import { Empty, Num, PageTitle, Sheet } from '../ui/kit';
-import { Popover, Portal } from '../ui/overlay';
+import { Popover } from '../ui/overlay';
+import { usePressDrag } from '../ui/pressdrag';
 import { type MoveItems, MoveDecksSheet, useMoveTo } from './move';
 import { readTextOr } from '../vault/util';
 import { APP_VERSION } from './backup';
@@ -62,11 +63,13 @@ export function DeckPanel(props: { title?: string; select?: { keys: Set<string>;
   const swipe = useRef<{ x: number; key: string } | null>(null);
   const [moving, setMoving] = useState<MoveItems | null>(null);
   const [menu, setMenu] = useState<{ n: Node; el: HTMLElement } | null>(null);
-  const [drag, setDrag] = useState<{ n: Node; x: number; y: number; over: string | null } | null>(null);
-  const press = useRef<{ x: number; y: number; n: Node; el: HTMLElement; armed: boolean; dragging: boolean; timer: ReturnType<typeof setTimeout> } | null>(null);
-  const eatClick = useRef(false);
   const mover = useMoveTo();
-  useEffect(() => () => { if (press.current) clearTimeout(press.current.timer); }, []);
+  const pd = usePressDrag<Node>({
+    label: (n) => n.label,
+    onMenu: (n, el) => setMenu({ n, el }),
+    onDrop: (n, dest) => { const full = n.deck ? n.deck.full : n.key; if (dest !== full && !dest.startsWith(full + '/')) void mover.go(n.deck ? { decks: [n.deck], folders: [] } : { decks: [], folders: [n.key] }, dest); },
+  });
+  const drag = pd.drag ? { ...pd.drag, n: pd.drag.item } : null;
   if (!col) return <section class="glass panel" aria-busy="true"><p class="t2">{t('decks.cargando_mazos')}</p></section>;
   const now = Date.now();
   const lim = studyLimits(app.settings);
@@ -76,47 +79,6 @@ export function DeckPanel(props: { title?: string; select?: { keys: Set<string>;
 
   const itemsOf = (n: Node): MoveItems => (n.deck ? { decks: [n.deck], folders: [] } : { decks: [], folders: [n.key] });
   const fullOf = (n: Node) => (n.deck ? n.deck.full : n.key);
-  /** Pulsación larga = menú contextual; pulsación larga y arrastrar = mover (Pointer Events). */
-  const startPress = (e: PointerEvent, n: Node) => {
-    if (props.select || e.button > 0) return;
-    const el = e.currentTarget as HTMLElement;
-    const p = { x: e.clientX, y: e.clientY, n, el, armed: false, dragging: false, timer: setTimeout(() => { p.armed = true; }, 450) };
-    press.current = p;
-    const over = (x: number, y: number) => {
-      const t = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest('[data-drop]') as HTMLElement | null;
-      return t ? t.dataset.drop! : null;
-    };
-    const move = (ev: PointerEvent) => {
-      const d = Math.hypot(ev.clientX - p.x, ev.clientY - p.y);
-      if (!p.armed) { if (d > 8) clearTimeout(p.timer); return; }
-      if (d > 8 || p.dragging) { p.dragging = true; setDrag({ n, x: ev.clientX, y: ev.clientY, over: over(ev.clientX, ev.clientY) }); }
-    };
-    const touch = (ev: TouchEvent) => { if (p.armed) ev.preventDefault(); };
-    const up = (ev: PointerEvent) => {
-      clearTimeout(p.timer);
-      removeEventListener('pointermove', move);
-      removeEventListener('pointerup', up);
-      removeEventListener('pointercancel', up);
-      removeEventListener('touchmove', touch);
-      press.current = null;
-      if (p.dragging || p.armed) setTimeout(() => { eatClick.current = false; }, 0); // el clic que sigue a soltar no cuenta
-      if (p.dragging) {
-        eatClick.current = true;
-        setDrag(null);
-        const dest = ev.type === 'pointerup' ? over(ev.clientX, ev.clientY) : null;
-        const full = fullOf(n);
-        if (dest !== null && dest !== full && !dest.startsWith(full + '/')) void mover.go(itemsOf(n), dest);
-      } else if (p.armed && ev.type === 'pointerup') {
-        eatClick.current = true;
-        setMenu({ n, el: p.el });
-      }
-    };
-    addEventListener('pointermove', move);
-    addEventListener('pointerup', up);
-    addEventListener('pointercancel', up);
-    addEventListener('touchmove', touch, { passive: false });
-  };
-
   const rows: preact.JSX.Element[] = [];
   const walk = (ns: Node[], depth: number) => {
     for (const n of ns) {
@@ -126,13 +88,11 @@ export function DeckPanel(props: { title?: string; select?: { keys: Set<string>;
       rows.push(
         <tr
           key={n.key}
-          class={`swipe-row${isSel ? ' sel' : ''}${drag?.over === fullOf(n) && drag.n !== n ? ' drop-over' : ''}${drag?.n === n ? ' dragging' : ''}`}
+          class={`swipe-row${isSel ? ' sel' : ''}${drag?.over === fullOf(n) && drag.n.key !== n.key ? ' drop-over' : ''}${drag?.n.key === n.key ? ' dragging' : ''}`}
           data-drop={fullOf(n)}
-          onDragStart={(e) => e.preventDefault()}
-          onClickCapture={(e) => { if (eatClick.current) { eatClick.current = false; e.preventDefault(); e.stopPropagation(); } }}
+          {...(props.select ? {} : pd.bind(n))}
           onClick={() => (props.select ? props.select.toggle(n.key) : setSel(isSel ? null : n.key))}
-          onContextMenu={(e) => { if (props.select) return; e.preventDefault(); setMenu({ n, el: e.currentTarget as HTMLElement }); }}
-          onPointerDown={(e) => { swipe.current = { x: e.clientX, key: n.key }; startPress(e, n); }}
+          onPointerDown={(e) => { swipe.current = { x: e.clientX, key: n.key }; if (!props.select) pd.start(e, n); }}
           onPointerUp={(e) => {
             const s = swipe.current;
             swipe.current = null;
@@ -230,7 +190,7 @@ export function DeckPanel(props: { title?: string; select?: { keys: Set<string>;
           </tbody>
         </table>
       )}
-      {drag && <Portal><div class="drag-ghost glass strong" aria-hidden="true" style={{ left: `${drag.x + 12}px`, top: `${drag.y + 12}px` }} data-user-content>{drag.n.label}</div></Portal>}
+      {pd.ghost}
       {menu && (
         <Popover anchor={menu.el} onClose={() => setMenu(null)} label={t('move.acciones_de', { label: menu.n.label })} class="glass strong add-menu">
           <button type="button" role="menuitem" onClick={() => { const m = menu; setMenu(null); setMoving(itemsOf(m.n)); }}><FolderOutput size={18} />{' '}{t('move.mover_a')}</button>
