@@ -1,5 +1,6 @@
 import { t, deviceLang, getLang, setLang } from './i18n';
-import { Archive, Inbox, Pause, Play, Plus, RefreshCw, Search, Settings as Gear, ShieldAlert, TriangleAlert } from 'lucide-preact';
+import { Archive, Ellipsis, Inbox, Pause, Play, Plus, RefreshCw, Search, Settings as Gear, ShieldAlert, TriangleAlert } from 'lucide-preact';
+import { Popover } from './ui/overlay';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { loadCollection, type Collection } from './data/collection';
 import { createAutosave } from './lib/autosave';
@@ -295,6 +296,7 @@ function TopBar(props: { tab: string }) {
   }, [props.tab]);
   const p = app.pomo;
   const profile = useProfile();
+  const [moreAt, setMoreAt] = useState<HTMLElement | null>(null);
   const rem = p.state.running && p.state.endAt ? p.state.endAt - p.now : p.state.remaining;
   const mm = `${String(Math.floor(Math.ceil(rem / 1000) / 60)).padStart(2, '0')}:${String(Math.ceil(rem / 1000) % 60).padStart(2, '0')}`;
   return (
@@ -322,13 +324,24 @@ function TopBar(props: { tab: string }) {
       <a class="pill glass" href="#/bandeja" aria-label={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })} data-tip={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })}>
         <Inbox size={18} /> <span class={`count${app.inboxCount ? '' : ' zero'}`}>{app.inboxCount}</span>
       </a>
-      <button type="button" class="pill glass ph-hide" onClick={() => app.openSheet('backup')} aria-label={t('app.respaldo')}>
+      <button type="button" class="pill glass ph-hide mid-hide" onClick={() => app.openSheet('backup')} aria-label={t('app.respaldo')}>
         <Archive size={18} />
       </button>
-      <a class="pill glass ph-hide" href="#/ajustes" aria-label={t('app.ajustes')} aria-current={props.tab === 'ajustes' ? 'page' : undefined}>
+      <a class="pill glass ph-hide mid-hide" href="#/ajustes" aria-label={t('app.ajustes')} aria-current={props.tab === 'ajustes' ? 'page' : undefined}>
         <Gear size={18} />
       </a>
-      {addonOn(app.settings, 'ambient') && <button type="button" class="pill glass ph-hide" aria-label={t('addons.n_ambient')} onClick={() => app.openSheet('ambient')}><Headphones size={18} /></button>}
+      {/* iPad (601–1100 px): Respaldo, Ajustes y Sonido ambiente pasan a «⋯» para que quepan todas las secciones */}
+      <button type="button" class="pill glass more-pill" aria-label={t('phone.mas')} aria-haspopup="menu" aria-expanded={!!moreAt} aria-current={props.tab === 'ajustes' ? 'page' : undefined} onClick={(e) => setMoreAt(moreAt ? null : (e.currentTarget as HTMLElement))}>
+        <Ellipsis size={18} />
+      </button>
+      {moreAt && (
+        <Popover anchor={moreAt} onClose={() => setMoreAt(null)} label={t('phone.mas')} role="menu" class="glass strong add-menu">
+          <a role="menuitem" class="add-menu-item" href="#/ajustes" onClick={() => setMoreAt(null)}><Gear size={18} />{' '}{t('app.ajustes')}</a>
+          <button type="button" role="menuitem" onClick={() => (setMoreAt(null), app.openSheet('backup'))}><Archive size={18} />{' '}{t('app.respaldo')}</button>
+          {addonOn(app.settings, 'ambient') && <button type="button" role="menuitem" onClick={() => (setMoreAt(null), app.openSheet('ambient'))}><Headphones size={18} />{' '}{t('addons.n_ambient')}</button>}
+        </Popover>
+      )}
+      {addonOn(app.settings, 'ambient') && <button type="button" class="pill glass ph-hide mid-hide" aria-label={t('addons.n_ambient')} onClick={() => app.openSheet('ambient')}><Headphones size={18} /></button>}
       <a class="pill glass avatar-pill ph-hide" href="#/perfil" aria-label={t('profile.perfil')} aria-current={props.tab === 'perfil' ? 'page' : undefined}>
         <Avatar profile={profile} size={32} />
       </a>

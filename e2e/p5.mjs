@@ -314,6 +314,23 @@ try {
     check(true, 'secuencia G y luego C va al Calendario');
   }
 
+  if (run('ipad')) {
+    console.log('Barra superior en iPad');
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto(URL_ + '#/hoy');
+    await page.locator('.seg-nav').waitFor();
+    await page.waitForTimeout(300);
+    check(await page.locator('.seg-nav').evaluate((n) => n.scrollWidth <= n.clientWidth + 1), 'a 1024 px se ven todas las secciones, PDFs incluida');
+    check(!(await page.getByRole('link', { name: 'Ajustes', exact: true }).first().isVisible()), 'Respaldo y Ajustes salen de la barra en ese ancho');
+    await page.locator('.more-pill').click();
+    await page.getByRole('menuitem', { name: 'Ajustes' }).click();
+    await page.getByRole('heading', { name: 'Ajustes', level: 1 }).waitFor();
+    check(true, '«⋯» lleva a Ajustes (y a Respaldo)');
+    await page.setViewportSize({ width: 1366, height: 768 });
+    check(await page.locator('.more-pill').isHidden(), 'en escritorio no cambia nada');
+    await page.setViewportSize({ width: 1180, height: 820 });
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');

@@ -344,5 +344,6 @@
 ### Pendiente de validar con Apple Pencil, teclado Bluetooth y mando reales
 - Audio con la pantalla bloqueada (modo experimental), latencia de la tinta, palma apoyada, resaltado ajustado en PDF reales (columnas, PDF escaneados sin capa de texto), PDF de 300+ páginas, exportaciones en Archivos, Scribble en títulos y buscadores, mando MFi/Xbox/PlayStation.
 
-### Observación abierta: barra de secciones en iPad
-- En iPad vertical (834 px) la píldora de secciones ya quedaba recortada desde el bloque C (avatar); con la pestaña «PDFs», a 1024 px también se recorta el último icono. Sigue siendo desplazable con el dedo o el trackpad (todas las secciones se alcanzan), pero no se ve completa. No se cambió para no alterar el aspecto de iPad sin confirmación; opciones propuestas: (a) en 700–1180 px la píldora pasa a una segunda fila a todo el ancho, o (b) Respaldo y Ajustes salen de la barra en esos anchos (como en teléfono).
+### Barra de secciones en iPad (opción b, confirmada por el usuario)
+- Entre 601 y 1100 px (iPad, nunca teléfono) Respaldo y Ajustes (y Sonido ambiente, si el add-on está activo) salen de la barra superior y quedan en un botón «⋯» (menú del gestor de capas). A 1024 px se ven todas las secciones, PDFs incluida; por encima de 1100 px (iPad 11" horizontal, escritorio) no cambia nada.
+- A 834 px (iPad vertical) la barra mejora (305 px visibles frente a 235) pero sigue sin caber entera (466 px): sigue siendo desplazable con el dedo. Para que quepa haría falta además quitar otro control (p. ej. el minipomodoro o el avatar) o pasar la barra a una segunda fila; pendiente de decidir.
