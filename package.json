@@ -1,0 +1,27 @@
+{
+  "name": "engrama",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Repetición espaciada + notas, PWA offline para Safari en iPad. Tus datos son archivos de texto.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "node e2e/smoke.mjs"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "lucide-preact": "^1.71.0",
+    "preact": "^11.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}
