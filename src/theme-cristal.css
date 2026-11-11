@@ -699,3 +699,15 @@ mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border
 }
 .add-menu a.add-menu-item { display: flex; width: 100%; gap: 10px; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 10px; text-decoration: none; color: var(--t1); }
 .add-menu a.add-menu-item:focus-visible, .add-menu a.add-menu-item:active { background: var(--fill-sel); }
+
+/* Prompt 6 · A — mover */
+.toast-act { margin-left: 8px; min-height: 36px; }
+.swipe-row, .swipe-row a { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.swipe-row.dragging { opacity: .45; }
+.swipe-row.drop-over td, .drop-top.drop-over { background: var(--fill-sel); }
+.drop-top { padding: 6px 12px; border-radius: var(--r-pill); outline: 1px dashed var(--t3); }
+.drag-ghost { position: fixed; z-index: var(--z-popover); pointer-events: none; padding: 8px 14px; border-radius: var(--r-pill); font-size: var(--t-note); font-weight: 600; max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.move-tree { max-height: min(52dvh, 420px); overflow: auto; }
+.move-tree .opt[aria-checked="true"] { background: var(--fill-sel); }
+.pick-note { display: grid; grid-template-columns: 44px 1fr; align-items: center; }
+.pick-note .pick { justify-self: center; }

@@ -44,6 +44,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const [col, setCol] = useState<Collection | null>(null);
   const [integrity, setIntegrity] = useState<IntegrityReport | null>(null);
   const [toastMsg, setToast] = useState<string | null>(null);
+  const [toastAct, setToastAct] = useState<{ label: string; run: () => void } | null>(null);
   const [sheet, setSheet] = useState<AppCtx['sheet']>(null);
   const [sheetArg, setSheetArg] = useState<string | null>(null);
   const [update, setUpdate] = useState<(() => void) | null>(null);
@@ -57,10 +58,11 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const saver = useMemo(() => createAutosave((s: Settings) => vault.write(SETTINGS_PATH, serializeSettings(s))), [vault]);
 
-  const toast = (msg: string) => {
+  const toast = (msg: string, action?: { label: string; run: () => void }) => {
     setToast(msg);
+    setToastAct(action ?? null);
     clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 3400);
+    toastTimer.current = setTimeout(() => (setToast(null), setToastAct(null)), action ? 8000 : 3400);
   };
 
   // idioma: se aplica antes de pintar; la colección se reprocesa para traducir sus avisos
@@ -275,7 +277,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       {keysHelp && <ShortcutSheet onClose={() => setKeysHelp(false)} />}
       {addonOn(settings, 'ambient') && <AmbientController />}
       {sheet === 'ambient' && <Sheet title={t('addons.n_ambient')} onClose={() => setSheet(null)}><AmbientPlayer /></Sheet>}
-      {toastMsg && <div class="toast glass strong" role="status" aria-live="polite">{toastMsg}</div>}
+      {toastMsg && <div class="toast glass strong" role="status" aria-live="polite">{toastMsg}{toastAct && <>{' '}<button type="button" class="btn small toast-act" onClick={() => { const a = toastAct; setToast(null); setToastAct(null); a.run(); }}>{toastAct.label}</button></>}</div>}
       <TooltipLayer />
     </Ctx.Provider>
   );

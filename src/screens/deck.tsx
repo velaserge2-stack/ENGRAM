@@ -1,5 +1,5 @@
 import { locale, t as tr, tn } from '../i18n';
-import { BookOpen, FileSpreadsheet, ImagePlus, Plus, Settings2, Share } from 'lucide-preact';
+import { BookOpen, FileSpreadsheet, FolderOutput, ImagePlus, ListChecks, Plus, Settings2, Share } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { cardsOf, type Note, type NoteType, parseDeck, type Rect } from '../cards/parse';
 import { appendCard } from '../data/ops';
@@ -11,6 +11,7 @@ import { go, href, useApp } from '../state';
 import { PageTitle, Segmented, Sheet } from '../ui/kit';
 import { Html } from '../ui/md';
 import { readTextOr } from '../vault/util';
+import { MoveCardsSheet } from './move';
 import { OcclusionEditor } from './occlusion';
 import { useLinkedEvents } from '../ui/links';
 import { CalendarDays } from 'lucide-preact';
@@ -162,6 +163,8 @@ export function DeckEditor(props: { path: string; onGear?: () => void }) {
   const [text, setText] = useState<string | null>(null);
   const [mode, setMode] = useState<'visual' | 'md'>('visual');
   const [csv, setCsv] = useState(false);
+  const [pick, setPick] = useState<Set<string> | null>(null);
+  const [moving, setMoving] = useState(false);
   const dirty = useRef(false);
   const saver = useMemo(() => createAutosave(async (t: string) => { await app.vault.write(props.path, t); }), [props.path]);
   useEffect(() => {
@@ -203,8 +206,21 @@ export function DeckEditor(props: { path: string; onGear?: () => void }) {
         <section class="glass strong panel stack-s" aria-label={tr('deck.vista_previa')}>
           {parsed.errors.map((e) => <div class="err">⚠ {e}</div>)}
           {parsed.notes.length === 0 && <p class="t2">{tr('deck.sin_tarjetas_todavia')}</p>}
-          {parsed.notes.map((n) => <NotePreview note={n} />)}
+          {parsed.notes.length > 0 && (
+            <div class="row wrap">
+              {pick ? (
+                <>
+                  <button type="button" class="btn small" onClick={() => setPick(null)}>{tr('settings.cancelar')}</button>
+                  <button type="button" class="btn small primary" disabled={!pick.size} onClick={async () => { await saver.flush(); if (dirty.current) app.changed(); setMoving(true); }}><FolderOutput size={14} />{' '}{tr('move.mover_a_mazo_n', { n: pick.size })}</button>
+                </>
+              ) : <button type="button" class="btn small" onClick={() => setPick(new Set())}><ListChecks size={14} />{' '}{tr('decks.seleccionar')}</button>}
+            </div>
+          )}
+          {parsed.notes.map((n) => pick && n.id ? (
+            <label class="pick-note"><input type="checkbox" class="pick" checked={pick.has(n.id)} aria-label={tr('move.seleccionar_tarjeta', { id: n.id })} onChange={() => setPick((s) => { const x = new Set(s); x.has(n.id) ? x.delete(n.id) : x.add(n.id); return x; })} /><NotePreview note={n} /></label>
+          ) : <NotePreview note={n} />)}
         </section>
+        {moving && pick && app.col && <MoveCardsSheet cids={[...pick]} onClose={() => setMoving(false)} onDone={async () => { setPick(null); setText(await readTextOr(app.vault, props.path, '')); }} />}
       </div>
       {csv && <CsvImport onClose={() => setCsv(false)} onAdd={async (blocks) => { for (const b of blocks) await appendCard(app.vault, props.path, b, app.col); setText(await readTextOr(app.vault, props.path, '')); dirty.current = true; app.toast(tr('deck.n_tarjetas_importadas', { n: blocks.length })); }} />}
     </>

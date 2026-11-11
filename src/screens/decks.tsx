@@ -1,6 +1,6 @@
 import { locale, t } from '../i18n';
-import { BookOpen, Download, FilePlus2, FolderInput, Import, Pause as PauseIcon, Pencil, Settings2, Layers, Trash2, ListChecks, RotateCcw } from 'lucide-preact';
-import { useRef, useState } from 'preact/hooks';
+import { BookOpen, Download, FilePlus2, FolderInput, FolderOutput, Import, Pause as PauseIcon, Pencil, Settings2, Layers, Trash2, ListChecks, RotateCcw } from 'lucide-preact';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { inFolder, listTrash, purgeTrash, restoreTrash, trashDecks, trashPlan, withSubdecks, type TrashEntry } from '../data/decktrash';
 import type { Deck } from '../data/collection';
 import { createDeck, mediaRefs, resolveMedia, setDeckMeta, stateOp } from '../data/ops';
@@ -10,6 +10,8 @@ import { srsParams, studyLimits } from '../lib/settings';
 import { deckCounts, newIntroducedToday, type Counts } from '../srs/queue';
 import { go, href, useApp, useAsync } from '../state';
 import { Empty, Num, PageTitle, Sheet } from '../ui/kit';
+import { Popover, Portal } from '../ui/overlay';
+import { type MoveItems, MoveDecksSheet, useMoveTo } from './move';
 import { readTextOr } from '../vault/util';
 import { APP_VERSION } from './backup';
 
@@ -58,12 +60,62 @@ export function DeckPanel(props: { title?: string; select?: { keys: Set<string>;
   const [opts, setOpts] = useState<Deck | null>(null);
   const [creating, setCreating] = useState(false);
   const swipe = useRef<{ x: number; key: string } | null>(null);
+  const [moving, setMoving] = useState<MoveItems | null>(null);
+  const [menu, setMenu] = useState<{ n: Node; el: HTMLElement } | null>(null);
+  const [drag, setDrag] = useState<{ n: Node; x: number; y: number; over: string | null } | null>(null);
+  const press = useRef<{ x: number; y: number; n: Node; el: HTMLElement; armed: boolean; dragging: boolean; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const eatClick = useRef(false);
+  const mover = useMoveTo();
+  useEffect(() => () => { if (press.current) clearTimeout(press.current.timer); }, []);
   if (!col) return <section class="glass panel" aria-busy="true"><p class="t2">{t('decks.cargando_mazos')}</p></section>;
   const now = Date.now();
   const lim = studyLimits(app.settings);
   const intro = newIntroducedToday(col, now, lim);
   const counts = new Map(col.decks.map((d) => [d.path, deckCounts(col, d, now, lim, intro)]));
   const nodes = tree(col.decks, counts);
+
+  const itemsOf = (n: Node): MoveItems => (n.deck ? { decks: [n.deck], folders: [] } : { decks: [], folders: [n.key] });
+  const fullOf = (n: Node) => (n.deck ? n.deck.full : n.key);
+  /** Pulsación larga = menú contextual; pulsación larga y arrastrar = mover (Pointer Events). */
+  const startPress = (e: PointerEvent, n: Node) => {
+    if (props.select || e.button > 0) return;
+    const el = e.currentTarget as HTMLElement;
+    const p = { x: e.clientX, y: e.clientY, n, el, armed: false, dragging: false, timer: setTimeout(() => { p.armed = true; }, 450) };
+    press.current = p;
+    const over = (x: number, y: number) => {
+      const t = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest('[data-drop]') as HTMLElement | null;
+      return t ? t.dataset.drop! : null;
+    };
+    const move = (ev: PointerEvent) => {
+      const d = Math.hypot(ev.clientX - p.x, ev.clientY - p.y);
+      if (!p.armed) { if (d > 8) clearTimeout(p.timer); return; }
+      if (d > 8 || p.dragging) { p.dragging = true; setDrag({ n, x: ev.clientX, y: ev.clientY, over: over(ev.clientX, ev.clientY) }); }
+    };
+    const touch = (ev: TouchEvent) => { if (p.armed) ev.preventDefault(); };
+    const up = (ev: PointerEvent) => {
+      clearTimeout(p.timer);
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      removeEventListener('pointercancel', up);
+      removeEventListener('touchmove', touch);
+      press.current = null;
+      if (p.dragging || p.armed) setTimeout(() => { eatClick.current = false; }, 0); // el clic que sigue a soltar no cuenta
+      if (p.dragging) {
+        eatClick.current = true;
+        setDrag(null);
+        const dest = ev.type === 'pointerup' ? over(ev.clientX, ev.clientY) : null;
+        const full = fullOf(n);
+        if (dest !== null && dest !== full && !dest.startsWith(full + '/')) void mover.go(itemsOf(n), dest);
+      } else if (p.armed && ev.type === 'pointerup') {
+        eatClick.current = true;
+        setMenu({ n, el: p.el });
+      }
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+    addEventListener('pointercancel', up);
+    addEventListener('touchmove', touch, { passive: false });
+  };
 
   const rows: preact.JSX.Element[] = [];
   const walk = (ns: Node[], depth: number) => {
@@ -74,9 +126,13 @@ export function DeckPanel(props: { title?: string; select?: { keys: Set<string>;
       rows.push(
         <tr
           key={n.key}
-          class={`swipe-row${isSel ? ' sel' : ''}`}
+          class={`swipe-row${isSel ? ' sel' : ''}${drag?.over === fullOf(n) && drag.n !== n ? ' drop-over' : ''}${drag?.n === n ? ' dragging' : ''}`}
+          data-drop={fullOf(n)}
+          onDragStart={(e) => e.preventDefault()}
+          onClickCapture={(e) => { if (eatClick.current) { eatClick.current = false; e.preventDefault(); e.stopPropagation(); } }}
           onClick={() => (props.select ? props.select.toggle(n.key) : setSel(isSel ? null : n.key))}
-          onPointerDown={(e) => (swipe.current = { x: e.clientX, key: n.key })}
+          onContextMenu={(e) => { if (props.select) return; e.preventDefault(); setMenu({ n, el: e.currentTarget as HTMLElement }); }}
+          onPointerDown={(e) => { swipe.current = { x: e.clientX, key: n.key }; startPress(e, n); }}
           onPointerUp={(e) => {
             const s = swipe.current;
             swipe.current = null;
@@ -104,6 +160,7 @@ export function DeckPanel(props: { title?: string; select?: { keys: Set<string>;
               <div class="row" style={{ justifyContent: 'flex-end' }}>
                 <a class="btn small" href={href('estudiar', ...studyKey.split('/').filter(Boolean), ...(n.deck ? [] : ['']))}><BookOpen size={16} />{' '}{t('today.estudiar')}</a>
                 <button type="button" class="btn small" onClick={(e) => (e.stopPropagation(), suspendAll(n))}><PauseIcon size={16} />{' '}{t('decks.suspender')}</button>
+                <button type="button" class="btn small" onClick={(e) => (e.stopPropagation(), setSwiped(null), setMoving(itemsOf(n)))}><FolderOutput size={16} />{' '}{t('move.mover')}</button>
                 {n.deck && <button type="button" class="btn small" onClick={(e) => (e.stopPropagation(), void exportDeck(n.deck!))}><Download size={16} />{' '}{t('deck.exportar')}</button>}
               </div>
             </td>
@@ -154,7 +211,7 @@ export function DeckPanel(props: { title?: string; select?: { keys: Set<string>;
     <section class="glass panel" aria-label={t('decks.mazos')}>
       <div class="panel-h">
         <h2>{props.title ?? t('decks.mazos')}</h2>
-        <span class="foot">{t('decks.desliza_una_fila_para_acciones_rapidas')}</span>
+        {drag ? <span class={`foot drop-top${drag.over === '' ? ' drop-over' : ''}`} data-drop="">⤒ {t('move.nivel_superior')}</span> : <span class="foot">{t('decks.desliza_una_fila_para_acciones_rapidas')}</span>}
       </div>
       {col.decks.length === 0 ? (
         <p class="t2" style={{ padding: '8px 4px 12px' }}>{t('decks.aun_no_hay_mazos_crea_uno')}{' '}<code>deck:</code>.</p>
@@ -168,9 +225,21 @@ export function DeckPanel(props: { title?: string; select?: { keys: Set<string>;
               <th scope="col">{t('today.vencidas')}</th>
             </tr>
           </thead>
-          <tbody>{rows}</tbody>
+          <tbody>
+            {rows}
+          </tbody>
         </table>
       )}
+      {drag && <Portal><div class="drag-ghost glass strong" aria-hidden="true" style={{ left: `${drag.x + 12}px`, top: `${drag.y + 12}px` }} data-user-content>{drag.n.label}</div></Portal>}
+      {menu && (
+        <Popover anchor={menu.el} onClose={() => setMenu(null)} label={t('move.acciones_de', { label: menu.n.label })} class="glass strong add-menu">
+          <button type="button" role="menuitem" onClick={() => { const m = menu; setMenu(null); setMoving(itemsOf(m.n)); }}><FolderOutput size={18} />{' '}{t('move.mover_a')}</button>
+          {menu.n.deck && <button type="button" role="menuitem" onClick={() => { const d = menu.n.deck; setMenu(null); setOpts(d); }}><Settings2 size={18} />{' '}{t('move.opciones')}</button>}
+          <a role="menuitem" class="add-menu-item" href={menu.n.deck ? href('estudiar', ...menu.n.deck.path.split('/')) : href('estudiar', 'decks', ...menu.n.key.split('/'), '')} onClick={() => setMenu(null)}><BookOpen size={18} />{' '}{t('today.estudiar')}</a>
+        </Popover>
+      )}
+      {moving && <MoveDecksSheet items={moving} onClose={() => setMoving(null)} />}
+      {mover.sheet}
       <div class="footer-pills" style={{ marginTop: '14px' }}>
         <button type="button" class="btn" onClick={() => app.openSheet('import')}><FolderInput size={18} />{' '}{t('decks.importar_compartidos')}</button>
         <button type="button" class="btn" onClick={() => setCreating(true)}><FilePlus2 size={18} />{' '}{t('decks.crear_mazo')}</button>
@@ -222,6 +291,7 @@ export function DeckOptions(props: { deck: Deck; onClose: () => void }) {
   const [npd, setNpd] = useState(d.newPerDay ?? app.settings.newPerDay);
   const [lang, setLang] = useState(typeof d.data.lang === 'string' ? d.data.lang : '');
   const [del, setDel] = useState(false);
+  const [moving, setMoving] = useState(false);
   return (
     <Sheet title={t('decks.opciones_name', { name: d.name })} onClose={props.onClose}>
       <form class="stack" onSubmit={async (e) => {
@@ -240,9 +310,11 @@ export function DeckOptions(props: { deck: Deck; onClose: () => void }) {
         </div>
         <p class="foot">{t('decks.se_guarda_en_el_frontmatter_del')}</p>
         <hr class="sep" />
+        <button type="button" class="btn" onClick={() => setMoving(true)}><FolderOutput size={16} />{' '}{t('move.mover_a')}</button>
         <button type="button" class="btn danger" onClick={() => setDel(true)}><Trash2 size={16} />{' '}{t('decks.eliminar_mazo')}</button>
       </form>
       {del && app.col && <DeleteDecks decks={withSubdecks(app.col, d)} onClose={() => setDel(false)} onDone={props.onClose} />}
+      {moving && app.col && <MoveDecksSheet items={{ decks: [d], folders: [] }} onClose={() => setMoving(false)} onDone={props.onClose} />}
     </Sheet>
   );
 }
@@ -312,6 +384,7 @@ export function Decks() {
   const [picking, setPicking] = useState<Set<string> | null>(null);
   const [trash, setTrash] = useState(false);
   const [del, setDel] = useState<Deck[] | null>(null);
+  const [moving, setMoving] = useState<MoveItems | null>(null);
   const { data: trashN } = useAsync(async () => (await listTrash(app.vault)).length, [app.version]);
   const toggle = (k: string) => setPicking((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   // selección → mazos (una carpeta se lleva todo lo que contiene; un mazo, sus submazos)
@@ -327,6 +400,7 @@ export function Decks() {
         {picking ? (
           <>
             <button type="button" class="btn" onClick={() => setPicking(null)}>{t('settings.cancelar')}</button>
+            <button type="button" class="btn" disabled={!picking.size} onClick={() => setMoving({ decks: col?.decks.filter((d) => picking.has(d.path)) ?? [], folders: [...picking].filter((k) => !col?.decks.some((d) => d.path === k)) })}><FolderOutput size={16} />{' '}{t('move.mover_n', { n: picking.size })}</button>
             <button type="button" class="btn danger primary" disabled={!picking.size} onClick={() => setDel(picked())}><Trash2 size={16} />{' '}{t('decks.eliminar_seleccion', { n: picking.size })}</button>
           </>
         ) : (
@@ -339,6 +413,7 @@ export function Decks() {
       </PageTitle>
       {trash && <DeckTrash onClose={() => setTrash(false)} />}
       {del && <DeleteDecks decks={del} onClose={() => setDel(null)} onDone={() => setPicking(null)} />}
+      {moving && <MoveDecksSheet items={moving} onClose={() => setMoving(null)} onDone={() => setPicking(null)} />}
       {col && col.decks.length === 0 ? (
         <Empty icon={<Layers size={44} />} title={t('decks.sin_mazos_todavia')} action={<button type="button" class="btn primary" onClick={() => app.openSheet('import')}>{t('decks.importar')}</button>}>{t('decks.un_mazo_es_un_archivo_md')}</Empty>
       ) : (

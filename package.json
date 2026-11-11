@@ -19,7 +19,8 @@
     "e2e:mejoras2": "node e2e/mejoras2.mjs",
     "e2e:phone": "node e2e/phone.mjs",
     "e2e:bloquec": "node e2e/bloquec.mjs",
-    "e2e:p5": "node e2e/p5.mjs"
+    "e2e:p5": "node e2e/p5.mjs",
+    "e2e:p6": "node e2e/p6.mjs"
   },
   "dependencies": {
     "docx": "^9.15.3",
