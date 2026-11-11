@@ -584,3 +584,7 @@ hr.sep { border: 0; border-top: var(--hair) solid var(--line); margin: 4px 0; wi
 .frame-mock { position: absolute; inset: 8% 6%; display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: auto 1fr; gap: 6%; pointer-events: none; }
 .frame-mock i { border-radius: 10px; min-height: 18%; }
 .frame-mock i:first-child { grid-column: 1 / -1; min-height: 10%; border-radius: 999px; }
+/* almacenamiento (C10) */
+.storage-list { max-height: 46dvh; overflow: auto; }
+.storage-list input[type="checkbox"] { width: 22px; height: 22px; flex: none; accent-color: var(--t1); }
+.storage-actions { position: sticky; bottom: 0; padding-top: 6px; }

@@ -3,6 +3,7 @@ import { Check, Crop, FolderOpen, ImagePlus, PlusSquare, Share as ShareIcon, Tra
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { DEFAULT_FRAMING, framingStyle, FRAMING_PATH, normFraming, parseFramings, type Framing } from '../lib/framing';
 import { AddonsGroup } from './addons';
+import { StorageSheet } from './storage';
 import { verifyDeterminism } from '../data/collection';
 import { exampleFiles } from '../lib/example';
 import type { Background, Settings } from '../lib/settings';
@@ -233,6 +234,7 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
   const [tick, setTick] = useState(0);
   const { data: info } = useAsync(storageInfo, [tick, app.version]);
   const [det, setDet] = useState<string | null>(null);
+  const [storageOpen, setStorageOpen] = useState(false);
   const [paramsText, setParamsText] = useState(s.fsrsW?.join(', ') ?? '');
   const col = app.col;
   const reviews = col?.log.filter((e) => e.rating).length ?? 0;
@@ -340,6 +342,8 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
           {!info?.persisted && <button type="button" class="link" onClick={async () => (await requestPersist(), setTick((n) => n + 1))}>{tr('settings.pedir')}</button>}
         </Row>
         <Row k={tr('settings.espacio_usado')}><span class="v">{tr('settings.usado_de', { used: formatBytes(info?.usage ?? null), quota: formatBytes(info?.quota ?? null) })}</span></Row>
+        <Row k={tr('storage.administrar')} sub={tr('storage.administrar_sub')} onClick={() => setStorageOpen(true)}><span class="v">›</span></Row>
+        {storageOpen && <StorageSheet onClose={() => setStorageOpen(false)} />}
         {FSAccessBackend.isSupported() && (
           <Row k={tr('settings.usar_una_carpeta_de_este_equipo')} sub={tr('settings.solo_en_navegadores_de_escritorio_con')}>
             <button type="button" class="btn small" onClick={async () => { try { const b = await FSAccessBackend.pick(); await rememberFolder(b.root); location.reload(); } catch { /* cancelado */ } }}><FolderOpen size={16} />{' '}{tr('settings.elegir')}</button>

@@ -142,6 +142,42 @@ try {
     check(await page.getByRole('checkbox', { name: 'Imagen propia' }).count() === 0 && await page.getByRole('radio', { name: 'Imagen propia' }).count() === 0, 'el fondo borrado ya no está en la galería');
   }
 
+  if (run('almacen')) {
+    console.log('Almacenamiento');
+    const png = await page.evaluate(async () => {
+      const c = document.createElement('canvas'); c.width = 300; c.height = 200; c.getContext('2d').fillRect(0, 0, 300, 200);
+      const b = await new Promise((r) => c.toBlob(r, 'image/png')); return [...new Uint8Array(await b.arrayBuffer())];
+    });
+    await page.goto(URL_ + '#/ajustes');
+    await page.getByRole('region', { name: 'Respaldo' }).getByRole('button', { name: /Importar/ }).click();
+    await page.locator('.sheet input[type=file]').first().setInputFiles([
+      { name: 'usado.png', mimeType: 'image/png', buffer: Buffer.from(png) },
+      { name: 'sobra.png', mimeType: 'image/png', buffer: Buffer.from(png) },
+      { name: 'Con imagen.md', mimeType: 'text/markdown', buffer: Buffer.from('# Con imagen\n\nTexto ![[usado.png]] fin\n') },
+    ]);
+    await page.locator('.sheet .btn.primary').filter({ hasText: /Importar/ }).click();
+    await page.getByRole('button', { name: 'Listo' }).click();
+    await page.getByRole('button', { name: 'Administrar almacenamiento' }).click();
+    const st = page.getByRole('dialog', { name: 'Almacenamiento' });
+    await st.getByText('usado.png').waitFor();
+    const rowOf = (n) => st.locator('label.row-i', { hasText: n });
+    check((await rowOf('usado.png').innerText()).includes('Usado en 1 lugar'), '«Usado en 1 lugar(es)» para la imagen citada en una nota');
+    check((await rowOf('sobra.png').innerText()).includes('Huérfano'), 'la imagen sin uso aparece como huérfana');
+    check(await st.locator('[role=listitem]').count() >= 2, 'desglose por tipo');
+    await st.getByRole('button', { name: /Seleccionar huérfanos \(1\)/ }).click();
+    await st.getByRole('button', { name: 'Borrar definitivamente' }).click();
+    await page.waitForTimeout(800);
+    check(await rowOf('sobra.png').count() === 0, 'borrar el huérfano libera espacio (desaparece de la lista)');
+    await rowOf('usado.png').locator('input').check();
+    await st.getByRole('button', { name: 'Borrar definitivamente' }).click();
+    await page.waitForTimeout(800);
+    await st.getByRole('button', { name: 'Cerrar' }).click();
+    await page.goto(URL_ + '#/notas');
+    await page.getByRole('link', { name: /Con imagen/ }).first().click();
+    await page.getByText('Archivo eliminado: usado.png').waitFor();
+    check(true, 'la nota muestra «Archivo eliminado» en lugar de una imagen rota');
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');
