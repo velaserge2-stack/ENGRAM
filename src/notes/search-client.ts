@@ -35,7 +35,8 @@ function call<T>(op: Op, arg: unknown, f?: Filters): Promise<T> {
 export function toSearchDoc(path: string, text: string): SearchDoc {
   const m = noteMeta(path);
   const doc = parseFrontmatter(text);
-  return { id: path, title: m.title, body: doc.body, materia: m.materia, tema: m.tema, fecha: typeof doc.data.fecha === 'string' ? doc.data.fecha : '' };
+  // los dibujos no se indexan (solo su referencia); su miniatura sale en los resultados
+  return { id: path, title: m.title, body: doc.body.replace(/!\[\[dibujo-[\w-]+\.png\]\]/g, ' '), thumb: /!\[\[(dibujo-[\w-]+\.png)\]\]/.exec(doc.body)?.[1] ?? '', materia: m.materia, tema: m.tema, fecha: typeof doc.data.fecha === 'string' ? doc.data.fecha : '' };
 }
 
 export const notesIndex = {

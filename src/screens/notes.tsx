@@ -25,6 +25,7 @@ import { modalOpen, Popover } from '../ui/overlay';
 import { FindBar, pendingFind } from '../notes/find';
 import { notesIndex } from '../notes/search-client';
 import { noteStore, onNoteSaved } from '../notes/store';
+import { createDrawing, DRAW_RE, DrawingBlock } from '../ink/DrawingBlock';
 
 // tras cada guardado (venga de la pestaña o de un panel): historial de versiones e índice de búsqueda
 onNoteSaved(async (vault, path, text) => { await snapshot(vault, path, text); void notesIndex.upsert(path, text); });
@@ -219,6 +220,7 @@ function SearchResults(p: { results: Result[]; q: string; onOpen: (r: Result) =>
         <button type="button" class="search-hit" onClick={() => p.onOpen(r)}>
           <span class="row"><b class="grow ellipsis" data-user-content>{r.title}</b><span class="foot">{r.materia}{r.tema ? ` › ${r.tema}` : ''}{r.fecha ? ` · ${r.fecha}` : ''}</span></span>
           <span class="note t2" data-user-content>{r.parts.map((x) => (x.hit ? <mark class="hit">{x.t}</mark> : x.t))}</span>
+          {r.thumb && <Html class="search-thumb" html={renderMarkdown(`![[${r.thumb}]]`)} />}
         </button>
       ))}
     </section>
@@ -400,7 +402,7 @@ function splitBlocks(body: string): string[] {
 const SLASH = (): [string, string, string][] => ([
   ['h1', tr('calendar.titulo'), '# '], ['h2', tr('notes.subtitulo'), '## '], ['ul', tr('deck.lista'), '- '], ['ol', tr('notes.lista_numerada'), '1. '], ['task', tr('notes.tarea'), '- [ ] '],
   ['table', tr('notes.tabla'), tr('notes.columna_columna')], ['quote', tr('notes.cita'), '> '], ['callout', tr('notes.callout'), tr('notes.note_titulo')],
-  ['img', tr('deck.imagen'), ''], ['card', tr('notes.tarjeta_de_estudio'), ''], ['code', tr('notes.codigo'), '```\n\n```'], ['link', tr('notes.enlace_a_nota'), '[['],
+  ['img', tr('deck.imagen'), ''], ['draw', tr('draw.dibujo_manuscrito'), ''], ['notebook', tr('draw.pagina_cuaderno'), ''], ['card', tr('notes.tarjeta_de_estudio'), ''], ['code', tr('notes.codigo'), '```\n\n```'], ['link', tr('notes.enlace_a_nota'), '[['],
 ]);
 
 function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: (p: Partial<NotesUI>) => void; overlay: boolean; embedded?: boolean }) {
@@ -487,7 +489,10 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
                   onDone={() => setEditing(null)} onSplit={(a, rest) => { setBody([...blocks.slice(0, i), a, rest, ...blocks.slice(i + 1)].join('\n\n')); setEditing(i + 1); }}
                   onCard={(sel, kind) => { setCardSeed({ text: sel, kind, para: i }); setSheet('card'); }}
                   onImage={async (f) => { const name = await saveImage(app.vault, f, f.name); setBody([...blocks.slice(0, i + 1), `![[${name}]]`, ...blocks.slice(i + 1)].join('\n\n')); }}
-                  onSlashCard={() => { setCardSeed({ text: '', kind: 'basic', para: i }); setSheet('card'); }} />
+                  onSlashCard={() => { setCardSeed({ text: '', kind: 'basic', para: i }); setSheet('card'); }}
+                  onDraw={async (notebook) => { const id = await createDrawing(app.vault, notebook ? 'rayado' : undefined); /* texto vigente (el «/dibujo» ya se quitó) */ const all = splitBlocks(parseFrontmatter(noteStore.peek(props.path) ?? text).body); setBody([...all.slice(0, i + 1), `![[${id}.png]]`, ...all.slice(i + 1)].join('\n\n')); setEditing(null); }} />
+              ) : DRAW_RE.test(b.trim()) ? (
+                <DrawingBlock key={`d${i}`} id={DRAW_RE.exec(b.trim())![1]!} />
               ) : (
                 <div key={i} role="button" tabIndex={0} onClick={(e) => { if ((e.target as HTMLElement).closest('a, summary, audio, input')) return; setEditing(i); }} onKeyDown={(e) => e.key === 'Enter' && setEditing(i)} style={{ cursor: 'text', borderRadius: '10px' }} aria-label={tr('notes.editar_bloque')}>
                   <Html html={renderMarkdown(props.data ? expandQueries(b, props.data, app.col) : b)} />
@@ -560,7 +565,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
   }
 }
 
-function BlockInput(p: { value: string; notes: NoteMeta[]; onChange: (v: string) => void; onDone: () => void; onSplit: (a: string, b: string) => void; onCard: (sel: string, kind: 'cloze' | 'basic') => void; onImage: (f: File) => void; onSlashCard: () => void }) {
+function BlockInput(p: { value: string; notes: NoteMeta[]; onChange: (v: string) => void; onDone: () => void; onSplit: (a: string, b: string) => void; onCard: (sel: string, kind: 'cloze' | 'basic') => void; onImage: (f: File) => void; onSlashCard: () => void; onDraw: (notebook: boolean) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const [sel, setSel] = useState('');
   const [slash, setSlash] = useState<number | null>(null);
@@ -603,6 +608,7 @@ function BlockInput(p: { value: string; notes: NoteMeta[]; onChange: (v: string)
     p.onChange(v);
     if (k === 'img') imgInput.current?.click();
     if (k === 'card') p.onSlashCard();
+    if (k === 'draw' || k === 'notebook') p.onDraw(k === 'notebook');
     requestAnimationFrame(() => (t.focus(), t.setSelectionRange(slash! + item[2].length, slash! + item[2].length)));
   };
   const applyLink = (title: string) => {

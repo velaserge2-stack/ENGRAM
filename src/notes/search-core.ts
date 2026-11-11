@@ -5,7 +5,7 @@
 import { createIndex, findHits, snippet, type SearchDoc } from './search';
 
 export interface Filters { materia?: string; tema?: string; since?: number }
-export interface Result { id: string; title: string; materia: string; tema: string; fecha: string; score: number; hits: number; parts: { t: string; hit: boolean }[] }
+export interface Result { id: string; title: string; materia: string; tema: string; fecha: string; score: number; hits: number; parts: { t: string; hit: boolean }[]; thumb?: string }
 
 export function searchCore() {
   let ix = createIndex();
@@ -37,7 +37,7 @@ export function searchCore() {
         const hits = findHits(d.body, q);
         // un número exacto que solo coincidía como prefijo no cuenta
         if (!hits.length && !findHits(d.title, q).length) continue;
-        out.push({ id: d.id, title: d.title, materia: d.materia, tema: d.tema, fecha: d.fecha, score: r.score, hits: hits.length, parts: snippet(d.body, hits).parts });
+        out.push({ id: d.id, title: d.title, materia: d.materia, tema: d.tema, fecha: d.fecha, score: r.score, hits: hits.length, parts: snippet(d.body, hits).parts, ...(d.thumb ? { thumb: d.thumb } : {}) });
         if (out.length >= limit) break;
       }
       return out;

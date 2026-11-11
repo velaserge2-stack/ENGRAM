@@ -40,7 +40,7 @@ export function queryTerms(q: string): string[] {
   return [...new Set([...fold(q).matchAll(TOKEN)].map((m) => m[0].replace(/[.,]$/, '')))];
 }
 
-export interface SearchDoc { id: string; title: string; body: string; materia: string; tema: string; fecha: string }
+export interface SearchDoc { id: string; title: string; body: string; materia: string; tema: string; fecha: string; thumb?: string }
 
 export function createIndex(): MiniSearch<SearchDoc> {
   return new MiniSearch<SearchDoc>({

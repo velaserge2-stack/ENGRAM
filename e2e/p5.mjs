@@ -175,6 +175,54 @@ try {
 
   }
 
+  if (run('manuscrito')) {
+    console.log('Notas manuscritas');
+    await page.goto(URL_ + '#/notas/+nueva');
+    const f = page.getByRole('dialog', { name: 'Nueva nota' });
+    await f.getByLabel('Materia').fill('Fisiología');
+    await f.getByLabel('Tema o clase').fill('Renal');
+    await f.getByLabel('Título').fill('Fórmulas');
+    await f.getByRole('button', { name: 'Crear' }).click();
+    await page.locator('.doc').waitFor();
+    // párrafo antes, dibujo, párrafo después
+    const write = async (txt) => { await page.getByRole('button', { name: /Escribe o usa/ }).click(); await page.locator('.doc textarea').last().click(); await page.keyboard.type(txt); };
+    await write('Párrafo antes de la fórmula');
+    await page.keyboard.press('Enter'); await page.keyboard.press('Enter');
+    await page.keyboard.type('/dib');
+    await page.getByRole('option', { name: /Dibujo \/ manuscrito/ }).or(page.getByRole('menuitem', { name: /Dibujo \/ manuscrito/ })).or(page.locator('.slash button', { hasText: 'Dibujo / manuscrito' })).first().click();
+    await page.locator('.drawing-block .ink-live').waitFor();
+    const live = page.locator('.drawing-block .ink-live');
+    await live.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const ev = (name, x, y, p) => el.dispatchEvent(new PointerEvent(name, { pointerType: 'pen', pointerId: 70, pressure: p, clientX: r.left + x, clientY: r.top + y, buttons: name === 'pointerup' ? 0 : 1, bubbles: true, cancelable: true }));
+      // «E = mc²» aproximado: varios trazos
+      ev('pointerdown', 30, 30, 0.3); for (let i = 0; i < 15; i++) ev('pointermove', 30 + i * 6, 30 + Math.sin(i) * 12, 0.3 + i / 30); ev('pointerup', 120, 40, 0.5);
+    });
+    await page.waitForTimeout(1500);
+    await write('Párrafo después de la fórmula');
+    await page.waitForTimeout(900);
+    await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Ver Markdown' }).click();
+    const md = await page.locator('.doc textarea').inputValue();
+    const iA = md.indexOf('Párrafo antes'), iD = md.search(/!\[\[dibujo-[\w-]+\.png\]\]/), iB = md.indexOf('Párrafo después');
+    check(iA >= 0 && iD > iA && iB > iD, 'la nota guarda texto · ![[dibujo-….png]] · texto, en ese orden');
+    await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Documento' }).click();
+    await page.reload();
+    await page.locator('.drawing-block canvas.ink-base').waitFor();
+    await page.waitForTimeout(500);
+    const px = async () => page.locator('.drawing-block canvas.ink-base').evaluate((c) => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++; return n; });
+    check(await px() > 50, 'al reabrir la app la fórmula a mano sigue intacta');
+    await page.emulateMedia({ media: 'print' });
+    check(await page.locator('.drawing-block canvas.ink-base').isVisible() && await px() > 50 && !(await page.locator('.drawing-block .ink-toolbar').isVisible()), 'al exportar a PDF (imprimir) el dibujo es visible y sin herramientas');
+    await page.emulateMedia({ media: 'screen' });
+    // búsqueda: los dibujos no se indexan, pero la nota muestra su miniatura
+    await page.getByRole('searchbox', { name: /Buscar en todas las notas/ }).fill('fórmula');
+    await page.locator('.search-hit').first().waitFor();
+    check(await page.locator('.search-hit .search-thumb img').count() >= 1, 'el resultado muestra la miniatura del dibujo');
+    await page.getByRole('searchbox', { name: /Buscar en todas las notas/ }).fill('dibujo');
+    await page.waitForTimeout(500);
+    check(await page.locator('.search-hit', { hasText: 'Fórmulas' }).count() === 0, 'la referencia del dibujo no se indexa como texto');
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');

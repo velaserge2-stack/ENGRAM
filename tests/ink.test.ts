@@ -44,3 +44,16 @@ describe('motor de tinta', () => {
     expect(acceptPointer('touch', 'draw', 0, 10_000, false)).toBe(true);
   });
 });
+
+import { drawingHeight, PAGE_H, parseDrawing } from '../src/ink/DrawingBlock';
+describe('notas manuscritas', () => {
+  it('el bloque crece hacia abajo con lo escrito; el cuaderno va por páginas', () => {
+    const d = parseDrawing(JSON.stringify({ v: 1, h: 0.4, strokes: [line('a', 0.1, 0.9, 0.5, 0.9)] }));
+    expect(drawingHeight(d)).toBeCloseTo(0.9 + 0.12);
+    const nb = parseDrawing(JSON.stringify({ v: 1, h: 1, paper: 'rayado', pages: 3, strokes: [] }));
+    expect(nb.paper).toBe('rayado');
+    expect(drawingHeight(nb)).toBeCloseTo(3 * PAGE_H);
+    expect(parseDrawing('roto')).toMatchObject({ strokes: [], h: 0.4 });
+    expect(parseDrawing('{"paper":"neón","strokes":[]}').paper).toBeUndefined();
+  });
+});

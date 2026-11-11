@@ -47,7 +47,9 @@ export async function markdownToDocx(md: string, title: string, loadImage: (name
       if (c.type === 'text') {
         const img = /^!\[\[([^\]|]+)\]\]$/.exec(c.content.trim());
         const data = img ? await loadImage(img[1]!) : null;
-        if (img && data) out.push(new d.ImageRun({ data, transformation: { width: 420, height: 280 }, type: /\.png$/i.test(img[1]!) ? 'png' : 'jpg' }));
+        // dibujos manuscritos: respetar la proporción del PNG (ancho y alto en la cabecera IHDR)
+        const dims = img && data && /^dibujo-/.test(img[1]!) && data.length > 24 ? [new DataView(data.buffer, data.byteOffset).getUint32(16), new DataView(data.buffer, data.byteOffset).getUint32(20)] : null;
+        if (img && data) out.push(new d.ImageRun({ data, transformation: { width: 420, height: dims && dims[0] ? Math.round((420 * dims[1]!) / dims[0]) : 280 }, type: /\.png$/i.test(img[1]!) ? 'png' : 'jpg' }));
         else text(c.content);
       } else if (c.type === 'strong_open') bold = true;
       else if (c.type === 'strong_close') bold = false;
