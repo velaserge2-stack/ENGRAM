@@ -22,6 +22,8 @@ import { usePomodoro } from './screens/pomodoro';
 import { walk } from './vault/util';
 import { TooltipLayer } from './ui/tooltip';
 import { autoPurge } from './data/decktrash';
+import { FRAMING_PATH, normFraming, parseFramings } from './lib/framing';
+import { readTextOr } from './vault/util';
 import { PhoneTabBar } from './ui/phonebar';
 import { usePhone } from './ui/kit';
 import { Avatar, useProfile } from './screens/profile';
@@ -43,6 +45,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const [inboxCount, setInbox] = useState(0);
   const [preview, setPreview] = useState<{ bg: Settings['bg']; mode: 'dark' | 'light' | null } | null>(null);
   const route = useRoute();
+  const [framings, setFramings] = useState<ReturnType<typeof parseFramings>>({});
+  useEffect(() => { readTextOr(vault, FRAMING_PATH, '{}').then((t) => setFramings(parseFramings(t)), () => {}); }, [version]);
   const phone = usePhone();
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const saver = useMemo(() => createAutosave((s: Settings) => vault.write(SETTINGS_PATH, serializeSettings(s))), [vault]);
@@ -99,7 +103,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const sample = useRef<ImageData | null>(null);
   const lastBg = useRef('');
   const toastedFor = useRef('');
-  const bgKey = JSON.stringify([eff.bg, eff.bgDim, eff.glassMode]);
+  const framing = eff.bg.kind === 'image' ? normFraming(framings[eff.bg.value]) : undefined;
+  const bgKey = JSON.stringify([eff.bg, eff.bgDim, eff.glassMode, framing]);
   // el guardián siempre lee el estado vigente (evita cierres obsoletos en temporizadores)
   const effRef = useRef(eff);
   effRef.current = eff;
@@ -116,7 +121,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   useEffect(() => {
     let alive = true;
     const resample = () =>
-      sampleBackground(eff.bg, vault, settings.bgDim, innerWidth, innerHeight).then((s) => {
+      sampleBackground(eff.bg, vault, settings.bgDim, innerWidth, innerHeight, framing).then((s) => {
         if (!alive) return;
         sample.current = s;
         lastBg.current = bgKey;
@@ -190,7 +195,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     return () => removeEventListener('keydown', onKey);
   });
 
-  const bg = <BackgroundLayer bg={eff.bg} blur={settings.bgBlur} dim={settings.bgDim} vault={vault} />;
+  const bg = <BackgroundLayer bg={eff.bg} blur={settings.bgBlur} dim={settings.bgDim} vault={vault} framing={framing} />;
 
   if (!settings.welcomeDone) {
     return (

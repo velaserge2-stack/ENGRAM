@@ -84,6 +84,8 @@ svg.lucide { stroke-width: 1.5; flex: none; }
 /* ───────── fondo (capa fija propia; nunca background-attachment: fixed) ───────── */
 .bg-layer { position: fixed; inset: 0; z-index: -2; overflow: hidden; background: #111; }
 .bg-layer > img, .bg-layer > canvas, .bg-layer > .solid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scale(var(--bg-scale, 1)); filter: blur(var(--bg-blur, 0px)); transition: filter .3s var(--ease); }
+/* encuadre de un fondo propio (C9; .app/fondos.json): posición y acercamiento desde ese punto */
+.bg-layer > img[style] { object-position: var(--bg-pos, 50% 50%); transform-origin: var(--bg-pos, 50% 50%); transform: scale(calc(var(--bg-scale, 1) * var(--bg-zoom, 1))); }
 .bg-veil { position: fixed; inset: 0; z-index: -1; pointer-events: none; transition: background .3s var(--ease); }
 body.focus .bg-layer > * { filter: blur(calc(var(--bg-blur, 0px) + 18px)); }
 body.focus .bg-veil { background: rgba(0, 0, 0, .35) !important; }
@@ -574,3 +576,11 @@ pre.preview { background: var(--fill-2); border: var(--hair) solid var(--line); 
 /* papelera de mazos (C8) */
 .decks .pick { width: 22px; height: 22px; flex: none; accent-color: var(--t1); margin: 0 4px 0 0; }
 hr.sep { border: 0; border-top: var(--hair) solid var(--line); margin: 4px 0; width: 100%; }
+/* fondos: gestionar y encuadrar (C9) */
+.bg-grid .bg-pick .bg-check { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; background: var(--glass-strong); border: 1.5px solid var(--t1); color: var(--t1); }
+.bg-grid .bg-pick[aria-checked="true"] { box-shadow: 0 0 0 3px var(--t1); }
+.frame-box { position: relative; width: 100%; max-height: 60dvh; margin: 0 auto; overflow: hidden; border-radius: var(--r-inner); touch-action: none; cursor: grab; background: #111; user-select: none; -webkit-user-select: none; }
+.frame-box > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: var(--bg-pos, 50% 50%); transform-origin: var(--bg-pos, 50% 50%); transform: scale(var(--bg-zoom, 1)); pointer-events: none; }
+.frame-mock { position: absolute; inset: 8% 6%; display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: auto 1fr; gap: 6%; pointer-events: none; }
+.frame-mock i { border-radius: 10px; min-height: 18%; }
+.frame-mock i:first-child { grid-column: 1 / -1; min-height: 10%; border-radius: 999px; }

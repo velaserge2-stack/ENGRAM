@@ -101,6 +101,47 @@ try {
     await tr2.getByRole('button', { name: 'Cerrar' }).click();
   }
 
+  if (run('fondos')) {
+    console.log('Fondos: borrar y encuadrar');
+    // una foto apaisada generada en el navegador (sin archivos de prueba)
+    const png = await page.evaluate(async () => {
+      const c = document.createElement('canvas'); c.width = 1600; c.height = 900;
+      const x = c.getContext('2d'); const g = x.createLinearGradient(0, 0, 1600, 0); g.addColorStop(0, '#203040'); g.addColorStop(1, '#d0c0a0'); x.fillStyle = g; x.fillRect(0, 0, 1600, 900);
+      const b = await new Promise((r) => c.toBlob(r, 'image/png')); return [...new Uint8Array(await b.arrayBuffer())];
+    });
+    await page.goto(URL_ + '#/ajustes');
+    await page.locator('.bg-grid input[type=file]').setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: Buffer.from(png) });
+    await page.locator('.bg-layer img').waitFor();
+    await page.getByRole('region', { name: 'Apariencia · Fondo' }).getByRole('button', { name: 'Aplicar' }).click();
+    await page.getByRole('button', { name: 'Gestionar' }).click();
+    await page.getByRole('checkbox', { name: 'Imagen propia' }).click();
+    await page.getByRole('button', { name: 'Encuadrar' }).click();
+    const box = page.locator('.frame-box');
+    await box.waitFor();
+    const bb = await box.boundingBox();
+    await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(bb.x + bb.width / 2 + 120, bb.y + bb.height / 2, { steps: 6 });
+    await page.mouse.up();
+    await page.getByRole('slider', { name: 'Acercar' }).fill('1.5');
+    await page.getByRole('button', { name: 'Guardar' }).click();
+    await page.waitForTimeout(800);
+    const pos = () => page.locator('.bg-layer img').evaluate((i) => [i.style.getPropertyValue('--bg-pos'), i.style.getPropertyValue('--bg-zoom')]);
+    const p1 = await pos();
+    check(p1[0] && p1[0] !== '50% 50%' && p1[1] === '1.5', `el encuadre se aplica al fondo (${p1.join(' · ')})`);
+    await page.reload();
+    await page.locator('.bg-layer img').waitFor();
+    await page.waitForTimeout(500);
+    check(JSON.stringify(await pos()) === JSON.stringify(p1), 'el encuadre se conserva al volver a abrir la app');
+    await page.goto(URL_ + '#/ajustes');
+    await page.getByRole('button', { name: 'Gestionar' }).click();
+    await page.getByRole('checkbox', { name: 'Imagen propia' }).click();
+    await page.getByRole('button', { name: 'Eliminar (1)' }).click();
+    await page.waitForTimeout(800);
+    check(await page.locator('.bg-layer img').count() === 0 && await page.locator('.bg-layer canvas').count() === 1, 'borrar el fondo en uso vuelve al integrado');
+    check(await page.getByRole('checkbox', { name: 'Imagen propia' }).count() === 0 && await page.getByRole('radio', { name: 'Imagen propia' }).count() === 0, 'el fondo borrado ya no está en la galería');
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');

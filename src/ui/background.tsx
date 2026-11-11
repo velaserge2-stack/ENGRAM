@@ -6,6 +6,7 @@ import { t } from '../i18n';
  */
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Background, Settings } from '../lib/settings';
+import { DEFAULT_FRAMING, framedRect, framingStyle, isDefault, type Framing } from '../lib/framing';
 import type { VaultAdapter } from '../vault/types';
 import { contrast } from '../lib/palette';
 
@@ -99,6 +100,11 @@ export const SOLIDS = ['#000000', '#1c1c1e', '#3a3a3c', '#8e8e93', '#d1d1d6', '#
 
 /** URL de objeto de un fondo de imagen (caché por ruta). */
 const urlCache = new Map<string, string>();
+/** Olvida la URL en caché (el archivo cambió o se borró). */
+export function forgetMediaUrl(path: string) {
+  const u = urlCache.get(path);
+  if (u) (URL.revokeObjectURL(u), urlCache.delete(path));
+}
 export async function mediaUrl(vault: VaultAdapter, path: string, type = ''): Promise<string | null> {
   if (urlCache.has(path)) return urlCache.get(path)!;
   try {
@@ -127,7 +133,7 @@ async function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 /** Muestra 64×64 de lo que se ve detrás de la interfaz (con proporción de la ventana). */
-export async function sampleBackground(bg: Background, vault: VaultAdapter, dim: number, vw: number, vh: number): Promise<ImageData> {
+export async function sampleBackground(bg: Background, vault: VaultAdapter, dim: number, vw: number, vh: number, framing: Framing = DEFAULT_FRAMING): Promise<ImageData> {
   const W = 64;
   const H = Math.max(16, Math.round((64 * vh) / Math.max(1, vw)));
   const c = document.createElement('canvas');
@@ -144,7 +150,11 @@ export async function sampleBackground(bg: Background, vault: VaultAdapter, dim:
     ctx.drawImage(big, 0, 0, W, H);
   } else {
     const url = await mediaUrl(vault, bg.value);
-    if (url) drawCover(ctx, await loadImage(url), W, H);
+    if (url) {
+      const img = await loadImage(url);
+      const r = framedRect(img.width, img.height, W, H, framing);
+      ctx.drawImage(img, r.x, r.y, r.w, r.h);
+    }
   }
   if (dim) {
     ctx.fillStyle = dim < 0 ? `rgba(0,0,0,${-dim / 100})` : `rgba(255,255,255,${dim / 100})`;
@@ -179,6 +189,26 @@ export async function importBackground(vault: VaultAdapter, file: File): Promise
   }
 }
 
+/** Miniatura cuadrada de 256 px con el encuadre elegido (se regenera al reencuadrar). */
+export async function regenThumb(vault: VaultAdapter, path: string, f: Framing): Promise<void> {
+  const url = await mediaUrl(vault, path);
+  if (!url) return;
+  const img = await loadImage(url);
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const r = framedRect(img.width, img.height, 256, 256, f);
+  c.getContext('2d')!.drawImage(img, r.x, r.y, r.w, r.h);
+  const blob = await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('jpeg'))), 'image/jpeg', 0.86));
+  const thumb = path.replace(/\.jpg$/, '-thumb.jpg');
+  await vault.write(thumb, new Uint8Array(await blob.arrayBuffer()));
+  forgetMediaUrl(thumb);
+}
+
+/** Borra un fondo subido (imagen y miniatura). */
+export async function deleteBackground(vault: VaultAdapter, path: string): Promise<void> {
+  for (const p of [path, path.replace(/\.jpg$/, '-thumb.jpg')]) if (await vault.exists(p)) (await vault.remove(p), forgetMediaUrl(p));
+}
+
 export function BuiltinThumb(props: { id: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -190,7 +220,7 @@ export function BuiltinThumb(props: { id: string }) {
 }
 
 /** Capa de fondo: canvas (integrado), <img> (propio) o color sólido. */
-export function BackgroundLayer(props: { bg: Background; blur: number; dim: number; vault: VaultAdapter }) {
+export function BackgroundLayer(props: { bg: Background; blur: number; dim: number; vault: VaultAdapter; framing?: Framing }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [url, setUrl] = useState<string | null>(null);
   const { bg } = props;
@@ -215,7 +245,7 @@ export function BackgroundLayer(props: { bg: Background; blur: number; dim: numb
     <>
       <div class="bg-layer" style={style} aria-hidden="true" data-bg>
         {bg.kind === 'builtin' && <canvas ref={ref} />}
-        {bg.kind === 'image' && url && <img src={url} alt="" />}
+        {bg.kind === 'image' && url && <img src={url} alt="" style={props.framing && !isDefault(props.framing) ? framingStyle(props.framing) : undefined} />}
         {bg.kind === 'solid' && <div class="solid" style={{ background: bg.value }} />}
       </div>
       <div class="bg-veil" style={{ background: veil }} aria-hidden="true" data-bg />

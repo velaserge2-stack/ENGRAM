@@ -1,6 +1,7 @@
 import { t as tr, deviceLang, firstDayOfWeek, LANGS, setLang } from '../i18n';
-import { Check, FolderOpen, ImagePlus, PlusSquare, Share as ShareIcon } from 'lucide-preact';
-import { useEffect, useState } from 'preact/hooks';
+import { Check, Crop, FolderOpen, ImagePlus, PlusSquare, Share as ShareIcon, Trash2 } from 'lucide-preact';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { DEFAULT_FRAMING, framingStyle, FRAMING_PATH, normFraming, parseFramings, type Framing } from '../lib/framing';
 import { AddonsGroup } from './addons';
 import { verifyDeterminism } from '../data/collection';
 import { exampleFiles } from '../lib/example';
@@ -11,11 +12,11 @@ import { formatBytes, isStandalone, requestPersist, storageInfo } from '../lib/s
 import { deliver } from '../io/share';
 import { State, workloadEstimate } from '../srs/engine';
 import { href, useApp, useAsync } from '../state';
-import { BUILTINS, BuiltinThumb, importBackground, mediaUrl, SOLIDS } from '../ui/background';
-import { Group, PageTitle, Row, Segmented, Switch } from '../ui/kit';
+import { BUILTINS, BuiltinThumb, deleteBackground, importBackground, mediaUrl, regenThumb, SOLIDS } from '../ui/background';
+import { Group, PageTitle, Row, Segmented, Sheet, Switch } from '../ui/kit';
 import { FSAccessBackend } from '../vault/fsaccess';
 import { rememberFolder } from '../vault/open';
-import { walk } from '../vault/util';
+import { readTextOr, walk } from '../vault/util';
 import { APP_VERSION } from './backup';
 
 export function InstallSteps() {
@@ -94,8 +95,36 @@ function Backgrounds() {
     app.update({ bg });
   };
   const same = (b: Background) => b.kind === s.bg.kind && b.value === s.bg.value;
+  const [manage, setManage] = useState<Set<string> | null>(null);
+  const [framing, setFraming] = useState<string | null>(null);
+  const togglePick = (p: string) => setManage((m) => { const n = new Set(m); n.has(p) ? n.delete(p) : n.add(p); return n; });
+  const removeSelected = async () => {
+    const paths = [...(manage ?? [])];
+    if (!paths.length || !confirm(tr('settings.eliminar_fondos_confirm', { n: paths.length }))) return;
+    const fr = parseFramings(await readTextOr(app.vault, FRAMING_PATH, '{}'));
+    for (const p of paths) (await deleteBackground(app.vault, p), delete fr[p]);
+    await app.vault.write(FRAMING_PATH, JSON.stringify(fr, null, 1));
+    // si el fondo en uso se borró, vuelve al integrado por defecto
+    if (s.bg.kind === 'image' && paths.includes(s.bg.value)) app.update({ bg: { kind: 'builtin', value: 'bruma' } }, true);
+    setManage(null);
+    app.changed();
+    app.toast(tr('settings.fondos_eliminados', { n: paths.length }));
+  };
   return (
     <div class="stack-s" style={{ padding: '10px 18px 14px' }}>
+      {!!images?.length && (
+        <div class="row wrap">
+          <span class="foot grow">{manage ? tr('settings.toca_para_seleccionar') : tr('settings.tus_fondos_n', { n: images.length })}</span>
+          {manage ? (
+            <>
+              <button type="button" class="btn small" disabled={manage.size !== 1} onClick={() => setFraming([...manage][0]!)}><Crop size={14} />{' '}{tr('settings.encuadrar')}</button>
+              <button type="button" class="btn small danger" disabled={!manage.size} onClick={() => void removeSelected()}><Trash2 size={14} />{' '}{tr('settings.eliminar_n', { n: manage.size })}</button>
+              <button type="button" class="btn small" onClick={() => setManage(null)}>{tr('settings.listo')}</button>
+            </>
+          ) : <button type="button" class="btn small" onClick={() => setManage(new Set())}>{tr('settings.gestionar_fondos')}</button>}
+        </div>
+      )}
+      {framing && <FramingEditor path={framing} onClose={() => (setFraming(null), setManage(null))} />}
       <div class="bg-grid" role="radiogroup" aria-label={tr('settings.fondos')}>
         {BUILTINS.map((b) => (
           <button type="button" role="radio" aria-checked={same({ kind: 'builtin', value: b.id })} aria-pressed={same({ kind: 'builtin', value: b.id })} aria-label={tr(`bg.${b.id}`)} onClick={() => choose({ kind: 'builtin', value: b.id })}><BuiltinThumb id={b.id} /></button>
@@ -104,7 +133,9 @@ function Backgrounds() {
           <button type="button" role="radio" aria-checked={same({ kind: 'solid', value: c })} aria-pressed={same({ kind: 'solid', value: c })} aria-label={tr('settings.color_solido_c', { c: c })} onClick={() => choose({ kind: 'solid', value: c })} style={{ background: c }} data-user-content />
         ))}
         {images?.map((im) => (
-          <button type="button" role="radio" aria-checked={same({ kind: 'image', value: im.path })} aria-pressed={same({ kind: 'image', value: im.path })} aria-label={tr('settings.imagen_propia')} onClick={() => choose({ kind: 'image', value: im.path })}>{im.thumb && <img src={im.thumb} alt="" />}</button>
+          manage
+            ? <button type="button" role="checkbox" class="bg-pick" aria-checked={manage.has(im.path)} aria-label={tr('settings.imagen_propia')} onClick={() => togglePick(im.path)}>{im.thumb && <img src={im.thumb} alt="" />}<span class="bg-check" aria-hidden="true">{manage.has(im.path) ? '✓' : ''}</span></button>
+            : <button type="button" role="radio" aria-checked={same({ kind: 'image', value: im.path })} aria-pressed={same({ kind: 'image', value: im.path })} aria-label={tr('settings.imagen_propia')} onClick={() => choose({ kind: 'image', value: im.path })}>{im.thumb && <img src={im.thumb} alt="" />}</button>
         ))}
         <label class="btn" style={{ aspectRatio: '1', borderRadius: '18px', flexDirection: 'column', height: 'auto' }}>
           <ImagePlus size={22} /><span class="note">{tr('settings.anadir_imagen')}</span>
@@ -133,6 +164,63 @@ function Backgrounds() {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Editor de encuadre (C9): arrastrar para mover, pellizcar o deslizador para acercar,
+ * con paneles de muestra encima. Guarda en .app/fondos.json y regenera la miniatura.
+ */
+function FramingEditor(props: { path: string; onClose: () => void }) {
+  const app = useApp();
+  const [f, setF] = useState<Framing>(DEFAULT_FRAMING);
+  const { data: url } = useAsync(async () => {
+    setF(normFraming(parseFramings(await readTextOr(app.vault, FRAMING_PATH, '{}'))[props.path]));
+    return mediaUrl(app.vault, props.path);
+  }, [props.path]);
+  const box = useRef<HTMLDivElement>(null);
+  const pts = useRef(new Map<number, { x: number; y: number }>());
+  const start = useRef<{ f: Framing; d: number; x: number; y: number } | null>(null);
+  const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+  const ratio = innerWidth / innerHeight;
+  const save = async () => {
+    const all = parseFramings(await readTextOr(app.vault, FRAMING_PATH, '{}'));
+    all[props.path] = normFraming(f);
+    await app.vault.write(FRAMING_PATH, JSON.stringify(all, null, 1));
+    await regenThumb(app.vault, props.path, f);
+    app.changed();
+    props.onClose();
+  };
+  const dist = () => { const [a, b] = [...pts.current.values()]; return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0; };
+  return (
+    <Sheet title={tr('settings.encuadrar_fondo')} onClose={props.onClose} wide>
+      <div class="stack">
+        <div ref={box} class="frame-box" style={{ aspectRatio: `${ratio}` }} role="img" aria-label={tr('settings.vista_previa_encuadre')}
+          onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY }); start.current = { f, d: dist(), x: e.clientX, y: e.clientY }; }}
+          onPointerMove={(e) => {
+            if (!pts.current.has(e.pointerId) || !start.current || !box.current) return;
+            pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            const s0 = start.current;
+            if (pts.current.size >= 2 && s0.d) return setF({ ...s0.f, zoom: clamp(s0.f.zoom * (dist() / s0.d), 1, 3) });
+            const r = box.current.getBoundingClientRect();
+            // arrastrar a la derecha muestra más del lado izquierdo de la foto
+            setF({ ...s0.f, x: clamp(s0.f.x - ((e.clientX - s0.x) / r.width) * 100 / s0.f.zoom, 0, 100), y: clamp(s0.f.y - ((e.clientY - s0.y) / r.height) * 100 / s0.f.zoom, 0, 100) });
+          }}
+          onPointerUp={(e) => { pts.current.delete(e.pointerId); start.current = pts.current.size ? { f, d: dist(), x: [...pts.current.values()][0]!.x, y: [...pts.current.values()][0]!.y } : null; }}
+          onPointerCancel={(e) => pts.current.delete(e.pointerId)}>
+          {url && <img src={url} alt="" draggable={false} style={framingStyle(f)} />}
+          <div class="frame-mock" aria-hidden="true"><i class="glass" /><i class="glass" /><i class="glass" /></div>
+        </div>
+        <Row k={tr('settings.acercar')} sub={`${f.zoom.toFixed(2)}×`}>
+          <input type="range" min={1} max={3} step={0.01} value={f.zoom} aria-label={tr('settings.acercar')} onInput={(e) => setF({ ...f, zoom: Number((e.target as HTMLInputElement).value) })} />
+        </Row>
+        <p class="foot">{tr('settings.encuadre_nota')}</p>
+        <div class="row wrap" style={{ justifyContent: 'flex-end' }}>
+          <button type="button" class="btn" onClick={() => setF(DEFAULT_FRAMING)}>{tr('settings.restablecer')}</button>
+          <button type="button" class="btn primary" onClick={() => void save()}><Check size={16} />{' '}{tr('profile.guardar')}</button>
+        </div>
+      </div>
+    </Sheet>
   );
 }
 
