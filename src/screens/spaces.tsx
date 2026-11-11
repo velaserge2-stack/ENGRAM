@@ -1,5 +1,5 @@
 import { t as tr } from '../i18n';
-import { BarChart3, BookOpen, ClipboardCheck, FileSpreadsheet, FileText, Image as ImageIcon, Lock, NotebookPen, Plus, Scan, Timer, Unlock, X, LayoutGrid, Inbox as InboxIcon, Sparkles } from 'lucide-preact';
+import { BarChart3, BookOpen, ChevronsDownUp, ChevronsUpDown, ClipboardCheck, FileSpreadsheet, FileText, Image as ImageIcon, Lock, NotebookPen, Plus, Scan, Timer, Unlock, X, LayoutGrid, Inbox as InboxIcon, Sparkles } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { docxToHtml } from '../io/extract';
 import { parseCSV } from '../io/csv';
@@ -24,8 +24,9 @@ type PType = 'estudio' | 'simulacro' | 'nota' | 'pdf' | 'docx' | 'hoja' | 'image
 interface Panel { id: string; type: PType; arg: string; x: number; y: number; w: number; h: number; locked?: boolean; min?: boolean; z?: number }
 interface Space { id: string; name: string; emoji: string; mode: 'tiles' | 'canvas'; panels: Panel[]; sizes: number[]; view: { x: number; y: number; k: number }; tray?: string[] }
 
-/** Paneles que se pueden minimizar a cuadrito (no la sesión de estudio ni un simulacro). */
-const MINIMIZABLE: PType[] = ['pomodoro', 'stats', 'pdf', 'docx', 'hoja'];
+/** Todos los paneles se pueden minimizar a cuadrito (el simulacro sigue contando: su reloj es una marca de tiempo). */
+const MINIMIZABLE: PType[] = ['estudio', 'simulacro', 'nota', 'pdf', 'docx', 'hoja', 'imagen', 'pomodoro', 'stats'];
+const SIM_CURRENT = '.app/exam-current.json';
 const visible = (sp: Space) => sp.panels.filter((x) => !x.min);
 
 const DIR = '.app/spaces';
@@ -117,6 +118,8 @@ export function Spaces(props: { route: string[] }) {
               <b style={{ padding: '0 6px' }}>{sp.emoji} {sp.name}</b>
               <span class="grow" />
               <Segmented label={tr('deck.modo')} value={sp.mode} onChange={(m) => save({ ...sp, mode: m })} options={[['tiles', tr('spaces.mosaico')], ['canvas', tr('spaces.lienzo')]]} />
+              <button type="button" class="btn small" disabled={!visible(sp).length} onClick={() => minimizeAll(sp, save)}>{tr('spaces.minimizar_todos')}</button>
+              <button type="button" class="btn small" disabled={!sp.panels.some((x) => x.min)} onClick={() => restoreAll(sp, save)}>{tr('spaces.restaurar_todos')}</button>
               <button type="button" class="btn small" onClick={async () => { if (!confirm(tr('spaces.confirm_eliminar', { name: sp.name }))) return; await app.vault.remove(`${DIR}/${sp.id}.json`); app.changed(); go('espacios'); }}>{tr('calendar.eliminar')}</button>
             </div>
             {sp.mode === 'tiles' ? <Tiles sp={sp} save={save} /> : <CanvasView sp={sp} save={save} />}
@@ -212,15 +215,48 @@ function restorePanel(sp: Space, save: (s: Space) => void, id: string) {
   save({ ...next, sizes: initialSizes(visible(next).slice(0, 3)) });
 }
 
+function minimizeAll(sp: Space, save: (s: Space) => void) {
+  const vis = visible(sp).map((x) => x.id);
+  if (!vis.length) return;
+  save({ ...sp, panels: sp.panels.map((x) => ({ ...x, min: true })), tray: [...(sp.tray ?? []).filter((x) => !vis.includes(x)), ...vis], sizes: [] });
+}
+
+/** En mosaico vuelven los 3 más recientes de la bandeja; en el lienzo, todos. */
+function restoreAll(sp: Space, save: (s: Space) => void) {
+  const order = [...new Set([...(sp.tray ?? []), ...sp.panels.filter((x) => x.min).map((x) => x.id)])].filter((id) => sp.panels.some((x) => x.id === id && x.min));
+  if (!order.length) return;
+  const room = sp.mode === 'tiles' ? Math.max(0, 3 - visible(sp).length) : order.length;
+  const back = new Set(order.slice(-room));
+  back.forEach((id) => restored.add(id));
+  const next = { ...sp, panels: sp.panels.map((x) => (back.has(x.id) ? { ...x, min: false } : x)), tray: order.filter((id) => !back.has(id)) };
+  save({ ...next, sizes: initialSizes(visible(next).slice(0, 3)) });
+}
+
+/** Lee el simulacro en curso (para el cuadrito: tiempo restante). */
+function useSimLeft(active: boolean): string | null {
+  const app = useApp();
+  const { data: cur } = useAsync(async () => (active ? (JSON.parse((await readTextOr(app.vault, SIM_CURRENT, 'null')) || 'null') as { endAt: number | null; finishedAt?: number } | null) : null), [app.version, active]);
+  const [now, setNow] = useState(Date.now());
+  const running = !!cur?.endAt && !cur.finishedAt && cur.endAt > now;
+  useEffect(() => {
+    if (!running) return;
+    const iv = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(iv);
+  }, [running]);
+  return cur?.endAt && !cur.finishedAt ? fmt(Math.max(0, cur.endAt - now)) : null;
+}
+
 function PanelTray(p: { sp: Space; save: (s: Space) => void; vertical?: boolean }) {
   const app = useApp();
   const order = [...(p.sp.tray ?? []), ...p.sp.panels.filter((x) => x.min).map((x) => x.id)];
   const ids = [...new Set(order)].filter((id) => p.sp.panels.some((x) => x.id === id && x.min));
   const rem = fmt(remaining(app.pomo.state, app.pomo.now));
+  const simLeft = useSimLeft(ids.some((id) => p.sp.panels.find((x) => x.id === id)?.type === 'simulacro'));
   const items: TrayItem[] = ids.map((id) => {
     const pn = p.sp.panels.find((x) => x.id === id)!;
     const t = TYPES().find((x) => x.t === pn.type)!;
     const name = pn.arg ? `${t.label}: ${pn.arg.split('/').pop()}` : t.label;
+    if (pn.type === 'simulacro' && simLeft) return { id, label: name, icon: t.icon, live: simLeft, liveLabel: tr('tray.restantes', { rem: simLeft }) };
     return pn.type === 'pomodoro' ? { id, label: name, icon: t.icon, live: rem, liveLabel: tr(app.pomo.state.running ? 'tray.restantes' : 'tray.restantes_pausa', { rem }) } : { id, label: name, icon: t.icon };
   });
   return <Tray items={items} vertical={p.vertical} max={p.vertical ? 4 : 6} onRestore={(id) => restorePanel(p.sp, p.save, id)} onClose={(id) => { const panels = p.sp.panels.filter((x) => x.id !== id); p.save({ ...p.sp, panels, tray: (p.sp.tray ?? []).filter((x) => x !== id), sizes: initialSizes(panels.filter((x) => !x.min).slice(0, 3)) }); }} />;
@@ -247,6 +283,10 @@ function Dock(p: { sp: Space; save: (s: Space) => void }) {
       <div class="glass" role="toolbar" aria-label={tr('design.anadir_panel')}>
         <span class="note t2" style={{ padding: '0 10px' }}><Plus size={14} />{' '}{tr('design.anadir_panel')}</span>
         {TYPES().map((x) => <button type="button" class="btn icon small ghost" aria-label={tr('spaces.anadir_panel_label', { label: x.label })} title={x.label} onClick={() => add(x.t)}>{x.icon}</button>)}
+      </div>
+      <div class="glass" role="toolbar" aria-label={tr('tray.paneles_minimizados')}>
+        <button type="button" class="btn icon small ghost" aria-label={tr('spaces.minimizar_todos')} disabled={!visible(p.sp).length} onClick={() => minimizeAll(p.sp, p.save)}><ChevronsDownUp size={18} /></button>
+        <button type="button" class="btn icon small ghost" aria-label={tr('spaces.restaurar_todos')} disabled={!p.sp.panels.some((x) => x.min)} onClick={() => restoreAll(p.sp, p.save)}><ChevronsUpDown size={18} /></button>
       </div>
       <a class="pill glass" href="#/bandeja"><InboxIcon size={16} />{' '}{tr('app.bandeja')}{' '}<span class={`count${app.inboxCount ? '' : ' zero'}`}>{app.inboxCount}</span></a>
     </div>
@@ -431,13 +471,24 @@ function PanelBody(p: { panel: Panel; onArg: (a: string) => void }) {
     case 'nota': return a ? <NoteView path={a} /> : <NotePick onPick={p.onArg} />;
     case 'estudio': return <div style={{ padding: '12px' }}><Study filter={a || null} embedded /></div>;
     case 'pomodoro': return <div style={{ padding: '12px' }}><PomodoroPanel compact /></div>;
-    case 'simulacro': return <div class="stack" style={{ padding: '16px' }}><p>{tr('spaces.los_simulacros_usan_la_pantalla_completa')}</p><a class="btn primary" href="#/simulacros">{tr('spaces.abrir_simulacros')}</a></div>;
+    case 'simulacro': return <SimPanel />;
     case 'stats': {
       const s = app.settings;
       const tp = todayProgress(app.col?.log ?? [], dayKey(Date.now(), s.timeZone, s.dayStartHour), s.timeZone, s.dayStartHour);
       return <div class="stack-s" style={{ padding: '16px' }}><div class="kv"><span class="k">{tr('spaces.estudiadas_hoy')}</span><span class="v">{tp.studied}</span></div><div class="kv"><span class="k">{tr('heatmap.minutos')}</span><span class="v">{tp.minutes}</span></div><div class="kv"><span class="k">{tr('today.aciertos')}</span><span class="v">{tp.studied ? `${tp.correct} %` : '—'}</span></div><a class="foot" href="#/estadisticas">{tr('spaces.ver_estadisticas')}</a></div>;
     }
   }
+}
+
+function SimPanel() {
+  const left = useSimLeft(true);
+  return (
+    <div class="stack" style={{ padding: '16px' }}>
+      <p>{tr('spaces.los_simulacros_usan_la_pantalla_completa')}</p>
+      {left && <p class="kv"><span class="k">{tr('simulacros.tiempo_restante_mm', { mm: '' })}</span><span class="v num">{left}</span></p>}
+      <a class="btn primary" href={left ? '#/simulacros/hacer' : '#/simulacros'}>{left ? tr('simulacros.continuar_simulacro') : tr('spaces.abrir_simulacros')}</a>
+    </div>
+  );
 }
 
 function NotePick(p: { onPick: (a: string) => void }) {
@@ -451,6 +502,10 @@ function NoteView(p: { path: string }) {
   const [edit, setEdit] = useState(false);
   const { data: text } = useAsync(() => readTextOr(app.vault, p.path, ''), [p.path, app.version]);
   const [draft, setDraft] = useState<string | null>(null);
+  // minimizar desmonta el panel: no perder lo escrito
+  const pend = useRef<string | null>(null);
+  pend.current = edit ? draft : null;
+  useEffect(() => () => { if (pend.current !== null) void app.vault.write(p.path, pend.current).then(() => app.changed()); }, [p.path]);
   return (
     <div style={{ padding: '14px 18px' }}>
       <div class="row"><span class="grow" /><button type="button" class="btn small" onClick={async () => { if (edit && draft !== null) { await app.vault.write(p.path, draft); app.changed(); } setEdit(!edit); setDraft(null); }}>{edit ? tr('calendar.guardar') : tr('exams.editar')}</button><a class="btn small" href={href('notas', ...p.path.split('/').slice(1))}>{tr('spaces.abrir')}</a></div>

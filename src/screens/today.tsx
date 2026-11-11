@@ -1,5 +1,5 @@
 import { locale, t, tn } from '../i18n';
-import { BarChart3, BookOpen, CalendarRange, CheckCheck, Flame, ListTodo, Timer } from 'lucide-preact';
+import { BarChart3, BookOpen, CalendarRange, CheckCheck, Flame, GraduationCap, Layers, ListTodo, Timer } from 'lucide-preact';
 import { Minimizable, Tray, type TrayItem, useHoyTray } from '../ui/tray';
 import { fmt, remaining } from '../lib/pomodoro';
 import { useExtra } from '../data/extra';
@@ -45,10 +45,12 @@ export function Today() {
   const ITEMS: Record<string, TrayItem> = {
     pomodoro: { id: 'pomodoro', label: t('today.pomodoro'), icon: <Timer size={20} />, live: rem, liveLabel: t(app.pomo.state.running ? 'tray.restantes' : 'tray.restantes_pausa', { rem }) },
     progreso: { id: 'progreso', label: t('today.progreso_de_hoy'), icon: <BarChart3 size={20} /> },
-    pendientes: { id: 'pendientes', label: t('today.pendientes'), icon: <ListTodo size={20} />, live: String(pend?.total ?? 0), liveLabel: `${pend?.total ?? 0} pendientes` },
+    pendientes: { id: 'pendientes', label: t('today.pendientes'), icon: <ListTodo size={20} />, live: String(pend?.total ?? 0), liveLabel: t('today.n_pendientes', { n: pend?.total ?? 0 }) },
     hecho: { id: 'hecho', label: t('today.hecho_hoy'), icon: <CheckCheck size={20} /> },
     calor: { id: 'calor', label: t('today.mapa_de_adherencia'), icon: <CalendarRange size={20} /> },
+    mazos: { id: 'mazos', label: t('decks.mazos'), icon: <Layers size={20} /> },
   };
+  for (const e of data?.exams ?? []) ITEMS[`ex:${e.path}`] = { id: `ex:${e.path}`, label: e.name, icon: <GraduationCap size={20} /> };
   return (
     <>
       <PageTitle title={t('today.hoy')} sub={new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', month: 'long', timeZone: s.timeZone }).format(now)}>
@@ -62,10 +64,10 @@ export function Today() {
         {tp.studied ? t('today.estudiaste_studied_tarjetas_en_minutes_min', { studied: tp.studied, minutes: tp.minutes, secPerCard: tp.secPerCard }) : pend?.total ? t('today.tienes_total_tarjetas_para_hoy_estmin', { total: pend.total, estMin: pend.estMin }) : t('today.nada_pendiente_por_ahora')}
       </p>
       <div class="grid hoy">
-        <DeckPanel />
+        <Minimizable id="mazos" label={t('decks.mazos')} tray={tray}>{(b) => <div class="mh">{b}<DeckPanel /></div>}</Minimizable>
         <div class="side">
           <Minimizable id="pomodoro" label={t('today.pomodoro')} tray={tray}>{(b) => <>{b}<PomodoroPanel /></>}</Minimizable>
-          {data?.exams.filter((e) => e.date >= today).map((e) => <ExamCard exam={e} extra={data.extra} />)}
+          {data?.exams.filter((e) => e.date >= today).map((e) => <Minimizable key={e.path} id={`ex:${e.path}`} label={e.name} tray={tray}>{(b) => <div class="mh">{b}<ExamCard exam={e} extra={data.extra} /></div>}</Minimizable>)}
           <div class="row" style={{ justifyContent: 'center' }}><AddExamButton /></div>
         </div>
         <div class="grid cards3 span-all">

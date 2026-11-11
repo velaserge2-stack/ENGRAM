@@ -151,3 +151,9 @@
 - `.glass.strong[data-guard]` ahora usa el `--glass` que calcula el guardián (antes el vidrio fuerte ignoraba su ajuste).
 - Hoy y Notas ya eran grid; se fijaron las columnas con `minmax(0, …)` para que el contenido largo no ensanche una columna sobre otra.
 - Lienzo: `Panel.z` opcional (perezoso; un espacio antiguo sin `z` apila en orden de lista). Tocar un panel lo trae al frente y renumera 1…n. Un panel nuevo va al primer hueco libre de la vista (tamaño completo, luego 80 % y 60 %); si no hay, al hueco libre más cercano al centro (el lienzo es infinito) y la vista se desplaza hasta mostrarlo; la cascada de 32 px queda como último recurso. Abierto desde otro panel (`#/espacios/abrir/…`) se coloca a su lado, en el mismo espacio.
+
+### 3 · Minimizar todos los paneles
+- Todos los tipos de panel de los espacios son minimizables (también estudio, nota, imagen y simulacro). Minimizar desmonta el panel: el estudio se reconstruye desde la colección al volver y el panel de nota guarda (con `SafeVault`) lo que estuviera editando al desmontarse.
+- El simulacro sigue corriendo porque su reloj es una marca de tiempo (`endAt` en `.app/exam-current.json`); el cuadrito lee ese archivo y muestra el tiempo restante cada segundo. El panel de simulacro ofrece «Continuar simulacro» si hay un intento en curso.
+- «Minimizar todos» / «Restaurar todos» en el dock (iconos) y en la cabecera del espacio (texto). En mosaico, restaurar devuelve los 3 más recientes (el límite del mosaico); en el lienzo, todos.
+- En Hoy también se minimizan el panel de mazos y cada tarjeta de examen (ids `mazos` y `ex:<ruta>` en `_hoy.json`).

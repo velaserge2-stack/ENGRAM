@@ -135,7 +135,7 @@ try {
     else { await page.getByRole('button', { name: 'Nuevo espacio' }).click(); await page.locator('.sheet input[name=n]').fill('Repaso'); await page.locator('.sheet select').selectOption('Repaso'); await page.getByRole('button', { name: 'Crear' }).click(); }
     await page.getByRole('button', { name: 'Minimizar Estadísticas' }).click();
     await page.getByRole('button', { name: /^Estadísticas, minimizado$/ }).waitFor();
-    check(await page.getByRole('button', { name: 'Minimizar Estudio' }).count() === 0, 'la sesión de estudio no se puede minimizar');
+    check(await page.getByRole('button', { name: 'Minimizar Estudio' }).count() === 1, 'la sesión de estudio también se puede minimizar (Mejoras 2)');
     await page.waitForTimeout(600);
     await page.reload();
     await page.getByRole('button', { name: /^Estadísticas, minimizado$/ }).click();

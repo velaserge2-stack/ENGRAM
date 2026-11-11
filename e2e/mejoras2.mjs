@@ -18,7 +18,8 @@ try { browser = await type.launch(); } catch { type = pw.chromium; browser = awa
 console.log('Navegador:', type.name());
 const errors = [];
 const check = (c, m) => { if (!c) throw new Error('FALLÓ: ' + m); console.log('  ✓', m); };
-const only = (process.env.ONLY || 'lang,layers').split(',');
+const only = (process.env.ONLY || 'lang,layers,minall').split(',');
+const EX = new URL('../examples/', import.meta.url).pathname;
 const SCREENS = ['hoy', 'mazos', 'estudiar', 'explorar', 'simulacros', 'calendario', 'notas', 'espacios', 'estadisticas', 'ajustes', 'bandeja', 'addons'];
 try {
   const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: 'es-MX' });
@@ -138,6 +139,57 @@ try {
     const zs = await page.locator('.canvas-plane > .win').evaluateAll((els) => els.map((e) => Number(e.style.zIndex)));
     check(idx >= 0 && zs[idx] === 6 && [...zs].sort().join() === '1,2,3,4,5,6', 'tocar un panel lo trae al frente; z normalizados 1…6');
     await page.screenshot({ path: OUT + 'mejora2-lienzo.png' });
+  }
+
+  if (only.includes('minall')) {
+    // simulacro en marcha
+    await page.goto(URL_ + '#/simulacros/importar');
+    const fc = page.waitForEvent('filechooser');
+    await page.getByText('Elegir archivo').click();
+    await (await fc).setFiles(EX + 'simulacros/cardio-parcial.md');
+    await page.getByLabel('Respuesta 5').fill('A');
+    await page.getByLabel('Respuesta 5').blur();
+    await page.getByRole('button', { name: /Guardar banco/ }).click();
+    await page.getByRole('button', { name: 'Crear simulacro' }).click();
+    await page.getByRole('button', { name: /Empezar \(5 preguntas\)/ }).click();
+    await page.getByRole('timer').waitFor();
+    await page.keyboard.press('a');
+    await page.waitForTimeout(400);
+
+    await page.goto(URL_ + '#/espacios');
+    await page.getByRole('button', { name: 'Nuevo espacio' }).click();
+    await page.getByLabel('Nombre (materia o examen)').fill('Todo');
+    await page.locator('.sheet select').selectOption('Repaso');
+    await page.getByRole('button', { name: 'Crear', exact: true }).click();
+    await page.locator('.win').first().waitFor();
+    check(await page.getByRole('button', { name: 'Minimizar Estudio' }).count() === 1, 'la sesión de estudio tiene botón de minimizar');
+    await page.getByRole('button', { name: 'Añadir panel Simulacro' }).click();
+    await page.getByRole('link', { name: 'Continuar simulacro' }).waitFor();
+    check(true, 'el panel de simulacro ofrece continuar el intento en curso');
+    await page.getByRole('button', { name: 'Minimizar todos' }).first().click();
+    await page.waitForTimeout(300);
+    check(await page.locator('.win').count() === 0, '«Minimizar todos» manda todos los paneles a la bandeja');
+    const sim = page.getByRole('button', { name: /^Simulacro, minimizado/ });
+    const t1 = await sim.locator('.tray-live').textContent();
+    await page.waitForTimeout(2100);
+    const t2 = await sim.locator('.tray-live').textContent();
+    check(/^\d\d:\d\d$/.test(t1) && t1 !== t2, `el cuadrito del simulacro muestra el tiempo restante y sigue corriendo (${t1} → ${t2})`);
+    await page.getByRole('button', { name: 'Restaurar todos' }).first().click();
+    await page.waitForTimeout(300);
+    check(await page.locator('.win').count() === 3, '«Restaurar todos» en mosaico devuelve 3 paneles (el resto queda en la bandeja)');
+    // también desde el dock
+    await page.locator('.dock').getByRole('button', { name: 'Minimizar todos' }).click();
+    await page.waitForTimeout(300);
+    check(await page.locator('.win').count() === 0, 'el dock también minimiza todos');
+    await page.locator('.dock').getByRole('button', { name: 'Restaurar todos' }).click();
+    await page.waitForTimeout(300);
+    // Hoy: el panel de mazos también se minimiza
+    await page.goto(URL_ + '#/hoy');
+    await page.getByRole('button', { name: 'Minimizar Mazos' }).click();
+    await page.getByRole('button', { name: /^Mazos, minimizado/ }).waitFor();
+    await page.getByRole('button', { name: /^Mazos, minimizado/ }).click();
+    await page.locator('table.decks').waitFor();
+    check(true, 'en Hoy el panel de mazos se minimiza y se restaura');
   }
 
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.join(' | ') : ''));
