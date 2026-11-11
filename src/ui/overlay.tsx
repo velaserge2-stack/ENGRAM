@@ -90,7 +90,9 @@ export function Popover(props: { anchor: HTMLElement | null; onClose: () => void
   }, [props.anchor]);
   useEffect(() => {
     const down = (e: PointerEvent) => { const t = e.target as Node; if (!ref.current?.contains(t) && !props.anchor?.contains(t)) props.onClose(); };
-    const scroll = (e: Event) => { const t = e.target as Node; if (t !== props.anchor && !ref.current?.contains(t) && props.anchor && t.contains?.(props.anchor)) props.onClose(); }; // solo si el ancla se movió
+    const opened = performance.now();
+    // solo si el ancla se movió; se ignora el desplazamiento que llega justo al abrir (inercia o el que acercó el botón)
+    const scroll = (e: Event) => { const t = e.target as Node; if (performance.now() - opened < 250) return; if (t !== props.anchor && !ref.current?.contains(t) && props.anchor && t.contains?.(props.anchor)) props.onClose(); };
     document.addEventListener('pointerdown', down, true);
     addEventListener('scroll', scroll, true);
     return () => { document.removeEventListener('pointerdown', down, true); removeEventListener('scroll', scroll, true); };
