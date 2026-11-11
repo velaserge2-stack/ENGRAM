@@ -264,3 +264,85 @@
 ### Pendiente de validar en iPad/iPhone real (C y D)
 - Foto de perfil desde Fotos (HEIC), encuadre con pellizco, borrar un fondo en uso, liberar espacio y ver el cambio en «Espacio usado».
 - Búsqueda con 500 notas reales; resaltado con la Highlight API en Safari 17/18/26.
+
+## Mejoras 2 — bloque E (lienzo conectado y simulacros)
+
+### 13 · Espacios vacíos
+- Se quitaron los preajustes («PDF + tarjetas», «Clase», «Repaso») del formulario y del estado vacío. Los espacios ya guardados en `.app/spaces/` se abren igual.
+- «＋ Añadir panel» es un menú (Popover del gestor de capas) con: nota nueva, nota existente, mazo, tema, simulacro/examen, PDF, documento, hoja, imagen, pomodoro, estadísticas, calendario y estudio. La colocación sigue las reglas del bloque A. Tipos nuevos de panel (`mazo`, `tema`, `calendario`) perezosos: un espacio antiguo no los tiene y abre igual.
+
+### 14 · Paneles conectados (una sola fuente)
+- **NoteStore** (`src/notes/store.ts`): un documento en memoria por nota, con suscriptores y un único autoguardado. El editor de notas (pestaña y panel) lee y escribe ahí; tras cada guardado se hacen la instantánea del historial y la actualización del índice de búsqueda (`onNoteSaved`). Si el archivo cambia por fuera y no hay cambios pendientes, se vuelve a leer; mover o borrar una nota olvida su documento tras guardar.
+- El panel de nota es el **mismo editor** (`NotePanel` = `NoteEditor` con `embedded`: sin explorador ni pantalla completa). «＋ Nueva nota» crea la nota de verdad con el formulario de Notas (materia, tema, plantilla).
+- **Mazo**: `DeckEditor` (añadir y editar tarjetas) y `Study` filtrado (los repasos van al mismo `reviews.jsonl`), con el mismo engranaje (`DeckOptions`). **Tema**: carpeta de submazos (`decks/<carpeta>/`) o etiqueta (`tag:x`) con el Explorador y el estudio filtrados.
+- **DeckStore / ExamStore**: no hizo falta duplicar tiendas. Los mazos ya son una sola colección en memoria (`app.col`) y los simulacros leen y escriben sus archivos (`exams-bank/`, `.app/exam-current.json`); el panel de simulacros es la pantalla completa de Simulacros con **ruta local** (contexto `SimNav`; los enlaces `#/simulacros/…` del panel se interceptan).
+
+### 15 · Editor visual de exámenes
+- `src/sim/draft.ts`: el borrador marca la correcta **por opción** (no por letra), así añadir, quitar o reordenar opciones no pierde la respuesta; las letras se asignan al guardar. Valida con las mismas reglas que el analizador (`finalize`).
+- Se guarda con `serializeBank` en `exams-bank/<nombre>.md` (no se pisa un archivo existente: «(2)»). La prueba de ida y vuelta garantiza que editar el `.md` a mano y usar el editor son equivalentes; el caso compartido se escribe una sola vez.
+
+## Mejoras 2 — bloque F (calendario)
+
+### 16 · Clases y actividades con horas
+- Modelo (`src/lib/ics.ts`), todo opcional: `kind` (`X-ENGRAMA-KIND`), `allDay` (`VALUE=DATE`), `floating`, `byday`, `MONTHLY`, `exdate` (`EXDATE`), `location` (`LOCATION`; antes se conservaba como propiedad desconocida, ahora es campo y se sigue escribiendo igual).
+- **Horas locales flotantes** (`DTSTART:20261116T080000`, sin «Z») para todo lo que se guarda desde el formulario o la cuadrícula: una clase a las 8:00 sigue a las 8:00 aunque cambie la zona. Los eventos antiguos en UTC se leen y reescriben igual hasta que se editan (cambio perezoso).
+- Ocurrencias: diaria, semanal con días elegidos, mensual (los meses sin ese día se saltan, p. ej. el 31), `UNTIL` y `EXDATE`; la hora se conserva en hora local.
+- «Solo este día» = `EXDATE` en la serie (+ una entrada suelta con los cambios al editar); «toda la serie» = cambiar la base conservando su fecha de inicio (`src/lib/calendar-edit.ts`).
+- Semana y Día: cuadrícula de 24 h (desplazada a las 7:00), pasos de 15 min, carriles para entradas simultáneas; tocar crea 1 h, arrastrar en vacío fija la duración, arrastrar mueve (también de día), el asa inferior cambia la duración. Mes y Agenda muestran las entradas con su icono de tipo. Vínculos y «Iniciar bloque» son los de Mejoras 1.
+
+### Pruebas (E y F)
+- Unitarias: NoteStore (dos vistas, un guardado, recarga externa sin pisar), borrador de examen (ida y vuelta, opciones, validación), `RRULE`/`EXDATE`/`BYDAY`/`MONTHLY`, hora flotante, eventos antiguos, «solo este día / toda la serie».
+- `e2e:bloquec`: espacio vacío y menú completo; escribir en un panel de nota y verlo en Notas (y al revés); estudiar 5 tarjetas desde un panel de mazo y verlo en Hoy (también tras recargar); crear un examen desde el panel sin salir del espacio; crear un examen de 5 preguntas, hacerlo y ver resultados; clase semanal los lunes 8–10 + estudio 17–18 vinculado + borrar un lunes, correcto en Mes, Semana, Día y Agenda y al reabrir; tocar y arrastrar en la cuadrícula.
+- Las E2E antiguas que usaban preajustes ahora crean un espacio vacío y añaden los paneles con el menú.
+
+### Pendiente de validar en iPad/iPhone real (E y F)
+- Notas largas en un panel del lienzo con el teclado en pantalla; dos paneles de la misma nota a la vez.
+- Arrastrar entradas en la cuadrícula con el dedo (desplazamiento vertical frente a arrastre) y el `.ics` con BYDAY/EXDATE en el Calendario de Apple.
+
+## Prompt 5 — Pencil, PDFs, sonido ambiente y control por teclado/mando
+
+### A · Sonido ambiente (add-on, apagado por defecto)
+- Sonidos generados en el dispositivo (`src/lib/noise.ts`): blanco, rosa (Kellet), marrón, lluvia (rosa + gotas), viento (marrón filtrado con ráfagas), olas (envolvente de 8 s) y ventilador. Bucles de 12 s con fundido cruzado (sin «clic»), PRNG con semilla, normalizados y acotados.
+- `src/lib/ambient.ts`: Web Audio en primer plano (mezcla en vivo, volumen por sonido, desvanecimiento exacto). El `AudioContext` se crea solo dentro del toque en «Reproducir» (nada suena al abrir la app) y se reanuda al volver a primer plano.
+- **Pantalla bloqueada**: Safari suspende el `AudioContext` en segundo plano. Modo experimental «Seguir sonando con la pantalla bloqueada»: la mezcla se renderiza a un bucle WAV y suena con `<audio>` + Media Session (título y controles). **Sin validar en iPad real.** Límites conocidos: iOS ignora `volume` en `<audio>` (allí el desvanecimiento no se oye: solo se detiene al final) y los temporizadores de JS no corren con la pantalla bloqueada, así que el apagado programado se aplica al volver.
+- Música propia en `media/audio/` (lista, bucle, aleatorio, duración por metadatos, Media Session). Spotify/Apple Music no (DRM): solo un enlace opcional «Abrir mi app de música».
+- Apagado 15/30/60 min o al terminar el pomodoro, con 5 s de desvanecimiento. «Solo durante el enfoque» silencia en los descansos (la alarma del pomodoro va aparte). «Atenuar al estudiar» baja el volumen mientras suena la voz (`speechSynthesis`, evento `engrama-duck`) o el audio de una tarjeta.
+- Icono en la barra superior (en teléfono, en «Más») y panel del lienzo minimizable.
+
+### B · Motor de tinta (`src/ink/`)
+- Un solo componente para PDF y notas. Trazos vectoriales `{x, y, presión}` normalizados al ancho de la superficie; contorno con `perfect-freehand` (MIT, ~10 KB); grosor según presión (con ratón o dedo, presión simulada).
+- Pointer Events + `getCoalescedEvents()`; trazo en curso en su propio lienzo y la base se repinta al soltar (renderizado incremental). Hover del Pencil: vista previa del cursor si el dispositivo lo entrega.
+- **Rechazo de palma**: por defecto solo dibuja el Pencil y el dedo desplaza y hace zoom (`touch-action: pan-x pan-y pinch-zoom`; en iOS se cancela con `preventDefault` solo el toque `touchType === 'stylus'`). Con «el dedo dibuja», `touch-action: none` y se ignora el dedo mientras el lápiz está apoyado o hasta 500 ms después. Ajustes → Apple Pencil y tinta.
+- Herramientas: bolígrafo, resaltador (translúcido, multiplicar, debajo del texto), borrador por trazo y por área (recorre el tramo entre muestras), lazo para seleccionar y mover, regla. Paleta propia de la tinta (la tinta puede tener color). Deshacer/rehacer ilimitado por sesión. Barra flotante movible.
+- Safari no expone el doble toque ni el apretón del Pencil Pro: no se usan. Latencia: medir en iPad real (aquí solo Chromium sin lápiz).
+
+### C · PDFs (`#/pdfs`)
+- Biblioteca: originales intactos en `docs/`; miniaturas en `.app/cache/pdf-thumbs/` (caché), progreso, última página y etiquetas en `.app/pdfs.json`; importar desde Archivos o arrastrando.
+- Visor (el mismo de los paneles): continuo o por página, zoom, miniaturas, índice (`getOutline`), búsqueda, última página recordada.
+- **Resaltador inteligente**: al soltar un trazo de resaltador, se toman las cajas de carácter de la capa de texto de pdf.js dentro de la banda del trazo, se agrupan por línea y se amplía a palabras completas (`snapToText`); si no hay texto debajo, queda como trazo libre. También subrayado y tachado; bolígrafo; notas adhesivas; panel «Resaltados»; selección → tarjeta, cita en nota con enlace a la página, buscar.
+- `docs/<nombre>.pdf.annots.json`: rectángulos en fracción de la página y tinta en «anchos» + rotación; huella del PDF (tamaño y sumas de inicio y final): si cambia se avisa y no se pierde nada. El formato de la fase 9 (`.app/annotations/`) se lee y se migra al guardar. Almacenamiento no ofrece borrar los `.annots.json` (van con su PDF).
+- Exportar PDF aplanado con `pdf-lib` (MIT; carga diferida, solo al exportar) y resumen de resaltados en `.md`.
+- Se añadió «PDFs» a la navegación (pestaña nueva; en teléfono, dentro de «Más»).
+
+### D · Notas manuscritas
+- Menú «/» → «Dibujo / manuscrito» (lienzo en línea que crece hacia abajo y se redimensiona) o «Página de cuaderno» (papel liso, rayado, cuadriculado o de puntos; zoom; «＋ Página»). Mismo motor de tinta.
+- `media/dibujo-<id>.ink.json` (trazos) + `media/dibujo-<id>.png` (miniatura). La nota guarda `![[dibujo-<id>.png]]`: el `.md` sigue mostrando el dibujo sin la app, la impresión/PDF lo incluye, el DOCX lo incrusta con su proporción y el JSON viaja en el respaldo. No se indexa; los resultados de búsqueda muestran la miniatura.
+- Scribble: la tinta solo vive en sus lienzos; los campos de texto no se tocan (validar en iPad). **Texto desde tinta: no disponible** — no hay OCR/reconocimiento de escritura local aceptable en la web sin enviar datos fuera (Vision no existe en Safari web).
+
+### E · Atajos de teclado, clicker y mando
+- `src/lib/keys.ts` (puro): acciones por ámbito con valores de fábrica, formato `mod+shift+n`, secuencias `g h`, reservados del sistema/Safari, conflictos, mapeo del mando estándar. `src/ui/keys.tsx`: ámbitos (`useKeyScope`), globales con secuencias, Gamepad API (flanco de subida por `requestAnimationFrame`), indicador y sonido opcional. Ajustes → Atajos: reasignar (captura síncrona), restablecer, conflictos, «Asignar botones».
+- Las teclas sin modificador no se disparan en campos de texto ni con un modal abierto.
+- Marcar (`*`) y «no la sé» (`F`) se guardan en `.app/marcas.json`: no tocan `reviews.jsonl`.
+- Safari puede no entregar eventos del mando con la PWA en segundo plano o la pantalla bloqueada; no hay vibración web en iPad.
+
+### Pruebas
+- Unitarias: ruido (sin NaN, acotado, bucle), desvanecimiento y apagado, tinta (contorno y zoom, borrador, lazo, regla, historial, palma), cuaderno, anotaciones (ajuste a líneas y palabras, coordenadas, migración, huella, resumen), biblioteca, atajos (normalización, conflictos, secuencias, mando).
+- `e2e:p5` (Chromium aquí; WebKit en CI) con eventos `pointerType: "pen"` simulados: sonido sin reproducción automática y con mezcla, palma, PDF de 120 páginas con 5 resaltados ajustados, tinta en el margen tras recargar, exportar; fórmula a mano entre dos párrafos, reabrir, imprimir; 20 tarjetas solo con teclado, clicker, mando simulado, reasignar y persistir, escribir en una nota sin disparar atajos.
+- Comparación de píxeles contra la línea base previa al prompt 5: las únicas diferencias son las zonas nuevas (pestaña «PDFs» en la barra superior y secciones nuevas de Ajustes).
+- Corrección de paso: un Popover ya no se cierra por el desplazamiento que llega justo al abrirlo (250 ms de gracia).
+
+### Pendiente de validar con Apple Pencil, teclado Bluetooth y mando reales
+- Audio con la pantalla bloqueada (modo experimental), latencia de la tinta, palma apoyada, resaltado ajustado en PDF reales (columnas, PDF escaneados sin capa de texto), PDF de 300+ páginas, exportaciones en Archivos, Scribble en títulos y buscadores, mando MFi/Xbox/PlayStation.
+
+### Observación abierta: barra de secciones en iPad
+- En iPad vertical (834 px) la píldora de secciones ya quedaba recortada desde el bloque C (avatar); con la pestaña «PDFs», a 1024 px también se recorta el último icono. Sigue siendo desplazable con el dedo o el trackpad (todas las secciones se alcanzan), pero no se ve completa. No se cambió para no alterar el aspecto de iPad sin confirmación; opciones propuestas: (a) en 700–1180 px la píldora pasa a una segunda fila a todo el ancho, o (b) Respaldo y Ajustes salen de la barra en esos anchos (como en teléfono).
