@@ -1,6 +1,10 @@
 import { errMsg, locale, t as tr } from '../i18n';
 import { Bookmark, ChevronLeft, ChevronRight, ClipboardCheck, FileUp, Flag, Play, Repeat, Sparkles } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { createContext } from 'preact';
+import { useContext } from 'preact/hooks';
+import { ExamEditor } from './examedit';
+import { Pencil, Plus } from 'lucide-preact';
 import { ATTEMPTS } from '../data/extra';
 import { appendCard, createDeck, safeName } from '../data/ops';
 import { extractText } from '../io/extract';
@@ -51,8 +55,38 @@ export async function loadAttempts(vault: ReturnType<typeof useApp>['vault']): P
   return out;
 }
 
+/**
+ * Navegación de Simulacros. En su pestaña cambia el hash; dentro de un panel del lienzo
+ * (E14) cambia una ruta local: es la misma pantalla, no una copia.
+ */
+const SimNav = createContext<((...parts: string[]) => void) | null>(null);
+function useSimGo() {
+  const nav = useContext(SimNav);
+  return nav ?? ((...parts: string[]) => go('simulacros', ...parts));
+}
+
+/** Simulacros dentro de un panel: ruta local y enlaces #/simulacros/… interceptados. */
+export function SimEmbed() {
+  const [route, setRoute] = useState<string[]>([]);
+  const nav = (...parts: string[]) => setRoute(parts.filter(Boolean));
+  return (
+    <SimNav.Provider value={nav}>
+      <div class="sim-embed" onClickCapture={(e) => {
+        const a = (e.target as HTMLElement).closest('a');
+        const h = a?.getAttribute('href') ?? '';
+        if (h.startsWith('#/simulacros')) (e.preventDefault(), nav(...h.replace(/^#\/simulacros\/?/, '').split('/').map(decodeURIComponent)));
+      }}>
+        <Simulacros route={route} />
+      </div>
+    </SimNav.Provider>
+  );
+}
+
 export function Simulacros(props: { route: string[] }) {
   const [sub, arg] = props.route;
+  const simGo = useSimGo();
+  if (sub === 'nuevo') return <ExamEditor path={null} onDone={() => simGo()} />;
+  if (sub === 'editar' && arg) return <ExamEditor path={props.route.slice(1).join('/')} onDone={() => simGo()} />;
   if (sub === 'importar') return <ImportBank />;
   if (sub === 'hacer') return <Runner />;
   if (sub === 'resultado' && arg) return <Results id={arg} />;
@@ -66,6 +100,7 @@ function SimHome() {
   return (
     <>
       <PageTitle title={tr('calendar.simulacros')} sub={tr('simulacros.examenes_de_practica_con_cronometro_no')}>
+        <a class="btn" href="#/simulacros/nuevo"><Plus size={18} />{' '}{tr('examedit.nuevo_examen')}</a>
         <a class="btn" href="#/simulacros/importar"><FileUp size={18} />{' '}{tr('simulacros.importar_examen')}</a>
         <button type="button" class="btn primary" disabled={!data?.banks.length} onClick={() => setCreate(true)}><Play size={18} />{' '}{tr('palette.crear_simulacro')}</button>
       </PageTitle>
@@ -80,7 +115,7 @@ function SimHome() {
             <h2 style={{ fontSize: 'var(--t-3)', marginBottom: '8px' }}>{tr('simulacros.bancos')}</h2>
             {data.banks.map((b) => {
               const ok = b.bank.questions.filter((q) => !q.problems.length).length;
-              return <div class="kv"><span class="k">{b.bank.name}</span><span class="v">{ok} listas{b.bank.questions.length - ok ? tr('simulacros.p_borrador', { p: b.bank.questions.length - ok }) : ''}</span></div>;
+              return <div class="kv"><span class="k">{b.bank.name}</span><span class="v">{tr('examedit.n_listas', { n: ok })}{b.bank.questions.length - ok ? tr('simulacros.p_borrador', { p: b.bank.questions.length - ok }) : ''}{' '}<a class="btn icon small ghost" href={`#/simulacros/editar/${b.path.split('/').map(encodeURIComponent).join('/')}`} aria-label={tr('examedit.editar_x', { name: b.bank.name })}><Pencil size={14} /></a></span></div>;
             })}
           </section>
           <section class="glass panel">
@@ -98,6 +133,7 @@ function SimHome() {
 }
 
 function CreateSim(props: { banks: { path: string; bank: Bank }[]; attempts: Attempt[]; onClose: () => void }) {
+  const simGo = useSimGo();
   const app = useApp();
   const [sel, setSel] = useState<string[]>(props.banks.map((b) => b.path));
   const pool = props.banks.filter((b) => sel.includes(b.path)).flatMap((b) => b.bank.questions.filter((q) => !q.problems.length).map((q) => ({ bank: b.path, q })));
@@ -124,7 +160,7 @@ function CreateSim(props: { banks: { path: string; bank: Bank }[]; attempts: Att
       answers: {}, checked: [], marked: [], startedAt: Date.now(), endAt: mode === 'sim' ? Date.now() + minutes * 60_000 : null, perQ: {}, cur: 0, penalty, pass: pass / 100,
     };
     await app.vault.write(CURRENT, JSON.stringify(at));
-    go('simulacros', 'hacer');
+    simGo('hacer');
   };
   return (
     <Sheet title={tr('palette.crear_simulacro')} onClose={props.onClose}>
@@ -151,6 +187,7 @@ function CreateSim(props: { banks: { path: string; bank: Bank }[]; attempts: Att
 }
 
 function Runner() {
+  const simGo = useSimGo();
   const app = useApp();
   const [at, setAt] = useState<Attempt | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -182,7 +219,7 @@ function Runner() {
     await app.vault.write(ATTEMPTS, prev + JSON.stringify(done) + '\n');
     await app.vault.remove(CURRENT);
     app.changed();
-    go('simulacros', 'resultado', done.id);
+    simGo('resultado', done.id);
   };
   useEffect(() => {
     if (at && at.endAt && now >= at.endAt && !at.finishedAt) void finish(at);
@@ -281,6 +318,7 @@ function Runner() {
 }
 
 function Results(props: { id: string }) {
+  const simGo = useSimGo();
   const app = useApp();
   const { data } = useAsync(() => loadAttempts(app.vault), [app.version]);
   const [onlyBad, setOnlyBad] = useState(false);
@@ -308,7 +346,7 @@ function Results(props: { id: string }) {
   const retry = async () => {
     const at: Attempt = { ...a, id: Date.now().toString(36), qs: failed, answers: {}, checked: [], marked: [], startedAt: Date.now(), endAt: a.endAt ? Date.now() + Math.max(5, failed.length * 1.5) * 60_000 : null, finishedAt: undefined, elapsedMs: undefined, perQ: {}, cur: 0, mode: a.mode === 'sim' ? 'sim' : 'errors' };
     await app.vault.write(CURRENT, JSON.stringify(at));
-    go('simulacros', 'hacer');
+    simGo('hacer');
   };
   const per = a.elapsedMs && qs.length ? Math.round(a.elapsedMs / 1000 / qs.length) : 0;
   return (
@@ -344,6 +382,7 @@ function Results(props: { id: string }) {
 }
 
 function ImportBank() {
+  const simGo = useSimGo();
   const app = useApp();
   const [name, setName] = useState('');
   const [minutes, setMinutes] = useState(60);
@@ -379,7 +418,7 @@ function ImportBank() {
     await app.vault.write(path, serializeBank({ name: name || tr('simulacros.banco'), minutes, shuffle: true, questions: qs }));
     app.changed();
     app.toast(tr('simulacros.banco_guardado_las_dudosas_quedan_como'));
-    go('simulacros');
+    simGo();
   };
   return (
     <>

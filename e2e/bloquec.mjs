@@ -237,6 +237,46 @@ try {
     check(await cells() === 56, 'volver a la vista proporcional');
   }
 
+  if (run('examen')) {
+    console.log('Editor visual de exámenes');
+    await page.goto(URL_ + '#/simulacros');
+    await page.getByRole('link', { name: 'Nuevo examen' }).click();
+    await page.getByLabel('Título del examen').fill('Repaso rápido');
+    await page.getByLabel('Minutos').fill('5');
+    for (let i = 0; i < 5; i++) {
+      if (i) await page.getByRole('button', { name: 'Añadir pregunta' }).click();
+      const q = page.getByRole('region', { name: `Pregunta ${i + 1}` });
+      await q.getByLabel('Enunciado').fill(`¿Pregunta ${i + 1}?`);
+      for (const [k, txt] of [['A', 'uno'], ['B', 'dos'], ['C', 'tres']]) await q.getByLabel(`Texto de la opción ${k}`).fill(`${txt} ${i}`);
+      await q.getByLabel(`Opción ${'ABC'[i % 3]} correcta`).check();
+    }
+    // validación: una pregunta sin correcta no se guarda
+    const q5 = page.getByRole('region', { name: 'Pregunta 5' });
+    await q5.getByLabel('Opción B correcta').uncheck();
+    await page.getByRole('button', { name: 'Guardar' }).click();
+    check(await page.getByRole('alert').count() === 1 && (await q5.innerText()).includes('Sin respuesta marcada'), 'validación: «Sin respuesta marcada» impide guardar');
+    await q5.getByLabel('Opción B correcta').check();
+    await page.getByRole('button', { name: 'Guardar' }).click();
+    await page.getByText('Repaso rápido').first().waitFor();
+    check((await page.locator('.kv', { hasText: 'Repaso rápido' }).innerText()).includes('5 listas'), 'el examen queda en el banco con 5 preguntas listas');
+    // hacerlo como simulacro y ver resultados
+    await page.getByRole('button', { name: 'Crear simulacro' }).click();
+    const sh = page.locator('.sheet');
+    await sh.waitFor();
+    await sh.getByRole('button', { name: /Empezar|Comenzar|Iniciar/ }).first().click();
+    for (let i = 0; i < 5; i++) {
+      await page.keyboard.press('a');
+      await page.waitForTimeout(150);
+      await page.keyboard.press('ArrowRight');
+    }
+    await page.getByRole('button', { name: /Terminar/ }).first().click();
+    const fin = page.locator('.sheet').getByRole('button', { name: /Terminar/ });
+    if (await fin.count()) await fin.first().click();
+    await page.locator('text=/\\d+ %/').first().waitFor({ timeout: 10000 });
+    await page.waitForFunction(() => location.hash.startsWith('#/simulacros/resultado/'), null, { timeout: 10000 });
+    check(true, 'crear un examen de 5 preguntas, hacerlo y ver los resultados sin tocar archivos');
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');

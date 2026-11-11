@@ -603,3 +603,7 @@ mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border
 .heat.prop { grid-auto-columns: 13px; }
 .heat-panel.fit { width: fit-content; min-width: min(100%, 360px); max-width: 100%; }
 .heat-panel.fit .panel-h { flex-wrap: wrap; }
+/* editor visual de exámenes (E15) */
+.exam-editor { max-width: 860px; margin: 0 auto; }
+.exam-opt input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--t1); }
+.exam-opt .input { min-width: 0; }
