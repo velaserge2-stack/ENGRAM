@@ -21,6 +21,8 @@ import { onUpdateReady } from './sw-register';
 import { usePomodoro } from './screens/pomodoro';
 import { walk } from './vault/util';
 import { TooltipLayer } from './ui/tooltip';
+import { PhoneTabBar } from './ui/phonebar';
+import { usePhone } from './ui/kit';
 
 const DAY = 86_400_000;
 
@@ -39,6 +41,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const [inboxCount, setInbox] = useState(0);
   const [preview, setPreview] = useState<{ bg: Settings['bg']; mode: 'dark' | 'light' | null } | null>(null);
   const route = useRoute();
+  const phone = usePhone();
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const saver = useMemo(() => createAutosave((s: Settings) => vault.write(SETTINGS_PATH, serializeSettings(s))), [vault]);
 
@@ -252,6 +255,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       {sheet === 'add' && <AddCardSheet deckPath={sheetArg} onClose={() => setSheet(null)} />}
       {sheet === 'exam' && <ExamSheet path={sheetArg} onClose={() => setSheet(null)} />}
       {sheet === 'palette' && <Palette mode={sheetArg} onClose={() => setSheet(null)} />}
+      {phone && <PhoneTabBar tab={tabId} />}
       {toastMsg && <div class="toast glass strong" role="status" aria-live="polite">{toastMsg}</div>}
       <TooltipLayer />
     </Ctx.Provider>
@@ -299,10 +303,10 @@ function TopBar(props: { tab: string }) {
       <a class="pill glass" href="#/bandeja" aria-label={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })} data-tip={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })}>
         <Inbox size={18} /> <span class={`count${app.inboxCount ? '' : ' zero'}`}>{app.inboxCount}</span>
       </a>
-      <button type="button" class="pill glass" onClick={() => app.openSheet('backup')} aria-label={t('app.respaldo')}>
+      <button type="button" class="pill glass ph-hide" onClick={() => app.openSheet('backup')} aria-label={t('app.respaldo')}>
         <Archive size={18} />
       </button>
-      <a class="pill glass" href="#/ajustes" aria-label={t('app.ajustes')} aria-current={props.tab === 'ajustes' ? 'page' : undefined}>
+      <a class="pill glass ph-hide" href="#/ajustes" aria-label={t('app.ajustes')} aria-current={props.tab === 'ajustes' ? 'page' : undefined}>
         <Gear size={18} />
       </a>
     </header>

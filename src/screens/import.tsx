@@ -1,4 +1,4 @@
-import { t } from '../i18n';
+import { errMsg, t } from '../i18n';
 import { FileUp, FolderUp, Undo2 } from 'lucide-preact';
 import { useRef, useState } from 'preact/hooks';
 import { type ApplyResult, applyPlan, buildPlan, fromFileList, gather, mergeLog, type PlanItem, type Resolution, runApkgWorker, undoImport } from '../io/import';
@@ -35,7 +35,7 @@ export function ImportSheet(props: { onClose: () => void }) {
       setPlan(await buildPlan(app.vault, g.files));
       if (g.fromVaultZip) setPolicy('replace');
     } catch (e) {
-      setWarnings([t('import.no_se_pudo_leer_message', { message: (e as Error).message })]);
+      setWarnings([t('import.no_se_pudo_leer_message', { message: errMsg(e) })]);
     } finally {
       setBusy(false);
     }

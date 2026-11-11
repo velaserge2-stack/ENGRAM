@@ -166,7 +166,7 @@ export function Calendar() {
         <button type="button" class="btn" onClick={() => setShowLayers(true)}>{tr('calendar.capas')}</button>
         <button type="button" class="btn" onClick={proposePlan}><Wand2 size={18} />{' '}{tr('calendar.plan_semanal')}</button>
       </PageTitle>
-      <div class="grid" style={{ gridTemplateColumns: 'minmax(0, 3fr) minmax(260px, 1fr)', alignItems: 'start' }}>
+      <div class="grid phone-stack" style={{ gridTemplateColumns: 'minmax(0, 3fr) minmax(260px, 1fr)', alignItems: 'start' }}>
         <section class="glass panel">
           {view === 'agenda' ? (
             <div class="stack-s">{days.map((k) => { const x = byDay(k); const items = [...x.exams.map((e) => `🎯 ${e.name}`), ...x.blocks.map((o) => `${new Date(o.start).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })} ${o.b.title}`), ...x.imported.map((o) => o.b.title), ...x.tasks.map((t) => `☐ ${t.text}`)]; return items.length || x.load ? <button type="button" class="row-i tap" style={{ border: 0, background: 'none', width: '100%', textAlign: 'left' }} onClick={() => setSel(k)}><div class="k"><b>{fmtDate(k)}</b><small>{items.join(' · ') || '—'}</small></div><span class="v">{x.load} repasos</span></button> : null; })}</div>

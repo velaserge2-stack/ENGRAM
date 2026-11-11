@@ -175,3 +175,48 @@
 - Lienzo: añadir 6 paneles sin que se encimen; tocar uno lo trae al frente.
 - Minimizar todos / restaurar todos con un simulacro en marcha (el cuadrito descuenta); minimizar el estudio y volver.
 - Pulsación larga en los botones de la barra superior: aparece la ayuda y no se ejecuta la acción.
+
+## Mejoras 2 — correcciones de la auditoría (antes del bloque B)
+- Simulacros: `summarize()` comparaba los problemas con los textos en español, pero `finalize()` los guarda ya traducidos; en en/fr la vista previa no contaba las preguntas sin respuesta o con una sola opción. Ahora compara con el texto traducido (prueba de regresión en `tests/sim.test.ts`).
+- Textos que quedaban fuera de `t()`: errores del frontmatter y del parser de mazos, el prefijo «Línea N», «(sin título)» de los `.ics`, la pantalla de error al arrancar y «X de Y» del espacio usado.
+- `VaultError` sigue con mensajes técnicos en la capa de la bóveda (así el Worker de OPFS no carga las tablas de idiomas); `errMsg(e)` de `src/i18n` los traduce por su `code` donde llegan a la interfaz.
+- CI corre también `e2e:mejoras2`.
+
+## Mejoras 2 — bloque B (iPhone)
+
+### Qué quedó
+- **Una sola regla de teléfono** en `src/theme.ts`: `PHONE_QUERY = (max-width: 600px), (max-height: 500px) and (orientation: landscape)`. `trackPhone()` pone `html.is-phone` antes del primer pintado (desde `main.tsx`) y lo actualiza al girar; `usePhone()` (en `ui/kit.tsx`) la expone a los componentes. Todo el CSS nuevo va al final de `theme-cristal.css` y cuelga de `.is-phone` (o de elementos que solo existen en teléfono); no se tocó ninguna regla existente.
+- **Barra inferior** (`src/ui/phonebar.tsx`, solo se monta en teléfono): Hoy · Mazos · Estudiar · Notas · Más. «Más» es una hoja con Explorar, Simulacros, Calendario, Espacios, Estadísticas, Ajustes y Respaldo; una sección de «Más» marca «Más» como activa. Se oculta con el teclado en pantalla (`html.kb-open`, desde `visualViewport`). Perfil se añadirá en el bloque C.
+- **Barra superior** en teléfono: sin la píldora de secciones; Respaldo y Ajustes (clase `ph-hide`) pasan a «Más». No es fija en teléfono: con píldoras sueltas, el contenido se veía entre ellas al desplazar.
+- **Hojas y modales**: siempre inferiores y a todo el ancho (también en horizontal, donde el ancho supera 700 px), con el área segura superior respetada.
+- **Una columna**: Calendario, Explorar y el historial de versiones (rejillas con estilo en línea) llevan la clase `phone-stack`, que solo actúa en teléfono.
+- **Tablas compactas**: el cuadro de mazos usa `table-layout: fixed` con columnas numéricas de 3.6 rem (máx. 17 vw, para que el nombre no desaparezca con texto grande) y encabezados que parten línea; el nombre se recorta con «…».
+- **Estudio**: tarjeta y botones de calificación compactos (los 4 botones caben en 375 px); los botones de la cabecera bajan de línea.
+- **Espacios**: un panel a la vez; el dock deja de ser fijo y su barra «Añadir panel» se desplaza en horizontal. Los demás paneles (visibles o minimizados) son cuadritos en el riel, que pasa arriba en horizontal; tocar uno lo muestra. En teléfono el lienzo se muestra como mosaico de un panel y se oculta el selector de modo. Elegir qué panel se ve no se guarda: el espacio solo cambia si el usuario minimiza, restaura o añade.
+- **Rendimiento**: vidrio con 14 px de desenfoque (22 px en hojas) en lugar de 28/40.
+- Campos ≥ 16 px (el editor de código bajaba a 15 px), objetivos de la barra inferior de 52 px, `100dvh` y `env(safe-area-inset-*)` en la barra inferior, avisos, bandeja flotante y dock.
+
+### Pruebas (`npm run e2e:phone`, `e2e/phone.mjs`)
+- `MODE=check` (por defecto, en CI): 6 tamaños (375×667, 390×844, 393×852, 430×932, 440×956, 852×393) × es y fr × 12 pantallas sin scroll horizontal, campos ≥ 16 px y navegación ≥ 44 px; texto 0.8× y 1.6× en francés a 375 px; barra inferior, hoja «Más», hojas inferiores, final de página por encima de la barra y Espacios con un panel a la vez.
+- `MODE=audit`: capturas de los 6 tamaños y lista de fallos (así se hizo la auditoría inicial).
+- `MODE=baseline` / `MODE=compare` con `BASE_DIR`: **diferencia de 0 píxeles** en iPad y web (1366×768, 1024×768, 834×1194; 12 pantallas cada uno). La línea base se tomó con el código anterior al bloque B. Resultado: 0 píxeles en las 36 capturas.
+- Para que la comparación sea reproducible: reloj fijo (`page.clock`), bóveda de ejemplo, carga limpia de cada pantalla, puntero fuera de los botones, ayudas emergentes ocultas y el uso real del almacenamiento enmascarado. En Chromium además se rasteriza en un solo hilo y sin GPU (`--num-raster-threads=1`…): con varios hilos, el borde de los iconos y del vidrio desenfocado variaba algunos píxeles entre dos capturas del mismo estado.
+
+### Auditoría inicial (antes de corregir)
+- Barra de secciones con 9 iconos de 40 px (< 44 px) y pantalla partida en tres filas de píldoras arriba (logo, secciones, acciones).
+- Scroll horizontal en Hoy y Mazos (cuadro de mazos, hasta 57 px) y en Estudiar (botones de calificación y cabecera, hasta 70 px).
+- Calendario: el mes quedaba en una columna de ~60 px junto al panel del día (rejilla de 2 columnas fija).
+- Espacios: riel de 72 px a la izquierda y paneles en mosaico ilegibles; preajustes y dock comprimidos.
+- En horizontal (852×393), la barra superior fija ocupaba 1/6 de la altura y se encimaba sobre el contenido.
+- Hojas centradas en horizontal (ancho ≥ 700 px) en lugar de inferiores.
+- Fechas de la lista de Notas partidas en dos líneas.
+
+### Límites encontrados
+- No hay WebKit de Playwright en este contenedor: todo corrió en Chromium. En CI la prueba corre en WebKit; ahí la comparación de píxeles no se usa (la línea base es local).
+- Isla dinámica, barra de inicio y teclado real solo se pueden validar en un iPhone: Playwright no simula `env(safe-area-inset-*)`.
+
+### Pendiente de validar en un iPhone real
+- Instalada en pantalla de inicio: nada bajo la isla dinámica ni bajo la barra de inicio; barra inferior por encima del indicador de inicio.
+- Escribir en una nota o en una hoja con el teclado abierto (la barra inferior se oculta y el campo queda visible).
+- Girar a horizontal y volver; Espacios con un PDF y estudio; estudiar con una mano.
+- Tamaño de texto grande y francés en Hoy, Estadísticas y Ajustes.

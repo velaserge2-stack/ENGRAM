@@ -169,8 +169,9 @@ export function parseBankJSON(text: string): Question[] {
 }
 
 export function summarize(qs: Question[]): string {
-  const noAns = qs.filter((q) => q.problems.includes('Sin respuesta marcada')).length;
-  const one = qs.filter((q) => q.problems.includes('Una sola opción') || q.problems.includes('Sin opciones')).length;
+  // los problemas se guardan ya traducidos (finalize): comparar con el mismo texto traducido
+  const noAns = qs.filter((q) => q.problems.includes(tr('parse.sin_respuesta_marcada'))).length;
+  const one = qs.filter((q) => q.problems.includes(tr('parse.una_sola_opcion')) || q.problems.includes(tr('parse.sin_opciones'))).length;
   const parts = [tr('parse.n_preguntas_detectadas', { n: qs.length })];
   if (noAns) parts.push(tr('parse.noans_sin_respuesta_marcada', { noAns: noAns }));
   if (one) parts.push(tr('parse.one_con_una_sola_opcion_o', { one: one }));

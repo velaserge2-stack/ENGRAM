@@ -7,7 +7,7 @@ import { renderMarkdown, sanitize } from '../md/render';
 import { listNotes } from '../notes/model';
 import { go, href, useApp, useAsync } from '../state';
 import { Html } from '../ui/md';
-import { Segmented, Sheet } from '../ui/kit';
+import { Segmented, Sheet, usePhone } from '../ui/kit';
 import { mediaUrl } from '../ui/background';
 import { extname } from '../vault/paths';
 import { readTextOr, walk } from '../vault/util';
@@ -28,6 +28,9 @@ interface Space { id: string; name: string; emoji: string; mode: 'tiles' | 'canv
 const MINIMIZABLE: PType[] = ['estudio', 'simulacro', 'nota', 'pdf', 'docx', 'hoja', 'imagen', 'pomodoro', 'stats'];
 const SIM_CURRENT = '.app/exam-current.json';
 const visible = (sp: Space) => sp.panels.filter((x) => !x.min);
+/** Teléfono: un panel a la vez. `show` es el elegido (si sigue visible); si no, el más reciente. */
+type Phone = { show: string | null; setShow: (id: string | null) => void };
+const shownId = (sp: Space, ph: Phone) => { const vis = visible(sp); return (vis.some((x) => x.id === ph.show) ? ph.show : vis[vis.length - 1]?.id) ?? null; };
 
 const DIR = '.app/spaces';
 const TYPES = (): { t: PType; label: string; icon: preact.JSX.Element }[] => ([
@@ -72,6 +75,9 @@ export function Spaces(props: { route: string[] }) {
   const { data: spaces } = useAsync(() => loadSpaces(app.vault), [app.version]);
   const [creating, setCreating] = useState(false);
   const [sp, setSp] = useState<Space | null>(null);
+  const isPhone = usePhone();
+  const [show, setShow] = useState<string | null>(null);
+  const ph: Phone | undefined = isPhone ? { show, setShow } : undefined;
   const saveT = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const save = (s: Space) => {
     setSp(s);
@@ -105,7 +111,7 @@ export function Spaces(props: { route: string[] }) {
       <nav class="rail glass" aria-label={tr('spaces.espacios')}>
         {spaces?.map((s) => <button type="button" aria-current={sp?.id === s.id} aria-label={s.name} data-tip={s.name} onClick={() => go('espacios', s.id)}>{s.emoji}</button>)}
         <button type="button" aria-label={tr('spaces.nuevo_espacio')} onClick={() => setCreating(true)}><Plus size={20} /></button>
-        {sp && innerWidth < 900 && <PanelTray sp={sp} save={save} vertical />}
+        {sp && (innerWidth < 900 || ph) && <PanelTray sp={sp} save={save} vertical={!ph} ph={ph} />}
       </nav>
       <div style={{ minWidth: 0 }}>
         {!sp ? (
@@ -117,13 +123,13 @@ export function Spaces(props: { route: string[] }) {
             <div class="row wrap glass" style={{ marginBottom: '10px', padding: '8px 12px', borderRadius: 'var(--r-pill)' }}>
               <b style={{ padding: '0 6px' }}>{sp.emoji} {sp.name}</b>
               <span class="grow" />
-              <Segmented label={tr('deck.modo')} value={sp.mode} onChange={(m) => save({ ...sp, mode: m })} options={[['tiles', tr('spaces.mosaico')], ['canvas', tr('spaces.lienzo')]]} />
+              {!ph && <Segmented label={tr('deck.modo')} value={sp.mode} onChange={(m) => save({ ...sp, mode: m })} options={[['tiles', tr('spaces.mosaico')], ['canvas', tr('spaces.lienzo')]]} />}
               <button type="button" class="btn small" disabled={!visible(sp).length} onClick={() => minimizeAll(sp, save)}>{tr('spaces.minimizar_todos')}</button>
               <button type="button" class="btn small" disabled={!sp.panels.some((x) => x.min)} onClick={() => restoreAll(sp, save)}>{tr('spaces.restaurar_todos')}</button>
               <button type="button" class="btn small" onClick={async () => { if (!confirm(tr('spaces.confirm_eliminar', { name: sp.name }))) return; await app.vault.remove(`${DIR}/${sp.id}.json`); app.changed(); go('espacios'); }}>{tr('calendar.eliminar')}</button>
             </div>
-            {sp.mode === 'tiles' ? <Tiles sp={sp} save={save} /> : <CanvasView sp={sp} save={save} />}
-            <Dock sp={sp} save={save} />
+            {sp.mode === 'tiles' || ph ? <Tiles sp={sp} save={save} ph={ph} /> : <CanvasView sp={sp} save={save} />}
+            <Dock sp={sp} save={save} ph={ph} />
           </>
         )}
       </div>
@@ -246,10 +252,13 @@ function useSimLeft(active: boolean): string | null {
   return cur?.endAt && !cur.finishedAt ? fmt(Math.max(0, cur.endAt - now)) : null;
 }
 
-function PanelTray(p: { sp: Space; save: (s: Space) => void; vertical?: boolean }) {
+function PanelTray(p: { sp: Space; save: (s: Space) => void; vertical?: boolean; ph?: Phone }) {
   const app = useApp();
   const order = [...(p.sp.tray ?? []), ...p.sp.panels.filter((x) => x.min).map((x) => x.id)];
-  const ids = [...new Set(order)].filter((id) => p.sp.panels.some((x) => x.id === id && x.min));
+  const minIds = [...new Set(order)].filter((id) => p.sp.panels.some((x) => x.id === id && x.min));
+  // teléfono: los paneles visibles que no se muestran también son cuadritos (tocar = mostrarlo)
+  const cur = p.ph ? shownId(p.sp, p.ph) : null;
+  const ids = p.ph ? [...visible(p.sp).map((x) => x.id).filter((id) => id !== cur), ...minIds] : minIds;
   const rem = fmt(remaining(app.pomo.state, app.pomo.now));
   const simLeft = useSimLeft(ids.some((id) => p.sp.panels.find((x) => x.id === id)?.type === 'simulacro'));
   const items: TrayItem[] = ids.map((id) => {
@@ -259,10 +268,11 @@ function PanelTray(p: { sp: Space; save: (s: Space) => void; vertical?: boolean 
     if (pn.type === 'simulacro' && simLeft) return { id, label: name, icon: t.icon, live: simLeft, liveLabel: tr('tray.restantes', { rem: simLeft }) };
     return pn.type === 'pomodoro' ? { id, label: name, icon: t.icon, live: rem, liveLabel: tr(app.pomo.state.running ? 'tray.restantes' : 'tray.restantes_pausa', { rem }) } : { id, label: name, icon: t.icon };
   });
-  return <Tray items={items} vertical={p.vertical} max={p.vertical ? 4 : 6} onRestore={(id) => restorePanel(p.sp, p.save, id)} onClose={(id) => { const panels = p.sp.panels.filter((x) => x.id !== id); p.save({ ...p.sp, panels, tray: (p.sp.tray ?? []).filter((x) => x !== id), sizes: initialSizes(panels.filter((x) => !x.min).slice(0, 3)) }); }} />;
+  const onRestore = (id: string) => (p.sp.panels.find((x) => x.id === id)?.min && restorePanel(p.sp, p.save, id), p.ph?.setShow(id));
+  return <Tray items={items} vertical={p.vertical} max={p.vertical ? 4 : 6} onRestore={onRestore} onClose={(id) => { const panels = p.sp.panels.filter((x) => x.id !== id); p.save({ ...p.sp, panels, tray: (p.sp.tray ?? []).filter((x) => x !== id), sizes: initialSizes(panels.filter((x) => !x.min).slice(0, 3)) }); }} />;
 }
 
-function Dock(p: { sp: Space; save: (s: Space) => void }) {
+function Dock(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
   const app = useApp();
   const add = (t: PType) => {
     const n = p.sp.panels.length;
@@ -275,10 +285,11 @@ function Dock(p: { sp: Space; save: (s: Space) => void }) {
     const keep = new Set(p.sp.mode === 'tiles' ? vis.slice(-2).map((x) => x.id) : vis.map((x) => x.id));
     const panels = [...p.sp.panels.map((x) => (!x.min && !keep.has(x.id) && MINIMIZABLE.includes(x.type) ? { ...x, min: true } : x)).filter((x) => x.min || keep.has(x.id)), panel];
     p.save({ ...p.sp, panels, sizes: initialSizes(panels.filter((x) => !x.min).slice(0, 3)) });
+    p.ph?.setShow(panel.id);
   };
   return (
     <div class="dock no-print">
-      {innerWidth >= 900 && <PanelTray sp={p.sp} save={p.save} />}
+      {innerWidth >= 900 && !p.ph && <PanelTray sp={p.sp} save={p.save} />}
       <a class="pill glass" href="#/addons"><Sparkles size={16} />{' '}{tr('design.extras')}</a>
       <div class="glass" role="toolbar" aria-label={tr('design.anadir_panel')}>
         <span class="note t2" style={{ padding: '0 10px' }}><Plus size={14} />{' '}{tr('design.anadir_panel')}</span>
@@ -293,9 +304,9 @@ function Dock(p: { sp: Space; save: (s: Space) => void }) {
   );
 }
 
-function Tiles(p: { sp: Space; save: (s: Space) => void }) {
+function Tiles(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
   const box = useRef<HTMLDivElement>(null);
-  const panels = visible(p.sp).slice(0, 3);
+  const panels = p.ph ? visible(p.sp).filter((x) => x.id === shownId(p.sp, p.ph!)) : visible(p.sp).slice(0, 3);
   const sizes = p.sp.sizes.length === panels.length ? p.sp.sizes : initialSizes(panels);
   const drag = useRef<{ i: number; x: number; s: number[] } | null>(null);
   if (!panels.length) return <div class="empty glass"><p>{tr('spaces.anade_paneles_desde_el_dock_1')}</p></div>;

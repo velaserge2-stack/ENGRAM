@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * iCalendar mínimo (RFC 5545) para bloques de estudio: VEVENT con UID, DTSTART,
  * DTEND, SUMMARY, DESCRIPTION, CATEGORIES, RRULE (DAILY/WEEKLY), VALARM y
@@ -84,7 +85,7 @@ export function fromICS(text: string, source = ''): StudyBlock[] {
       if (Number.isFinite(cur.start)) {
         out.push({
           uid: cur.uid || `${source}-${out.length}`, start: cur.start!, end: Number.isFinite(cur.end) ? cur.end! : cur.start! + 3600_000,
-          title: cur.title || '(sin título)', subject: cur.subject ?? '', note: cur.note ?? '', rrule: cur.rrule ?? '', until: cur.until ?? '',
+          title: cur.title || t('ics.sin_titulo'), subject: cur.subject ?? '', note: cur.note ?? '', rrule: cur.rrule ?? '', until: cur.until ?? '',
           done: cur.done ?? [], alarmMin: cur.alarmMin ?? null, ...(source ? { readonly: true, source } : {}),
           ...(cur.links?.length ? { links: cur.links } : {}), ...(cur.extra?.length ? { extra: cur.extra } : {}),
         });

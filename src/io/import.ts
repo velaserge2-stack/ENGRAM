@@ -1,4 +1,4 @@
-import { t } from '../i18n';
+import { errMsg, t } from '../i18n';
 /**
  * Importar (SPEC §5): .md sueltos, carpetas (webkitdirectory) y .zip de bóveda.
  * Siempre en dos pasos: plan con vista previa → aplicar con la decisión del usuario.
@@ -95,7 +95,7 @@ export async function gather(incoming: IncomingFile[], opts: GatherOptions = {})
         for (const m of r.media) files.push({ path: `media/${m.name}`, data: m.data });
         log.push(...r.log);
       } catch (e) {
-        warnings.push(`${f.name}: ${(e as Error).message}`);
+        warnings.push(`${f.name}: ${errMsg(e)}`);
       }
       continue;
     }

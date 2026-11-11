@@ -649,7 +649,7 @@ function HistorySheet(p: { path: string; onRestore: (t: string) => void; onClose
   const [view, setView] = useState<{ ts: number; text: string } | null>(null);
   return (
     <Sheet title={tr('notes.historial_de_versiones')} onClose={p.onClose} wide>
-      <div class="grid" style={{ gridTemplateColumns: '220px minmax(0,1fr)' }}>
+      <div class="grid phone-stack" style={{ gridTemplateColumns: '220px minmax(0,1fr)' }}>
         <div class="stack-s">{data?.length ? data.map((ts) => <button type="button" class={`btn small${view?.ts === ts ? ' primary' : ''}`} onClick={async () => setView({ ts, text: await readVersion(app.vault, p.path, ts) })}>{new Date(ts).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' })}</button>) : <p class="t2">{tr('notes.sin_instantaneas_aun_se_guardan_cada')}</p>}</div>
         <div class="stack-s">{view && (<><pre class="preview">{view.text}</pre><button type="button" class="btn primary" onClick={() => p.onRestore(view.text)}>{tr('notes.restaurar_esta_version')}</button></>)}</div>
       </div>

@@ -244,7 +244,7 @@ export function SettingsScreen() {
           <span class="v">{info?.persisted == null ? '—' : info.persisted ? tr('settings.concedido') : tr('settings.no_concedido')}</span>
           {!info?.persisted && <button type="button" class="link" onClick={async () => (await requestPersist(), setTick((n) => n + 1))}>{tr('settings.pedir')}</button>}
         </Row>
-        <Row k={tr('settings.espacio_usado')}><span class="v">{formatBytes(info?.usage ?? null)} de {formatBytes(info?.quota ?? null)}</span></Row>
+        <Row k={tr('settings.espacio_usado')}><span class="v">{tr('settings.usado_de', { used: formatBytes(info?.usage ?? null), quota: formatBytes(info?.quota ?? null) })}</span></Row>
         {FSAccessBackend.isSupported() && (
           <Row k={tr('settings.usar_una_carpeta_de_este_equipo')} sub={tr('settings.solo_en_navegadores_de_escritorio_con')}>
             <button type="button" class="btn small" onClick={async () => { try { const b = await FSAccessBackend.pick(); await rememberFolder(b.root); location.reload(); } catch { /* cancelado */ } }}><FolderOpen size={16} />{' '}{tr('settings.elegir')}</button>
