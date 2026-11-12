@@ -1,4 +1,5 @@
 import { zoomAt } from '../lib/canvaszoom';
+import { perf } from '../lib/perf';
 import { t as tr } from '../i18n';
 import { BarChart3, BookOpen, CalendarDays, ChevronsDownUp, ChevronsUpDown, ClipboardCheck, FilePlus2, FileSpreadsheet, FileText, FolderTree, Image as ImageIcon, Layers, Lock, NotebookPen, Plus, Scan, Settings2, Timer, Unlock, X, LayoutGrid, Inbox as InboxIcon, Sparkles } from 'lucide-preact';
 import { Popover } from '../ui/overlay';
@@ -472,6 +473,7 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
 
 function Window(p: { panel: Panel; sp: Space; save: (s: Space) => void; free?: boolean; scale?: number; asleep?: boolean; focused?: boolean; onFocus?: () => void }) {
   const pn = p.panel;
+  perf.inc('windowRender');
   const t = TYPES().find((x) => x.t === pn.type)!;
   const upd = (patch: Partial<Panel>) => p.save({ ...p.sp, panels: p.sp.panels.map((x) => (x.id === pn.id ? { ...x, ...patch } : x)) });
   const dragRef = useRef<{ x: number; y: number; px: number; py: number; mode: 'move' | 'size' } | null>(null);

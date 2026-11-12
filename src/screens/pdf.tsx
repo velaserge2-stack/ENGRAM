@@ -23,6 +23,7 @@ import { useInkTools } from '../ink/InkSurface';
 import { History, type InkDoc, outline, svgPath } from '../ink/model';
 import { type Annots, annotsPath, type CharBox, emptyPage, fingerprint, fromLegacy, legacyPath, type Mark, type MarkKind, marksToMarkdown, type PageAnn, parseAnnots, samePdf, snapToText } from '../pdf/annots';
 import { pdfLink, updatePdfMeta } from '../pdf/library';
+import { countGetPage } from '../lib/perf';
 
 const MAX_PIXELS = 16_000_000;
 type PDFDoc = Awaited<ReturnType<Awaited<ReturnType<typeof pdfjs>>['getDocument']>['promise']>;
@@ -74,7 +75,7 @@ export function PdfViewer(props: { path: string; page?: number }) {
         fp.current = fingerprint(bytes);
         const lib = await pdfjs();
         task = lib.getDocument({ data: bytes.slice() }) as unknown as typeof task;
-        const d = await task!.promise;
+        const d = countGetPage(await task!.promise);
         setDoc(d);
         // anotaciones: el archivo auxiliar o, si no existe, el formato de la fase 9 (se migra al guardar)
         let a = parseAnnots(await readTextOr(app.vault, annotsPath(props.path), ''));

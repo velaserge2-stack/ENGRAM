@@ -1,0 +1,89 @@
+{
+ "browser": "chromium",
+ "date": "2026-11-12T16:31:25.618Z",
+ "import": {
+  "ms": 1883,
+  "longTasks": 4,
+  "longestTask": 149,
+  "rafGaps": 3,
+  "longestGap": 133,
+  "peakHeapMB": 294,
+  "getPage": 0
+ },
+ "openPage": {
+  "msToPage1": 918,
+  "pdfPages": 1,
+  "canvases": 3,
+  "canvasMP": 1.5,
+  "textNodes": 19,
+  "thumbs": 0,
+  "getPage": 2,
+  "longTasks": 1,
+  "longestTask": 89,
+  "rafGaps": 6,
+  "longestGap": 83,
+  "peakHeapMB": 295
+ },
+ "continuous": {
+  "pdfPages": 800,
+  "canvases": 1601,
+  "canvasMP": 815.5,
+  "textNodes": 19,
+  "thumbs": 0,
+  "getPage": 799,
+  "longTasks": 3,
+  "longestTask": 1219,
+  "rafGaps": 19,
+  "longestGap": 1600,
+  "peakHeapMB": 107
+ },
+ "scroll": {
+  "ms": 28085,
+  "pdfPages": 800,
+  "canvases": 1602,
+  "canvasMP": 816.1,
+  "textNodes": 513,
+  "thumbs": 0,
+  "getPage": 26,
+  "longTasks": 46,
+  "longestTask": 524,
+  "rafGaps": 112,
+  "longestGap": 600,
+  "peakHeapMB": 53
+ },
+ "thumbs": {
+  "pdfPages": 800,
+  "canvases": 1602,
+  "canvasMP": 816.1,
+  "textNodes": 513,
+  "thumbs": 4,
+  "getPage": 4,
+  "thumbButtons": 800,
+  "longTasks": 1,
+  "longestTask": 115,
+  "rafGaps": 6,
+  "longestGap": 633,
+  "peakHeapMB": 56
+ },
+ "find": {
+  "ms": 3255,
+  "longTasks": 3,
+  "longestTask": 543,
+  "rafGaps": 12,
+  "longestGap": 617,
+  "peakHeapMB": 45,
+  "getPage": 800
+ },
+ "canvas": {
+  "panels": 30,
+  "windowRendersDuringGesture": 1170,
+  "windowRendersTotal": 1170,
+  "bodiesMounted": 4,
+  "longTasks": 0,
+  "longestTask": 0,
+  "rafGaps": 0,
+  "longestGap": 0,
+  "peakHeapMB": 68,
+  "getPage": 0
+ }
+}
