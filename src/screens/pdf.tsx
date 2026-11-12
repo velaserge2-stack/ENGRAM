@@ -21,9 +21,9 @@ import { listNotes } from '../notes/model';
 import { InkLayer, InkToolbar } from '../ink/InkLayer';
 import { useInkTools } from '../ink/InkSurface';
 import { History, type InkDoc, outline, svgPath } from '../ink/model';
-import { type Annots, annotsPath, type CharBox, emptyPage, fingerprint, fromLegacy, legacyPath, type Mark, type MarkKind, marksToMarkdown, type PageAnn, parseAnnots, samePdf, snapToText } from '../pdf/annots';
+import { type Annots, annotsPath, type CharBox, emptyPage, fingerprintFile, fromLegacy, legacyPath, type Mark, type MarkKind, marksToMarkdown, type PageAnn, parseAnnots, samePdf, snapToText } from '../pdf/annots';
 import { pdfLink, updatePdfMeta } from '../pdf/library';
-import { countGetPage } from '../lib/perf';
+import { fileOf, openPdfFile } from '../pdf/open';
 
 const MAX_PIXELS = 16_000_000;
 type PDFDoc = Awaited<ReturnType<Awaited<ReturnType<typeof pdfjs>>['getDocument']>['promise']>;
@@ -67,15 +67,17 @@ export function PdfViewer(props: { path: string; page?: number }) {
   const [, bump] = useState(0);
 
   useEffect(() => {
-    let task: { destroy(): Promise<void>; promise: Promise<PDFDoc> } | null = null;
+    let opened: { destroy(): Promise<void> } | null = null;
+    let gone = false;
     void (async () => {
       try {
-        const bytes = await app.vault.read(props.path);
-        if (bytes.length > 50 * 1024 * 1024) app.toast(tr('pdf.pdf_de_mas_de_50_mb'));
-        fp.current = fingerprint(bytes);
-        const lib = await pdfjs();
-        task = lib.getDocument({ data: bytes.slice() }) as unknown as typeof task;
-        const d = countGetPage(await task!.promise);
+        // Prompt 11: por rangos sobre el File (sin leer el archivo entero ni copiarlo)
+        const file = await fileOf(app.vault, props.path);
+        fp.current = await fingerprintFile(file);
+        const o = await openPdfFile(file);
+        if (gone) return void o.destroy();
+        opened = o;
+        const d = o.doc as unknown as PDFDoc;
         setDoc(d);
         // anotaciones: el archivo auxiliar o, si no existe, el formato de la fase 9 (se migra al guardar)
         let a = parseAnnots(await readTextOr(app.vault, annotsPath(props.path), ''));
@@ -99,7 +101,7 @@ export function PdfViewer(props: { path: string; page?: number }) {
     })();
     const ro = new ResizeObserver(([e]) => setWidth(Math.max(240, e!.contentRect.width - 24)));
     if (box.current) ro.observe(box.current);
-    return () => { ro.disconnect(); void task?.destroy(); clearTimeout(saveT.current); };
+    return () => { gone = true; ro.disconnect(); void opened?.destroy(); clearTimeout(saveT.current); };
   }, [props.path]);
   useEffect(() => { if (doc && props.page) setTimeout(() => goTo(props.page!), 300); }, [doc, props.page]);
   // última página vista (para volver ahí)
