@@ -163,7 +163,8 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
     setIt(next);
     await app.vault.write(META(next.id), JSON.stringify(next));
   };
-  const finalPath = notePath(it.materia || t('inbox.sin_materia'), it.tema || t('inbox.general'), it.title);
+  // Prompt 12: asignar materia/tema es opcional; sin materia la nota queda en «Sin clasificar»
+  const finalPath = notePath(it.materia, it.tema, it.title);
   const doc = parseFrontmatter(it.draft);
   const sugg = glossarySuggestions(doc.body, app.settings.glossary);
   const archive = async () => {
@@ -173,7 +174,7 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
     const attach: string[] = [];
     for (const f of it.files) {
       if (f.kind === 'doc') {
-        const dest = `docs/${it.materia}/${f.name}`;
+        const dest = it.materia.trim() ? `docs/${it.materia}/${f.name}` : `docs/${f.name}`;
         await app.vault.move(f.path, dest);
         attach.push(`- [${f.name}](#/espacios/abrir/${encodeURIComponent(dest)})`);
       } else if (f.kind === 'audio') {
@@ -182,10 +183,13 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
       }
     }
     if (attach.length) body = body.replace('## Fuente\n', `## Fuente\n${attach.join('\n')}\n`);
-    await app.vault.write(path, stringifyFrontmatter({ ...doc.data, materia: it.materia, tema: it.tema }, body));
+    const data = { ...doc.data, materia: it.materia.trim(), tema: it.tema.trim() } as Record<string, unknown>;
+    if (!data.materia) delete data.materia;
+    if (!data.tema) delete data.tema;
+    await app.vault.write(path, stringifyFrontmatter(data as typeof doc.data, body));
     await app.vault.remove(`inbox/${it.id}`);
     app.changed();
-    app.toast(t('inbox.archivado_en_materia_tema_p_s', { materia: it.materia, tema: it.tema, p: Math.round((Date.now() - started) / 1000) }));
+    app.toast(t('inbox.archivado_en_materia_tema_p_s', { materia: it.materia || t('notes.sin_clasificar'), tema: it.tema || '—', p: Math.round((Date.now() - started) / 1000) }));
     p.onDone(true);
     go('notas', ...path.split('/').slice(1));
   };
@@ -201,10 +205,10 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
       {it.step === 0 && (
         <div class="stack">
           <label class="field">{t('calendar.titulo')}<input class="input" value={it.title} onInput={(e) => { const v = (e.target as HTMLInputElement).value; setIt((x) => ({ ...x, title: v })); }} /></label>
-          <label class="field">{t('inbox.materia')}<input class="input" list="ib-m" value={it.materia} onInput={(e) => { const v = (e.target as HTMLInputElement).value; setIt((x) => ({ ...x, materia: v })); }} /><datalist id="ib-m">{materias.map((m) => <option value={m} />)}</datalist></label>
-          <label class="field">{t('inbox.tema_o_clase')}<input class="input" list="ib-t" value={it.tema} onInput={(e) => { const v = (e.target as HTMLInputElement).value; setIt((x) => ({ ...x, tema: v })); }} /><datalist id="ib-t">{temas.map((t) => <option value={t} />)}</datalist></label>
+          <label class="field">{t('notes.materia_opcional')}<input class="input" list="ib-m" value={it.materia} onInput={(e) => { const v = (e.target as HTMLInputElement).value; setIt((x) => ({ ...x, materia: v })); }} /><datalist id="ib-m">{materias.map((m) => <option value={m} />)}</datalist></label>
+          <label class="field">{t('notes.tema_opcional')}<input class="input" list="ib-t" value={it.tema} onInput={(e) => { const v = (e.target as HTMLInputElement).value; setIt((x) => ({ ...x, tema: v })); }} /><datalist id="ib-t">{temas.map((t) => <option value={t} />)}</datalist></label>
           {suggestPlace(it.title, p.tree) && <p class="foot">{t('inbox.sugerido_por_nombre_materia_tema', { materia: suggestPlace(it.title, p.tree)!.materia, tema: suggestPlace(it.title, p.tree)!.tema })}</p>}
-          <button type="button" class="btn primary" disabled={!it.materia || !it.tema || !it.title} onClick={() => save({ ...it, step: 1 })}>{t('inbox.siguiente_limpiar')}</button>
+          <button type="button" class="btn primary" disabled={!it.title.trim()} onClick={() => save({ ...it, step: 1 })}>{t('inbox.siguiente_limpiar')}</button>
         </div>
       )}
       {it.step === 1 && (
