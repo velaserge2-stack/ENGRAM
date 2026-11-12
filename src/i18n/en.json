@@ -79,6 +79,7 @@
  "app.bandeja": "Inbox",
  "app.bandeja_inboxcount_pendientes": "Inbox: {inboxCount} pending",
  "app.buscar_k": "Search (⌘K)",
+ "app.desarrollador": "Developer: SergeV",
  "app.descarto_incompleta": ". An incomplete one was discarded in {p} (the previous file is intact)",
  "app.el_vidrio_va_lento_en_este": "Glass is slow on this device: try light mode in Settings → Appearance",
  "app.engrama_ir_a_hoy": "Engrama, go to Today",

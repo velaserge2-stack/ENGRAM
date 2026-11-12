@@ -430,7 +430,7 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
       <Group id="acerca" summary={sum.acerca} title={tr('settings.acerca_de')}>
         <div class="row" style={{ padding: '14px 18px', gap: '16px' }}>
           <img class="brand-logo" src="brand/logo-256.png" width="72" height="72" alt={tr('settings.logo_de_engrama')} style={{ borderRadius: '18px' }} />
-          <div><div style={{ fontWeight: 500, fontSize: 'var(--t-3)' }}>{tr('settings.engrama')}</div><div class="foot">{tr('settings.version_app_version_sin_servidores_sin', { APP_VERSION: APP_VERSION })}</div></div>
+          <div><div style={{ fontWeight: 500, fontSize: 'var(--t-3)' }}>{tr('settings.engrama')}</div><div class="foot">{tr('settings.version_app_version_sin_servidores_sin', { APP_VERSION: APP_VERSION })}</div><div class="foot">{tr('app.desarrollador')}</div></div>
         </div>
       </Group>
       <div style={{ height: '24px' }} />

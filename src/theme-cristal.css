@@ -29,6 +29,7 @@
   --border-strong: rgba(255, 255, 255, .42);
   --hilite: inset 0 1px 0 rgba(255, 255, 255, .14);
   --t1: rgba(255, 255, 255, .94); --t2: rgba(255, 255, 255, .64); --t3: rgba(255, 255, 255, .38);
+  --sign-halo: rgba(0, 0, 0, .55);
   --fill: rgba(255, 255, 255, .12); --fill-2: rgba(255, 255, 255, .06); --fill-sel: rgba(255, 255, 255, .18);
   --line: rgba(255, 255, 255, .09); --shadow: 0 12px 40px rgba(0, 0, 0, .35); --shadow-deep: 0 24px 70px rgba(0, 0, 0, .55);
   --inverse-bg: #fff; --inverse-fg: #111;
@@ -46,6 +47,7 @@
   --border-strong: rgba(0, 0, 0, .38);
   --hilite: inset 0 1px 0 rgba(255, 255, 255, .7);
   --t1: rgba(0, 0, 0, .9); --t2: rgba(0, 0, 0, .6); --t3: rgba(0, 0, 0, .36);
+  --sign-halo: rgba(255, 255, 255, .75);
   --fill: rgba(0, 0, 0, .06); --fill-2: rgba(0, 0, 0, .03); --fill-sel: rgba(255, 255, 255, .85);
   --line: rgba(0, 0, 0, .08); --shadow: 0 12px 40px rgba(0, 0, 0, .12); --shadow-deep: 0 24px 70px rgba(0, 0, 0, .28);
   --inverse-bg: #111; --inverse-fg: #fff;
@@ -730,3 +732,18 @@ mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border
 .fold.open .fold-in { opacity: 1; }
 .fold-all { justify-content: flex-end; margin-top: 10px; }
 @media (prefers-reduced-motion: reduce) { .fold .chev, .fold-body, .fold-in { transition: none; } }
+
+/* Prompt 7 · 1 — el lienzo consume el zoom: sin rebote ni zoom de página mientras se ve */
+html.in-canvas, html.in-canvas body { overscroll-behavior: none; }
+.canvas-wrap { overscroll-behavior: none; }
+
+/* Prompt 7 · 3 — firma del desarrollador: texto plano sobre el fondo (sobre el velo, debajo de todo lo demás), sin color, no interactiva */
+.dev-sign { position: fixed; z-index: calc(var(--z-base) - 1); left: calc(env(safe-area-inset-left) + 14px); bottom: calc(env(safe-area-inset-bottom) + 6px); font: 500 11px/1.3 var(--font); letter-spacing: .02em; color: var(--t1); opacity: .38; text-shadow: 0 0 1px var(--sign-halo), 0 0 2px var(--sign-halo), 0 0 4px var(--sign-halo); white-space: nowrap; pointer-events: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+body:has(.tray.floating) .dev-sign { bottom: calc(env(safe-area-inset-bottom) + 86px); }
+.is-phone .dev-sign { bottom: calc(env(safe-area-inset-bottom) + var(--tabbar-h) + 14px); left: calc(env(safe-area-inset-left) + 16px); }
+.is-phone body:has(.tray.floating) .dev-sign { bottom: calc(env(safe-area-inset-bottom) + var(--tabbar-h) + 92px); }
+/* el guardián elige el tono según el fondo que hay debajo (ver toneSign) */
+.dev-sign[data-tone="light"] { color: #fff; --sign-halo: rgba(0, 0, 0, .85); opacity: .38; }
+.dev-sign[data-tone="dark"] { color: #000; --sign-halo: rgba(255, 255, 255, .9); opacity: .45; }
+body.focus .dev-sign, body.notes-full .dev-sign { display: none; }
+@media print { .dev-sign { display: none; } }

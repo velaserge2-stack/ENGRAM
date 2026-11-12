@@ -35,7 +35,17 @@ export function PdfViewer(props: { path: string; page?: number }) {
   const [err, setErr] = useState<string | null>(null);
   const [width, setWidth] = useState(600);
   const [zoom, setZoom] = useState(1);
-  const [mode, setMode] = useState<'scroll' | 'page'>('scroll');
+  // Prompt 7 · 1: dentro del lienzo, el pellizco sobre el PDF es el zoom del PDF (lo envía el lienzo)
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const on = (e: Event) => setZoom((z) => Math.min(3, Math.max(0.5, +(z * (e as CustomEvent<{ f: number }>).detail.f).toFixed(3))));
+    el.addEventListener('ownzoom', on);
+    return () => el.removeEventListener('ownzoom', on);
+  });
+  // Prompt 7 · 2: siempre arranca «por página» (cambiar a continuo es manual y no se recuerda)
+  const [mode, setMode] = useState<'scroll' | 'page'>('page');
   const [cur, setCur] = useState(props.page ?? 1);
   const [side, setSide] = useState<null | 'thumbs' | 'outline' | 'marks'>(null);
   const [q, setQ] = useState('');
@@ -197,7 +207,7 @@ export function PdfViewer(props: { path: string; page?: number }) {
   const pages = mode === 'scroll' ? Array.from({ length: doc.numPages }, (_, i) => i + 1) : [cur];
   const allMarks = Object.entries(ann.pages).flatMap(([k, p]) => [...p.marks.map((m) => ({ page: Number(k), text: m.text || tr('pdf.resaltado'), kind: m.kind as string })), ...p.notes.map((n) => ({ page: Number(k), text: n.text, kind: 'note' }))]).sort((a, b) => a.page - b.page);
   return (
-    <div class="pdf-viewer" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div ref={root} class="pdf-viewer" data-own-zoom style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div class="row wrap pdf-bar" style={{ padding: '6px 10px', borderBottom: 'var(--hair) solid var(--line)' }}>
         <form class="row" onSubmit={(e) => (e.preventDefault(), void find())}><input class="input" style={{ width: '140px', minHeight: '34px' }} placeholder={tr('inbox.buscar')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label={tr('pdf.buscar_en_el_pdf')} /><button class="btn icon small" aria-label={tr('inbox.buscar')}><Search size={16} /></button></form>
         {hits.length > 0 && <span class="foot">{tr('pdf.n_paginas', { n: hits.length })}{' '}{hits.slice(0, 8).map((h) => <button type="button" class="link" style={{ minHeight: '24px' }} onClick={() => goTo(h)}>{h} </button>)}</span>}

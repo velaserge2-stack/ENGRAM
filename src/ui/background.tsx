@@ -340,3 +340,35 @@ export function guard(sample: ImageData, rootMode: 'dark' | 'light', k: number, 
   }
   return { panels: panels.length, adjusted, minContrast };
 }
+
+/**
+ * Firma del desarrollador (Prompt 7 · 3): texto plano sobre el fondo, sin vidrio. El guardián
+ * elige su tono (claro u oscuro) según el fondo que tiene debajo y estima el contraste con el
+ * halo neutro del tono opuesto (tres sombras apiladas: alfa efectivo junto a las letras ≈ 0,85). Claro: opacidad 0,38; oscuro: 0,45 (con
+ * 0,38 el negro sobre blanco queda en ≈ 2,7:1). Devuelve el contraste estimado (percentil 5).
+ */
+export const SIGN_ALPHA = { light: 0.38, dark: 0.45 } as const;
+export function signContrast(cells: RGB[], tone: 'light' | 'dark'): number {
+  const fg: RGB = tone === 'light' ? [255, 255, 255] : [0, 0, 0];
+  const halo: RGB = tone === 'light' ? [0, 0, 0] : [255, 255, 255];
+  const cs = cells.map((c) => { const local = over(halo, 0.85, c); return contrast(hex(over(fg, SIGN_ALPHA[tone], local)), hex(local)); });
+  cs.sort((a, b) => a - b);
+  return cs[Math.floor(cs.length * 0.05)] ?? 21;
+}
+export function toneSign(sample: ImageData, root: ParentNode = document): number | null {
+  const el = root.querySelector<HTMLElement>('.dev-sign');
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  if (r.width < 2 || r.height < 2) return null;
+  const W = sample.width, H = sample.height;
+  const cells: RGB[] = [];
+  for (let y = Math.max(0, Math.floor((r.top / innerHeight) * H)); y <= Math.min(H - 1, Math.ceil((r.bottom / innerHeight) * H)); y++)
+    for (let x = Math.max(0, Math.floor((r.left / innerWidth) * W)); x <= Math.min(W - 1, Math.ceil((r.right / innerWidth) * W)); x++) {
+      const i = (y * W + x) * 4;
+      cells.push([sample.data[i]!, sample.data[i + 1]!, sample.data[i + 2]!]);
+    }
+  if (!cells.length) return null;
+  const light = signContrast(cells, 'light'), dark = signContrast(cells, 'dark');
+  el.dataset.tone = light >= dark ? 'light' : 'dark';
+  return Math.max(light, dark);
+}

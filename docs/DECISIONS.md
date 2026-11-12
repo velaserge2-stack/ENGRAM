@@ -384,3 +384,32 @@
 - Animación con `grid-template-rows` (0fr → 1fr) y opacidad, ~240 ms; sin animación con `prefers-reduced-motion`. Desplegar una sección empuja las de abajo de forma continua.
 - Por defecto todas plegadas; «Desplegar todo / Plegar todo». Estado recordado en `.app/settings.json` (`settingsOpen`, cambio retrocompatible). `#/ajustes/<sección>` (p. ej. `addons`, `atajos`) abre esa sección.
 - En la comparación de píxeles la pantalla Ajustes cambia (es lo pedido); el resto no.
+
+## Prompt 7 — Lienzo estático, PDF por página y firma (rama `mejoras-5`)
+
+### 1 · El lienzo consume todo el zoom (`src/lib/canvaszoom.ts`, `src/screens/spaces.tsx`)
+- **Causa real encontrada** (no había ningún `transform` en un ancestro común de barra, riel, dock y lienzo; tampoco listeners pasivos: Preact registra `onWheel` en el propio elemento, y ahí Chromium y WebKit no lo hacen pasivo):
+  1. **Pellizco sobre un panel**: `onPointerDown` del lienzo sale si el toque empieza en un `.win`, y el cuerpo del panel tiene desplazamiento propio, que corta la herencia de `touch-action: none`. Ese pellizco nadie lo consumía y Safari lo tomaba como **zoom de página**: toda la interfaz se encogía. Con el lienzo lleno de paneles, esto pasa casi siempre al alejar.
+  2. **Safari no manda `Ctrl+rueda` para el pellizco del trackpad**: manda `gesturestart/gesturechange/gestureend`, que no se escuchaban; el zoom de página se los quedaba.
+  3. **En el tope** el ancla se calculaba con el factor sin limitar aunque `k` ya estuviera en 0.2: el contenido seguía deslizándose aunque el zoom no cambiara.
+- Corrección, solo dentro del contenedor del lienzo: listeners nativos `{ passive: false }` para `wheel`, `gesturestart/change/end` (WebKit) y `touchmove` con dos dedos; `preventDefault()` siempre, también en el tope y sobre los paneles. El pellizco del fondo sigue con Pointer Events (dos punteros: distancia y punto medio, `touch-action: none` solo en `.canvas-wrap`); el de `gesturechange` se aplica cuando no hay pellizco de punteros en curso (trackpad de Safari y dos dedos sobre un panel).
+- Quién consume: sobre un panel con zoom propio (`data-own-zoom`: el visor de PDF) el lienzo le envía el factor (`ownzoom`) y cambia el zoom del PDF; sobre el resto, el lienzo. Fuera del lienzo nada cambia (la sección PDFs y las notas siguen como estaban).
+- `zoomAt` (puro): `clamp` a [0.1, 3], ancla con el factor **realmente aplicado** (en el tope no se mueve nada) y resistencia en el último tramo (0.1–0.2 y 2–3): el factor se amortigua (`f ** t`, `t` ≥ 0.15) para que se note el límite. **Mínimo 0.1** (antes 0.2): un lienzo de ~10 000 px cabe en el ancho de un iPad y un panel de 480 px queda en 48 px, todavía un objetivo distinguible; más abajo solo serían puntos y habría que componer demasiados paneles.
+- Sin rebote: `html.in-canvas` (solo mientras se ve el lienzo) y `.canvas-wrap` con `overscroll-behavior: none` (`body` ya lo tenía). **No** se tocó el `viewport` (`maximum-scale`/`user-scalable=no`): no hizo falta y afectaría la accesibilidad global.
+- Sin animaciones nuevas (el zoom sigue al gesto), así que `prefers-reduced-motion` no aplica. Minimapa, «Ajustar al contenido» y paneo con dos dedos/rueda no cambian.
+- Límites de Safari: `gesture*` solo existe en WebKit (en Chromium las pruebas los simulan); en iPadOS la página puede seguir haciendo zoom si el pellizco empieza **fuera** del lienzo (barra, riel), que es el comportamiento normal de la web y no se bloquea; validar en iPad real con dedos y con trackpad.
+
+### 2 · Visor de PDF: «Ver por página» al abrir (`src/screens/pdf.tsx`)
+- Un solo cambio: el estado inicial del modo del visor pasa de `'scroll'` a `'page'`. Es el mismo componente en la sección PDFs, en los paneles del lienzo y en cualquier otro sitio, así que todos arrancan por página.
+- El modo nunca se guardó (ni en ajustes ni en `.app/pdfs.json`): no hubo nada que ignorar ni borrar. Cambiar a continuo es manual y dura lo que dura esa apertura; cada apertura vuelve a por página.
+- La última página recordada (`.app/pdfs.json → last`) se respeta: se abre por página en esa página. Los accesos a una página concreta (`?p=12` en la sección, `#p12` en el panel del lienzo) abren por página en esa página.
+- En modo por página siguen igual anotaciones y tinta, resaltador inteligente, miniaturas, índice, búsqueda, zoom, «Anterior/Siguiente» y el contador «n / total» (las pruebas de `e2e:p5` ya trabajaban sobre la página 1, que es la que se ve por página).
+
+### 3 · Firma del desarrollador (`src/app.tsx`, `src/ui/background.tsx`, CSS)
+- `<div class="dev-sign" aria-hidden="true">` estático en `app.tsx` (texto `app.desarrollador`: «Desarrollador: SergeV» / «Developer: SergeV» / «Développeur : SergeV»; el nombre no se traduce). La misma línea aparece como texto normal en Ajustes → Acerca de.
+- Texto plano sobre el fondo (no es vidrio): Helvetica Neue 11 px, sin color (blanco o negro), `pointer-events: none`, `user-select: none`, `-webkit-touch-callout: none`. Posición fija con `env(safe-area-inset-left/bottom)`.
+- **Capa**: `z-index: calc(var(--z-base) - 1)`, encima del velo del fondo y **debajo de todo lo demás**. Así nunca tapa contenido ni controles; al desplazarse, lo que pasa por su esquina queda encima. Al terminar la página queda en el margen inferior de `.app`, libre.
+- **Esquina ocupada**: en el teléfono sube sobre la barra inferior (`--tabbar-h + 14px`). En Espacios con paneles minimizados, la bandeja flotante ocupa la esquina y la firma sube por encima (`body:has(.tray.floating)`). El dock de Espacios está centrado y no la alcanza. Los avisos (toast) son temporales y pueden pasar por encima un momento.
+- Se oculta con `body.focus` (estudio y simulacro en curso, que usan el mismo modo de concentración), en notas a pantalla completa (`body.notes-full`) y al imprimir.
+- **Legibilidad**: el guardián (`toneSign`) mira el fondo que hay debajo y elige el tono claro u oscuro. El halo neutro del tono opuesto son tres sombras apiladas (`0 0 1px / 2px / 4px`), casi opacas junto a las letras. Opacidad: 0,38 el tono claro y **0,45 el oscuro** (con 0,38, el negro sobre blanco solo llega a ≈ 2,7:1). Contraste estimado ≥ 3:1 sobre los 5 fondos de prueba en los dos modos, incluido el peor caso de rayas blanco/negro.
+- La comparación de píxeles de `e2e:phone` oculta la firma (`.dev-sign{display:none}`, igual que los tooltips): es la única zona excluida.

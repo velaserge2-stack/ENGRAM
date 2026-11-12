@@ -137,3 +137,21 @@ describe('Ajustes plegables (Prompt 6 · B4)', () => {
     expect(mergeSettings({ settingsOpen: 'x' }).settingsOpen).toEqual([]);
   });
 });
+
+describe('firma del desarrollador (Prompt 7 · 3)', () => {
+  it('con el tono elegido el contraste estimado es ≥ 3:1 sobre blanco, negro y grises', async () => {
+    const { signContrast } = await import('../src/ui/background');
+    for (const v of [0, 40, 90, 128, 170, 220, 255]) {
+      const cells = [[v, v, v] as [number, number, number]];
+      expect(Math.max(signContrast(cells, 'light'), signContrast(cells, 'dark'))).toBeGreaterThanOrEqual(3);
+    }
+  });
+});
+
+describe('firma sobre rayas (peor caso)', () => {
+  it('un tono sirve a la vez sobre celdas negras y blancas', async () => {
+    const { signContrast } = await import('../src/ui/background');
+    const cells = [[0, 0, 0], [255, 255, 255]] as [number, number, number][];
+    expect(Math.max(signContrast(cells, 'light'), signContrast(cells, 'dark'))).toBeGreaterThanOrEqual(3);
+  });
+});
