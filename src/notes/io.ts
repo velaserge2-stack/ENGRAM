@@ -3,6 +3,8 @@
  * .docx (biblioteca `docx`, MIT), .pdf vía impresión; importar .docx
  * (mammoth → HTML saneado → turndown) y .pdf (pdfjs, títulos por tamaño de fuente).
  */
+import { imageSize } from './imgsize';
+import { IMG_EXT, parseEmbed } from '../md/embed';
 import type MarkdownItType from 'markdown-it';
 import { sanitize } from '../md/render';
 import { pdfText } from '../io/extract';
@@ -20,14 +22,52 @@ export function compatibleMarkdown(md: string, opts: { links: boolean; colors: '
   return out;
 }
 
-export async function markdownToDocx(md: string, title: string, loadImage: (name: string) => Promise<Uint8Array | null>): Promise<Blob> {
+/** Formatos que Word incrusta de forma fiable; los demás (HEIC, WebP, AVIF, SVG) se convierten solo al exportar. */
+const DOCX_IMG: Record<string, 'jpg' | 'png' | 'gif' | 'bmp'> = { jpg: 'jpg', jpeg: 'jpg', png: 'png', gif: 'gif', bmp: 'bmp' };
+export interface DocxOpts {
+  /** Convierte a JPEG/PNG lo que Word no incrusta (necesita el navegador: canvas). */
+  convert?: (bytes: Uint8Array, name: string) => Promise<{ data: Uint8Array; type: 'jpg' | 'png' } | null>;
+  /** Se llena con los nombres de las imágenes convertidas (para el informe de exportación). */
+  converted?: string[];
+}
+
+export async function markdownToDocx(md: string, title: string, loadImage: (name: string) => Promise<Uint8Array | null>, opts: DocxOpts = {}): Promise<Blob> {
   const d = await import('docx');
   const MarkdownIt = (await import('markdown-it')).default;
   const tokens = new MarkdownIt({ html: false, linkify: true }).parse(md.replace(/^---\n[\s\S]*?\n---\n/, ''), {});
   type Run = InstanceType<typeof d.TextRun> | InstanceType<typeof d.ImageRun> | InstanceType<typeof d.ExternalHyperlink>;
   const children: (InstanceType<typeof d.Paragraph> | InstanceType<typeof d.Table>)[] = [];
 
+  let centered = false; // el párrafo lleva una imagen `|centro`
+  /** `![[foto.jpg|300|izq|alt …]]`: el original, con su proporción real y el tamaño y lugar de la nota (A2). */
+  async function image(inner: string): Promise<Run | null> {
+    const e = parseEmbed(inner);
+    if (!IMG_EXT.test(e.name)) return null;
+    let data = await loadImage(e.name);
+    if (!data) return null;
+    let type = DOCX_IMG[e.name.split('.').pop()!.toLowerCase()];
+    if (!type) {
+      const c = await opts.convert?.(data, e.name);
+      if (!c) return null;
+      ({ data, type } = c);
+      opts.converted?.push(e.name);
+    }
+    const dims = imageSize(data);
+    const MAX = 600; // ancho útil de la página en px (A4/carta con márgenes de Word)
+    const w = Math.round(e.w ? (e.w.unit === '%' ? (MAX * e.w.v) / 100 : Math.min(MAX, e.w.v)) : Math.min(420, dims?.w ?? 420));
+    const h = Math.round(dims ? (w * dims.h) / dims.w : (w * 2) / 3);
+    if (e.align === 'centro') centered = true;
+    const floating = e.align === 'izq' || e.align === 'der' ? {
+      horizontalPosition: { relative: d.HorizontalPositionRelativeFrom.MARGIN, align: e.align === 'izq' ? d.HorizontalPositionAlign.LEFT : d.HorizontalPositionAlign.RIGHT },
+      verticalPosition: { relative: d.VerticalPositionRelativeFrom.PARAGRAPH, align: d.VerticalPositionAlign.TOP },
+      wrap: { type: d.TextWrappingType.SQUARE, side: e.align === 'izq' ? d.TextWrappingSide.RIGHT : d.TextWrappingSide.LEFT },
+      margins: { left: 114300, right: 114300, top: 57150, bottom: 57150 },
+    } : undefined;
+    return new d.ImageRun({ data, type, transformation: { width: w, height: h }, ...(floating ? { floating } : {}), ...(e.alt ? { altText: { name: e.name, description: e.alt, title: e.alt } } : {}) });
+  }
+
   async function runs(inline: Tok): Promise<Run[]> {
+    centered = false;
     const out: Run[] = [];
     let bold = false, italic = false, strike = false, link: string | null = null;
     const text = (s: string) => {
@@ -45,12 +85,14 @@ export async function markdownToDocx(md: string, title: string, loadImage: (name
     };
     for (const c of inline.children ?? []) {
       if (c.type === 'text') {
-        const img = /^!\[\[([^\]|]+)\]\]$/.exec(c.content.trim());
-        const data = img ? await loadImage(img[1]!) : null;
-        // dibujos manuscritos: respetar la proporción del PNG (ancho y alto en la cabecera IHDR)
-        const dims = img && data && /^dibujo-/.test(img[1]!) && data.length > 24 ? [new DataView(data.buffer, data.byteOffset).getUint32(16), new DataView(data.buffer, data.byteOffset).getUint32(20)] : null;
-        if (img && data) out.push(new d.ImageRun({ data, transformation: { width: 420, height: dims && dims[0] ? Math.round((420 * dims[1]!) / dims[0]) : 280 }, type: /\.png$/i.test(img[1]!) ? 'png' : 'jpg' }));
-        else text(c.content);
+        // embeds en cualquier parte del párrafo (p. ej. `![[foto|240|izq]] Texto…`)
+        for (const part of c.content.split(/(!\[\[[^\]\n]+\]\])/)) {
+          if (!part) continue;
+          const m = /^!\[\[([^\]\n]+)\]\]$/.exec(part);
+          const run = m ? await image(m[1]!) : null;
+          if (run) out.push(run);
+          else text(part);
+        }
       } else if (c.type === 'strong_open') bold = true;
       else if (c.type === 'strong_close') bold = false;
       else if (c.type === 'em_open') italic = true;
@@ -94,6 +136,7 @@ export async function markdownToDocx(md: string, title: string, loadImage: (name
       const lvl = list.length - 1;
       children.push(new d.Paragraph({
         children: r,
+        ...(centered ? { alignment: d.AlignmentType.CENTER } : {}),
         ...(list.length ? (list[lvl]!.ordered ? { numbering: { reference: 'num', level: lvl } } : { bullet: { level: lvl } }) : {}),
         ...(quote ? { border: { left: { style: d.BorderStyle.SINGLE, size: 12, color: '888888', space: 8 }, top: callout ? { style: d.BorderStyle.SINGLE, size: 4, color: '888888', space: 4 } : undefined, bottom: callout ? { style: d.BorderStyle.SINGLE, size: 4, color: '888888', space: 4 } : undefined, right: callout ? { style: d.BorderStyle.SINGLE, size: 4, color: '888888', space: 4 } : undefined }, indent: { left: 240 } } : {}),
       }));

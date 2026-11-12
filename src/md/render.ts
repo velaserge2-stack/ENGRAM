@@ -6,6 +6,7 @@
 import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
 import type { StateCore, StateInline } from 'markdown-it';
+import { IMG_EXT, parseEmbed } from './embed';
 
 type MD = InstanceType<typeof MarkdownIt>;
 
@@ -24,12 +25,16 @@ function engine(): MD {
     let m: RegExpExecArray | null;
     if ((m = /^==([^=\n]+)==/.exec(src))) {
       if (!silent) state.push('html_inline', '', 0).content = `<mark>${md!.renderInline(m[1]!)}</mark>`;
-    } else if ((m = /^!\[\[([^\]|\n]+)(?:\|(\d+))?\]\]/.exec(src))) {
+    } else if ((m = /^!\[\[([^\]\n]+)\]\]/.exec(src)) && (!m[1]!.includes('|') || IMG_EXT.test(m[1]!.split('|')[0]!.trim()))) {
+      // `![[nota|alias]]` (no imagen) sigue como antes: «!» + enlace con alias
       if (!silent) {
-        const name = m[1]!.trim();
-        const w = m[2] ? ` width="${m[2]}"` : '';
-        state.push('html_inline', '', 0).content = /\.(png|jpe?g|gif|webp|svg|heic)$/i.test(name)
-          ? `<img data-media="${esc(name)}" alt="${esc(name)}"${w}>`
+        const e = parseEmbed(m[1]!);
+        const name = e.name;
+        // valores ya validados por parseEmbed (números finitos en rango, alineación de lista cerrada)
+        const w = e.w ? ` width="${e.w.v}${e.w.unit === '%' ? '%' : ''}" data-w="${e.w.v}${e.w.unit === '%' ? '%' : ''}"` : '';
+        const al = e.align ? ` data-align="${e.align}"` : '';
+        state.push('html_inline', '', 0).content = IMG_EXT.test(name)
+          ? `<img data-media="${esc(name)}" alt="${esc(e.alt ?? name)}"${w}${al}>`
           : /\.(mp3|m4a|wav|ogg)$/i.test(name)
             ? `<audio controls data-media="${esc(name)}"></audio>`
             : `<a class="wl" href="#/notas/${encodeURIComponent(name)}">${esc(name)}</a>`;
@@ -93,7 +98,10 @@ function engine(): MD {
 
 const PURIFY = {
   ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|blob|media):|#|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
-  ADD_ATTR: ['data-media', 'data-wl', 'data-kind', 'target'],
+  // solo estos data-*; nunca `style` en línea (Notas-Pro · A3)
+  ADD_ATTR: ['data-media', 'data-wl', 'data-kind', 'data-w', 'data-align', 'target'],
+  ALLOW_DATA_ATTR: false,
+  FORBID_ATTR: ['style'],
   FORBID_TAGS: ['style', 'iframe', 'form', 'object', 'embed'],
   ADD_TAGS: ['details', 'summary'],
 };

@@ -35,6 +35,7 @@ import { AmbientController, AmbientPlayer, MiniAmbient } from './screens/ambient
 import { Headphones } from 'lucide-preact';
 import { Sheet } from './ui/kit';
 import { GlobalKeys, keymap, ShortcutSheet } from './ui/keys';
+import { setPhotoQuality } from './notes/images';
 
 const DAY = 86_400_000;
 
@@ -70,6 +71,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   // idioma: se aplica antes de pintar; la colección se reprocesa para traducir sus avisos
   const langNow = settings.lang || deviceLang();
   if (getLang() !== langNow) setLang(langNow);
+  setPhotoQuality(settings.photoQuality);
   const firstLang = useRef(langNow);
   useEffect(() => {
     if (firstLang.current !== langNow) (firstLang.current = langNow, setVersion((v) => v + 1));
