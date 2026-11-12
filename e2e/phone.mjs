@@ -113,7 +113,7 @@ try {
       for (const r of SCREENS) {
         await go(page, r);
         // el uso real del almacenamiento del navegador cambia entre ejecuciones: se enmascara
-        const png = await page.screenshot({ fullPage: true, animations: 'disabled', caret: 'hide', style: '.tooltip{display:none!important}', mask: [page.locator('.row-i', { hasText: /Espacio usado|Space used|Espace utilisé/ }), page.locator('#almacenamiento .fold-s')] });
+        const png = await page.screenshot({ fullPage: true, animations: 'disabled', caret: 'hide', style: '.tooltip,.dev-sign{display:none!important}', mask: [page.locator('.row-i', { hasText: /Espacio usado|Space used|Espace utilisé/ }), page.locator('#almacenamiento .fold-s')] });
         const file = `${BASE_DIR}${w}x${h}-${r}.png`;
         if (MODE === 'baseline') writeFileSync(file, png);
         else {

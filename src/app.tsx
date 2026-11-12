@@ -15,7 +15,7 @@ import { ExamSheet } from './screens/exams';
 import { Palette } from './screens/palette';
 import { type AppCtx, Ctx, go, useApp as ctxHook, useRoute } from './state';
 import { applyTheme, onSchemeChange, resolvedMode, watchFrames } from './theme';
-import { BackgroundLayer, guard, sampleBackground } from './ui/background';
+import { BackgroundLayer, guard, sampleBackground, toneSign } from './ui/background';
 import { checkIntegrity, type IntegrityReport } from './vault/integrity';
 import { type OpenedVault, reconnectFolder } from './vault/open';
 import { onUpdateReady } from './sw-register';
@@ -120,7 +120,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     if (!sample.current) return;
     const cur = effRef.current;
     const r = guard(sample.current, resolvedMode(cur), cur.glass / 100);
-    (window as unknown as { __guard: unknown }).__guard = { ...r, key: lastBg.current, mode: resolvedMode(cur) };
+    const sign = toneSign(sample.current);
+    (window as unknown as { __guard: unknown }).__guard = { ...r, sign, key: lastBg.current, mode: resolvedMode(cur) };
     if (r.adjusted && toastedFor.current !== lastBg.current) {
       toastedFor.current = lastBg.current;
       toast(t('app.ajustamos_el_vidrio_para_que_se'));
@@ -279,6 +280,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       {sheet === 'ambient' && <Sheet title={t('addons.n_ambient')} onClose={() => setSheet(null)}><AmbientPlayer /></Sheet>}
       {toastMsg && <div class="toast glass strong" role="status" aria-live="polite">{toastMsg}{toastAct && <>{' '}<button type="button" class="btn small toast-act" onClick={() => { const a = toastAct; setToast(null); setToastAct(null); a.run(); }}>{toastAct.label}</button></>}</div>}
       <TooltipLayer />
+      <div class="dev-sign" aria-hidden="true">{t('app.desarrollador')}</div>
     </Ctx.Provider>
   );
 }

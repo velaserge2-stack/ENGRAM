@@ -186,6 +186,87 @@ try {
     check(z0 !== z1 && await page.evaluate(() => (window.visualViewport?.scale ?? 1) === 1), `en el lienzo, el pellizco sobre el PDF cambia el zoom del PDF (${z0} → ${z1})`);
   }
 
+  if (run('firma')) {
+    console.log('Firma del desarrollador');
+    /** Estado de la firma y de lo que hay en su caja. */
+    const sign = (pg) => pg.evaluate(() => {
+      const el = document.querySelector('.dev-sign');
+      if (!el) return { exists: false };
+      const cs = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      const shown = cs.display !== 'none' && r.width > 0;
+      const rgb = cs.color.match(/\d+(\.\d+)?/g).map(Number);
+      // controles o capas que se cruzan con la firma (no deben)
+      // capas fijas (no deben cruzarse con la firma)
+      const hit = [...document.querySelectorAll('.dock, .phone-tabbar, .tray, .rail, .sheet, .topbar, .key-feedback')]
+        .filter((e) => { const b = e.getBoundingClientRect(); return b.width && b.height && getComputedStyle(e).visibility !== 'hidden' && b.left < r.right && b.right > r.left && b.top < r.bottom && b.bottom > r.top; })
+        .map((e) => e.className || e.tagName);
+      // lo que pase por su esquina (contenido al desplazar) queda encima: la firma no lo tapa
+      const above = [...document.querySelectorAll('button, a, input, .glass')].filter((e) => { const b = e.getBoundingClientRect(); return b.width && b.left < r.right && b.right > r.left && b.top < r.bottom && b.bottom > r.top; });
+      const under = above.filter((e) => { const b = e.getBoundingClientRect(); const x = Math.max(b.left, r.left) + 1, y = Math.max(b.top, r.top) + 1; const top = document.elementFromPoint(x, y); return top === el; }).length;
+      return { under, exists: true, shown, text: el.textContent, left: r.left, bottomGap: innerHeight - r.bottom, pe: cs.pointerEvents, us: cs.userSelect || cs.webkitUserSelect, aria: el.getAttribute('aria-hidden'), z: cs.zIndex, neutral: rgb[0] === rgb[1] && rgb[1] === rgb[2], op: Number(cs.opacity), font: cs.fontFamily, size: parseFloat(cs.fontSize), hit };
+    });
+    const ok = (s, where) => {
+      check(s.exists && s.shown && s.text === 'Desarrollador: SergeV', `${where}: se ve «Desarrollador: SergeV»`);
+      check(s.left < 40 && s.bottomGap >= 0 && s.pe === 'none' && s.us === 'none' && s.aria === 'true' && Number(s.z) < 0, `${where}: abajo a la izquierda, no tocable ni seleccionable, aria-hidden, detrás del contenido`);
+      check(s.neutral && s.op <= 0.45 && /Helvetica Neue/.test(s.font) && s.size >= 11 && s.size <= 12, `${where}: sin color, ${s.size}px, opacidad ${s.op}`);
+      check(s.hit.length === 0 && s.under === 0, `${where}: no se cruza con dock, riel, barras ni bandeja y no tapa contenido` + (s.hit.length ? ` (${s.hit.join(', ')})` : ''));
+    };
+    const screens = ['hoy', 'mazos', 'notas', 'pdfs', 'calendario', 'espacios', 'simulacros', 'ajustes'];
+    for (const [w, h, label] of [[1180, 820, 'iPad'], [1366, 768, 'web'], [390, 844, 'iPhone vertical'], [844, 390, 'iPhone horizontal']]) {
+      const { ctx: c, page: pg } = await fresh(w, h);
+      for (const r of screens) {
+        await pg.goto(URL_ + '#/' + r);
+        await pg.waitForTimeout(500);
+        ok(await sign(pg), `${label} · ${r}`);
+      }
+      if (label === 'iPad') {
+        // espacio con paneles minimizados: la bandeja ocupa la esquina y la firma sube
+        await pg.goto(URL_ + '#/espacios');
+        await newSpace(pg, 'Firma', ['Estadísticas']);
+        const min = pg.getByRole('button', { name: /^Minimizar/ }).first();
+        if (await min.count()) { await min.click(); await pg.waitForTimeout(700); ok(await sign(pg), 'iPad · espacios con bandeja'); }
+        // estudio: oculta
+        await pg.goto(URL_ + '#/estudiar');
+        await pg.locator('.study-card').waitFor();
+        check(!(await sign(pg)).shown, 'en la pantalla de estudio la firma se oculta');
+        // notas a pantalla completa: oculta
+        await pg.goto(URL_ + '#/notas/Cardiolog%C3%ADa/ECG/Clase%201%20-%20ECG%20b%C3%A1sico.md');
+        await pg.locator('.doc').waitFor();
+        await pg.getByRole('button', { name: 'Pantalla completa de notas' }).click();
+        await pg.waitForTimeout(200);
+        check(!(await sign(pg)).shown, 'en notas a pantalla completa la firma se oculta');
+        await pg.locator('.notes-exit').click();
+        await pg.waitForTimeout(200);
+        check((await sign(pg)).shown, 'al salir de pantalla completa vuelve');
+        // Ajustes → Acerca de
+        await pg.goto(URL_ + '#/ajustes/acerca');
+        check(await pg.locator('#acerca .fold-in').getByText('Desarrollador: SergeV').count() === 1, 'Ajustes → Acerca de muestra la línea del desarrollador (texto normal)');
+        // legibilidad sobre los 5 fondos de prueba × 2 modos (estimación del guardián)
+        const res = [];
+        for (const bg of ['blanco', 'negro', 'rayas', 'degradado', 'foto']) for (const modo of ['dark', 'light']) {
+          await pg.goto(`${URL_}#/design?bg=${bg}&modo=${modo}`);
+          await pg.getByRole('heading', { name: 'Diseño · Cristal' }).waitFor();
+          const want = { blanco: '#ffffff', negro: '#000000', rayas: 'rayas', degradado: 'neon', foto: 'paisaje' }[bg];
+          await pg.waitForFunction(([wnt, m]) => window.__guard?.key?.includes(wnt) && window.__guard.key.includes(m), [want, modo], { timeout: 10000 });
+          await pg.waitForTimeout(700);
+          const g = await pg.evaluate(() => ({ c: window.__guard.sign, tone: document.querySelector('.dev-sign')?.dataset.tone }));
+          res.push(`${bg}/${modo}: ${g.c?.toFixed(1)} (${g.tone})`);
+          check(g.c >= 3, `legible sobre ${bg} en modo ${modo}: contraste estimado ${g.c?.toFixed(2)} con tono ${g.tone}`);
+        }
+      }
+      await c.close();
+    }
+    for (const [lang, txt] of [['en', 'Developer: SergeV'], ['fr', 'Développeur : SergeV']]) {
+      const { ctx: c, page: pg } = await fresh();
+      await pg.goto(URL_ + '#/ajustes/idioma');
+      await pg.getByRole('group', { name: 'Idioma' }).getByRole('button', { name: lang === 'en' ? 'English' : 'Français' }).click();
+      await pg.waitForTimeout(400);
+      check((await pg.locator('.dev-sign').textContent()) === txt, `${lang}: «${txt}»`);
+      await c.close();
+    }
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');
