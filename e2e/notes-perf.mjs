@@ -18,7 +18,7 @@ const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'previe
 await new Promise((res, rej) => { server.stdout.on('data', (d) => String(d).includes('localhost') && res()); server.on('exit', (c) => rej(new Error('preview ' + c))); });
 let type = pw[process.env.BROWSER || 'webkit'];
 let browser;
-try { browser = await type.launch(type === pw.chromium ? { args: ['--enable-precise-memory-info'] } : {}); } catch { type = pw.chromium; browser = await type.launch({ args: ['--enable-precise-memory-info'] }); }
+try { browser = await type.launch(type === pw.chromium ? { args: ['--enable-precise-memory-info', '--js-flags=--expose-gc'] } : {}); } catch { type = pw.chromium; browser = await type.launch({ args: ['--enable-precise-memory-info', '--js-flags=--expose-gc'] }); }
 console.log('Navegador:', type.name());
 const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
 const run = (k) => !only || only.includes(k);
@@ -167,6 +167,30 @@ try {
       R.panel_N2x2 = { openMs, ...typing, ...m0 };
       console.log('  ', JSON.stringify(R.panel_N2x2));
     }
+    await ctx.close();
+  }
+
+  if (run('soak')) {
+    // 5 minutos escribiendo y desplazándose en N2: la memoria no debe crecer sin parar
+    console.log('Memoria: 5 min escribiendo y desplazándose en N2');
+    const { ctx, page } = await fresh();
+    await importZip(page, 'notas.zip', readFileSync(FIX + 'notas.zip'));
+    await page.goto(URL_ + '#/notas/Perf/Notas/N2.md');
+    await page.locator('.doc [aria-label="Editar bloque"]').last().waitFor({ timeout: 120000 });
+    const MIN = Number(process.env.SOAK_MIN || 5), samples = [];
+    const t0 = Date.now();
+    let k = 0;
+    while (Date.now() - t0 < MIN * 60000) {
+      const blocks = page.locator('.doc [aria-label="Editar bloque"]');
+      await blocks.nth((k * 397) % 2900).click();
+      await page.locator('.doc textarea').first().press('End');
+      await page.keyboard.type(' abc', { delay: 20 });
+      await page.keyboard.press('Escape');
+      await scrollFps(page, null, k % 2 ? -80 : 80, 600);
+      if (k++ % 10 === 0) { await page.evaluate(() => window.gc?.()); samples.push({ s: Math.round((Date.now() - t0) / 1000), ...(await mem(page)) }); }
+    }
+    R.soak = { minutes: MIN, first: samples[1] ?? samples[0], last: samples[samples.length - 1], samples: samples.length };
+    console.log('  ', JSON.stringify(R.soak));
     await ctx.close();
   }
 
