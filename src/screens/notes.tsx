@@ -244,8 +244,8 @@ function NoteTree(props: { data: NotesData; current: string | null; onNew: () =>
     label: (k) => k.split('/').pop()!.replace(/\.md$/, ''),
     onMenu: (item, el) => setMenu({ item, el }),
     onDrop: (k, dest) => {
-      // una nota cae en un tema; un tema cae en una materia
-      if (k.startsWith('notes/') ? dest.includes('/') : !dest.includes('/') && !k.startsWith(dest + '/')) void mover.go(itemsOf(k), dest);
+      // una nota cae en un tema, en una materia («Sin tema») o en «Sin clasificar»; un tema cae en una materia
+      if (k.startsWith('notes/') ? true : dest !== '' && !dest.includes('/') && !k.startsWith(dest + '/')) void mover.go(itemsOf(k), dest);
     },
   });
   const over = (k: string) => (pd.drag && pd.drag.over === k && pd.drag.item !== k ? ' drop-over' : '');
@@ -278,7 +278,13 @@ function NoteTree(props: { data: NotesData; current: string | null; onNew: () =>
       {tree.map((m) => (
         <div>
           <button type="button" class={`ti${over(m.materia)}`} data-drop={m.materia} aria-expanded={!closed.has(m.materia)} onClick={() => tog(m.materia)}><Folder size={16} /> <b>{m.materia}</b></button>
-          {!closed.has(m.materia) && m.temas.map((t) => (
+          {!closed.has(m.materia) && m.temas.map((t) => t.tema === '' ? (
+            // Prompt 12: notas de la materia sin tema (notes/<Materia>/<Título>.md)
+            <div>
+              <button type="button" class={`ti lvl1${over(m.materia)}`} data-drop={m.materia} aria-expanded={!closed.has(m.materia + '/')} onClick={() => tog(m.materia + '/')}><ListTree size={16} /> <i>{tr('notes.sin_tema')}</i> <span class="foot">{t.notes.length}</span></button>
+              {!closed.has(m.materia + '/') && t.notes.map((n) => link(n, 2))}
+            </div>
+          ) : (
             <div>
               <button type="button" class={`ti lvl1${over(m.materia + '/' + t.tema)}${pd.drag?.item === m.materia + '/' + t.tema ? ' dragging' : ''}`} data-drop={m.materia + '/' + t.tema} aria-expanded={!closed.has(m.materia + '/' + t.tema)} onClick={() => tog(m.materia + '/' + t.tema)} {...(picking ? {} : pd.bind(m.materia + '/' + t.tema))}><ListTree size={16} /> {t.tema}</button>
               {!closed.has(m.materia + '/' + t.tema) && t.notes.map((n) => link(n, 2))}
@@ -293,7 +299,7 @@ function NoteTree(props: { data: NotesData; current: string | null; onNew: () =>
       </div>
       {loose.length > 0 && (
         <div>
-          <button type="button" class="ti" onClick={() => tog('__loose')}><Folder size={16} /> <b>{tr('notes.sin_clasificar')}</b> <span class="foot">{loose.length}</span></button>
+          <button type="button" class={`ti${over('')}`} data-drop="" onClick={() => tog('__loose')}><Folder size={16} /> <b>{tr('notes.sin_clasificar')}</b> <span class="foot">{loose.length}</span></button>
           {closed.has('__loose') ? null : loose.map((n) => link(n, 1))}
           <p class="foot">{addonOn(app.settings, 'inbox') ? tr('notes.notas_fuera_de_materia_tema_abrelas') : tr('notes.notas_fuera_sin_bandeja')}</p>
         </div>
@@ -359,7 +365,7 @@ function NotesHome(props: { data: NotesData; onNew: () => void; ui: NotesUI; set
             <select aria-label={tr('notes.etiqueta')} value={tag} onChange={(e) => setTag((e.target as HTMLSelectElement).value)}><option value="">{tr('notes.todas_las_etiquetas')}</option>{app.settings.tagList.map((t) => <option>{t}</option>)}</select>
             <Segmented label={tr('exams.fecha')} value={since} onChange={setSince} options={[['todo', tr('notes.todo')], ['7', tr('notes.7_dias')], ['30', tr('notes.30_dias')]]} />
           </div>
-          {rows.map((r) => <a class="kv" href={href('notas', ...r.n.path.split('/').slice(1))} style={{ textDecoration: 'none', minHeight: '44px', alignItems: 'center' }}><span class="k ellipsis"><b style={{ color: 'var(--t1)' }}>{r.n.title}</b> · {r.n.materia}{r.n.tema ? ` › ${r.n.tema}` : ''}</span><span class="v">{r.fecha}</span></a>)}
+          {rows.map((r) => <a class="kv" href={href('notas', ...r.n.path.split('/').slice(1))} style={{ textDecoration: 'none', minHeight: '44px', alignItems: 'center' }}><span class="k ellipsis"><b style={{ color: 'var(--t1)' }}>{r.n.title}</b> · {r.n.materia || tr('notes.sin_clasificar')}{r.n.tema ? ` › ${r.n.tema}` : ''}</span><span class="v">{r.fecha}</span></a>)}
         </section>
       )}
       {app.settings.showGraph && notes.length > 0 && <section class="glass panel"><h2 style={{ fontSize: 'var(--t-3)' }}>{tr('notes.grafo')}</h2><Graph notes={notes} idx={props.data.idx} texts={props.data.texts} /></section>}
@@ -370,10 +376,14 @@ function NotesHome(props: { data: NotesData; onNew: () => void; ui: NotesUI; set
 function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { materia?: string; tema?: string; title?: string }; onCreated?: (path: string) => void }) {
   const app = useApp();
   const tree = buildTree(props.notes).tree;
-  const [materia, setMateria] = useState(props.initial?.materia ?? tree[0]?.materia ?? '');
+  // Prompt 12: solo el título es obligatorio; materia y tema empiezan vacíos salvo que el contexto los dé
+  const [materia, setMateria] = useState(props.initial?.materia ?? '');
   const [tema, setTema] = useState(props.initial?.tema ?? '');
   const [title, setTitle] = useState(props.initial?.title ?? '');
   const [tpl, setTpl] = useState('Clase');
+  // el título lleva el foco al abrir (después de que la hoja enfoque su contenedor)
+  const titleRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { const r = requestAnimationFrame(() => titleRef.current?.focus()); return () => cancelAnimationFrame(r); }, []);
   const temas = tree.find((m) => m.materia === materia)?.temas.map((t) => t.tema) ?? [];
   return (
     <Sheet title={tr('notes.nueva_nota')} onClose={props.onClose}>
@@ -381,15 +391,17 @@ function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { ma
         e.preventDefault();
         let path = notePath(materia, tema, title);
         for (let i = 2; await app.vault.exists(path); i++) path = notePath(materia, tema, `${title} (${i})`);
-        await app.vault.write(path, newNoteText(materia, tema, title, tpl));
+        await app.vault.write(path, newNoteText(materia, tema, title.trim(), tpl));
         app.changed();
         props.onClose();
         if (props.onCreated) props.onCreated(path);
         else go('notas', ...path.split('/').slice(1));
       }}>
-        <label class="field">{tr('inbox.materia')}<input class="input" list="materias" required value={materia} onInput={(e) => setMateria((e.target as HTMLInputElement).value)} placeholder={tr('notes.cardiologia')} /><datalist id="materias">{tree.map((m) => <option value={m.materia} />)}</datalist></label>
-        <label class="field">{tr('inbox.tema_o_clase')}<input class="input" list="temas" required value={tema} onInput={(e) => setTema((e.target as HTMLInputElement).value)} placeholder="ECG" /><datalist id="temas">{temas.map((t) => <option value={t} />)}</datalist></label>
-        <label class="field">{tr('calendar.titulo')}<input class="input" required value={title} onInput={(e) => setTitle((e.target as HTMLInputElement).value)} placeholder={tr('notes.clase_3_bloqueos_av')} /></label>
+        <label class="field">{tr('calendar.titulo')}<input ref={titleRef} class="input" required autoFocus value={title} onInput={(e) => setTitle((e.target as HTMLInputElement).value)} placeholder={tr('notes.clase_3_bloqueos_av')} /></label>
+        <label class="field">{tr('notes.materia_opcional')}<input class="input" list="materias" value={materia} onInput={(e) => setMateria((e.target as HTMLInputElement).value)} placeholder={tr('notes.opcional')} /><datalist id="materias">{tree.map((m) => <option value={m.materia} />)}</datalist></label>
+        <label class="field">{tr('notes.tema_opcional')}<input class="input" list="temas" value={tema} onInput={(e) => setTema((e.target as HTMLInputElement).value)} placeholder={tr('notes.opcional')} /><datalist id="temas">{temas.map((t) => <option value={t} />)}</datalist></label>
+        {tema.trim() && !materia.trim() && <p class="foot" role="status">{tr('notes.tema_sin_materia')}</p>}
+        {!materia.trim() && !tema.trim() && <p class="foot">{tr('notes.ira_a_sin_clasificar')}</p>}
         <fieldset class="field" style={{ border: 0, padding: 0 }}><legend>{tr('notes.plantilla')}</legend>
           <div class="bg-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
             {Object.keys(TEMPLATES).filter((t) => t !== 'Nota diaria').map((t) => (
@@ -497,7 +509,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
       <section class="stack-s" style={{ minWidth: 0 }}>
         <div class="row wrap glass panel" style={{ justifyContent: 'space-between' }}>
           <div>
-            <div class="foot">{meta.materia}{meta.tema ? ` › ${meta.tema}` : ''}</div>
+            <div class="foot">{meta.materia || tr('notes.sin_clasificar')}{meta.tema ? ` › ${meta.tema}` : meta.structured && meta.materia !== DAILY ? ` › ${tr('notes.sin_tema')}` : ''}</div>
             <h1 style={{ fontSize: 'var(--t-1)', fontWeight: 700 }}>{meta.title}</h1>
             <div class="foot">{tr('calendar.cards_tarjetas', { cards: cov.cards })}{' '}{cov.total ? tr('notes.p_de_parrafos_cubiertos', { p: Math.round((cov.covered.length / cov.total) * 100) }) : tr('notes.sin_parrafos')}</div>
           </div>

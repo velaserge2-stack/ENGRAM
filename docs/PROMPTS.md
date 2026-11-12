@@ -1109,3 +1109,27 @@ Unitarias (selección de colección, marcador falso, v11/v18, `\x1f`, cloze/bás
 
 ## 6. Entrega
 Causa real, qué cambió, archivos tocados y no tocados, dependencias (nombre, licencia, peso), límites conocidos. Actualizar la ayuda de importación y el README con «cómo exportar desde Anki».
+
+---
+
+# PROMPT 12: Crear notas pidiendo solo un dato (el título)
+Debug y mejora para Engrama (ya desplegada)
+
+## 0. Contexto y problema
+El formulario `NewNote` obliga a rellenar Materia, Tema o clase y Título (`required`), y `notePath` siempre construye `notes/<Materia>/<Tema>/<Título>.md`; `noteMeta` solo considera estructurada una nota de 3 niveles. Objetivo: que crear una nota solo exija el **título**; Materia y Tema opcionales; una nota sin materia/tema no se pierde ni se esconde. Leer CLAUDE.md, SPEC §10b y §10c, DECISIONS, `src/notes/model.ts`, `src/notes/store.ts`, `src/screens/notes.tsx` (NewNote y mover), `spaces.tsx`, `calendar.tsx`, `inbox.tsx`; plan corto.
+Reglas: solo lo descrito; sin migrar notas ni renombrar rutas; las existentes (3 niveles, Diario, sueltas) se abren igual. Materia → Tema → Notas sigue siendo lo recomendado, ya no obligatorio. Texto por `t()` (es/en/fr), Cristal, ≥ 44 px, diferencia cero fuera del formulario y la vista afectada. SafeVault; nunca sobrescribir (sufijo «(2)»). Rama `fix-notas`, un commit por punto, sin push ni merge sin confirmación; actualizar CLAUDE.md, DECISIONS y guardar el prompt.
+
+## 1. Formulario «Nueva nota»
+Título: único `required`, primero y con foco. Materia y Tema opcionales (datalist, «Opcional», etiquetas «(opcional)»). Tema sin materia: no bloquear; decidir y documentar. Sin valor inicial `tree[0]`: vacío salvo contexto (`initial`). Plantilla limpia sin materia/tema (sin «undefined», sin propiedades vacías). Crear con Intro. Mismo comportamiento en Notas, panel del lienzo, calendario, paleta (`⌘N`) y cualquier otro uso de `NewNote`/`notePath`.
+
+## 2. Dónde se guarda una nota sin materia o sin tema
+Propuesta: sin materia ni tema → `notes/<Título>.md` («Sin clasificar»); solo materia → `notes/<Materia>/<Título>.md`, mostrada dentro de su materia en «Sin tema» (ajustar `noteMeta`/`buildTree` sin romper `Diario`); materia y tema → como hoy. No crear carpetas no pedidas; nunca `notes//Tema/…`. `notePath` limpia caracteres y usa «sin título»; pruebas de duplicados, emoji, acentos y 200+ caracteres. Frontmatter `materia`/`tema` solo con valor; el lector tolera su ausencia.
+
+## 3. Todo lo que debe seguir funcionando con notas «sin clasificar»
+Explorador y vista «Todo» (grupos «Sin clasificar» y «Sin tema» con contador; mover entre grupos; «Mover a…» acepta destino vacío). Mover nota con Materia y Tema opcionales y «Sin clasificar» como destino. Buscador, wikilinks, backlinks, grafo, papelera, historial, vínculos del calendario, `src:`, exportación, índice y paneles. Cobertura de tarjetas, «Copiar prompt», «Crear tarjeta». `suggestPlace`/Bandeja: asignar es opcional, archivar sin materia válido. Importación sin estructura forzada. Tras crear se abre la nota (rutas de 1, 2 y 3 segmentos, caracteres especiales, panel del lienzo).
+
+## 4. Pruebas
+Unitarias (`notePath`, `noteMeta`, `buildTree` con los cuatro casos y la diaria; plantilla sin materia/tema; retrocompatibilidad con la bóveda de ejemplo). WebKit: crear con solo el título (Notas, panel del lienzo, calendario), con solo materia, completa; mover de «Sin clasificar» a materia/tema y de vuelta; recargar; buscar; exportar e importar `.zip` con las tres variantes. Regresión y diferencia cero; tres idiomas y pseudoidioma.
+
+## 5. Entrega
+Resumen, archivos tocados y no tocados, decisión de ubicación y otros lugares que exigían materia/tema. Criterio: escribir solo un título y Crear abre la nota al instante, aparece en «Sin clasificar» y se puede mover después; ninguna nota existente cambia de lugar ni de aspecto.

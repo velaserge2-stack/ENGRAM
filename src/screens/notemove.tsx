@@ -2,7 +2,7 @@ import { t as tr } from '../i18n';
 import { FolderInput, FolderPlus } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { type Undo, undoMove } from '../data/move';
-import { moveNoteFolder, moveNotes, type NoteClash, noteFolders } from '../notes/move';
+import { moveNoteFolder, moveNotes, type NoteClash, noteDir, noteFolders } from '../notes/move';
 import { notesIndex } from '../notes/search-client';
 import { noteStore } from '../notes/store';
 import { go, useApp } from '../state';
@@ -42,7 +42,7 @@ export async function runNoteMove(app: ReturnType<typeof useApp>, items: NoteIte
   const open = moved.find(([a]) => a === current);
   if (open) go('notas', ...open[1].split('/').slice(1));
   if (!moved.length) return;
-  app.toast(tr('notemove.movidas', { n: moved.length, dest }), {
+  app.toast(tr('notemove.movidas', { n: moved.length, dest: dest || tr('notes.sin_clasificar') }), {
     label: tr('move.deshacer'),
     run: async () => {
       for (const [, b] of moved) await noteStore.forget(b);
@@ -82,7 +82,7 @@ export function useNoteMover(current?: string | null, onDone?: () => void) {
     for (const f of items.folders) for (const x of await walk(app.vault, `notes/${f}`)) if (x.path.endsWith('.md')) paths.push(x.path);
     const rel = (p: string) => { const f = items.folders.find((x) => p.startsWith(`notes/${x}/`)); return f ? `${dest}/${f.split('/').pop()}/${parentOf(p.slice(`notes/${f}/`.length))}`.replace(/\/$/, '') : dest; };
     const clashes: string[] = [];
-    for (const p of paths) { const to = `notes/${rel(p)}/${fileName(items, p)}`; if (to !== p && (await app.vault.exists(to))) clashes.push(p); }
+    for (const p of paths) { const to = `${noteDir(rel(p))}/${fileName(items, p)}`; if (to !== p && (await app.vault.exists(to))) clashes.push(p); }
     if (clashes.length) return setAsk({ items, dest, names: clashes.map((p) => p.split('/').pop()!.replace(/\.md$/, '')) });
     await runNoteMove(app, items, dest, 'rename', current);
     onDone?.();
@@ -114,18 +114,25 @@ export function MoveNotesSheet(p: { items: NoteItems; all: string[]; current?: s
     setExtra((x) => [...x, f]);
     setDest(f);
     setName('');
-    setNaming(naming === 'materia' && forNotes ? 'tema' : null);
+    setNaming(null);
   };
   const shown = [...new Set([...list, ...(forNotes ? materias : [])])].sort((a, b) => a.localeCompare(b, 'es'));
   // solo renombrar: sin destino elegido, se queda en su carpeta
   const target = dest ?? (renamed ? parentOf(p.items.notes[0]!.slice(6)) : null);
-  const valid = (f: string | null) => !!f && !here(f) && (!forNotes || depth(f) >= 2 || dests.includes(f));
+  // Prompt 12: una nota puede ir a un tema, a una materia («Sin tema») o a «Sin clasificar» ('')
+  const valid = (f: string | null) => f !== null && !here(f) && (forNotes || (f !== '' && dests.includes(f)));
   return (
     <>
       <Sheet title={tr('move.mover_a')} onClose={p.onClose}>
         <div class="stack">
           <p class="foot ellipsis" data-user-content>{[...p.items.notes.map((n) => n.split('/').pop()!.replace(/\.md$/, '')), ...p.items.folders].join(', ')}</p>
           <div class="move-tree stack-s" role="radiogroup" aria-label={tr('move.destino')}>
+            {forNotes && (
+              <button type="button" role="radio" aria-checked={dest === ''} class="opt note" disabled={here('')} onClick={() => setDest('')}>
+                <span aria-hidden="true">📄</span> <span class="grow ellipsis">{tr('notes.sin_clasificar')}</span>
+                {here('') && <span class="foot">{tr('move.aqui')}</span>}
+              </button>
+            )}
             {shown.map((f) => {
               return (
                 <button type="button" role="radio" aria-checked={dest === f} class="opt note" disabled={here(f)} style={{ paddingLeft: `${12 + (depth(f) - 1) * 18}px` }} onClick={() => setDest(f)}>

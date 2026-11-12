@@ -469,3 +469,21 @@
 - El audio de los campos (`[sound:…]`) se importa como medio y se enlaza; reproducirlo depende del navegador.
 - zstd: antes de descomprimir se lee la cabecera del primer marco (ventana y tamaño declarados) y se rechaza si supera el tope, para que `fzstd` no reserve memoria de más; los marcos siguientes se vigilan contando la salida.
 - Validar en iPad con un `.apkg` real grande (memoria del Worker al descomprimir colecciones de cientos de MB).
+
+## Prompt 12 — Crear notas pidiendo solo el título (rama `fix-notas`)
+
+### Decisión de ubicación (la más simple y retrocompatible)
+- **Materia y tema** → `notes/<Materia>/<Tema>/<Título>.md` (como siempre).
+- **Solo materia** → `notes/<Materia>/<Título>.md`. `noteMeta` ahora la marca como estructurada con `tema: ''` y `buildTree` la pone **dentro de su materia**, en el grupo «Sin tema» (que va primero). Antes esta ruta caía en «Sin clasificar»: las notas sueltas de dos niveles que ya existían (p. ej. importadas de Obsidian) ahora se ven dentro de su materia; **ninguna cambia de ruta**.
+- **Sin materia** → `notes/<Título>.md`, el nivel raíz que `noteMeta` ya trataba como suelto: grupo «Sin clasificar» (traducido). **Tema sin materia** no crea carpetas (nunca `notes//Tema/…`): la nota va a «Sin clasificar» y el tema queda en su frontmatter; el formulario lo avisa con un texto suave, sin bloquear.
+- `notes/Diario/<fecha>.md` sigue siendo especial (`DAILY`), y lo de 4 o más niveles sigue en «Sin clasificar».
+- No se crean carpetas que no se pidieron. Frontmatter: `materia`/`tema` solo si tienen valor (al crear, al mover y al archivar desde la Bandeja); el lector ya toleraba su ausencia.
+- Nombres (`safeSegment`): sin caracteres prohibidos ni puntos iniciales, ≤ 200 bytes UTF-8 sin partir un emoji y conservando el sufijo « (2)», para que los duplicados de títulos larguísimos no choquen.
+
+### Formulario y otros lugares
+- «Nueva nota» (Notas, `⌘N`, paleta y panel de nota del lienzo, que usan el mismo `NewNote`): **Título** primero, con foco (se enfoca en el cuadro siguiente a abrir la hoja, porque el gestor de capas enfoca la hoja) y único `required`; Materia y Tema «(opcional)», vacíos por defecto (ya no `tree[0]`); Intro crea. En iPad, Safari solo abre el teclado si el foco llega dentro del toque: puede hacer falta tocar el campo.
+- El calendario solo crea **notas diarias** (sin formulario): no cambió.
+- «Mover a…» (la hoja que reemplazó al formulario con Materia y Tema `required`): «Sin clasificar» (raíz) y una materia sin tema son destinos válidos de una nota; `moveNotes` acepta destino vacío. El explorador acepta soltar una nota en una materia («Sin tema») o en «Sin clasificar».
+- Bandeja (add-on): asignar materia y tema es opcional; archivar sin materia deja la nota en «Sin clasificar» (antes usaba carpetas «Sin materia/General»).
+- Cabecera de la nota y vista «Todo»: rotulan «Sin clasificar» y «Sin tema» en vez de dejar el hueco.
+- Sin cambios: buscador, wikilinks, backlinks, grafo, papelera, historial, vínculos del calendario, `src:`, exportación, índice y paneles (todos trabajan por ruta o título y ya aceptaban rutas de 1 o 2 segmentos). Las plantillas no usan `{{materia}}`/`{{tema}}`.

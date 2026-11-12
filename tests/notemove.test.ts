@@ -68,3 +68,20 @@ describe('mover notas (Prompt 6 · A2)', () => {
     expect(noteFolders([...all, 'notes/Diario/2026-01-01.md'])).toEqual(['Urgencias', 'Urgencias/Arritmias', 'Urgencias/ECG']);
   });
 });
+
+describe('mover a «Sin clasificar» o a una materia sin tema (Prompt 12)', () => {
+  it('destino vacío = raíz de notes/; materia/tema del frontmatter solo si tienen valor', async () => {
+    const v = await setup();
+    const r = await moveNotes(v, [NOTE], '');
+    expect(r.moved).toEqual([[NOTE, 'notes/Bloqueos.md']]);
+    const t = await readTextOr(v, 'notes/Bloqueos.md', '');
+    expect(t).not.toMatch(/materia:|tema:/);
+    expect(t).toContain('id: n7q');
+    expect(await readTextOr(v, 'decks/Cardio.md', '')).toContain('src: notes/Bloqueos.md#p2');
+    const r2 = await moveNotes(v, ['notes/Bloqueos.md'], 'Urgencias');
+    expect(r2.moved[0]![1]).toBe('notes/Urgencias/Bloqueos.md');
+    await undoMove(v, r2.undo);
+    await undoMove(v, r.undo);
+    expect(await readTextOr(v, NOTE, '')).toContain('materia: Cardiología');
+  });
+});

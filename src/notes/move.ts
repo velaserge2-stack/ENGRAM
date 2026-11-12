@@ -24,6 +24,9 @@ const HISTORY = '.app/history';
 const TRASH = '.app/trash';
 const CAL = 'calendar/estudio.ics';
 
+/** Carpeta de destino: '' = raíz de notes/ («Sin clasificar»). */
+export const noteDir = (dest: string) => (dest ? `notes/${dest}` : 'notes');
+
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const noExt = (p: string) => p.replace(/\.md$/, '');
 
@@ -66,7 +69,7 @@ async function move(vault: VaultAdapter, log: Undo, from: string, to: string) {
 export async function noteClashes(vault: VaultAdapter, paths: string[], dest: string): Promise<string[]> {
   const out: string[] = [];
   for (const p of paths) {
-    const to = `notes/${dest}/${p.split('/').pop()}`;
+    const to = `${noteDir(dest)}/${p.split('/').pop()}`;
     if (to !== p && (await vault.exists(to))) out.push(p);
   }
   return out;
@@ -81,7 +84,7 @@ export async function moveNotes(vault: VaultAdapter, paths: string[], dest: stri
   const moved: [string, string][] = [];
   const now = Date.now();
   for (const from of paths) {
-    let to = `notes/${dest}/${rel?.get(from) ?? from.split('/').pop()}`;
+    let to = `${noteDir(dest)}/${rel?.get(from) ?? from.split('/').pop()}`;
     if (to === from) continue;
     if (await vault.exists(to)) {
       if (clash === 'replace') await move(vault, log, to, `${TRASH}/${now}/${to}`);
@@ -96,8 +99,13 @@ export async function moveNotes(vault: VaultAdapter, paths: string[], dest: stri
     const m = noteMeta(to);
     const text = await readTextOr(vault, to, '');
     const doc = parseFrontmatter(text);
-    if (doc.hasFrontmatter && m.structured && m.materia !== DAILY && ('materia' in doc.data || 'tema' in doc.data)) {
-      await write(vault, log, to, stringifyFrontmatter({ ...doc.data, materia: m.materia, tema: m.tema }, doc.body));
+    const depth = to.split('/').length - 1;
+    if (doc.hasFrontmatter && depth <= 3 && m.materia !== DAILY && ('materia' in doc.data || 'tema' in doc.data)) {
+      // Prompt 12: se escriben solo si tienen valor («Sin clasificar» o «Sin tema» los quitan)
+      const data = { ...doc.data };
+      if (m.structured && m.materia) data.materia = m.materia; else delete data.materia;
+      if (m.structured && m.tema) data.tema = m.tema; else delete data.tema;
+      await write(vault, log, to, stringifyFrontmatter(data, doc.body));
     }
     for (const h of await walk(vault, `${HISTORY}/${from}`)) await move(vault, log, h.path, `${HISTORY}/${to}/${h.path.slice(`${HISTORY}/${from}/`.length)}`);
     moved.push([from, to]);
