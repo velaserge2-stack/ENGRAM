@@ -439,3 +439,28 @@
 - Accesibilidad: objetivos ≥ 44 px, `aria-expanded`, estado anunciado con `aria-live`. Las etiquetas pasan por `t()` (es/en/fr).
 - Límites de Safari: el AudioContext solo se reanuda dentro de un toque, y «Reanudar» lo es. En segundo plano (pantalla bloqueada) `<audio>.volume` no tiene efecto en iOS, así que el volumen general solo cambia el sonido en primer plano.
 - Barra a 834 px tras ocultar la Bandeja: 449 de 466 px de secciones visibles (antes 359). Faltan 17 px para que quepa entera; sigue siendo desplazable.
+
+## Prompt 10 — Importar `.apkg` del formato nuevo de Anki (rama `fix-apkg`)
+
+### Causa real (reproducida, no supuesta)
+- Con paquetes generados por la **biblioteca oficial de Anki** (`pip install anki`, `scripts/apkg-fixtures.py`):
+  - **formato nuevo** (por defecto en Anki ≥ 2.1.50): `meta` = 3, `collection.anki21b` (zstd, esquema **v18**), `media` en protobuf comprimido con zstd, medios numerados también en zstd, y `collection.anki2` = **marcador falso** de esquema 11 con una sola nota «Please update to the latest Anki version, then import the .colpkg/.apkg file again.»;
+  - **compatibilidad**: `meta` = 2, `collection.anki21` sin comprimir (v11), y también el marcador falso en `collection.anki2`.
+- El importador abría `anki21 ?? anki2`. Con un paquete nuevo había `anki2` (el marcador), así que importaba **esa nota en `decks/Default.md`** y nada más: «se sube pero no aparece». `anki21b` nunca se leía (la rama que avisaba del formato nuevo era inalcanzable porque el marcador siempre existe).
+- `rows()` tragaba todos los errores y la hoja mostraba «1 archivos» o «0 archivos» sin causa. La recarga de la colección tras confirmar **sí** funcionaba (`app.changed()`): los mazos aparecen sin recargar la app, también los jerárquicos (`decks/A/B/C.md`); no hubo que corregirla.
+
+### Cambios
+- **Colección**: se lee `meta` (protobuf) y se prueba `anki21b` → `anki21` → `anki2`, identificando zstd (`28 B5 2F FD`) o SQLite (`SQLite format 3\0`) por la firma. El marcador falso (≤ 1 nota con ese texto) se descarta; si es lo único legible, error **«formato nuevo»**. Ninguna colección legible → error «dañado».
+- **zstd**: `fzstd` 0.1.1 (**MIT**, ~24 KB sin comprimir, ~7 KB gzip), descompresión por trozos con **tope de salida** (`LIMITS.maxUnzstdBytes` = 1 GB; para cada medio, el menor entre ese y `maxFileBytes`). Solo lo importa `src/io/apkg.ts`, que solo carga el Worker: no está en el bundle principal (comprobado en `dist/`).
+- **Protobuf**: decodificador mínimo propio (`pbFields`: varint y longitud delimitada; el resto se salta) para `meta` (versión) y `media` (`MediaEntries { MediaEntry { name = 1, size = 2, sha1 = 3, legacy_zip_filename = 255 } }`; la entrada *i* está en el archivo `i` del zip salvo que traiga `legacy_zip_filename`). No se añadió ninguna librería de protobuf.
+- **Esquemas v11 y v18** detectados por `sqlite_master` (`notetypes` ⇒ v18). En v18 los mazos y tipos de nota salen de sus tablas; nombres jerárquicos con `\x1f` (o `::` en v11); cloze por el campo 1 (`kind`) del `config` protobuf del tipo de nota, por el nombre o por `{{c1::` en el primer campo; «inversa/ambos» por el nombre o por tener dos plantillas.
+- **Errores**: `rows()` distingue «la tabla no existe» (se usa la alternativa) de un error real (aviso con la tabla y el motivo). Se informa «Esquema Anki v11/v18: N notas, M mazos, K medios»; las notas con primer campo vacío se omiten **contadas**; 0 notas o 0 mazos escritos es un error explícito (`empty`) con la causa; «Default»/«Por defecto» con tarjetas se escribe con el nombre del archivo. Tope de **notas** (`LIMITS.maxApkgNotes` = 300 000). Un medio que no se puede descomprimir se omite con aviso. Los nombres de medios siguen saneados (sin `/`, `\`, `:` ni `.` inicial).
+- `revlog`: mismo mapeo a `reviews.jsonl` (`src: 'anki'`, ease 1–4, ≤ 60 s, `mergeLog` sin duplicar); ahora solo para tarjetas de notas que sí se importan.
+- **Hoja de importación** (`src/screens/import.tsx`, único componente de interfaz tocado): mensaje principal (icono + negrita, `role="alert"`, sin color) cuando no hay nada que importar, con causa y paso siguiente por código de error; resumen «mazos · tarjetas · imágenes y audios · repasos» antes de confirmar; «Ver mazos» después; spinner (`prefers-reduced-motion` lo detiene) mientras se lee; un fallo del Worker da un error claro. El conteo de tarjetas cuenta las dos de una nota inversa.
+
+### Límites conocidos
+- Plantillas de tarjeta personalizadas, CSS, LaTeX/MathJax y JavaScript de Anki no se reproducen: se importa el texto de los campos (HTML → Markdown sencillo). Tipos de nota con más de dos plantillas o campos se convierten como «básica» (primer campo = pregunta, resto = respuesta).
+- `.colpkg` (colección completa) se trata igual que `.apkg`.
+- El audio de los campos (`[sound:…]`) se importa como medio y se enlaza; reproducirlo depende del navegador.
+- zstd: antes de descomprimir se lee la cabecera del primer marco (ventana y tamaño declarados) y se rechaza si supera el tope, para que `fzstd` no reserve memoria de más; los marcos siguientes se vigilan contando la salida.
+- Validar en iPad con un `.apkg` real grande (memoria del Worker al descomprimir colecciones de cientos de MB).

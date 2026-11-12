@@ -28,6 +28,13 @@ Tarjetas de estudio con repetición espaciada (FSRS) y notas, como app web insta
 Safari guarda tu bóveda en un espacio privado que **no se ve en Archivos**. Exporta regularmente:
 **Respaldo → Preparar respaldo (.zip) → Guardar en Archivos**. Para restaurar: **Importar** → el `.zip` (vista previa y «deshacer importación»). La app te lo recuerda si pasan más de 7 días.
 
+## Importar desde Anki
+En Anki: **Archivo → Exportar → «Paquete de mazos de Anki (.apkg)»**, elige el mazo y marca **«Incluir programación»** si quieres traer tu historial de repasos. En Engrama: **Mazos → Importar archivo** → el `.apkg` → revisa el resumen (mazos · tarjetas · imágenes · repasos) → **Importar** → **Ver mazos**.
+
+- Sirve **con y sin** «Compatibilidad con versiones antiguas»: se lee el formato nuevo (`collection.anki21b`, comprimido con zstd, esquema v18), el de compatibilidad (`collection.anki21`) y el antiguo (`collection.anki2`). El marcador «Please update to the latest Anki version…» que traen los paquetes nuevos nunca se importa.
+- Si un paquete no se puede leer, la hoja dice por qué y qué hacer (por ejemplo, volver a exportar marcando «Compatibilidad con versiones antiguas»).
+- Límites: se convierten Básica, Inversa (y «ambos»), Cloze; las plantillas de tarjeta personalizadas, el CSS y los campos con LaTeX o JavaScript de Anki no se reproducen (se importa el texto de los campos). Las notas con el primer campo vacío se omiten y se cuentan.
+
 ## Formato de la bóveda
 ```
 decks/<Carpeta>/<Mazo>.md     mazos (Q::/A::, Cloze:, MC::, … con ^id)
@@ -53,6 +60,9 @@ npm run e2e:mejoras    # acento, vínculos del calendario, notas grandes, bandej
 npm run e2e:mejoras2   # idiomas (pseudoidioma sin desbordes), capas, minimizar, tooltips
 npm run e2e:bloquec    # perfil, papelera de mazos, fondos, almacenamiento, buscador, mapa…
 npm run e2e:p5         # sonido, tinta (Pencil simulado), PDFs, manuscritas, atajos y mando
+npm run e2e:p6         # mover mazos/tarjetas/notas, Perfil, Bandeja como add-on, mini reproductor
+npm run e2e:p7         # lienzo estático al alejar, PDF por página, firma
+npm run e2e:p10        # .apkg de Anki: legado, compatibilidad, formato nuevo y archivos basura
 npm run e2e:phone      # iPhone: 6 tamaños × es/fr; MODE=baseline|compare para 0 píxeles en iPad y web
 ```
 Las pruebas E2E usan WebKit de Playwright si está instalado (`npx playwright install webkit`); si no, Chromium.
@@ -71,4 +81,4 @@ Ver `docs/DESIGN.md` (tokens, guardián de legibilidad, cómo añadir un tema ca
 - Más detalle y lo que falta validar en un iPad real: `docs/DECISIONS.md`.
 
 ## Licencias de terceros
-Preact, fflate, ts-fsrs, markdown-it, minisearch, turndown, docx, sql.js, perfect-freehand, pdf-lib (MIT) · Lucide (ISC) · DOMPurify (MPL-2.0 / Apache-2.0) · pdfjs-dist (Apache-2.0) · mammoth (BSD-2). Sin SF Symbols ni recursos de Apple.
+Preact, fflate, fzstd, ts-fsrs, markdown-it, minisearch, turndown, docx, sql.js, perfect-freehand, pdf-lib (MIT) · Lucide (ISC) · DOMPurify (MPL-2.0 / Apache-2.0) · pdfjs-dist (Apache-2.0) · mammoth (BSD-2). Sin SF Symbols ni recursos de Apple.

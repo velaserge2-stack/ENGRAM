@@ -56,8 +56,25 @@ const SQLITE = 'SQLite format 3\0';
 const isZstd = (b?: Uint8Array) => !!b && b.length >= 4 && ZSTD.every((x, i) => b[i] === x);
 const isSqlite = (b?: Uint8Array) => !!b && b.length >= 16 && strFromU8(b.subarray(0, 16)) === SQLITE;
 
+/** Mayor de (ventana, tamaño de contenido) que declara la cabecera del primer marco zstd. */
+export function zstdDeclared(b: Uint8Array): number {
+  if (!isZstd(b) || b.length < 6) return 0;
+  const fhd = b[4]!, single = (fhd >> 5) & 1, fcsFlag = fhd >> 6, did = fhd & 3;
+  let i = 5, ws = 0;
+  if (!single) { const wb = 2 ** (10 + (b[5]! >> 3)); ws = wb + (wb / 8) * (b[5]! & 7); i++; }
+  i += [0, 1, 2, 4][did]!;
+  const n = [single, 2, 4, 8][fcsFlag]!;
+  let fcs = 0;
+  for (let k = 0; k < n && i + k < b.length; k++) fcs += b[i + k]! * 2 ** (8 * k);
+  if (n === 2) fcs += 256;
+  return Math.max(ws, fcs);
+}
+
 /** zstd con tope de salida (bomba de descompresión): se cuenta lo que sale, trozo a trozo. */
 export function unzstd(data: Uint8Array, max = LIMITS.maxUnzstdBytes): Uint8Array {
+  // la cabecera declara ventana y tamaño: se rechaza antes de reservar memoria
+  const declared = zstdDeclared(data);
+  if (declared > max) throw new ApkgError('too-big', t('apkg.descomprimido_demasiado_grande', { mb: Math.round(max / 1048576) }));
   const parts: Uint8Array[] = [];
   let total = 0;
   const d = new Decompress((chunk) => {

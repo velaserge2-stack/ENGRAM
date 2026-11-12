@@ -1,4 +1,4 @@
-import { strToU8, unzipSync, zipSync } from 'fflate';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { convertApkg, fieldToMd, type SqlJs } from '../src/io/apkg';
 import { parseDeck, cardsOf } from '../src/cards/parse';
@@ -141,5 +141,18 @@ describe('importar .apkg: legado, compatibilidad y formato nuevo', () => {
     expect(r.decks.some((d) => d.path === 'decks/Medicina/Cardio/ECG.md')).toBe(true);
     const cl = parseDeck(r.decks.find((d) => d.path.endsWith('ECG.md'))!.text).notes.find((n) => n.type === 'cloze')!;
     expect(cl.clozes).toEqual([1, 2]);
+  });
+});
+
+describe('zstd: cabecera que declara demasiado', () => {
+  it('se rechaza antes de reservar memoria', async () => {
+    const { zstdDeclared } = await import('../src/io/apkg');
+    // Single_Segment, FCS de 4 bytes = 2 GB
+    const fake = new Uint8Array([0x28, 0xb5, 0x2f, 0xfd, 0xa0, 0x00, 0x00, 0x00, 0x80, 0, 0, 0]);
+    expect(zstdDeclared(fake)).toBe(2 ** 31);
+    expect(() => unzstd(fake, 1024 * 1024)).toThrow(/supera 1 MB/);
+    const ok = zstd(strToU8('hola'));
+    expect(zstdDeclared(ok)).toBeLessThan(1024 * 1024);
+    expect(strFromU8(unzstd(ok))).toBe('hola');
   });
 });
