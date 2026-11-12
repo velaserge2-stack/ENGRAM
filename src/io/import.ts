@@ -61,16 +61,22 @@ export interface Gathered {
   fromVaultZip: boolean;
   /** historial importado (p. ej. revlog de Anki) para combinar con reviews.jsonl */
   log: LogEntry[];
+  /** Paquetes de Anki que no se pudieron leer, con su causa (la hoja lo muestra en grande). */
+  failures: { name: string; code: string; message: string }[];
+  /** Resumen de lo leído de paquetes de Anki (antes de confirmar). */
+  anki: { decks: number; cards: number; media: number; reviews: number } | null;
 }
 
 export interface GatherOptions {
-  apkg?: (bytes: Uint8Array) => Promise<ApkgResult>;
+  apkg?: (bytes: Uint8Array, name: string) => Promise<ApkgResult>;
 }
 
 export async function gather(incoming: IncomingFile[], opts: GatherOptions = {}): Promise<Gathered> {
   const files: VaultFile[] = [];
   const warnings: string[] = [];
   const log: LogEntry[] = [];
+  const failures: Gathered['failures'] = [];
+  let anki = null as Gathered['anki'];
   let fromVaultZip = false;
   // Carpeta elegida: quitar el primer segmento (nombre de la carpeta) si dentro hay estructura de bóveda
   const rels = incoming.map((f) => f.relativePath).filter(Boolean) as string[];
@@ -89,12 +95,14 @@ export async function gather(incoming: IncomingFile[], opts: GatherOptions = {})
         continue;
       }
       try {
-        const r = await opts.apkg(data);
+        const r = await opts.apkg(data, f.name);
         warnings.push(...r.warnings.map((w) => `${f.name}: ${w}`));
         for (const d of r.decks) files.push({ path: d.path, data: new TextEncoder().encode(d.text) });
         for (const m of r.media) files.push({ path: `media/${m.name}`, data: m.data });
         log.push(...r.log);
+        anki = { decks: (anki?.decks ?? 0) + r.decks.length, cards: (anki?.cards ?? 0) + r.decks.reduce((a, d) => a + d.cards, 0), media: (anki?.media ?? 0) + r.media.length, reviews: (anki?.reviews ?? 0) + r.log.length };
       } catch (e) {
+        failures.push({ name: f.name, code: (e as { code?: string }).code ?? 'corrupt', message: errMsg(e) });
         warnings.push(`${f.name}: ${errMsg(e)}`);
       }
       continue;
@@ -122,7 +130,7 @@ export async function gather(incoming: IncomingFile[], opts: GatherOptions = {})
       warnings.push(t('import.rel_ruta_no_permitida_omitido', { rel: rel }));
     }
   }
-  return { files, warnings, fromVaultZip, log };
+  return { files, warnings, fromVaultZip, log, failures, anki };
 }
 
 export type ItemStatus = 'new' | 'same' | 'conflict';
@@ -214,15 +222,21 @@ export async function mergeLog(vault: VaultAdapter, entries: LogEntry[]): Promis
   return add.length;
 }
 
-export function runApkgWorker(bytes: Uint8Array, history = true): Promise<ApkgResult> {
+export function runApkgWorker(bytes: Uint8Array, history = true, name = ''): Promise<ApkgResult> {
   return new Promise((resolve, reject) => {
-    const w = new Worker(new URL('./apkg.worker.ts', import.meta.url), { type: 'module' });
-    w.onmessage = (e: MessageEvent<{ ok: boolean; result?: ApkgResult; error?: string }>) => {
+    const fail = (message: string, code: string) => reject(Object.assign(new Error(message), { code }));
+    let w: Worker;
+    try {
+      w = new Worker(new URL('./apkg.worker.ts', import.meta.url), { type: 'module' });
+    } catch (e) {
+      return fail(errMsg(e) || t('import.error_del_worker'), 'worker');
+    }
+    w.onmessage = (e: MessageEvent<{ ok: boolean; result?: ApkgResult; error?: string; code?: string }>) => {
       w.terminate();
       if (e.data.ok) resolve(e.data.result!);
-      else reject(new Error(e.data.error));
+      else fail(e.data.error ?? t('import.error_del_worker'), e.data.code ?? 'corrupt');
     };
-    w.onerror = (e) => (w.terminate(), reject(new Error(e.message || t('import.error_del_worker'))));
-    w.postMessage({ bytes, history });
+    w.onerror = (e) => (w.terminate(), fail(e.message || t('import.error_del_worker'), 'worker'));
+    w.postMessage({ bytes, history, name });
   });
 }

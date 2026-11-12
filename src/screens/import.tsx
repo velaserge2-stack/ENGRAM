@@ -29,7 +29,7 @@ export function ImportSheet(props: { onClose: () => void }) {
     if (!list || !list.length) return;
     setBusy(true);
     try {
-      const g = await gather(fromFileList(list), { apkg: (b) => runApkgWorker(b, true) });
+      const g = await gather(fromFileList(list), { apkg: (b, name) => runApkgWorker(b, true, name) });
       setWarnings(g.warnings);
       setLog(g.log);
       setPlan(await buildPlan(app.vault, g.files));
