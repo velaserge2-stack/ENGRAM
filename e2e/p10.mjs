@@ -83,6 +83,32 @@ try {
     await ctx.close();
   }
 
+  console.log('Paquete de Anki que llega como .zip');
+  {
+    const { ctx, page } = await fresh();
+    await openImport(page);
+    await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'Traumatologia.zip', mimeType: 'application/zip', buffer: require('node:fs').readFileSync(FIX + 'nuevo.apkg') });
+    await page.locator('.sheet .import-sum').waitFor({ timeout: 30000 });
+    check(/2 mazos · 6 tarjetas/.test(await page.locator('.sheet .import-sum').innerText()), 'se reconoce por su contenido y se importa como Anki');
+    check(!(await page.locator('.sheet .plan-list').innerText()).includes('docs/'), 'no se tira como archivos sueltos en docs/');
+    await page.locator('.sheet').getByRole('button', { name: 'Importar', exact: true }).click();
+    await page.locator('.sheet').getByRole('button', { name: 'Ver mazos' }).click();
+    await page.locator('tr[data-drop="Traumatologia"]').waitFor();
+    check(true, 'aparece en Mazos (el «Default» toma el nombre del archivo)');
+    if (process.env.USER_APKG) {
+      await openImport(page);
+      await page.locator('.sheet input[type=file]').first().setInputFiles(process.env.USER_APKG);
+      await page.locator('.sheet .import-sum').waitFor({ timeout: 60000 });
+      console.log('    archivo real:', await page.locator('.sheet .import-sum').innerText());
+      await page.locator('.sheet').getByRole('button', { name: 'Importar', exact: true }).click();
+      await page.locator('.sheet').getByRole('button', { name: 'Ver mazos' }).click({ timeout: 60000 });
+      await page.waitForTimeout(800);
+      console.log('    mazos:', (await page.locator('table.decks tbody tr[data-drop]').evaluateAll((r) => r.map((x) => x.dataset.drop))).filter((x) => /TRAUMA/i.test(x)).length, 'filas de TRAUMATOLOGÍA');
+      await page.screenshot({ path: OUT + 'p10-archivo-real.png', fullPage: true });
+    }
+    await ctx.close();
+  }
+
   console.log('Archivo basura renombrado a .apkg');
   {
     const { ctx, page } = await fresh();
