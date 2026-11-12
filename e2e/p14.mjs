@@ -22,9 +22,12 @@ const run = (k) => !only || only.includes(k);
 const check = (c, m) => { if (!c) throw new Error('FALLÓ: ' + m); console.log('  ✓', m); };
 const EX = new URL('../examples/', import.meta.url).pathname;
 
-const larga = '# Larga\n\n' + Array.from({ length: 200 }, (_, i) => (i % 9 === 4 ? `- punto ${i}\n- otro ${i}` : `Bloque ${i}: el electrocardiograma muestra ritmo sinusal y ondas normales en la derivación ${i % 12}.`)).join('\n\n') + '\n';
+const larga = '# Larga\n\n' + Array.from({ length: 200 }, (_, i) => (i === 150 ? '![[p14-a.png]]' : i === 199 ? 'Bloque final con la palabra zanahoria.' : i % 9 === 4 ? `- punto ${i}\n- otro ${i}` : `Bloque ${i}: el electrocardiograma muestra ritmo sinusal y ondas normales en la derivación ${i % 12}.`)).join('\n\n') + '\n';
+// PNG de 2×2 (gris)
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAAAAABX3VL4AAAADklEQVR4nGNgYGBgYGAAAAAFAAGKM+MAAAAASUVORK5CYII=', 'base64');
 const VAULT = zipSync({
   'notes/P14/Larga.md': strToU8(larga),
+  'media/p14-a.png': new Uint8Array(PNG),
   'docs/guia-ecg.pdf': new Uint8Array(readFileSync(EX + 'docs/guia-ecg.pdf')),
   'docs/apuntes-neuro.docx': new Uint8Array(readFileSync(EX + 'docs/apuntes-neuro.docx')),
   'docs/neuro.csv': strToU8(Array.from({ length: 400 }, (_, i) => `fila ${i},${i * 2},texto ${i}`).join('\n')),
@@ -150,6 +153,86 @@ try {
     // en pausa (dormido) no hay asa
     const asleep = await page.locator('.canvas-plane > .win.asleep').count();
     if (asleep) check(await page.locator('.canvas-plane > .win.asleep > .win-resize').count() === 0, 'panel en pausa: sin asa');
+    await ctx.close();
+  }
+  if (run('notas')) {
+    const { ctx, page } = await fresh();
+    console.log('Nota larga: buscar, imprimir, exportar, pestaña + panel y guardado');
+    await page.goto(URL_ + '#/notas/P14/Larga.md');
+    await page.locator('.doc .doc-chunk').first().waitFor();
+    const nb = await page.locator('.doc [aria-label="Editar bloque"]').count(), nc = await page.locator('.doc .doc-chunk').count();
+    check(nc === Math.ceil(nb / 40), `${nb} bloques en ${nc} tramos de 40 con content-visibility`);
+    await page.waitForTimeout(500);
+    check(await page.evaluate(() => !document.querySelector('.doc img[data-media]').src), 'la imagen lejana aún no se carga (perezosa)');
+    // buscar: la coincidencia está fuera de pantalla (último bloque)
+    await page.getByRole('button', { name: 'Buscar en esta nota' }).first().click();
+    await page.getByRole('searchbox', { name: 'Buscar en esta nota' }).fill('zanahoria');
+    await page.locator('.find-bar .num', { hasText: '1 de 1' }).waitFor();
+    await page.waitForTimeout(1800);
+    const seen = await page.evaluate(() => { const el = [...document.querySelectorAll('.doc .md p')].find((p) => p.textContent.includes('zanahoria')); const r = el.getBoundingClientRect();  return r.top >= 0 && r.bottom <= innerHeight; });
+    check(seen, 'buscar en esta nota: 1 de 1 y la coincidencia (fuera de pantalla) queda a la vista');
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => { window.print = () => (window.__printed = true); });
+    await page.getByRole('button', { name: 'Compartir o exportar' }).first().click();
+    await page.getByRole('button', { name: /PDF/ }).first().click();
+    await page.waitForFunction(() => window.__printed === true, null, { timeout: 5000 });
+    check(await page.evaluate(() => document.querySelector('.doc img[data-media]').src.startsWith('blob:')), 'imprimir/PDF: antes de imprimir se cargan todas las imágenes');
+    await page.emulateMedia({ media: 'print' });
+    check(await page.evaluate(() => [...document.querySelectorAll('.doc-chunk')].every((c) => getComputedStyle(c).contentVisibility === 'visible')), 'al imprimir todos los tramos se pintan (content-visibility: visible)');
+    await page.emulateMedia({ media: 'screen' });
+    // exportar .md y .docx
+    for (const [btn, ext] of [[/Preparar \.md/, 'zip'], [/Preparar \.docx/, 'docx']]) {
+      await page.getByRole('button', { name: 'Compartir o exportar' }).first().click();
+      await page.getByRole('button', { name: btn }).click();
+      const dl = page.waitForEvent('download');
+      await page.getByRole('button', { name: new RegExp(`Guardar .*\\.${ext}`) }).click();
+      const d = await dl;
+      const size = readFileSync(await d.path()).length;
+      check(d.suggestedFilename().endsWith('.' + ext) && size > 500, `exportar ${d.suggestedFilename()} (${size} bytes)`);
+    }
+    // editar un bloque a mitad y comprobar el archivo guardado
+    await page.locator('.doc [aria-label="Editar bloque"]').nth(100).click();
+    const ta = page.locator('.doc textarea').first();
+    await ta.press('End');
+    await page.keyboard.type(' añadido');
+    await page.keyboard.press('Escape');
+    // la misma nota en un panel del lienzo ve el cambio
+    await page.goto(URL_ + '#/espacios/abrir/' + encodeURIComponent('notes/P14/Larga.md'));
+    await page.locator('.win .doc').first().waitFor();
+    check(await page.locator('.win .doc').first().getByText('añadido').count() === 1, 'pestaña y panel comparten el documento (el panel ve lo escrito)');
+    await page.waitForTimeout(1200);
+    await page.reload();
+    await page.goto(URL_ + '#/notas/P14/Larga.md');
+    await page.locator('.doc .doc-chunk').first().waitFor();
+    check(await page.locator('.doc').getByText('añadido').count() === 1, 'tras recargar, lo escrito sigue ahí');
+    await ctx.close();
+  }
+  if (run('guardado')) {
+    // mismo flujo en esta rama y en la base: el .md guardado debe ser idéntico byte a byte
+    const { ctx, page } = await fresh();
+    console.log('Archivo guardado tras editar un bloque');
+    await page.goto(URL_ + '#/notas/P14/Larga.md');
+    await page.locator('.doc [aria-label="Editar bloque"]').nth(100).waitFor();
+    await page.locator('.doc [aria-label="Editar bloque"]').nth(100).click();
+    await page.locator('.doc textarea').first().press('End');
+    await page.keyboard.type(' añadido');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('nuevo bloque partido');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(1500);
+    // archivo guardado: respaldo .zip → notes/P14/Larga.md (se compara con la rama base, ver DECISIONS)
+    await page.goto(URL_ + '#/perfil');
+    await page.getByRole('button', { name: /^Respaldo/ }).first().click();
+    await page.getByRole('button', { name: 'Preparar respaldo (.zip)' }).click();
+    const dl = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Guardar en Archivos' }).click();
+    const { unzipSync } = await import('fflate');
+    const saved = unzipSync(readFileSync(await (await dl).path()))['notes/P14/Larga.md'];
+    const { createHash } = await import('node:crypto');
+    const sha = createHash('sha256').update(saved).digest('hex');
+    (await import('node:fs')).writeFileSync(OUT + 'p14-guardado.md', saved);
+    console.log('  · guardado', saved.length, 'bytes, sha256', sha.slice(0, 16));
+    if (process.env.SAVED_SHA) check(sha.startsWith(process.env.SAVED_SHA), 'el archivo guardado es idéntico byte a byte al de la rama base');
     await ctx.close();
   }
   console.log('OK');

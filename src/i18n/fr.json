@@ -908,6 +908,7 @@
  "notes.no_se_pudo_copiar_selecciona_el": "Copie impossible ; sélectionnez le texte et copiez-le",
  "notes.nota": "Note",
  "notes.nota_exportada": "Note exportée",
+ "notes.nota_muy_grande": "Cette note est très volumineuse et peut être plus lente. Pensez à la diviser en plusieurs notes.",
  "notes.notas": "Notes",
  "notes.notas_fuera_de_materia_tema_abrelas": "Notes hors Matière → Thème. Ouvrez-les et utilisez « Déplacer », ou envoyez-les à la boîte de réception.",
  "notes.notas_fuera_sin_bandeja": "Notes hors Matière → Thème. Ouvrez-les et utilisez « Déplacer ».",

@@ -413,6 +413,11 @@ body.notes-full .app { padding-top: calc(env(safe-area-inset-top) + 64px); }
 .tree a[aria-current="page"] { background: var(--inverse-bg); color: var(--inverse-fg); }
 .tree .lvl1 { padding-left: 22px; } .tree .lvl2 { padding-left: 38px; }
 .doc { padding: 26px 30px; min-height: 70dvh; }
+/* Prompt 14: en notas largas (> 80 bloques), los tramos fuera de pantalla no se maquetan ni se pintan (siguen en el DOM: buscar,
+   imprimir y VoiceOver los ven); `auto` recuerda la altura medida para que la barra no salte */
+.doc-chunk { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr); }
+.doc-cv > .doc-chunk { content-visibility: auto; contain-intrinsic-size: auto 2400px; }
+@media print { .doc-cv > .doc-chunk { content-visibility: visible; } }
 .slash { min-width: 220px; padding: 6px; }
 .slash button { display: flex; width: 100%; gap: 8px; align-items: center; padding: 8px 10px; border: 0; background: none; border-radius: 10px; text-align: left; }
 .slash button.on { background: var(--fill-sel); }

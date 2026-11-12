@@ -39,9 +39,12 @@ const PROBE = () => {
 const mem = (page) => page.evaluate(() => ({ heapMB: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null, dom: document.getElementsByTagName('*').length, blobs: window.__blobs() }));
 /** fps de un desplazamiento programático: `step` px por fotograma durante `ms`. */
 const scrollFps = (page, sel, step = 60, ms = 2000) => page.evaluate(({ sel, step, ms }) => new Promise((res) => {
-  const el = sel ? document.querySelector(sel) : document.scrollingElement;
-  const t0 = performance.now(); let n = 0, last = t0, worst = 0;
-  const f = (t) => { n++; worst = Math.max(worst, t - last); last = t; el.scrollTop += step; if (t - t0 < ms) requestAnimationFrame(f); else res({ fps: Math.round((n / (t - t0)) * 1000), worstFrameMs: Math.round(worst) }); };
+  // el contenedor que de verdad se desplaza (el de la nota, o la página)
+  let el = sel ? document.querySelector(sel) : document.querySelector('.doc');
+  while (el && !(el.scrollHeight > el.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement;
+  el ??= document.scrollingElement;
+  const y0 = el.scrollTop, t0 = performance.now(); let n = 0, last = t0, worst = 0;
+  const f = (t) => { n++; worst = Math.max(worst, t - last); last = t; el.scrollTop += step; if (t - t0 < ms) requestAnimationFrame(f); else res({ fps: Math.round((n / (t - t0)) * 1000), worstFrameMs: Math.round(worst), scrolledPx: Math.round(el.scrollTop - y0) }); };
   requestAnimationFrame(f);
 }), { sel, step, ms });
 const pct = (a, p) => { const s = [...a].sort((x, y) => x - y); return Math.round(s[Math.min(s.length - 1, Math.floor(s.length * p))] ?? 0); };
@@ -133,7 +136,18 @@ try {
         const findMs = Date.now() - t1;
         await page.keyboard.press('Escape');
         const m1 = await mem(page);
-        R[`tab_${N}`] = { openMs, ...typing, ...fps, findMs, ...m0, heapAfterMB: m1.heapMB, blobsAfter: m1.blobs };
+        // «Ver Markdown»: escribir en el textarea con todo el texto
+        await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Ver Markdown' }).click();
+        const ta = page.getByRole('textbox', { name: 'Markdown de la nota' });
+        await ta.waitFor();
+        await ta.focus();
+        await page.evaluate(() => { const t = document.activeElement; t.setSelectionRange(t.value.length / 2, t.value.length / 2); });
+        await page.evaluate(() => (window.__lat = []));
+        for (const ch of 'markdown xyz') await page.keyboard.type(ch, { delay: 30 });
+        await page.waitForTimeout(400);
+        const md = await page.evaluate(() => window.__lat);
+        await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Documento' }).click();
+        R[`tab_${N}`] = { openMs, ...typing, ...fps, findMs, mdTypeP50: pct(md, 0.5), mdTypeP95: pct(md, 0.95), ...m0, heapAfterMB: m1.heapMB, blobsAfter: m1.blobs };
         console.log('  ', JSON.stringify(R[`tab_${N}`]));
       }
     }
@@ -200,14 +214,17 @@ try {
     // abrir y cerrar 20 imágenes: las blob: no deben crecer
     await close();
     const b0 = (await mem(page)).blobs;
+    const reopen = [];
     for (let i = 0; i < 20; i++) {
+      const t0 = Date.now();
       await page.goto(URL_ + '#/espacios/abrir/' + encodeURIComponent(`media/${imgs[i % 4]}`));
       await shown();
+      reopen.push(Date.now() - t0);
       await close();
     }
     await page.waitForTimeout(500);
     const b1 = (await mem(page)).blobs;
-    R.blobLeak = { before: b0, after20: b1 };
+    R.blobLeak = { before: b0, after20: b1, reopenP50Ms: pct(reopen, 0.5) };
     console.log('  ', 'blob: vivas antes/después de abrir y cerrar 20', JSON.stringify(R.blobLeak));
     await ctx.close();
   }

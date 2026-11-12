@@ -105,16 +105,42 @@ export function forgetMediaUrl(path: string) {
   const u = urlCache.get(path);
   if (u) (URL.revokeObjectURL(u), urlCache.delete(path));
 }
-export async function mediaUrl(vault: VaultAdapter, path: string, type = ''): Promise<string | null> {
-  if (urlCache.has(path)) return urlCache.get(path)!;
-  try {
-    const bytes = await vault.read(path);
-    const url = URL.createObjectURL(new Blob([bytes as BlobPart], type ? { type } : {}));
-    urlCache.set(path, url);
-    return url;
-  } catch {
-    return null;
+/**
+ * Prompt 14: préstamos. Quien pide con `acquireMediaUrl` la devuelve con `releaseMediaUrl`; cuando
+ * nadie la tiene prestada se revoca (nota cerrada, panel cerrado o dormido). `mediaUrl` sin préstamo
+ * (fondos, miniaturas…) la deja fija para siempre, como antes.
+ */
+const loans = new Map<string, number>();
+const pinned = new Set<string>();
+const loading = new Map<string, Promise<string | null>>();
+function load(vault: VaultAdapter, path: string, type: string): Promise<string | null> {
+  if (urlCache.has(path)) return Promise.resolve(urlCache.get(path)!);
+  let p = loading.get(path);
+  if (!p) {
+    p = vault.read(path).then((bytes) => {
+      // devuelta antes de terminar de leer: no se crea (sin fuga)
+      if (!pinned.has(path) && !loans.get(path)) return null;
+      const url = URL.createObjectURL(new Blob([bytes as BlobPart], type ? { type } : {}));
+      urlCache.set(path, url);
+      return url;
+    }, () => null).finally(() => loading.delete(path));
+    loading.set(path, p);
   }
+  return p;
+}
+export function mediaUrl(vault: VaultAdapter, path: string, type = ''): Promise<string | null> {
+  pinned.add(path);
+  return load(vault, path, type);
+}
+export function acquireMediaUrl(vault: VaultAdapter, path: string, type = ''): Promise<string | null> {
+  loans.set(path, (loans.get(path) ?? 0) + 1);
+  return load(vault, path, type);
+}
+export function releaseMediaUrl(path: string) {
+  const n = (loans.get(path) ?? 1) - 1;
+  if (n > 0) return void loans.set(path, n);
+  loans.delete(path);
+  if (!pinned.has(path)) forgetMediaUrl(path);
 }
 
 function drawCover(ctx: CanvasRenderingContext2D, src: CanvasImageSource & { width: number; height: number }, w: number, h: number) {

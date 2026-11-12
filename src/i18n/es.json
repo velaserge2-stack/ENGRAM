@@ -908,6 +908,7 @@
  "notes.no_se_pudo_copiar_selecciona_el": "No se pudo copiar; selecciona el texto y cópialo",
  "notes.nota": "Nota",
  "notes.nota_exportada": "Nota exportada",
+ "notes.nota_muy_grande": "Esta nota es muy grande; puede ir más lenta. Considera dividirla en varias notas.",
  "notes.notas": "Notas",
  "notes.notas_fuera_de_materia_tema_abrelas": "Notas fuera de Materia → Tema. Ábrelas y usa «Mover», o envíalas a la Bandeja.",
  "notes.notas_fuera_sin_bandeja": "Notas fuera de Materia → Tema. Ábrelas y usa «Mover».",
