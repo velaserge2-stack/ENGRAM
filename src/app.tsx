@@ -1,4 +1,6 @@
 import { t, deviceLang, getLang, setLang } from './i18n';
+import { perf } from './lib/perf';
+import { PerfHud } from './ui/perfhud';
 import { Archive, Ellipsis, Inbox, Pause, Play, Plus, RefreshCw, Search, ShieldAlert, TriangleAlert } from 'lucide-preact';
 import { Popover } from './ui/overlay';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
@@ -283,6 +285,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       {toastMsg && <div class="toast glass strong" role="status" aria-live="polite">{toastMsg}{toastAct && <>{' '}<button type="button" class="btn small toast-act" onClick={() => { const a = toastAct; setToast(null); setToastAct(null); a.run(); }}>{toastAct.label}</button></>}</div>}
       <TooltipLayer />
       <div class="dev-sign" aria-hidden="true">{t('app.desarrollador')}</div>
+      {perf.on && <PerfHud />}
     </Ctx.Provider>
   );
 }

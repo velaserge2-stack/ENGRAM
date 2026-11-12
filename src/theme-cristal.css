@@ -782,3 +782,9 @@ body.focus .dev-sign, body.notes-full .dev-sign { display: none; }
 /* Prompt 11 — visor continuo virtualizado: cada página en un hueco de alto conocido */
 .pdf-slot { display: flow-root; padding-top: 10px; box-sizing: border-box; }
 .pdf-slot > .pdf-page { margin: 0 auto; }
+
+/* Prompt 11 · 6: contadores con ?perf (solo existe con ese parámetro) */
+.perf-hud { position: fixed; z-index: var(--z-toast); top: calc(env(safe-area-inset-top) + 8px); right: calc(env(safe-area-inset-right) + 8px); padding: 10px 12px; border-radius: 14px; font-size: var(--t-note); max-width: calc(100vw - 16px); display: grid; gap: 8px; }
+.perf-hud dl { margin: 0; display: grid; grid-template-columns: auto auto; gap: 2px 12px; }
+.perf-hud dt { color: var(--t2); }
+.perf-hud dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }

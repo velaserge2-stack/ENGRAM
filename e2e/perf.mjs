@@ -37,7 +37,7 @@ const MONITOR = () => {
   setInterval(() => { const m = performance.memory?.usedJSHeapSize; if (m && m > window.__mem) window.__mem = m; }, 50);
 };
 const resetMon = (page) => page.evaluate(() => { window.__lt = []; window.__gaps = []; window.__mem = performance.memory?.usedJSHeapSize ?? 0; window.__perf?.reset(); });
-const mon = (page) => page.evaluate(() => ({ longTasks: window.__lt.length, longestTask: Math.round(Math.max(0, ...window.__lt)), rafGaps: window.__gaps.length, longestGap: Math.max(0, ...window.__gaps), peakHeapMB: window.__mem ? Math.round(window.__mem / 1048576) : null, getPage: window.__perf?.c.getPage ?? 0 }));
+const mon = (page) => page.evaluate(() => ({ longTasks: window.__lt.length, longestTask: Math.round(Math.max(0, ...window.__lt)), rafGaps: window.__gaps.length, longestGap: Math.max(0, ...window.__gaps), peakHeapMB: window.__mem ? Math.round(window.__mem / 1048576) : null, getPage: window.__perf?.c.getPage ?? 0, rangeMB: Math.round((window.__perf?.c.rangeBytes ?? 0) / 104857.6) / 10 }));
 const dom = (page, root = '.pdf-viewer') => page.evaluate((root) => {
   const v = document.querySelector(root) ?? document;
   const canv = [...v.querySelectorAll('canvas')];
@@ -169,6 +169,22 @@ try {
     const B = JSON.parse(readFileSync(process.env.PERF_BASE, 'utf8'));
     console.log('\nComparación (antes → después):');
     for (const k of Object.keys(R)) if (typeof R[k] === 'object' && B[k]) for (const m of Object.keys(R[k])) console.log(`  ${k}.${m}: ${B[k][m]} → ${R[k][m]}`);
+  }
+  // criterios de aceptación (Prompt 11)
+  console.log('\nCriterios:');
+  const ch = type === pw.chromium; // longtask solo existe en Chromium
+  if (R.openPage) {
+    check(R.openPage.pdfPages <= 7 && R.openPage.canvases <= 5, `abrir: ${R.openPage.pdfPages} páginas en el DOM, ${R.openPage.canvases} canvas`);
+    check(R.openPage.getPage <= 3, `abrir: getPage solo cerca (${R.openPage.getPage})`);
+    check(R.openPage.rangeMB < 48, `abrir: no lee el archivo entero (${R.openPage.rangeMB} MB de 95.8)`);
+    check(R.continuous.pdfPages <= 7 && R.continuous.canvases <= 5 && R.continuous.getPage <= 7, `continuo: ${R.continuous.pdfPages} páginas, ${R.continuous.canvases} canvas, getPage ${R.continuous.getPage}`);
+    check(R.scroll.pdfPages <= 7 && R.scroll.canvases <= 5, `desplazarse: ${R.scroll.pdfPages} páginas, ${R.scroll.canvases} canvas`);
+    check(R.thumbs.thumbButtons <= 40, `miniaturas virtualizadas (${R.thumbs.thumbButtons} montadas)`);
+    if (ch) check(R.import.longTasks === 0 && R.scroll.longTasks === 0, `sin tareas largas al importar (${R.import.longTasks}) ni al desplazarse (${R.scroll.longTasks})`);
+  }
+  if (R.canvas) {
+    check(R.canvas.windowRendersDuringPan === 0 && R.canvas.windowRendersDuringGesture === 0, 'lienzo: 0 renders de panel durante paneo y zoom');
+    check(R.canvas.bodiesAt100 <= 4 && R.canvas.bodiesOffscreen === 0, `lienzo: solo los paneles en pantalla tienen contenido (${R.canvas.bodiesAt100}, fuera: ${R.canvas.bodiesOffscreen})`);
   }
   await ctx.close();
 } catch (e) {

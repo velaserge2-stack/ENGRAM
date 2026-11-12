@@ -37,7 +37,7 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 ## Comandos
 - `npm run dev` · `npm run build` · `npm run preview`
 - `npm test` (Vitest) · `npm run typecheck`
-- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras && npm run e2e:mejoras2 && npm run e2e:phone && npm run e2e:bloquec && npm run e2e:p5 && npm run e2e:p6 && npm run e2e:p7 && npm run e2e:p10 && npm run e2e:p12` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
+- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras && npm run e2e:mejoras2 && npm run e2e:phone && npm run e2e:bloquec && npm run e2e:p5 && npm run e2e:p6 && npm run e2e:p7 && npm run e2e:p10 && npm run e2e:p12` y `npm run e2e:perf` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
 - `node scripts/icons.mjs` regenera íconos desde `scripts/icon.svg`
 
 ## Fase actual
@@ -45,7 +45,8 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 **Prompt 6** A y B en `main`: A (mover mazos, tarjetas y notas con deshacer: `src/data/move.ts`, `src/notes/move.ts`, `src/ui/pressdrag.tsx`) y B (Ajustes y Respaldo dentro de Perfil; Ajustes en acordeón con `FoldCtx`); C (Bandeja oculta tras el add-on `inbox`, apagado por defecto) y D (mini reproductor `MiniAmbient`: vista del mismo motor, con volumen general y pausa) en `mejoras-5`.
 **Prompt 7** en la rama `mejoras-5`: 1 (el lienzo consume todo el zoom; `src/lib/canvaszoom.ts`, mínimo 0.1) 2 (el visor de PDF abre siempre por página) y 3 (firma del desarrollador abajo a la izquierda, tono elegido por el guardián).
 **Prompt 10** en `main`: `.apkg` del formato nuevo de Anki (`anki21b` con zstd vía `fzstd` solo en el Worker, esquema v18, `meta`/`media` protobuf, nunca el marcador falso), errores con código y hoja de importación con causa, resumen y «Ver mazos». Paquetes de ejemplo: `scripts/apkg-fixtures.py` → `tests/fixtures/apkg/`. Un `.zip` con colección de Anki se importa como Anki.
-**Prompt 12** en la rama `fix-notas` (sin push hasta confirmación): crear una nota solo pide el título; sin materia → `notes/<Título>.md` («Sin clasificar»), solo materia → `notes/<Materia>/<Título>.md` («Sin tema»); `safeSegment` para nombres.
+**Prompt 12** en `main`: crear una nota solo pide el título; sin materia → `notes/<Título>.md` («Sin clasificar»), solo materia → `notes/<Materia>/<Título>.md` («Sin tema»); `safeSegment` para nombres.
+**Prompt 11** en la rama `perf-pdf-lienzo` (no unir a `main` sin confirmación): PDF pesados por trozos (`SafeVault.writeStream`, recuperable) y por rangos (`src/pdf/open.ts`), visor virtualizado (`src/pdf/virtual.ts`: alturas, ventana, cola de 2, presupuesto de píxeles), miniaturas perezosas, Lienzo sin re-renders en el gesto y con culling (`awakePanels`). `?perf` muestra contadores (`src/lib/perf.ts`, `src/ui/perfhud.tsx`); `npm run e2e:perf` mide y comprueba (fixtures con `node scripts/perf-fixtures.mjs`). Cifras en `docs/perf/` y `docs/DECISIONS.md`.
 
 ## Skills activas
 Mantenimiento: webapp-testing, security-review (importadores), frontend-design (Cristal), ponytail. Máx. 5–6 a la vez.

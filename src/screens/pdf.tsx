@@ -72,6 +72,8 @@ export function PdfViewer(props: { path: string; page?: number }) {
   const queue = useRef(new RenderQueue(2));
   const pixels = useRef(new Map<number, number>());
   const [win, setWin] = useState({ from: 1, to: 3 });
+  /** Con lienzo dibujado: solo la visible ±1 (la ventana ±2 monta el DOM sin pintar). */
+  const [near, setNear] = useState({ from: 1, to: 3 });
   const scrollRaf = useRef(0);
   const aspectT = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -136,6 +138,8 @@ export function PdfViewer(props: { path: string; page?: number }) {
     if (!b || !h) return;
     const r = visibleRange(h, pwRef.current, b.scrollTop, b.clientHeight, 2);
     setWin((w) => (w.from === r.from && w.to === r.to ? w : { from: r.from, to: r.to }));
+    const r1 = visibleRange(h, pwRef.current, b.scrollTop, b.clientHeight, 1);
+    setNear((w) => (w.from === r1.from && w.to === r1.to ? w : { from: r1.from, to: r1.to }));
     setCur(h.pageAt(b.scrollTop + 80, pwRef.current));
   };
   const onScroll = () => {
@@ -328,7 +332,7 @@ export function PdfViewer(props: { path: string; page?: number }) {
           onScroll={onScroll}>
           {mode === 'scroll' && H && <div aria-hidden="true" style={{ height: `${H.top(wFrom, pw)}px` }} />}
           {pages.map((n) => (
-            <Page key={n} doc={doc} n={n} width={pw} ratio={H?.ratio(n) ?? 1.414} slot={mode === 'scroll'} focused={n === cur} queue={queue.current} pixels={pixels.current} onRatio={onRatio} ann={ann.pages[n]} annotate={annotate} sticky={sticky} tools={tools} markKind={markKind} finger={app.settings.inkFinger} history={histOf(n)}
+            <Page key={n} doc={doc} n={n} width={pw} ratio={H?.ratio(n) ?? 1.414} slot={mode === 'scroll'} near={mode !== 'scroll' || (n >= near.from && n <= near.to)} focused={n === cur} queue={queue.current} pixels={pixels.current} onRatio={onRatio} ann={ann.pages[n]} annotate={annotate} sticky={sticky} tools={tools} markKind={markKind} finger={app.settings.inkFinger} history={histOf(n)}
               onInk={(ink, snapped) => {
                 const pg = pageOf(n);
                 if (snapped) { setPage(n, { ...pg, ink, marks: [...pg.marks, snapped] }); histOf(n).undo(); record({ type: 'mark', page: n, id: snapped.id }); }
@@ -495,7 +499,7 @@ const PIXEL_BUDGET = 40_000_000;
 /** Safari solo libera la memoria de un lienzo si se le pone tamaño 0 antes de soltarlo. */
 const freeCanvas = (c: HTMLCanvasElement | null | undefined) => { if (c) { c.width = 0; c.height = 0; c.remove(); } };
 
-function Page(p: { doc: PDFDoc; n: number; width: number; ratio: number; slot: boolean; focused: boolean; queue: RenderQueue; pixels: Map<number, number>; onRatio: (n: number, r: number) => void; ann?: PageAnn; annotate: boolean; sticky: boolean; tools: ReturnType<typeof useInkTools>[0]; markKind: MarkKind; finger: 'pencil' | 'scroll' | 'draw'; history: History; onInk: (ink: InkDoc, snapped?: Mark) => void; onNote: (x: number, y: number) => void; onRemoveNote: (id: string) => void }) {
+function Page(p: { doc: PDFDoc; n: number; width: number; ratio: number; slot: boolean; near: boolean; focused: boolean; queue: RenderQueue; pixels: Map<number, number>; onRatio: (n: number, r: number) => void; ann?: PageAnn; annotate: boolean; sticky: boolean; tools: ReturnType<typeof useInkTools>[0]; markKind: MarkKind; finger: 'pencil' | 'scroll' | 'draw'; history: History; onInk: (ink: InkDoc, snapped?: Mark) => void; onNote: (x: number, y: number) => void; onRemoveNote: (id: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [openNote, setOpenNote] = useState<string | null>(null);
   const size = { w: p.width, h: p.width * p.ratio };
@@ -504,7 +508,7 @@ function Page(p: { doc: PDFDoc; n: number; width: number; ratio: number; slot: b
   // la central primero) y dentro del presupuesto de píxeles; al desmontarse se libera todo.
   useEffect(() => {
     const host = ref.current;
-    if (!host) return;
+    if (!host || !p.near) return;
     const id = `p${p.n}`;
     p.queue.add(id, p.focused ? 0 : 1, async (signal) => {
       const lib = await pdfjs();
@@ -549,7 +553,7 @@ function Page(p: { doc: PDFDoc; n: number; width: number; ratio: number; slot: b
       if (tl) tl.innerHTML = '';
       p.pixels.delete(p.n);
     };
-  }, [size.w, p.focused && lowRes.current]);
+  }, [size.w, p.near, p.focused && lowRes.current]);
   const ink = p.ann?.ink ?? { v: 1 as const, strokes: [] };
   const inkActive = p.annotate && !p.sticky;
   const onInk = (next: InkDoc) => {
