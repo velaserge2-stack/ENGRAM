@@ -1,10 +1,10 @@
-import { errMsg, t } from '../i18n';
-import { FileUp, FolderUp, Undo2 } from 'lucide-preact';
+import { errMsg, locale, t } from '../i18n';
+import { CircleAlert, FileUp, FolderUp, Layers, LoaderCircle, Undo2 } from 'lucide-preact';
 import { useRef, useState } from 'preact/hooks';
 import { type ApplyResult, applyPlan, buildPlan, fromFileList, gather, mergeLog, type PlanItem, type Resolution, runApkgWorker, undoImport } from '../io/import';
 import type { LogEntry } from '../srs/engine';
 import { loadSettings, SETTINGS_PATH } from '../lib/settings';
-import { useApp } from '../state';
+import { go, useApp } from '../state';
 import { Segmented, Sheet } from '../ui/kit';
 
 const STATUS = (): Record<PlanItem['status'], string> => ({ new: t('import.st_new'), same: t('import.st_same'), conflict: t('import.ya_existe') });
@@ -24,18 +24,24 @@ export function ImportSheet(props: { onClose: () => void }) {
   const [done, setDone] = useState<ApplyResult | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [withLog, setWithLog] = useState(true);
+  const [failures, setFailures] = useState<{ name: string; code: string; message: string }[]>([]);
+  const [anki, setAnki] = useState<{ decks: number; cards: number; media: number; reviews: number } | null>(null);
+  const num = (n: number) => new Intl.NumberFormat(locale()).format(n);
 
   async function take(list: FileList | File[] | null) {
     if (!list || !list.length) return;
     setBusy(true);
     try {
-      const g = await gather(fromFileList(list), { apkg: (b) => runApkgWorker(b, true) });
+      const g = await gather(fromFileList(list), { apkg: (b, name) => runApkgWorker(b, true, name) });
       setWarnings(g.warnings);
       setLog(g.log);
+      setFailures(g.failures);
+      setAnki(g.anki);
       setPlan(await buildPlan(app.vault, g.files));
       if (g.fromVaultZip) setPolicy('replace');
     } catch (e) {
       setWarnings([t('import.no_se_pudo_leer_message', { message: errMsg(e) })]);
+      setPlan([]);
     } finally {
       setBusy(false);
     }
@@ -71,7 +77,8 @@ export function ImportSheet(props: { onClose: () => void }) {
           <p>
             <b>{done.written.length}</b>{' '}{t('import.archivos_importados_n_omitidos', { n: done.skipped.length })}</p>
           <div class="row wrap">
-            <button type="button" class="btn primary" onClick={props.onClose}>{t('import.listo')}</button>
+            {done.written.some((w) => w.startsWith('decks/')) && <button type="button" class="btn primary" onClick={() => { props.onClose(); go('mazos'); }}><Layers size={18} aria-hidden="true" />{' '}{t('import.ver_mazos')}</button>}
+            <button type="button" class={`btn${done.written.some((w) => w.startsWith('decks/')) ? '' : ' primary'}`} onClick={props.onClose}>{t('import.listo')}</button>
             <button
               type="button"
               class="btn"
@@ -91,8 +98,29 @@ export function ImportSheet(props: { onClose: () => void }) {
           <b style={{ wordBreak: 'break-all' }}>{preview.path}</b>
           {preview.preview ? <pre class="preview">{preview.preview}</pre> : <p>{(preview.data.length / 1024).toFixed(1)}{' '}{t('import.kb_sin_vista_previa')}</p>}
         </div>
+      ) : plan && plan.length === 0 ? (
+        <div style={{ display: 'grid', gap: '12px' }}>
+          <div class="import-fail" role="alert">
+            <CircleAlert size={28} aria-hidden="true" />
+            <div class="stack-s">
+              <b>{t('import.sin_tarjetas_titulo')}</b>
+              {(failures.length ? failures : [{ name: '', code: 'nothing', message: '' }]).slice(0, 3).map((f) => (
+                <p style={{ margin: 0 }}>{f.name && <><b data-user-content>{f.name}</b>{': '}</>}{t(`import.causa_${['new-format', 'empty', 'invalid', 'too-big', 'too-many', 'worker'].includes(f.code) ? f.code.replace('-', '_') : f.code === 'nothing' ? 'nada' : 'corrupt'}`)}</p>
+              ))}
+            </div>
+          </div>
+          {warnings.length > 0 && (
+            <ul style={{ margin: 0, fontSize: 'var(--t-note)' }}>
+              {warnings.slice(0, 20).map((w) => <li>{w}</li>)}
+            </ul>
+          )}
+          <div class="row wrap">
+            <button type="button" class="btn primary" onClick={() => setPlan(null)}>{t('import.elegir_otros')}</button>
+          </div>
+        </div>
       ) : plan ? (
         <div style={{ display: 'grid', gap: '12px' }}>
+          {anki && <p class="import-sum" style={{ margin: 0 }}><b>{t('import.resumen_anki', { decks: num(anki.decks), cards: num(anki.cards), media: num(anki.media), reviews: num(anki.reviews) })}</b></p>}
           <p style={{ margin: 0 }}>{t('import.n_archivos_new_nuevos_conflict_ya', { n: plan.length, new: counts!.new, conflict: counts!.conflict, same: counts!.same })}</p>
           {counts!.conflict > 0 && (
             <div class="row-i" style={{ padding: 0 }}>
@@ -127,7 +155,7 @@ export function ImportSheet(props: { onClose: () => void }) {
           {plan.length > 500 && <p class="foot">{t('import.y_p_mas', { p: plan.length - 500 })}</p>}
           <div class="row wrap">
             <button type="button" class="btn primary" disabled={busy || counts!.new + counts!.conflict === 0} onClick={confirm}>
-              {busy ? t('import.importando') : t('decks.importar')}
+              {busy ? <><LoaderCircle size={18} class="spin" aria-hidden="true" />{' '}{t('import.importando')}</> : t('decks.importar')}
             </button>
             <button type="button" class="btn" onClick={() => setPlan(null)}>{t('import.elegir_otros')}</button>
           </div>
@@ -144,7 +172,7 @@ export function ImportSheet(props: { onClose: () => void }) {
               void take(e.dataTransfer?.files ?? null);
             }}
           >
-            {busy ? t('import.leyendo') : t('import.suelta_aqui_archivos_md_zip_o')}
+            {busy ? <span class="row" role="status" aria-live="polite" style={{ justifyContent: 'center' }}><LoaderCircle size={20} class="spin" aria-hidden="true" />{' '}{t('import.leyendo_descomprimiendo')}</span> : t('import.suelta_aqui_archivos_md_zip_o')}
           </div>
           <div class="row wrap">
             <button type="button" class="btn primary" onClick={() => fileRef.current?.click()}>
@@ -153,6 +181,7 @@ export function ImportSheet(props: { onClose: () => void }) {
               <FolderUp size={18} aria-hidden="true" />{' '}{t('import.elegir_carpeta')}</button>
           </div>
           <p class="foot" style={{ padding: 0 }}>{t('import.mazos_md_con')}{' '}<code>deck:</code>{t('import.y_paquetes_de_anki_apkg_van')}</p>
+          <p class="foot" style={{ padding: 0 }}>{t('import.ayuda_anki')}</p>
           <input ref={fileRef} type="file" multiple hidden accept=".md,.markdown,.zip,.txt,.apkg,image/*,audio/*,application/zip" onChange={(e) => void take((e.target as HTMLInputElement).files)} />
           <input ref={dirRef} type="file" multiple hidden {...{ webkitdirectory: '' }} onChange={(e) => void take((e.target as HTMLInputElement).files)} />
         </div>

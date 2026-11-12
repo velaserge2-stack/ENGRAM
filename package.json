@@ -21,12 +21,14 @@
     "e2e:bloquec": "node e2e/bloquec.mjs",
     "e2e:p5": "node e2e/p5.mjs",
     "e2e:p6": "node e2e/p6.mjs",
-    "e2e:p7": "node e2e/p7.mjs"
+    "e2e:p7": "node e2e/p7.mjs",
+    "e2e:p10": "node e2e/p10.mjs"
   },
   "dependencies": {
     "docx": "^9.15.3",
     "dompurify": "^3.4.17",
     "fflate": "^0.8.3",
+    "fzstd": "^0.1.1",
     "lucide-preact": "^1.71.0",
     "mammoth": "^1.13.0",
     "markdown-it": "^15.0.3",

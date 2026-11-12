@@ -763,3 +763,10 @@ body.focus .dev-sign, body.notes-full .dev-sign { display: none; }
 @keyframes mini-in { from { opacity: 0; transform: translateY(-6px) scale(.97); } }
 .mini-amb-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: center; gap: 8px; min-height: 44px; font-size: var(--t-note); }
 @media (prefers-reduced-motion: reduce) { .mini-amb.on .bars i { animation: none; transform: scaleY(.7); } .mini-amb-x { animation: none; } }
+
+/* Prompt 10 — importación: fallo visible y progreso (sin color) */
+.import-fail { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: var(--r-inner); border: var(--hair) solid var(--border-strong); background: var(--fill); }
+.import-fail > svg { flex: none; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
