@@ -549,3 +549,25 @@ Abrir la app con `?perf` (p. ej. `https://…/engrama/?perf#/pdfs`) muestra en u
 - WebKit no expone `longtask` ni `performance.memory`: en iPad se usan los cuadros > 50 ms y los contadores propios.
 - `SyncAccessHandle` existe en Safari ≥ 15.2 solo dentro de un Worker (así se usa). `File.slice()` de un archivo elegido en Archivos puede invalidarse si iOS lo libera: el visor siempre abre la copia de la bóveda (OPFS), nunca el archivo original.
 - Safari limita la memoria de canvas por pestaña (≈ 384 MB en iPad): por eso el presupuesto de 40 MP y liberar a tamaño 0.
+
+## Prompt 15 — Minimapa del lienzo (rama `fix-minimapa`, desde `main`)
+
+### Causas reales (reproducidas con `e2e:p15` antes de corregir)
+- **Era decorativo**: `aria-hidden` y sin manejadores; tocarlo no hacía nada (la vista no se centraba).
+- **Sus punteros llegaban al lienzo**: `canvas-wrap` solo ignoraba `.win`, así que arrastrar sobre el minimapa hacía el paneo normal del lienzo, que en el minimapa se ve como sentido contrario.
+- **Límites solo de paneles** (y del origen): al alejarse o desplazarse lejos, el rectángulo de vista salía del recuadro (`overflow: hidden`) y desaparecía.
+- **Tamaño no reactivo**: el rectángulo leía `wrap.current.clientWidth/Height` en el render y el tamaño solo se actualizaba con `resize` de la ventana.
+- **Paneles minimizados** dibujados (usaba `sp.panels` y no `visible(sp)`): con uno minimizado salían 7 de 6.
+
+### Cambios
+- `src/lib/minimap.ts` (puro, `tests/minimap.test.ts`): límites = unión de paneles visibles y vista con 4 % de margen, escala centrada, conversión minimapa ↔ mundo y `centerOn` (no cambia el zoom).
+- `spaces.tsx`: el minimapa detiene sus punteros (y `canvas-wrap` ignora `.minimap`), con `setPointerCapture`. Tocar centra la vista en el punto; agarrar el rectángulo lo arrastra desde donde se tomó; tocar un panel lo trae al frente, le da el foco y lo centra (en un solo guardado). Usa el mismo `preview`/`end` del paneo: rAF durante el gesto y `save` al soltar. Los límites se congelan durante el arrastre y se recalculan al soltar con una transición de 0.25 s (sin ella con `prefers-reduced-motion`). Tamaño del lienzo con `ResizeObserver` (girar, Stage Manager); sin él, `resize`. Cajas de paneles memoizadas por posición y tamaño.
+- Interactivo y accesible: `role="group"`, `aria-label` «Minimapa del lienzo», `tabIndex`, foco visible, tooltip (`data-tip`); flechas desplazan la vista un 10 % y Intro centra el panel enfocado. El panel enfocado se marca con un relleno más marcado (sin color).
+- Plegable: botón de 44 px a su izquierda; `minimap: false` se guarda en `.app/spaces/<id>.json` solo al plegar (campo opcional; si falta, se muestra). Con 0 o 1 panel visible no se muestra. `z-index: var(--z-panel)`.
+
+### Fallo previo encontrado, sin tocar (fuera de este prompt)
+- **«Ajustar al contenido» no responde al ratón** (en Chromium): el `pointerdown` de `canvas-wrap` captura el puntero también sobre sus botones, y el `click` acaba en el lienzo, no en el botón. Con el dedo en iPad no se pudo verificar aquí. El arreglo sería ignorar `button` en ese `pointerdown` (igual que ya ignora `.win` y ahora `.minimap`); queda pendiente de confirmación.
+
+### Límites de Safari / a validar en iPad real
+- `ResizeObserver` existe desde Safari 13.1; el respaldo con `resize` no detecta Stage Manager.
+- Arrastrar con dedo y con Apple Pencil, con 6+ paneles, en vertical y horizontal (WebKit de Playwright no está instalado en el contenedor: las e2e corrieron en Chromium).
