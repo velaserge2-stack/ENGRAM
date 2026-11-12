@@ -6,7 +6,7 @@ export type Kind = 'pdf' | 'documentos' | 'hojas' | 'fotos' | 'fondos' | 'audio'
 export const KINDS: Kind[] = ['pdf', 'documentos', 'hojas', 'fotos', 'fondos', 'audio', 'cache', 'datos', 'otros'];
 
 /** Cachés que se reconstruyen solas desde los archivos (state.json desde reviews.jsonl). */
-export const REGENERABLE = (p: string) => p === '.app/state.json' || p.startsWith('.app/cache/');
+export const REGENERABLE = (p: string) => p === '.app/state.json' || p.startsWith('.app/cache/') || p.startsWith('.app/thumbs/');
 
 export function kindOf(path: string): Kind {
   const p = path.toLowerCase();

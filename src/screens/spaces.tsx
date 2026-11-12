@@ -22,7 +22,6 @@ import { listNotes } from '../notes/model';
 import { go, href, useApp, useAsync } from '../state';
 import { Html } from '../ui/md';
 import { Segmented, Sheet, usePhone } from '../ui/kit';
-import { mediaUrl } from '../ui/background';
 import { extname } from '../vault/paths';
 import { readTextOr, walk } from '../vault/util';
 import { PdfViewer } from './pdf';
@@ -33,6 +32,7 @@ import { Study } from './study';
 import { todayProgress } from '../lib/stats';
 import { dayKey } from '../lib/days';
 import { saveImage } from '../notes/images';
+import { mediaThumbUrl, releaseThumb, type Shown } from '../notes/thumbs';
 
 type PType = 'estudio' | 'simulacro' | 'nota' | 'pdf' | 'docx' | 'hoja' | 'imagen' | 'pomodoro' | 'stats' | 'mazo' | 'tema' | 'calendario' | 'sonido';
 interface Panel { id: string; type: PType; arg: string; x: number; y: number; w: number; h: number; locked?: boolean; min?: boolean; z?: number }
@@ -848,8 +848,16 @@ function SheetView(p: { path: string }) {
 
 function ImageView(p: { path: string }) {
   const app = useApp();
-  const { data } = useAsync(() => mediaUrl(app.vault, p.path), [p.path]);
-  return data ? <img src={data} alt={p.path} style={{ maxWidth: '100%', display: 'block', margin: '0 auto' }} /> : <p class="t2">{tr('deck.cargando')}</p>;
+  const [r, setR] = useState<Shown | null | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    void mediaThumbUrl(app.vault, p.path).then((x) => alive && setR(x));
+    return () => { alive = false; releaseThumb(p.path); };
+  }, [p.path]);
+  if (r === undefined) return <p class="t2">{tr('deck.cargando')}</p>;
+  if (!r) return <p class="t2">{tr('md.falta_media', { media: p.path })}</p>;
+  if (r.missing) return <a class="chip media-ph" href={r.url} download={r.name}>{r.name} · {tr('notes.abrir_original')}</a>;
+  return <img src={r.url} alt={p.path} style={{ maxWidth: '100%', display: 'block', margin: '0 auto' }} />;
 }
 
 

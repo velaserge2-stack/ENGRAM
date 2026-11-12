@@ -309,6 +309,25 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 .md code { font-family: var(--mono); font-size: .9em; background: var(--fill); border-radius: 5px; padding: 1px 5px; }
 .md pre code { display: block; padding: 10px; overflow-x: auto; }
 .md a.wl { text-decoration: underline dotted; }
+/* Notas-Pro · A3: imágenes con tamaño y posición (![[foto|300|izq]]). Solo cambia lo que usa la sintaxis nueva. */
+div.md:has(img[data-align]) { display: flow-root; }
+.md img[data-align="izq"] { float: left; margin: 4px 16px 8px 0; }
+.md img[data-align="der"] { float: right; margin: 4px 0 8px 16px; }
+.md img[data-align="centro"] { display: block; margin: 8px auto; }
+.md:has(img[data-align]) :is(h1, h2, h3, h4, h5, h6, table, pre, hr, blockquote, .callout) { clear: both; }
+.md img[data-heavy] { outline: 1px dashed var(--border-strong); }
+/* foto aún sin cargar (carga perezosa): una img sin src es texto en línea y no respeta aspect-ratio → caja con su alto ya reservado */
+.md img[data-media][style*="aspect-ratio"]:not([src]) { display: inline-block; vertical-align: top; color: transparent; background: var(--fill-2); overflow: hidden; }
+.md .media-ph, .media-ph { display: inline-flex; min-height: 44px; align-items: center; text-decoration: none; }
+.win-body:has(img[data-align]) { container-type: inline-size; }
+.imgbar { display: grid; gap: 6px; min-width: 0; max-width: min(460px, calc(100vw - 16px)); }
+.imgbar .row { flex-wrap: wrap; gap: 4px; }
+.imgbar-sep { width: var(--hair); align-self: stretch; background: var(--line); margin: 6px 2px; }
+.img-handle { position: fixed; z-index: var(--z-popover); width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; padding: 0; touch-action: none; cursor: nwse-resize; color: var(--t1); }
+.md img.img-sel { outline: 2px solid var(--border-strong); outline-offset: 2px; }
+@container (max-width: 480px) { .md img[data-align] { float: none; display: block; width: 100% !important; margin: 8px auto; } } /* gana al ancho reservado en línea */
+@media (max-width: 480px) { .md img[data-align] { float: none; display: block; width: 100% !important; margin: 8px auto; } } /* gana al ancho reservado en línea */
+html.is-phone .md img[data-align] { float: none; display: block; width: 100% !important; margin: 8px auto; }
 .md ul.task { list-style: none; padding-left: 4px; }
 .md h1 { font-size: var(--t-1); margin: 10px 0 6px; } .md h2 { font-size: var(--t-2); margin: 10px 0 6px; } .md h3 { font-size: var(--t-3); margin: 8px 0 4px; }
 .md p { margin: 6px 0; }

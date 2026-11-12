@@ -31,7 +31,7 @@ export interface VaultFile {
 
 /** No se exportan transitorios del diario ni cachés. */
 export function isExportable(path: string): boolean {
-  return !(path === JOURNAL_PATH || path === TMP_DIR || path.startsWith(TMP_DIR + '/') || path.startsWith('.app/cache/') || path === MANIFEST);
+  return !(path === JOURNAL_PATH || path === TMP_DIR || path.startsWith(TMP_DIR + '/') || path.startsWith('.app/cache/') || path.startsWith('.app/thumbs/') || path === MANIFEST);
 }
 
 export function countFiles(paths: { path: string; size?: number }[]): Manifest['counts'] {

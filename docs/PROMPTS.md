@@ -1182,3 +1182,212 @@ Antes de escribir código:
 Resumen corto: causas reales, qué cambió, archivos tocados y no tocados, y límites de Safari.
 
 **Criterio de aceptación**: tocar o arrastrar el minimapa mueve la vista del lienzo de forma predecible, el rectángulo de vista nunca desaparece y no hay paneo inverso.
+
+---
+
+# PROMPT NOTAS-PRO (v2) · Fotos con posición y tamaño + add-ons de notas tipo Obsidian
+Versión mejorada. Mismo alcance que el original, con orden de ejecución, puntos de control, dependencias corregidas y salvaguardas de datos, memoria y tamaño.
+
+## 0. Lectura previa y reglas
+Lee primero `CLAUDE.md`, `docs/SPEC.md` (§4 Markdown extendido, §9 Add-ons, §10), `docs/DECISIONS.md` y `docs/PROMPTS.md`. Todas las «Reglas no negociables» de `CLAUDE.md` siguen vigentes. Trabaja en la rama **`notas-pro`** desde `main`; **no unas a `main` sin mi confirmación**.
+
+**Antes de escribir código, verifica y reporta en un plan corto (≤ 25 líneas):**
+1. **Qué ya existe** (busca en `src/screens/notes.tsx`, `src/notes/`, `src/lib/query.ts`, `src/lib/frontmatter.ts`, `src/lib/links.ts`, `src/md/render.ts`, `src/ui/md.tsx`) y se reutiliza: pestaña «Esquema», plantillas, notas diarias (`notes/Diario/AAAA-MM-DD.md`), grafo, historial, papelera, `expandQueries`, `NoteStore`. Si algo ya está, no lo dupliques.
+2. **Referencias que podrían no existir en mi rama**: este prompt menciona `src/ui/pressdrag.tsx`, el script `e2e:perf`, el contador `?perf` y las pruebas `e2e:*`. **Compruébalo**: si falta algo, **no lo inventes**; di cuál falta y propón la alternativa mínima (por ejemplo, usar Pointer Events ya existentes para la pulsación larga).
+3. **Otros prompts míos que pueden estar pendientes** y tocan lo mismo: *Notas con solo título obligatorio* (materia/tema opcionales), *Mover mazos y notas*, *Rendimiento de notas e imágenes en el lienzo y minimapa*, *Importación `.apkg`*. Revisa `docs/PROMPTS.md` y las ramas; **no pises** ni dupliques su trabajo (ver sección 6, «Compatibilidad»).
+
+**Reglas específicas**
+- Cada función nueva de notas (Fases B–J) es un **módulo en `MODULES()`** de `src/screens/addons.tsx` (id, nombre, versión, descripción, hooks), **apagado por defecto** (`defaultOn: false`), que **no modifica mis archivos** al activarse ni desactivarse. **Apagado = cero costo**: su código se carga con `import()` solo al activarlo (no entra al paquete inicial) y no registra listeners, índices ni atajos. Fase A **no es add-on**: es del núcleo del editor.
+- Todo texto por `t()`/`tn()` con claves en `es.json`, `en.json` y `fr.json` (la prueba de claves debe seguir pasando). Nunca se traducen formatos de archivo.
+- **Sin red en tiempo de ejecución.** Librerías pesadas (KaTeX, Mermaid) solo con `import()` bajo demanda, **empaquetadas** (sin CDN), verificando la CSP de `index.html`, la licencia (MIT/Apache/BSD/ISC) y el peso.
+- Escrituras siempre por `SafeVault`; si una nota está abierta, **por `NoteStore`** (un solo documento en memoria, sin pisar lo que se escribe). Formatos retrocompatibles y perezosos: **no reescribir notas existentes** sin que el usuario edite.
+- Objetivos táctiles ≥ 44 px, inputs ≥ 16 px, sin color en la interfaz salvo el acento, flotantes por `src/ui/overlay.tsx`, z-index solo con `--z-*`, teléfono solo bajo `html.is-phone`. `MODE=compare npm run e2e:phone` debe seguir dando **0 píxeles** en iPad y web.
+- **Código mínimo** (ponytail): reutiliza antes de construir y no añadas dependencias sin justificarlas. **Presupuesto de tamaño**: el paquete inicial (sin `import()`) no crece más de **~10 KB gzip** en total; reporta el tamaño antes y después de cada fase.
+- Las pruebas nuevas se agrupan en `npm run e2e:notaspro` (no uses un número de prompt en el nombre).
+
+## 1. Orden de ejecución y puntos de control
+Trabaja **por paquetes** y, al terminar cada uno, **resume y espera mi prueba en dispositivo real** antes de seguir. Un commit pequeño por fase.
+
+| Paquete | Fases | Por qué en este orden |
+|---|---|---|
+| **1** | **A** (fotos) | Es del núcleo y la de mayor riesgo para los datos. Se prueba primero en iPad (memoria con fotos de 12 MP). |
+| **2** | **I1** (fechas en lenguaje natural) → **B** (tareas) → **C** (consultas) → **I2** (navegación) | **B y D dependen del analizador de fechas** de I; por eso se construye primero. |
+| **3** | **D** (periódicas) → **H** (plantillas) → **G** (etiquetas) → **J** (linter) → **E** (vista previa) | De menos a más riesgo para los archivos; G y J modifican muchas notas y van tarde. |
+| **4** | **F** (fórmulas y diagramas) → **K** (mapas mentales y diagramas visuales) | F es la más pesada (runtime y CSP). K reutiliza lo que F deja listo (bloques cercados, carga bajo demanda, exportar SVG→PNG) y va al final. |
+
+---
+
+## Fase A · Fotos: original guardado, miniatura ligera y acomodo libre
+
+### A1. Guardar el original y mostrar una miniatura
+Hoy `saveImage` (`src/notes/images.ts`) solo conserva el archivo tal cual cuando mide ≤ 2000 px y es PNG/JPEG/WebP/GIF; en cualquier otro caso lo reduce a 2000 px y lo recomprime a JPEG 0.88 (el original se pierde y no puede salir original al exportar). Además `mediaUrl` (`src/ui/background.tsx`) carga todos los bytes en un Blob, y eso pesa con muchas fotos.
+- `saveImage` guarda **el archivo original byte por byte** en `media/<id>.<ext>` (incluye HEIC y cualquier formato; sin recomprimir ni decodificar para guardar: **no uses `createImageBitmap` sobre el original solo para guardarlo**).
+- **Miniatura** (lado mayor ~1200 px, JPEG ~0.7) en `.app/thumbs/<id>.jpg`: **caché reconstruible** (si falta se regenera al verla; si se borra la carpeta, nada se pierde). Usa `createImageBitmap(file, { resizeWidth, resizeHeight })` y **verifica si Safari lo soporta** en mi versión; si no, o si falla, cae a un canvas con tope de tamaño por pasos; si tampoco, muestra el original (con aviso suave si es enorme). Genera las miniaturas **de una en una** y fuera del hilo de la interfaz cuando sea posible (Worker/`OffscreenCanvas`).
+- **Formatos que el navegador no decodifica** (p. ej. HEIC en Chrome/Windows/Electron): se guarda el original igual, y la miniatura muestra un marcador con el nombre del archivo y la opción de abrirlo; no es un error.
+- Un solo módulo `mediaThumbUrl(vault, path)` lo usan el editor, la vista de nota, los paneles de Espacios y el buscador, con carga **perezosa** (`IntersectionObserver`) y **revocación** de los Blob URL que ya no se usen. **Si ya existe (o llegará) otra caché de miniaturas** (p. ej. `.app/cache/img/`), **usa una sola ubicación y una sola función**; elige `.app/thumbs/` y deja anotado en `DECISIONS.md`.
+- **Almacenamiento**: guardar originales aumenta el uso (una foto de 12 MP ≈ 3–6 MB). Añade en Ajustes → Almacenamiento: tamaño de `media/` y de `.app/thumbs/` (caché, con «Vaciar») y un ajuste **«Calidad de las fotos: Original (por defecto) / Optimizada (máx. 2000 px)»**, que **no** afecta a las ya guardadas. Aviso suave si `navigator.storage.estimate()` supera el 80 %.
+- Imágenes guardadas antes (ya comprimidas): sin migración; si miden más de ~1 MB se genera su miniatura al verlas.
+- Todas las llamadas a `saveImage` (Bandeja, Espacios, editor de exámenes, pegar/arrastrar, Plaud) guardan el original y muestran miniatura.
+
+### A2. Exportar siempre el original
+- **`.md` + zip** (`prep('md')`): entra el **original**, no la miniatura (`.app/thumbs/` **nunca** va en el zip de notas; en la exportación de la bóveda se excluye por ser caché).
+- **`.docx`** (`src/notes/io.ts`, `ImageRun`): usa el original. **No estires**: añade `imageSize(bytes)` (ancho/alto del encabezado: PNG IHDR, JPEG SOF; GIF y WebP si es simple) y respeta el `|ancho` de la nota y la proporción real. **Excepción necesaria**: Word no incrusta de forma fiable **HEIC ni WebP**; para esos, el `.docx` (y el PDF) usan una **conversión a JPEG/PNG hecha solo al exportar**, y el `.md`/zip siguen llevando el original. Avisa en el informe de exportación qué imágenes se convirtieron.
+- **PDF / imprimir** (`print-only`, `beforeprint`): sustituir la miniatura por el original (o la versión convertida) y **esperar a que carguen** antes de imprimir; cárgalas **de una en una** para cuidar la memoria con muchas fotos grandes.
+- **Prueba**: en `.docx` y zip, el archivo de imagen es **idéntico byte a byte** al de `media/` (salvo las convertidas, que se listan).
+
+### A3. Sintaxis de tamaño y posición
+Extiende `![[foto.jpg|300]]` (ya existe `|ancho`) a un formato retrocompatible, con `|` entre opciones y **orden libre**:
+```
+![[foto.jpg]]                 natural (ajustada al ancho de la nota), sin cambio
+![[foto.jpg|300]]             ancho 300 px (comportamiento actual)
+![[foto.jpg|40%]]             40 % del ancho de la nota
+![[foto.jpg|300|izq]]         izquierda; el texto fluye a la derecha
+![[foto.jpg|300|der]]         derecha; el texto fluye a la izquierda
+![[foto.jpg|50%|centro]]      centrada, sin texto a los lados
+```
+- Alias `left|right|center`. Un valor desconocido se ignora **sin romper la nota** y se conserva literal al guardar.
+- En `src/md/render.ts`, el `<img>` lleva `data-w` y `data-align`. **Valida** el ancho (número finito; px entre 40 y 4000; % entre 5 y 100) y la alineación (lista cerrada) antes de generar HTML. **Añade `data-w` y `data-align` a la lista permitida de DOMPurify** (`ADD_ATTR`, hoy solo incluye `data-media`, `data-wl`, `data-kind`, `target`) y prueba que **ningún otro atributo ni `style` inline** pasa.
+- CSS en `src/theme-cristal.css`: `.md img[data-align=izq]` flota a la izquierda con margen; `der` a la derecha; `centro` en bloque centrado. `.md` usa `display: flow-root`. Títulos, tablas, bloques de código y callouts **limpian** el flotado. En `html.is-phone` y en anchos < 480 px las flotadas pasan a ancho completo y centradas. Dentro de **paneles de lienzo estrechos**, lo mismo.
+- **Texto al lado**: un embed al **inicio de un párrafo** hace que ese texto fluya junto a la imagen (`![[foto.jpg|240|izq]] Texto…`). Permite embeds al inicio de un bloque de texto **sin romper** `splitBlocks`, la búsqueda, la cobertura de párrafos de las tarjetas ni el **«Buscar en esta nota»**; y que la altura de bloque siga siendo estable (reserva `width`/`height` o `aspect-ratio` para que el desplazamiento no salte).
+
+### A4. Controles en el editor
+- Al tocar una imagen en vista de documento aparece una **barra flotante** (por `overlay.tsx`): **Izquierda · Centro · Derecha**; tamaño **S / M / L / ancho completo**; y un **asa de arrastre** en la esquina para cambiar el tamaño con dedo o Pencil (mín. 80 px, máx. el ancho de la nota; `setPointerCapture`; `touch-action: none` solo en el asa). Al soltar, **reescribe el embed en el Markdown** (un solo cambio en el historial, con ⌘Z).
+- Acción **«Texto al lado»**: con izquierda o derecha, mueve el embed al inicio del párrafo siguiente (o crea uno) y abre el cursor ahí.
+- `/imagen` del menú «/», pegar y arrastrar usan el nuevo guardado; tras insertar, la barra aparece lista para elegir lugar y tamaño.
+- Accesibilidad: cada control con `aria-label`; operable con teclado (flechas = tamaño; ⌘⇧L/E/R opcional según `src/lib/keys.ts`, sin chocar con atajos existentes) y **texto alternativo editable** (se guarda como `![[foto.jpg|300|izq|alt texto]]` **solo si se edita**; define y documenta la regla para que un `|` en el alt no rompa el formato).
+
+### A5. Criterios de aceptación
+- Insertar una foto de **12 MP** no sube la memoria de forma notable ni cierra Safari; **30 fotos** en una nota se desplazan con fluidez (mide con `?perf` si existe, o con una medición propia reportada).
+- Cerrar y reabrir conserva posiciones y tamaños (están en el `.md`).
+- Exportar `.md`/`.docx`/PDF: foto original (o la conversión listada), misma posición y tamaño relativo.
+- Abrir el `.md` en un editor de texto: legible, sin pérdida.
+- **Nada existente cambia**: las notas con imágenes ya guardadas se ven igual.
+
+---
+
+## Fase I1 · Fechas en lenguaje natural (función pura; la usan B y D)
+- `src/lib/` (función pura con pruebas): `hoy`, `mañana`, `pasado mañana`, `el lunes`, `próximo viernes`, `en 3 días`, `15 de diciembre` → fecha ISO, con **corte de día a las 4:00**, zona horaria del dispositivo y primer día de la semana de los ajustes. Reconocimiento en **es** (obligatorio); deja la estructura lista para en/fr sin implementarlos ahora. Entrada ambigua o no reconocida → `null` (nunca adivinar). Casos: fin de año, 29 de febrero, horario de verano.
+
+## Fase B · Tareas agregadas (módulo `tasks`)
+- Lee todos los `- [ ]` / `- [x]` de `notes/**` y muestra una vista con filtros: pendientes/hechas, materia/tema, nota de origen y **vencimiento**.
+- **Rendimiento**: no leas todas las notas en cada apertura. Mantén un **índice de tareas como caché reconstruible** (`.app/cache/tasks.json`), actualizado al guardar cada nota (`onNoteSaved`) y reconstruible desde los archivos; carga diferida de la vista.
+- Vencimiento en el propio texto: `- [ ] Repasar ECG 📅 2026-11-20` o `[vence:: 2026-11-20]`; reconoce las expresiones de I1. Agrupa en **Vencidas / Hoy / Esta semana / Sin fecha**.
+- Tocar una tarea abre su nota **en ese párrafo**. Marcarla desde la vista **edita el archivo** (la casilla en la nota) **por `NoteStore`/`SafeVault`**, sin duplicar estado, y **sin romper** el texto si la nota cambió entre tanto (si la línea ya no coincide, no escribas y avisa).
+- Integración opcional: tareas con fecha en la capa de Calendario y en «Pendientes» de Hoy (hook `renderDashboardTile`). Funciona con notas **sin materia ni tema**.
+
+## Fase C · Consultas tipo Dataview (módulo `note-queries`)
+- Reutiliza el motor de `src/lib/query.ts` y `expandQueries` (`notes.tsx`). Bloque en una nota (cercado con tres comillas invertidas y la etiqueta `consulta`):
+```
+lista notas donde materia:Cardiología sin:tarjetas
+tabla titulo, materia, modificada donde tag:ecg orden:modificada
+```
+- Campos: `materia`, `tema`, `tag`, `titulo`, propiedades del frontmatter, `modificada`, `tarjetas` (cobertura), `enlaces`. Operadores simples (`:`, `<`, `>`, `sin:`).
+- **Solo lectura, calculado al renderizar** (nada duplicado en disco). Resultados con **tope** (p. ej. 200 filas con «ver más») y **caché por nota** invalidada al cambiar los datos de entrada, para no recalcular en cada tecla. Errores de sintaxis → aviso legible, **nunca rompen la nota**. Sin `eval` ni código arbitrario; todo HTML por DOMPurify.
+
+## Fase I2 · Navegación (módulo `nav-tools`)
+- **Recientes**: últimas notas abiertas (persistidas en `.app/`), en el explorador y en ⌘K.
+- **Nota de inicio**: elegir la nota que se abre al entrar a Notas.
+- Si el «Esquema» ya cubre el TOC, solo verifica que salte a la sección (no lo rehagas).
+
+## Fase D · Notas periódicas (módulo `periodic-notes`)
+- Además de `notes/Diario/AAAA-MM-DD.md`: semanal (`notes/Semanal/AAAA-Wnn.md`, **semana ISO 8601**, cambio de año correcto), mensual (`notes/Mensual/AAAA-MM.md`) y de **semestre** (`notes/Semestre/AAAA-n.md`, fechas configurables).
+- Cada tipo con su plantilla de `templates/` y botones «Hoy / Esta semana / Este mes» en Notas; navegación anterior/siguiente. Se crean **solo al pedirlas**.
+- La semanal puede **precargar** (como texto editable, nunca automático) los exámenes de esa semana (`exams/*.md`) y las tareas vencidas (de B, si está activo). Corte de día a las 4:00.
+
+## Fase H · Plantillas con variables y captura rápida (módulo `quick-capture`)
+- Botón «Nota nueva con plantilla» (también en el menú «/»). Variables en `templates/*.md`: `{{fecha}}`, `{{hora}}`, `{{titulo}}`, `{{materia}}`, `{{tema}}`, `{{semana}}`, `{{semestre}}`, `{{cursor}}`. Se expanden **al crear**, no después; variables desconocidas se dejan literales; las plantillas existentes siguen funcionando. Sin ejecución de código.
+- Captura de un toque: título + materia/tema recordados de la última nota → crea y abre el editor. **Materia y tema son opcionales** (si faltan, la nota queda sin clasificar y las variables vacías no dejan texto sobrante).
+
+## Fase G · Gestor de etiquetas (módulo `tag-manager`)
+- Lista de etiquetas de **notas** con conteo (inspecciona dónde se guardan hoy: frontmatter `tags`, `#etiqueta` en texto, o ambos), con jerarquía `padre/hijo`. No toques etiquetas dentro de bloques de código ni de texto que no sea una etiqueta real.
+- **Renombrar** y **fusionar** en todas las notas, con **vista previa** (qué archivos cambian y cuántas veces) y **confirmación**. Aplica **en lote como una sola operación** (diario de `SafeVault`): si falla a la mitad, se recupera sin dejar notas a medias; guarda una **versión en el historial** de cada nota para **deshacer**. Nunca cambiar nada sin confirmar.
+
+## Fase J · Linter de notas (módulo `note-linter`)
+- Normaliza **bajo demanda** (botón en la nota y «revisar toda la materia»), **nunca automáticamente**: espacios, saltos de línea, encabezados, listas, frontmatter ordenado y claves conocidas, `![[ ]]` bien formados. **No modifica** el contenido de bloques de código, de `consulta`/`mermaid`/fórmulas ni **claves desconocidas** del frontmatter.
+- Siempre muestra un **diff previo** y pide confirmar; guarda versión en el historial para deshacer. Opción de aplicar solo a notas importadas de Plaud/Word. **Idempotente**: aplicarlo dos veces no cambia nada.
+- La comprobación de integridad sigue **solo reportando**; el linter es una acción distinta y explícita.
+
+## Fase E · Vista previa al pasar sobre un enlace (módulo `link-preview`)
+- Ratón: hover con retraso breve. iPad/teléfono: **pulsación larga** sobre `[[enlace]]` (usa `src/ui/pressdrag.tsx` **si existe**; si no, Pointer Events con temporizador de ~500 ms); el toque normal sigue navegando.
+- Vista previa por `overlay.tsx` con el inicio de la nota, botón «Abrir» y, si procede, «Editar aquí» (mismo documento de `NoteStore`, no una copia). Cierra con Escape o tocando fuera. Teclado: accesible con foco y Enter.
+
+## Fase F · Fórmulas y diagramas (módulo `math-diagrams`)
+- **Fórmulas**: `$…$` en línea y `$$…$$` en bloque con **KaTeX bajo demanda**, con fuentes **incluidas en el build** (sin CDN). Si falla, se muestra el texto original. Un `$` suelto (precios, «5 $») **no** debe activarse: define y documenta la regla.
+- **Diagramas**: bloque ```` ```mermaid ````. Mermaid es pesado: carga **solo al abrir una nota con ese bloque**; verifica que **no exige relajar la CSP** (`script-src 'self'`, sin `unsafe-eval`) y su peso. **Si no cabe sin relajar la CSP o es demasiado pesado, no lo uses**: implementa un renderizador mínimo propio de flujogramas (`A --> B`) y dímelo en el resumen. **Si ya construiste la Fase K, no hagas dos renderizadores: los flujogramas usan el de K.**
+- **Offline**: comprueba (modo avión) que los fragmentos dinámicos y las fuentes quedan en la caché del service worker (la lista de `sw.js` se genera desde el build).
+- **Exportar**: `.md` conserva el texto fuente; `.docx`/PDF muestran fórmula o diagrama como imagen (SVG→PNG al exportar). Si no se puede, deja el texto fuente con aviso.
+
+---
+
+## Fase K · Mapas mentales y diagramas dentro de las notas (módulo `mind-maps`)
+Quiero **hacer mapas mentales en Notas** (una caja central con ramas, cajitas que se agregan y se mueven) y **diagramas** (cajas conectadas con flechas), **sin perder el estilo gráfico de la app** (tema Cristal). Debe sentirse parte de la interfaz, no un widget pegado.
+
+### K1. Formato: texto legible dentro del `.md` (la nota sigue siendo la fuente de verdad)
+Dos bloques cercados con tres comillas invertidas, **texto plano legible en cualquier editor** (nada de JSON ni imágenes incrustadas):
+````
+```mapa
+Cardiología
+- Anatomía
+  - Cámaras
+  - Válvulas
+- Fisiología
+  - Ciclo cardiaco
+```
+````
+````
+```diagrama
+[Inicio] --> [Triaje]
+[Triaje] --> {¿Inestable?}
+{¿Inestable?} -- sí --> [Reanimación]
+{¿Inestable?} -- no --> (Observación)
+```
+````
+- `mapa`: árbol por **sangría** (la primera línea es la caja central). Opcional por nodo, al final de la línea y solo si se movió a mano: `{x=120,y=-40}`; **sin esa marca, el acomodo es automático**. Los enlaces `[[nota]]` dentro de un nodo siguen funcionando.
+- `diagrama`: nodos `[rectángulo]`, `(redondeado)`, `{decisión}`; flechas `-->` con etiqueta opcional `-- texto -->`; acomodo automático por capas.
+- Retrocompatible y perezoso: **no se reescribe ninguna nota** hasta que el usuario edite. Línea desconocida o mal formada → se ignora **sin romper la nota** y se conserva literal al guardar. Define y documenta la gramática en `docs/SPEC.md` y en `DECISIONS.md`.
+
+### K2. Estilo gráfico (tema Cristal, sin color)
+- **Sin color en la interfaz**: la jerarquía se hace con **relleno, tamaño, grosor y trazo**, no con tono. Caja central: más grande, relleno invertido (`--inverse-bg`/`--inverse-fg`, como `btn primary`). Nivel 1: relleno `--fill` y borde `--border-strong`. Niveles siguientes: más pequeños y finos. Conectores: curvas suaves con trazo `--border-strong` que **se adelgaza** por nivel. Decisión en diagramas: forma distinta (rombo/píldora), no color. El **acento** (croma ≤ 5 %) solo para el nodo seleccionado y el foco.
+- El contenedor del mapa es **una sola superficie `.glass`**; **los nodos NO llevan `backdrop-filter`** (cada uno sería un desenfoque más y rompería el presupuesto de rendimiento): relleno translúcido plano. Todo con variables CSS del tema, de modo que **claro, oscuro y modo ligero** funcionen solos y cumplan contraste (texto ≥ 4.5:1, bordes ≥ 3:1 en los 5 fondos de prueba).
+- Tipografía y radios de la app, sin SF Symbols ni marcas de Apple. Iconos de `lucide-preact`. Animaciones solo `opacity`/`transform` y apagadas con `prefers-reduced-motion`.
+- Se renderiza **como componente de Preact** (nodos en HTML + un solo `<svg>` para las líneas), **no** como HTML pasado por DOMPurify con `style` inline: el texto de los nodos entra como texto plano (nunca como HTML) y no se relaja la CSP ni la lista de atributos permitidos.
+
+### K3. Edición visual (además del texto)
+- Menú «/» → «Mapa mental» y «Diagrama»; crea un bloque con una caja central lista para escribir. Botón «Editar como texto» siempre disponible (la otra vista del mismo bloque).
+- Toque en un nodo = seleccionar; **barra flotante** (por `overlay.tsx`) con: **hijo**, **hermano**, **renombrar**, **eliminar** (con confirmación si tiene ramas), **plegar/desplegar**. Doble toque o Intro = renombrar en el sitio. **Arrastrar un nodo** a otro lo reubica como su hijo; arrastrarlo al espacio libre guarda su posición (`{x,y}`). En diagramas: arrastrar desde el asa de un nodo a otro crea la flecha; tocar una flecha permite etiquetarla o borrarla.
+- Cada cambio **reescribe el texto del bloque** en el Markdown por **`NoteStore`** (un solo cambio en el historial, ⌘Z funciona) y **nunca duplica estado** aparte del texto.
+- **Paneo y zoom** dentro del bloque (dos dedos / rueda), botón «Ajustar», sin capturar el desplazamiento de la nota cuando el gesto no empieza en el mapa (`touch-action: none` solo dentro del lienzo del mapa).
+- **Accesibilidad**: el árbol es **navegable con teclado** (flechas; Tab = hijo, Intro = hermano, Supr = eliminar, Espacio = plegar), con `role="tree"`/`treeitem`, `aria-label` traducido por nodo y una **alternativa de texto** (el bloque como lista con sangría) para VoiceOver. Objetivos táctiles ≥ 44 px, inputs ≥ 16 px.
+- **iPhone** (`html.is-phone`): el mapa se ve y se edita con toques simples (sin arrastre libre); se puede abrir a **pantalla completa** por `overlay.tsx`.
+
+### K4. Rendimiento y límites
+- Carga bajo demanda con `import()` **solo al abrir una nota con un bloque `mapa`/`diagrama`** o al insertar uno (apagado = cero costo, igual que el resto). **Sin librerías nuevas** (nada de d3, Mermaid ni dagre): acomodo propio simple (árbol radial/horizontal y capas); **≤ ~8 KB gzip** cargados bajo demanda.
+- Renderiza solo si el bloque está cerca de la pantalla (`IntersectionObserver`); mientras no, muestra un marcador con la altura reservada. **Tope** de ~200 nodos por bloque (aviso legible si se pasa; no se rompe nada). El acomodo se **memoriza** por contenido y no se recalcula en cada tecla ni en cada fotograma de arrastre.
+- Sin `eval` ni código arbitrario.
+
+### K5. Integración y exportación
+- **Búsqueda y «Buscar en esta nota»** indexan el texto de los nodos. Dentro del **lienzo de Espacios**, un panel de nota muestra el mapa en vista de lectura (con su propio «Ajustar»).
+- **Exportar**: `.md` conserva el **texto fuente**; `.docx`/PDF/imprimir muestran el mapa como **imagen** (SVG→PNG al exportar, en **tema claro fijo** con colores resueltos, no variables CSS, y a buena resolución). Botón «Exportar mapa» como **PNG/SVG** suelto. Si no se puede renderizar, deja el texto fuente con aviso.
+- **No** crea tarjetas ni llama a ninguna IA solos. (Idea futura, fuera de alcance: convertir una rama en tarjetas **con revisión humana**.)
+
+### K6. Criterios de aceptación
+- Crear un mapa desde «/», agregar 10 cajitas, mover una rama, plegarla, cerrar y reabrir: todo queda **como texto** en el `.md` y se ve igual.
+- Abrir el `.md` en un editor de texto: se entiende sin pérdida.
+- El mapa **se ve nativo** (Cristal, sin color) en claro, oscuro y modo ligero, en iPad, web y iPhone; `MODE=compare npm run e2e:phone` sigue en **0 píxeles** fuera de los mapas, y la prueba de «sin color» (croma ≤ 5 %) pasa.
+- Un bloque mal formado no rompe la nota. Módulo apagado = no se carga su código.
+
+---
+
+## 6. Compatibilidad con otros cambios míos
+- **Notas sin materia/tema** (si ya se implementó «solo título obligatorio»): B, C, D, G, H y J deben funcionar con notas en `notes/<Título>.md` y en `notes/<Materia>/<Título>.md`.
+- **Mover notas**: los embeds, consultas y etiquetas siguen válidos tras mover; no uses rutas absolutas dentro del texto de la nota.
+- **Rendimiento de notas e imágenes en el lienzo** (si ya se implementó): reutiliza su caché de HTML por bloque y su carga diferida; las imágenes flotantes no deben romper la virtualización (`content-visibility`) ni el cálculo de alturas.
+- **Importación `.apkg`**: las imágenes de los mazos importados van a `media/` como hoy; no las reprocesas con A1.
+
+## 7. Pruebas y entrega
+- **Vitest** (`tests/`): `imageSize` (PNG, JPEG, GIF, WebP, archivo corrupto), analizador de `|ancho|alineación|alt` (orden libre, valores inválidos, `%`), regeneración de miniaturas, export con bytes idénticos (y lista de convertidas), sanitización (`data-w`/`data-align` permitidos, nada más), fechas (todos los casos de I1), tareas y su índice, consultas (errores y tope), notas periódicas (semana ISO, cambio de año, corte 4:00), renombrar/fusionar etiquetas (con deshacer), variables de plantilla, linter idempotente, **gramática de `mapa`/`diagrama` (ida y vuelta texto → modelo → texto idéntico, líneas inválidas, sangrías mixtas, tope de nodos, acomodo estable)**.
+- **E2E** `npm run e2e:notaspro`: foto grande → izquierda con texto al lado → redimensionar → exportar → verificar original; tareas con vencimiento; consulta; nota semanal; pulsación larga sobre enlace; fórmula y diagrama; **mapa mental: crear, agregar cajitas, mover, plegar, exportar a `.docx`/PNG y verificar que el `.md` solo tiene texto**; plantilla con variables; **módulo apagado = no se carga su código** (comprueba las peticiones de fragmentos).
+- Ejecuta toda la batería de `CLAUDE.md` (incluye `e2e:phone` con `MODE=compare` = 0 píxeles, `e2e:design` y, si existe, `e2e:perf`) y `npm run build`; reporta el **tamaño del paquete antes y después**.
+- Actualiza `CLAUDE.md` («Fase actual», mapa del código), `docs/DECISIONS.md` (miniaturas como caché, sintaxis de imagen, ajuste de calidad, conversiones al exportar, por qué KaTeX/Mermaid bajo demanda, formato `mapa`/`diagrama` como texto y renderizador propio en lugar de librerías) y `docs/PROMPTS.md`.
+- Al terminar **cada paquete**, dime: qué reutilizaste y qué construiste, decisiones tomadas, qué **no** pudiste verificar sin un iPad real (Pencil, pulsación larga, memoria con fotos de 12 MP), tamaño del paquete, y qué quedó fuera.
+- Commits pequeños por fase, todos en `notas-pro`.
