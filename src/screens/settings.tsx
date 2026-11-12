@@ -1,5 +1,5 @@
 import { t as tr, deviceLang, firstDayOfWeek, LANGS, setLang } from '../i18n';
-import { Check, Crop, FolderOpen, ImagePlus, PlusSquare, Share as ShareIcon, Trash2 } from 'lucide-preact';
+import { Check, ChevronLeft, Crop, FolderOpen, ImagePlus, PlusSquare, Share as ShareIcon, Trash2 } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { DEFAULT_FRAMING, framingStyle, FRAMING_PATH, normFraming, parseFramings, type Framing } from '../lib/framing';
 import { AddonsGroup } from './addons';
@@ -244,7 +244,9 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
   const days = s.lastExportAt ? Math.floor((Date.now() - s.lastExportAt) / 86_400_000) : null;
   return (
     <div class="settings">
-      <PageTitle title={tr('app.ajustes')} />
+      <PageTitle title={tr('app.ajustes')}>
+        <a class="btn" href="#/perfil"><ChevronLeft size={18} aria-hidden="true" />{' '}{tr('settings.volver_al_perfil')}</a>
+      </PageTitle>
 
       <Group>
         <Row k={tr('profile.perfil')} sub={tr('profile.ajustes_sub')} onClick={() => (location.hash = href('perfil'))}><span class="v">›</span></Row>

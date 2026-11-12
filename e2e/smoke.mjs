@@ -88,7 +88,8 @@ try {
   await page.screenshot({ path: OUT + '1-hoy-claro.png' });
 
   // Exportar → descarga (Chromium/WebKit headless no comparten archivos)
-  await page.getByRole('button', { name: 'Respaldo' }).first().click();
+  await page.goto(URL_ + '#/perfil');
+  await page.getByRole('button', { name: /^Respaldo/ }).first().click();
   await page.getByRole('button', { name: 'Preparar respaldo (.zip)' }).click();
   const dl = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Guardar en Archivos' }).click();
