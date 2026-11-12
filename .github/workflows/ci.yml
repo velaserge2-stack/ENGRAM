@@ -34,6 +34,7 @@ jobs:
           BROWSER=webkit npm run e2e:p5
           BROWSER=webkit npm run e2e:p6
           BROWSER=webkit npm run e2e:p7
+          BROWSER=webkit npm run e2e:p10
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:

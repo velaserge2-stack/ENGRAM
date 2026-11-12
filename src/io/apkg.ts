@@ -262,7 +262,7 @@ export function convertApkg(bytes: Uint8Array, SQL: SqlJs, withHistory = true, f
       if (/^(default|por defecto|predeterminado|par défaut)$/i.test(deckName.trim()) || !deckName.trim()) deckName = fileName.replace(/\.(apkg|colpkg)$/i, '').trim() || 'Anki';
       const d = byDeck.get(deckName) ?? byDeck.set(deckName, { blocks: [], tags: new Set(), n: 0 }).get(deckName)!;
       d.blocks.push(`${block} ^${id}`);
-      d.n += isCloze ? new Set((fields[0]!.match(/\{\{c(\d+)::/g) ?? [])).size || 1 : 1;
+      d.n += isCloze ? new Set((fields[0]!.match(/\{\{c(\d+)::/g) ?? [])).size || 1 : reverseOf(model) ? 2 : 1;
       for (const t of String(n.tags).trim().split(/\s+/).filter(Boolean)) d.tags.add(t.replace(/::/g, '/'));
     }
     const out: ApkgResult['decks'] = [];
