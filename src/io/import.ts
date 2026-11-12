@@ -10,6 +10,7 @@ import { bytesEqual, decodeText } from '../vault/util';
 import { LIMITS } from './limits';
 import type { ApkgResult } from './apkg';
 import type { LogEntry } from '../srs/engine';
+import { unzipSync } from 'fflate';
 import { parseZip, type VaultFile } from './zip';
 
 const VAULT_ROOTS = ['decks/', 'notes/', 'media/', 'templates/', 'exams-bank/', 'exams/', 'docs/', 'calendar/', '.app/'];
@@ -71,6 +72,18 @@ export interface GatherOptions {
   apkg?: (bytes: Uint8Array, name: string) => Promise<ApkgResult>;
 }
 
+/** ¿Es un zip con una colección de Anki? Solo mira los nombres del índice (no descomprime). */
+export function isAnkiZip(data: Uint8Array): boolean {
+  if (!(data[0] === 0x50 && data[1] === 0x4b && data[2] === 0x03 && data[3] === 0x04)) return false;
+  let found = false;
+  try {
+    unzipSync(data, { filter: (f) => { if (/^collection\.anki2(1b?)?$/.test(f.name)) found = true; return false; } });
+  } catch {
+    return false;
+  }
+  return found;
+}
+
 export async function gather(incoming: IncomingFile[], opts: GatherOptions = {}): Promise<Gathered> {
   const files: VaultFile[] = [];
   const warnings: string[] = [];
@@ -89,7 +102,8 @@ export async function gather(incoming: IncomingFile[], opts: GatherOptions = {})
       continue;
     }
     const ext = extname(f.name);
-    if (ext === 'apkg' || ext === 'colpkg') {
+    // un paquete de Anki se reconoce por su contenido aunque llegue como .zip (Archivos, descargas)
+    if (ext === 'apkg' || ext === 'colpkg' || ((ext === 'zip' || ext === '') && isAnkiZip(data))) {
       if (!opts.apkg) {
         warnings.push(t('import.name_importar_apkg_no_esta_disponible', { name: f.name }));
         continue;

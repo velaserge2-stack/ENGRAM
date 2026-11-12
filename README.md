@@ -32,6 +32,7 @@ Safari guarda tu bóveda en un espacio privado que **no se ve en Archivos**. Exp
 En Anki: **Archivo → Exportar → «Paquete de mazos de Anki (.apkg)»**, elige el mazo y marca **«Incluir programación»** si quieres traer tu historial de repasos. En Engrama: **Mazos → Importar archivo** → el `.apkg` → revisa el resumen (mazos · tarjetas · imágenes · repasos) → **Importar** → **Ver mazos**.
 
 - Sirve **con y sin** «Compatibilidad con versiones antiguas»: se lee el formato nuevo (`collection.anki21b`, comprimido con zstd, esquema v18), el de compatibilidad (`collection.anki21`) y el antiguo (`collection.anki2`). El marcador «Please update to the latest Anki version…» que traen los paquetes nuevos nunca se importa.
+- Si el archivo llega como `.zip` (pasa al descargarlo o compartirlo), también se reconoce por su contenido.
 - Si un paquete no se puede leer, la hoja dice por qué y qué hacer (por ejemplo, volver a exportar marcando «Compatibilidad con versiones antiguas»).
 - Límites: se convierten Básica, Inversa (y «ambos»), Cloze; las plantillas de tarjeta personalizadas, el CSS y los campos con LaTeX o JavaScript de Anki no se reproducen (se importa el texto de los campos). Las notas con el primer campo vacío se omiten y se cuentan.
 

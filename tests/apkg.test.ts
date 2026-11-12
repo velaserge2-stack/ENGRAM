@@ -156,3 +156,23 @@ describe('zstd: cabecera que declara demasiado', () => {
     expect(strFromU8(unzstd(ok))).toBe('hola');
   });
 });
+
+describe('un paquete de Anki que llega como .zip', () => {
+  it('se reconoce por su contenido y se importa como Anki (no como bóveda)', async () => {
+    const { gather, isAnkiZip } = await import('../src/io/import');
+    const pkg = FIX('nuevo.apkg');
+    expect(isAnkiZip(pkg)).toBe(true);
+    expect(isAnkiZip(zipSync({ 'decks/a.md': strToU8('x') }))).toBe(false);
+    expect(isAnkiZip(FIX('basura.apkg'))).toBe(false);
+    const SQL = await sql();
+    const seen: string[] = [];
+    const g = await gather([{ name: 'TRAUMATOLOGIA.zip', bytes: async () => pkg }], { apkg: async (b, name) => (seen.push(name), convertApkg(b, SQL, true, name)) });
+    expect(seen).toEqual(['TRAUMATOLOGIA.zip']);
+    expect(g.files.map((f) => f.path).filter((p) => p.startsWith('decks/')).sort()).toEqual(['decks/Medicina/Cardio/ECG.md', 'decks/TRAUMATOLOGIA.md']);
+    expect(g.files.some((f) => f.path.startsWith('docs/'))).toBe(false);
+    expect(g.anki).toMatchObject({ decks: 2, cards: 6 });
+    // un .zip de bóveda sigue igual
+    const v = await gather([{ name: 'respaldo.zip', bytes: async () => zipSync({ 'decks/a.md': strToU8('---\ndeck: A\n---\n') }) }], { apkg: async () => { throw new Error('no'); } });
+    expect(v.files.map((f) => f.path)).toEqual(['decks/a.md']);
+  });
+});

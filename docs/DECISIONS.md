@@ -458,6 +458,11 @@
 - `revlog`: mismo mapeo a `reviews.jsonl` (`src: 'anki'`, ease 1–4, ≤ 60 s, `mergeLog` sin duplicar); ahora solo para tarjetas de notas que sí se importan.
 - **Hoja de importación** (`src/screens/import.tsx`, único componente de interfaz tocado): mensaje principal (icono + negrita, `role="alert"`, sin color) cuando no hay nada que importar, con causa y paso siguiente por código de error; resumen «mazos · tarjetas · imágenes y audios · repasos» antes de confirmar; «Ver mazos» después; spinner (`prefers-reduced-motion` lo detiene) mientras se lee; un fallo del Worker da un error claro. El conteo de tarjetas cuenta las dos de una nota inversa.
 
+### Paquete de Anki que llega como `.zip` (probado con el archivo real del usuario)
+- El `.apkg` real que fallaba (formato nuevo, 407 notas, 20 mazos, 143 imágenes) llegó **con extensión `.zip`** (pasa al descargarlo o compartirlo desde Archivos). La importación lo trataba como un respaldo de Engrama y dejaba sus 147 archivos sueltos en `docs/`, sin ningún mazo ni aviso.
+- Ahora un `.zip` (o archivo sin extensión) cuyo índice contiene `collection.anki2`, `collection.anki21` o `collection.anki21b` se importa como paquete de Anki (`isAnkiZip`: solo lee los nombres del índice, no descomprime). Los `.zip` de bóveda no cambian. El mazo «Default» toma el nombre del archivo sin `.apkg`/`.colpkg`/`.zip`.
+- Con el archivo real: «20 mazos · 407 tarjetas · 143 imágenes y audios · 0 repasos» (el paquete no traía programación) y el árbol `DÉCIMO SEMESTRE/TRAUMATOLOGÍA/01…21` aparece en Mazos.
+
 ### Límites conocidos
 - Plantillas de tarjeta personalizadas, CSS, LaTeX/MathJax y JavaScript de Anki no se reproducen: se importa el texto de los campos (HTML → Markdown sencillo). Tipos de nota con más de dos plantillas o campos se convierten como «básica» (primer campo = pregunta, resto = respuesta).
 - `.colpkg` (colección completa) se trata igual que `.apkg`.

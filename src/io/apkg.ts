@@ -276,7 +276,7 @@ export function convertApkg(bytes: Uint8Array, SQL: SqlJs, withHistory = true, f
       nid2id.set(String(n.id), id);
       let deckName = decks.get(deckOf.get(String(n.id)) ?? '') ?? 'Anki';
       // «Default» con tarjetas: se nombra como el archivo
-      if (/^(default|por defecto|predeterminado|par défaut)$/i.test(deckName.trim()) || !deckName.trim()) deckName = fileName.replace(/\.(apkg|colpkg)$/i, '').trim() || 'Anki';
+      if (/^(default|por defecto|predeterminado|par défaut)$/i.test(deckName.trim()) || !deckName.trim()) deckName = fileName.replace(/\.(apkg|colpkg|zip)$/i, '').trim() || 'Anki';
       const d = byDeck.get(deckName) ?? byDeck.set(deckName, { blocks: [], tags: new Set(), n: 0 }).get(deckName)!;
       d.blocks.push(`${block} ^${id}`);
       d.n += isCloze ? new Set((fields[0]!.match(/\{\{c(\d+)::/g) ?? [])).size || 1 : reverseOf(model) ? 2 : 1;
