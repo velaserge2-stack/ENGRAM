@@ -1,10 +1,11 @@
 import { awakePanels, LITE_ZOOM, zoomAt } from '../lib/canvaszoom';
+import { centerOn, type MapFit, mapBox, mapFit, toWorld, viewBox } from '../lib/minimap';
 import { memo } from 'preact/compat';
 import { perf } from '../lib/perf';
 import { t as tr } from '../i18n';
 import { BarChart3, BookOpen, CalendarDays, ChevronsDownUp, ChevronsUpDown, ClipboardCheck, FilePlus2, FileSpreadsheet, FileText, FolderTree, Image as ImageIcon, Layers, Lock, NotebookPen, Plus, Scan, Settings2, Timer, Unlock, X, LayoutGrid, Inbox as InboxIcon, Sparkles } from 'lucide-preact';
 import { Popover } from '../ui/overlay';
-import { Headphones } from 'lucide-preact';
+import { Headphones, Map as MapIcon } from 'lucide-preact';
 import { addonOn } from './addons';
 import { AmbientPlayer } from './ambient';
 import { NewNotePanel, NotePanel } from './notes';
@@ -35,7 +36,7 @@ import { saveImage } from '../notes/images';
 
 type PType = 'estudio' | 'simulacro' | 'nota' | 'pdf' | 'docx' | 'hoja' | 'imagen' | 'pomodoro' | 'stats' | 'mazo' | 'tema' | 'calendario' | 'sonido';
 interface Panel { id: string; type: PType; arg: string; x: number; y: number; w: number; h: number; locked?: boolean; min?: boolean; z?: number }
-interface Space { id: string; name: string; emoji: string; mode: 'tiles' | 'canvas'; panels: Panel[]; sizes: number[]; view: { x: number; y: number; k: number }; tray?: string[] }
+interface Space { id: string; name: string; emoji: string; mode: 'tiles' | 'canvas'; panels: Panel[]; sizes: number[]; view: { x: number; y: number; k: number }; tray?: string[]; /** Prompt 15: `false` = minimapa plegado (si falta, se muestra) */ minimap?: boolean }
 
 /** Todos los paneles se pueden minimizar a cuadrito (el simulacro sigue contando: su reloj es una marca de tiempo). */
 const MINIMIZABLE: PType[] = ['estudio', 'simulacro', 'nota', 'pdf', 'docx', 'hoja', 'imagen', 'pomodoro', 'stats', 'mazo', 'tema', 'calendario', 'sonido'];
@@ -385,14 +386,22 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
   live.view = vr.current;
   live.focus = focus;
   const ps = p.sp.panels;
-  const minX = Math.min(0, ...ps.map((x) => x.x)), minY = Math.min(0, ...ps.map((x) => x.y));
-  const maxX = Math.max(1, ...ps.map((x) => x.x + x.w)), maxY = Math.max(1, ...ps.map((x) => x.y + x.h));
-  const mk = Math.min(160 / (maxX - minX), 110 / (maxY - minY));
-  const mm = useRef({ minX, minY, mk });
-  mm.current = { minX, minY, mk };
+  // Prompt 15: el minimapa dibuja los paneles visibles y sus límites incluyen la vista (nunca la pierde)
+  const vis = visible(p.sp);
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
+  const boxesKey = vis.map((x) => `${x.id}:${x.x},${x.y},${x.w},${x.h}`).join('|');
+  const boxes = useMemo(() => vis.map((x) => ({ id: x.id, x: x.x, y: x.y, w: x.w, h: x.h })), [boxesKey]);
+  const mapF = useMemo(() => mapFit(boxes, v, size.w || 1, size.h || 1), [boxes, v, size.w, size.h]);
+  /** Al arrastrar en el minimapa sus límites se quedan fijos (sin saltos); al soltar se recalculan. */
+  const mdrag = useRef<{ f: MapFit; off: { x: number; y: number }; sx: number; sy: number; moved: boolean; panel: string | null } | null>(null);
+  const mm = useRef(mapF);
+  mm.current = mdrag.current?.f ?? mapF;
   const miniBox = (o: typeof v) => {
-    const { minX: mx, minY: my, mk: m } = mm.current, w = wrap.current;
-    return w ? { left: `${(-o.x / o.k - mx) * m}px`, top: `${(-o.y / o.k - my) * m}px`, width: `${(w.clientWidth / o.k) * m}px`, height: `${(w.clientHeight / o.k) * m}px` } : null;
+    const { w, h } = sizeRef.current;
+    if (!w) return null;
+    const b = mapBox(mm.current, viewBox(o, w, h));
+    return { left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px` };
   };
   // gesto en curso: vista en la ref, DOM en rAF, confirmación al final
   const g = useRef({ raf: 0, timer: 0 as unknown as ReturnType<typeof setTimeout> });
@@ -423,8 +432,10 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
   useEffect(() => {
     const r = () => wrap.current && setSize({ w: (live.w = wrap.current.clientWidth), h: (live.h = wrap.current.clientHeight) });
     r();
-    addEventListener('resize', r);
-    return () => (removeEventListener('resize', r), (live.view = null), clearTimeout(g.current.timer), cancelAnimationFrame(g.current.raf));
+    // Prompt 15: el tamaño del lienzo sigue al contenedor (girar el iPad, Stage Manager), no solo a la ventana
+    const ro = 'ResizeObserver' in window && wrap.current ? new ResizeObserver(r) : null;
+    if (ro) ro.observe(wrap.current!); else addEventListener('resize', r);
+    return () => (ro ? ro.disconnect() : removeEventListener('resize', r), (live.view = null), clearTimeout(g.current.timer), cancelAnimationFrame(g.current.raf));
   }, []);
   // Prompt 7 · 1: el lienzo consume TODO gesto de zoom que ocurra sobre él (también en el tope
   // y sobre los paneles), para que Safari nunca lo convierta en zoom o rebote de la página.
@@ -500,14 +511,80 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
   const lite = v.k < LITE_ZOOM;
   const fit = () => {
     if (!ps.length || !wrap.current) return;
+    const minX = Math.min(0, ...ps.map((x) => x.x)), minY = Math.min(0, ...ps.map((x) => x.y));
+    const maxX = Math.max(1, ...ps.map((x) => x.x + x.w)), maxY = Math.max(1, ...ps.map((x) => x.y + x.h));
     const W = wrap.current.clientWidth, H = wrap.current.clientHeight;
     const k = Math.min(1.5, Math.min(W / (maxX - minX + 80), H / (maxY - minY + 80)));
     commit({ k, x: (W - (maxX - minX) * k) / 2 - minX * k, y: (H - (maxY - minY) * k) / 2 - minY * k });
   };
   const mb = size.w ? miniBox(v) : null;
+  const showMini = p.sp.minimap !== false;
+  const [settle, setSettle] = useState(false);
+  /** Punto del minimapa (px dentro del recuadro) bajo el puntero. */
+  const mapPt = (e: PointerEvent) => { const el = e.currentTarget as HTMLElement, r = el.getBoundingClientRect(); return { x: e.clientX - r.left - el.clientLeft, y: e.clientY - r.top - el.clientTop }; };
+  const centerAt = (wx: number, wy: number) => preview((o) => centerOn(o, wx, wy, sizeRef.current.w, sizeRef.current.h));
+  // el minimapa es suyo: sus punteros no llegan al lienzo (sin paneo inverso)
+  const miniDown = (e: PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* puntero ya liberado */ }
+    const f = mapF, m = mapPt(e), w = toWorld(f, m.x, m.y), vb = viewBox(vr.current, size.w, size.h);
+    const inRect = w.x >= vb.x && w.x <= vb.x + vb.w && w.y >= vb.y && w.y <= vb.y + vb.h;
+    const panel = (e.target as HTMLElement).closest<HTMLElement>('.minimap i')?.dataset.id ?? null;
+    // agarrar el rectángulo lo arrastra desde donde se tomó; fuera de él, la vista salta al punto
+    mdrag.current = { f, off: inRect ? { x: w.x - (vb.x + vb.w / 2), y: w.y - (vb.y + vb.h / 2) } : { x: 0, y: 0 }, sx: e.clientX, sy: e.clientY, moved: false, panel };
+    mm.current = f;
+    if (!inRect && !panel) centerAt(w.x, w.y);
+  };
+  const miniMove = (e: PointerEvent) => {
+    const d = mdrag.current;
+    if (!d) return;
+    e.stopPropagation();
+    if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 3) d.moved = true;
+    if (!d.moved) return;
+    const m = mapPt(e), w = toWorld(d.f, m.x, m.y);
+    centerAt(w.x - d.off.x, w.y - d.off.y);
+  };
+  const miniUp = (e: PointerEvent) => {
+    const d = mdrag.current;
+    if (!d) return;
+    e.stopPropagation();
+    mdrag.current = null;
+    const pn = d.panel && !d.moved ? vis.find((x) => x.id === d.panel) : null;
+    if (pn) {
+      // tocar un panel: al frente y centrado
+      // al frente y centrado en un solo guardado (dos seguidos pisarían el orden)
+      const nv = centerOn(vr.current, pn.x + pn.w / 2, pn.y + pn.h / 2, size.w, size.h);
+      setFocus(pn.id);
+      vr.current = nv;
+      setV(nv);
+      p.save({ ...(toFront(p.sp, pn.id) ?? p.sp), view: nv });
+    } else {
+      if (!d.moved) { const m = mapPt(e), w = toWorld(d.f, m.x, m.y); centerAt(w.x, w.y); }
+      end();
+    }
+    // los límites se recalculan con una transición corta (sin saltos)
+    setSettle(true);
+    setTimeout(() => setSettle(false), 300);
+  };
+  /** Teclado: flechas desplazan la vista (10 % de la pantalla); Intro centra el panel enfocado. */
+  const miniKey = (e: KeyboardEvent) => {
+    const step: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    const s = step[e.key];
+    if (s) {
+      e.preventDefault();
+      preview((o) => ({ ...o, x: o.x - s[0] * size.w * 0.1, y: o.y - s[1] * size.h * 0.1 }));
+      endSoon();
+    } else if (e.key === 'Enter') {
+      const pn = vis.find((x) => x.id === focus);
+      if (!pn) return;
+      e.preventDefault();
+      commit(centerOn(vr.current, pn.x + pn.w / 2, pn.y + pn.h / 2, size.w, size.h));
+    }
+  };
   return (
     <div ref={wrap} class="canvas-wrap glass flat"
-      onPointerDown={(e) => { if ((e.target as HTMLElement).closest('.win')) return; try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* puntero ya liberado */ } pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY }); }}
+      onPointerDown={(e) => { if ((e.target as HTMLElement).closest('.win, .minimap, .minimap-toggle')) return; try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* puntero ya liberado */ } pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY }); }}
       onPointerMove={(e) => {
         const m = pts.current;
         if (!m.has(e.pointerId)) return;
@@ -532,10 +609,18 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
         <button type="button" class="btn small glass" onClick={fit}><Scan size={16} />{' '}{tr('spaces.ajustar_al_contenido')}</button>
         <span ref={chip} class="chip">{Math.round(v.k * 100)} %</span>
       </div>
-      <div class="minimap glass" aria-hidden="true">
-        {ps.map((x) => <i style={{ left: `${(x.x - minX) * mk}px`, top: `${(x.y - minY) * mk}px`, width: `${x.w * mk}px`, height: `${x.h * mk}px` }} />)}
-        {mb && <b ref={mini} style={mb} />}
-      </div>
+      {vis.length > 1 && (
+        <>
+          {showMini && (
+            <div class={`minimap glass${settle ? ' settle' : ''}`} role="group" tabIndex={0} aria-label={tr('spaces.minimapa')} data-tip={tr('spaces.minimapa_ayuda')}
+              onPointerDown={miniDown} onPointerMove={miniMove} onPointerUp={miniUp} onPointerCancel={miniUp} onKeyDown={miniKey}>
+              {vis.map((x) => { const r = mapBox(mapF, x); return <i data-id={x.id} class={x.id === focus ? 'on' : undefined} style={{ left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px` }} />; })}
+              {mb && <b ref={mini} style={mb} />}
+            </div>
+          )}
+          <button type="button" class={`btn icon glass minimap-toggle${showMini ? '' : ' alone'}`} aria-label={showMini ? tr('spaces.ocultar_minimapa') : tr('spaces.mostrar_minimapa')} aria-expanded={showMini} onClick={() => p.save({ ...p.sp, minimap: !showMini })}><MapIcon size={16} /></button>
+        </>
+      )}
     </div>
   );
 }
@@ -586,7 +671,7 @@ const Window = memo(function Window(p: { panel: Panel; api: WinApi; free?: boole
   const style = p.free ? { left: `${pn.x}px`, top: `${pn.y}px`, width: `${pn.w}px`, height: `${pn.h}px`, zIndex: String(pn.z ?? 0) } : {};
   const title = pn.arg ? pn.arg.split('/').pop() : t.label;
   return (
-    <section ref={winRef} class={`win glass${p.focused ? ' focused' : ''}${p.asleep && !p.lite ? ' asleep flat' : ''}${p.lite ? ' lite' : ''}`} style={style} aria-label={tr('spaces.panel_label', { label: t.label })} onPointerDown={() => p.api.front(pn.id)}>
+    <section ref={winRef} data-id={pn.id} class={`win glass${p.focused ? ' focused' : ''}${p.asleep && !p.lite ? ' asleep flat' : ''}${p.lite ? ' lite' : ''}`} style={style} aria-label={tr('spaces.panel_label', { label: t.label })} onPointerDown={() => p.api.front(pn.id)}>
       <header class="win-bar" onPointerDown={start('move')} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop}>
         {t.icon}
         <span class="t ellipsis">{title}</span>

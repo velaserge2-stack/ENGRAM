@@ -1133,3 +1133,52 @@ Unitarias (`notePath`, `noteMeta`, `buildTree` con los cuatro casos y la diaria;
 
 ## 5. Entrega
 Resumen, archivos tocados y no tocados, decisión de ubicación y otros lugares que exigían materia/tema. Criterio: escribir solo un título y Crear abre la nota al instante, aparece en «Sin clasificar» y se puede mover después; ninguna nota existente cambia de lugar ni de aspecto.
+
+---
+
+# PROMPT 15: Arreglar el minimapa del lienzo (Espacios)
+Debug para Engrama (ya desplegada)
+
+## 0. Contexto y síntoma
+En **Espacios** (lienzo infinito), el **minimapa** (mini navegador de la esquina inferior derecha) **no funciona**: no permite moverse por el lienzo.
+
+Antes de escribir código:
+1. Lee `CLAUDE.md`, `docs/SPEC.md` (§10d), `docs/DECISIONS.md`, `src/screens/spaces.tsx` (el lienzo: `canvas-wrap`, `canvas-plane`, estado de vista `v`/`setV`/`commit`, `fit`, `front`, `visible`, y el bloque `<div class="minimap …>`) y `src/theme-cristal.css` (`.minimap`, `.canvas-wrap`).
+2. Responde con un **plan corto**: causa real, archivos a tocar y riesgos. Espera mi confirmación solo si algo contradice una regla no negociable.
+
+**Reglas estrictas**
+- Implementa **únicamente** esto. No refactorices el lienzo ni cambies el paneo, el zoom, los paneles, "Ajustar al contenido" ni el formato de `.app/spaces/<nombre>.json` (cambios retrocompatibles y perezosos).
+- Todo texto nuevo por `t()` (es/en/fr; la prueba de claves debe seguir pasando). Tema Cristal: sin color (usa relleno, opacidad y grosor, no tono), objetivos táctiles ≥ 44 px donde aplique, z-index solo con los tokens `--z-*`.
+- iPad, iPhone y web no cambian fuera del minimapa (`MODE=compare npm run e2e:phone` con diferencia cero). En `is-phone` el minimapa no aplica (un solo panel a la vez).
+- Sin dependencias nuevas. Accesibilidad intacta (teclado, foco, VoiceOver).
+- Rama `fix-minimapa`, un commit por punto. No hagas push ni unas a `main` sin mi confirmación. Actualiza `CLAUDE.md` y `docs/DECISIONS.md`; guarda este prompt en `docs/PROMPTS.md`.
+- Skills sugeridas: ponytail, webapp-testing (WebKit), superpowers (reproducir primero, luego corregir).
+
+## 1. Causas probables (verifícalas y reporta lo que encuentres)
+- **Es solo decorativo**: `<div class="minimap glass" aria-hidden="true">` no tiene ningún manejador de puntero; tocar o arrastrar no navega.
+- **Sus eventos suben al lienzo**: el `onPointerDown` de `canvas-wrap` solo ignora lo que viene de `.win`, así que arrastrar sobre el minimapa **hace paneo del lienzo en sentido contrario**.
+- **Límites incompletos**: `minX/minY/maxX/maxY` solo cuentan los paneles. Si el usuario se desplaza o aleja más allá de ellos, el **rectángulo de vista (`<b>`) queda fuera** del minimapa (`overflow: hidden`) y desaparece.
+- **No reactivo al tamaño**: el rectángulo usa `wrap.current.clientWidth/Height` leídos en el render (no un estado), así que no se actualiza al rotar el iPad, redimensionar la ventana o cambiar Stage Manager.
+- **Incluye paneles minimizados**: usa `p.sp.panels` completo, mientras que el lienzo dibuja solo `visible(p.sp)`.
+- Posible solapamiento con "Ajustar al contenido" (abajo a la izquierda) o con el asa de redimensionar de un panel.
+
+## 2. Corrección (mínima, reutilizando el sistema de vista existente)
+- **Aislar los eventos**: el minimapa detiene `pointerdown/move/up` (o `closest('.minimap')` en el manejador del lienzo); `pointer-events: auto`, `touch-action: none`, `z-index` por encima de paneles y asa, por debajo de modales.
+- **Navegación**: tocar un punto centra la vista; arrastrar el rectángulo (o cualquier punto) desplaza el lienzo en el sentido correcto, con `setPointerCapture`, con dedo, ratón y Apple Pencil; el zoom no cambia; al soltar se guarda la vista como el paneo.
+- **Límites correctos**: unión de los paneles visibles y del rectángulo de vista con un pequeño margen; `mk` con esos límites; fijos durante el arrastre y suavizados al soltar.
+- **Reactividad**: tamaño del contenedor en un estado con `ResizeObserver` sobre `canvas-wrap`.
+- **Contenido**: solo paneles visibles; el enfocado con relleno más claro (sin color); tocar un panel lo trae al frente y lo centra (`front` + `commit`).
+- **Plegable**: botón para plegar/mostrar; estado por espacio en `.app/spaces/<nombre>.json` como campo opcional (si falta, se muestra). Con 0 o 1 panel no se muestra.
+- **Accesibilidad**: sin `aria-hidden`; rol y `aria-label` traducido ("Minimapa del lienzo"); flechas desplazan la vista e Intro centra el panel enfocado; tooltip y foco visible.
+- **Rendimiento**: DOM ligero (`<i>` y `<b>`), sin `canvas` global; cajas de paneles memoizadas por posición y tamaño.
+
+## 3. Pruebas
+- **Unitarias**: límites y escala (unión con la vista; 0, 1 y N paneles; panel enorme; coordenadas negativas) y conversión minimapa ↔ lienzo con zoom entre 0.2 y 3.
+- **WebKit (Playwright)** con 6 paneles y con dedo, ratón y `pointerType: 'pen'`: 1) tocar una esquina centra la vista; 2) arrastrar el rectángulo mueve el lienzo en el sentido correcto; 3) el rectángulo sigue visible tras desplazarse muy lejos y con el zoom al mínimo; 4) sin paneo inverso; 5) tocar un panel lo trae al frente y lo centra; 6) rotar o redimensionar actualiza el rectángulo; 7) los minimizados no aparecen; 8) pellizco, rueda y "Ajustar al contenido" siguen funcionando; 9) la vista y el plegado se conservan al recargar.
+- **Regresión**: `npm test`, `e2e`, `e2e:bloquec` y `e2e:phone` (diferencia cero); "sin color" y legibilidad; tres idiomas y pseudoidioma (+40 %).
+- **Verificación manual en iPad real**: dedo y Apple Pencil, 6+ paneles, vertical y horizontal.
+
+## 4. Entrega
+Resumen corto: causas reales, qué cambió, archivos tocados y no tocados, y límites de Safari.
+
+**Criterio de aceptación**: tocar o arrastrar el minimapa mueve la vista del lienzo de forma predecible, el rectángulo de vista nunca desaparece y no hay paneo inverso.

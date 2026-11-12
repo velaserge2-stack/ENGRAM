@@ -65,6 +65,7 @@ npm run e2e:p6         # mover mazos/tarjetas/notas, Perfil, Bandeja como add-on
 npm run e2e:p7         # lienzo estático al alejar, PDF por página, firma
 npm run e2e:p10        # .apkg de Anki: legado, compatibilidad, formato nuevo y archivos basura
 npm run e2e:perf       # PDF de 800 páginas y lienzo de 30 paneles (antes: node scripts/perf-fixtures.mjs)
+npm run e2e:p15        # minimapa del lienzo: tocar, arrastrar, teclado, plegar
 npm run e2e:phone      # iPhone: 6 tamaños × es/fr; MODE=baseline|compare para 0 píxeles en iPad y web
 ```
 Las pruebas E2E usan WebKit de Playwright si está instalado (`npx playwright install webkit`); si no, Chromium.
