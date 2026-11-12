@@ -89,11 +89,12 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       setCol(c);
       if (c.idsAdded) toast(t('app.se_anadieron_idsadded_ids_de_tarjeta', { idsAdded: c.idsAdded }));
     }, (e) => console.error(e));
-    walk(vault, 'inbox').then((f) => alive && setInbox(new Set(f.map((x) => x.path.split('/')[1])).size));
+    if (addonOn(settings, 'inbox')) walk(vault, 'inbox').then((f) => alive && setInbox(new Set(f.map((x) => x.path.split('/')[1])).size));
+    else setInbox(0);
     return () => {
       alive = false;
     };
-  }, [version, paramsKey]);
+  }, [version, paramsKey, addonOn(settings, 'inbox')]);
 
   const recheckIntegrity = async () => setIntegrity(await checkIntegrity(vault));
   useEffect(() => {
@@ -325,9 +326,9 @@ function TopBar(props: { tab: string }) {
       <button type="button" class="pill glass" onClick={() => app.openSheet('palette')} aria-label={t('app.buscar_k')}>
         <Search size={18} />
       </button>
-      <a class="pill glass" href="#/bandeja" aria-label={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })} data-tip={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })}>
+      {addonOn(app.settings, 'inbox') && <a class="pill glass" href="#/bandeja" aria-label={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })} data-tip={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })}>
         <Inbox size={18} /> <span class={`count${app.inboxCount ? '' : ' zero'}`}>{app.inboxCount}</span>
-      </a>
+      </a>}
       {/* Ajustes y Respaldo viven en Perfil (Prompt 6 · B). iPad (601–1100 px): Sonido ambiente pasa a «⋯» */}
       {addonOn(app.settings, 'ambient') && (
         <button type="button" class="pill glass more-pill" aria-label={t('phone.mas')} aria-haspopup="menu" aria-expanded={!!moreAt} onClick={(e) => setMoreAt(moreAt ? null : (e.currentTarget as HTMLElement))}>

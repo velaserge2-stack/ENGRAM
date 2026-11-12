@@ -316,7 +316,7 @@ function Dock(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
         <button type="button" class="btn icon small ghost" aria-label={tr('spaces.minimizar_todos')} disabled={!visible(p.sp).length} onClick={() => minimizeAll(p.sp, p.save)}><ChevronsDownUp size={18} /></button>
         <button type="button" class="btn icon small ghost" aria-label={tr('spaces.restaurar_todos')} disabled={!p.sp.panels.some((x) => x.min)} onClick={() => restoreAll(p.sp, p.save)}><ChevronsUpDown size={18} /></button>
       </div>
-      <a class="pill glass" href="#/bandeja"><InboxIcon size={16} />{' '}{tr('app.bandeja')}{' '}<span class={`count${app.inboxCount ? '' : ' zero'}`}>{app.inboxCount}</span></a>
+      {addonOn(app.settings, 'inbox') && <a class="pill glass" href="#/bandeja"><InboxIcon size={16} />{' '}{tr('app.bandeja')}{' '}<span class={`count${app.inboxCount ? '' : ' zero'}`}>{app.inboxCount}</span></a>}
     </div>
   );
 }

@@ -413,3 +413,9 @@
 - Se oculta con `body.focus` (estudio y simulacro en curso, que usan el mismo modo de concentración), en notas a pantalla completa (`body.notes-full`) y al imprimir.
 - **Legibilidad**: el guardián (`toneSign`) mira el fondo que hay debajo y elige el tono claro u oscuro. El halo neutro del tono opuesto son tres sombras apiladas (`0 0 1px / 2px / 4px`), casi opacas junto a las letras. Opacidad: 0,38 el tono claro y **0,45 el oscuro** (con 0,38, el negro sobre blanco solo llega a ≈ 2,7:1). Contraste estimado ≥ 3:1 sobre los 5 fondos de prueba en los dos modos, incluido el peor caso de rayas blanco/negro.
 - La comparación de píxeles de `e2e:phone` oculta la firma (`.dev-sign{display:none}`, igual que los tooltips): es la única zona excluida.
+
+## Prompt 6 · Bloque C — Bandeja oculta tras un add-on (rama `mejoras-5`)
+- Nuevo add-on «Bandeja de entrada» (`inbox`) en Ajustes → Add-ons, **apagado por defecto**.
+- Apagado: sin icono ni contador en la barra superior ni en el dock de Espacios, sin «Procesar bandeja» en la paleta, no se recorre `inbox/` para contar pendientes y `#/bandeja` redirige a Hoy (`location.replace`, sin dejar entrada en el historial). La Bandeja nunca estuvo en «Más», en el riel ni en los avisos de Hoy. El pie de «Sin clasificar» en Notas ya no sugiere «envíalas a la Bandeja».
+- Los datos de `inbox/` no se tocan; al encender el add-on todo vuelve (icono, contador, ruta y comando). Almacenamiento sigue contando las citas desde `inbox/`.
+- La página /design conserva la píldora de Bandeja como muestra del componente.

@@ -241,6 +241,35 @@ try {
     await ctx.close();
   }
 
+  if (run('bandeja')) {
+    console.log('Bandeja oculta tras un add-on');
+    const { ctx, page } = await fresh();
+    check(await page.locator('.topbar a[href="#/bandeja"]').count() === 0, 'apagada por defecto: sin icono ni contador en la barra');
+    await page.goto(URL_ + '#/bandeja');
+    await page.waitForURL(/#\/hoy$/);
+    await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
+    check(true, '#/bandeja redirige a Hoy');
+    await page.keyboard.press('Control+k');
+    await page.getByRole('dialog').waitFor();
+    await page.keyboard.type('bandeja');
+    await page.waitForTimeout(300);
+    check(await page.getByRole('dialog').getByText('Procesar bandeja').count() === 0, 'la paleta no ofrece «Procesar bandeja»');
+    await page.keyboard.press('Escape');
+    await page.goto(URL_ + '#/espacios');
+    await page.getByRole('button', { name: 'Nuevo espacio' }).first().waitFor();
+    check(await page.locator('a[href="#/bandeja"]').count() === 0, 'ni en el dock de Espacios');
+    // encender: todo vuelve
+    await page.goto(URL_ + '#/ajustes/addons');
+    await page.getByRole('region', { name: 'Add-ons' }).getByRole('switch', { name: 'Bandeja de entrada' }).check();
+    await page.waitForTimeout(400);
+    await page.locator('.topbar a[href="#/bandeja"]').waitFor();
+    check(true, 'al encenderla vuelve el icono con su contador');
+    await page.goto(URL_ + '#/bandeja');
+    await page.getByRole('heading', { name: 'Bandeja', level: 1 }).waitFor();
+    check(page.url().endsWith('#/bandeja'), 'y #/bandeja abre la Bandeja');
+    await ctx.close();
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');

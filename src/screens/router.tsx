@@ -7,6 +7,9 @@ import { SettingsScreen } from './settings';
 import { Stats } from './stats';
 import { Study } from './study';
 import { Today } from './today';
+import { useEffect } from 'preact/hooks';
+import { useApp } from '../state';
+import { addonOn } from './addons';
 
 // Pantallas pesadas: carga diferida (import dinámico)
 const Simulacros = lazy(() => import('./simulacros').then((m) => ({ default: m.Simulacros })));
@@ -18,7 +21,14 @@ const PdfsScreen = lazy(() => import('./pdfs').then((m) => ({ default: m.Pdfs })
 const Profile = lazy(() => import('./profile').then((m) => ({ default: m.ProfileScreen })));
 const Design = lazy(() => import('./design').then((m) => ({ default: m.Design })));
 
+/** Ruta no disponible: vuelve a Hoy (sin dejar la entrada en el historial). */
+function GoHome() {
+  useEffect(() => { location.replace('#/hoy'); }, []);
+  return <Today />;
+}
+
 export function Screen(props: { route: string[] }) {
+  const app = useApp();
   const [tab, ...rest] = props.route;
   const sub = rest.join('/');
   let el: preact.JSX.Element;
@@ -32,7 +42,8 @@ export function Screen(props: { route: string[] }) {
     case 'calendario': el = <Calendar />; break;
     case 'notas': el = <Notes route={rest} />; break;
     case 'espacios': el = <Spaces route={rest} />; break;
-    case 'bandeja': el = <Inbox />; break;
+    // Prompt 6 · C: con el add-on apagado, #/bandeja lleva a Hoy
+    case 'bandeja': el = addonOn(app.settings, 'inbox') ? <Inbox /> : <GoHome />; break;
     case 'addons': el = <SettingsScreen focus="addons" />; break; // enlaces antiguos
     case 'perfil': el = <Profile />; break;
     case 'pdfs': el = <PdfsScreen route={rest} />; break;

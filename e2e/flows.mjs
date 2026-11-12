@@ -79,7 +79,10 @@ try {
   check(true, 'resultados y "crear tarjetas de las falladas"');
   await page.screenshot({ path: OUT + 'flujo-resultados.png' });
 
-  // ── Bandeja: archivos de Plaud → 4 pasos → nota archivada
+  // ── Bandeja: archivos de Plaud → 4 pasos → nota archivada (Prompt 6 · C: add-on apagado por defecto)
+  await page.goto(URL_ + '#/ajustes/addons');
+  await page.getByRole('region', { name: 'Add-ons' }).getByRole('switch', { name: 'Bandeja de entrada' }).check();
+  await page.waitForTimeout(300);
   await page.goto(URL_ + '#/bandeja');
   fc = page.waitForEvent('filechooser');
   await page.getByText('Añadir archivos').click();
