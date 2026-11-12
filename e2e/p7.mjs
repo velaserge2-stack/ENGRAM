@@ -133,6 +133,59 @@ try {
     check(await page.evaluate(() => !document.documentElement.classList.contains('in-canvas') && getComputedStyle(document.documentElement).overscrollBehaviorY !== 'none'), 'fuera de Espacios la página no cambia');
   }
 
+  if (run('pdf')) {
+    console.log('PDF: «Ver por página» al abrir');
+    const { PDFDocument, StandardFonts } = require('pdf-lib');
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    for (let i = 1; i <= 3; i++) pdf.addPage([595, 842]).drawText(`Pagina ${i}: ritmo sinusal`, { x: 60, y: 780, size: 14, font });
+    await page.goto(URL_ + '#/pdfs');
+    await page.locator('input[type=file][accept*="pdf"]').setInputFiles({ name: 'Paginas.pdf', mimeType: 'application/pdf', buffer: Buffer.from(await pdf.save()) });
+    await page.locator('.pdf-card a.pdf-cover').first().waitFor();
+    const open = async () => { await page.goto(URL_ + '#/pdfs'); await page.locator('.pdf-card a.pdf-cover').first().click(); await page.locator('.pdf-page canvas.page').first().waitFor({ timeout: 15000 }); await page.waitForTimeout(500); };
+    const state = (root = page) => root.locator('.pdf-viewer').first().evaluate((v) => ({ pages: [...v.querySelectorAll('.pdf-page')].map((x) => x.dataset.page).join(','), byPage: v.querySelector('.pdf-bar button[aria-pressed="true"][aria-label="Ver continuo"]') !== null, counter: v.querySelector('.pdf-bar > .foot:last-child')?.textContent ?? '' }));
+    await open();
+    let st = await state();
+    check(st.byPage && st.pages === '1' && st.counter.startsWith('1 / '), `un PDF nuevo abre por página, en la 1 (${st.counter})`);
+    await page.getByRole('button', { name: /Siguiente/ }).last().click();
+    await page.getByRole('button', { name: /Siguiente/ }).last().click();
+    await page.waitForTimeout(1200); // se guarda la última página
+    await open();
+    st = await state();
+    check(st.byPage && st.pages === '3', `con página recordada abre por página en esa página (${st.pages})`);
+    await page.getByRole('button', { name: 'Ver continuo' }).click();
+    await page.waitForTimeout(300);
+    check((await state()).pages === '1,2,3', 'el botón cambia a continuo durante la sesión');
+    await open();
+    check((await state()).byPage, 'al volver a abrir no se recuerda el continuo: otra vez por página');
+    await page.goto(URL_ + '#/pdfs');
+    const link = (await page.locator('.pdf-card a.pdf-cover').first().getAttribute('href')) + '?p=2';
+    await page.goto(URL_ + link);
+    await page.locator('.pdf-page[data-page="2"] canvas.page').waitFor({ timeout: 15000 });
+    st = await state();
+    check(st.byPage && st.pages === '2', `un enlace a la página 2 abre por página en la 2 (${st.pages})`);
+    // panel del lienzo
+    await page.goto(URL_ + '#/espacios');
+    await newSpace(page, 'PDF', []);
+    await addPanel(page, 'PDF');
+    await page.locator('.win .opt', { hasText: 'Paginas.pdf' }).first().click();
+    await page.locator('.win .pdf-page canvas.page').first().waitFor({ timeout: 15000 });
+    await page.waitForTimeout(500);
+    st = await state(page.locator('.win').first());
+    check(st.byPage && st.pages.split(',').length === 1, `en un panel del lienzo también abre por página (${st.pages})`);
+    // pellizco del lienzo sobre el PDF: zoom del PDF (no de la página)
+    await page.getByRole('group', { name: 'Modo' }).getByRole('button', { name: 'Lienzo' }).click();
+    await page.locator('.canvas-wrap .pdf-viewer').waitFor();
+    await page.waitForTimeout(400);
+    const z0 = await page.locator('.canvas-wrap .pdf-bar .num').first().innerText();
+    const box = await page.locator('.canvas-wrap .pdf-scroll').first().boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + Math.min(60, box.height / 2));
+    await page.keyboard.down('Control'); await page.mouse.wheel(0, -300); await page.keyboard.up('Control');
+    await page.waitForTimeout(200);
+    const z1 = await page.locator('.canvas-wrap .pdf-bar .num').first().innerText();
+    check(z0 !== z1 && await page.evaluate(() => (window.visualViewport?.scale ?? 1) === 1), `en el lienzo, el pellizco sobre el PDF cambia el zoom del PDF (${z0} → ${z1})`);
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');

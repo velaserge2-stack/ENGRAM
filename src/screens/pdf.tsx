@@ -44,7 +44,8 @@ export function PdfViewer(props: { path: string; page?: number }) {
     el.addEventListener('ownzoom', on);
     return () => el.removeEventListener('ownzoom', on);
   });
-  const [mode, setMode] = useState<'scroll' | 'page'>('scroll');
+  // Prompt 7 · 2: siempre arranca «por página» (cambiar a continuo es manual y no se recuerda)
+  const [mode, setMode] = useState<'scroll' | 'page'>('page');
   const [cur, setCur] = useState(props.page ?? 1);
   const [side, setSide] = useState<null | 'thumbs' | 'outline' | 'marks'>(null);
   const [q, setQ] = useState('');

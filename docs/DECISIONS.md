@@ -398,3 +398,9 @@
 - Sin rebote: `html.in-canvas` (solo mientras se ve el lienzo) y `.canvas-wrap` con `overscroll-behavior: none` (`body` ya lo tenía). **No** se tocó el `viewport` (`maximum-scale`/`user-scalable=no`): no hizo falta y afectaría la accesibilidad global.
 - Sin animaciones nuevas (el zoom sigue al gesto), así que `prefers-reduced-motion` no aplica. Minimapa, «Ajustar al contenido» y paneo con dos dedos/rueda no cambian.
 - Límites de Safari: `gesture*` solo existe en WebKit (en Chromium las pruebas los simulan); en iPadOS la página puede seguir haciendo zoom si el pellizco empieza **fuera** del lienzo (barra, riel), que es el comportamiento normal de la web y no se bloquea; validar en iPad real con dedos y con trackpad.
+
+### 2 · Visor de PDF: «Ver por página» al abrir (`src/screens/pdf.tsx`)
+- Un solo cambio: el estado inicial del modo del visor pasa de `'scroll'` a `'page'`. Es el mismo componente en la sección PDFs, en los paneles del lienzo y en cualquier otro sitio, así que todos arrancan por página.
+- El modo nunca se guardó (ni en ajustes ni en `.app/pdfs.json`): no hubo nada que ignorar ni borrar. Cambiar a continuo es manual y dura lo que dura esa apertura; cada apertura vuelve a por página.
+- La última página recordada (`.app/pdfs.json → last`) se respeta: se abre por página en esa página. Los accesos a una página concreta (`?p=12` en la sección, `#p12` en el panel del lienzo) abren por página en esa página.
+- En modo por página siguen igual anotaciones y tinta, resaltador inteligente, miniaturas, índice, búsqueda, zoom, «Anterior/Siguiente» y el contador «n / total» (las pruebas de `e2e:p5` ya trabajaban sobre la página 1, que es la que se ve por página).
