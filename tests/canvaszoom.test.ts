@@ -38,3 +38,26 @@ describe('zoom del lienzo (Prompt 7 · 1)', () => {
     expect(zoomAt(v, 0, 0, 0)).toBe(v);
   });
 });
+
+import { awakePanels, onScreen } from '../src/lib/canvaszoom';
+describe('culling del lienzo (Prompt 11 · 5)', () => {
+  const v = { x: 0, y: 0, k: 1 };
+  it('en pantalla con margen', () => {
+    expect(onScreen({ id: 'a', x: 100, y: 100, w: 200, h: 200 }, v, 1000, 700)).toBe(true);
+    expect(onScreen({ id: 'b', x: 1150, y: 0, w: 200, h: 200 }, v, 1000, 700)).toBe(true); // dentro del margen
+    expect(onScreen({ id: 'c', x: 1300, y: 0, w: 200, h: 200 }, v, 1000, 700)).toBe(false);
+    expect(onScreen({ id: 'd', x: -900, y: 0, w: 200, h: 200 }, v, 1000, 700, 0)).toBe(false);
+    // al alejar (k = 0.5) el mismo panel entra
+    expect(onScreen({ id: 'c', x: 1300, y: 0, w: 200, h: 200 }, { x: 0, y: 0, k: 0.5 }, 1000, 700)).toBe(true);
+  });
+  it('solo despiertan los visibles, con tope y prioridad del foco', () => {
+    const ps = Array.from({ length: 30 }, (_, i) => ({ id: `p${i}`, x: (i % 6) * 700, y: Math.floor(i / 6) * 600, w: 640, h: 560 }));
+    const a = awakePanels(ps, v, 1000, 700, null, 4);
+    expect([...a].every((id) => ['p0', 'p1', 'p6', 'p7'].includes(id))).toBe(true);
+    const b = awakePanels(ps, { x: 0, y: 0, k: 0.2 }, 1000, 700, 'p0', 4);
+    expect(b.size).toBe(4);
+    expect(b.has('p0')).toBe(true);
+    // el foco fuera de pantalla no despierta
+    expect(awakePanels(ps, v, 1000, 700, 'p29', 4).has('p29')).toBe(false);
+  });
+});

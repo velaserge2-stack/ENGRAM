@@ -133,14 +133,27 @@ try {
     const spot = await page.evaluate(() => { const w = document.querySelector('.canvas-wrap').getBoundingClientRect(); return { x: w.left + w.width - 40, y: w.top + 40 }; });
     await resetMon(page);
     await page.mouse.move(spot.x, spot.y);
+    // paneo a zoom 100 %: cuántos paneles montan contenido y si alguno está fuera de la vista
+    for (let i = 0; i < 20; i++) await page.mouse.wheel(-30, -20);
+    const panRenders = await page.evaluate(() => window.__perf?.c.windowRender ?? 0);
+    await page.waitForTimeout(400);
+    const bodiesAt100 = await page.evaluate(() => {
+      const w = document.querySelector('.canvas-wrap').getBoundingClientRect();
+      const live = [...document.querySelectorAll('.canvas-plane > .win')].filter((e) => e.querySelector('.win-body > :not(.win-resize):not(p)'));
+      return { n: live.length, offscreen: live.filter((e) => { const r = e.getBoundingClientRect(); return r.right < w.left - 200 || r.left > w.right + 200 || r.bottom < w.top - 200 || r.top > w.bottom + 200; }).length };
+    });
+    const before = await page.evaluate(() => window.__perf?.c.windowRender ?? 0);
     await page.keyboard.down('Control');
     for (let i = 0; i < 20; i++) await page.mouse.wheel(0, 60);
     await page.keyboard.up('Control');
     for (let i = 0; i < 20; i++) await page.mouse.wheel(30, 20);
-    const gesture = await page.evaluate(() => window.__perf?.c.windowRender ?? 0);
+    const gesture = (await page.evaluate(() => window.__perf?.c.windowRender ?? 0)) - before;
     await page.waitForTimeout(600);
     R.canvas = {
       panels: await page.locator('.canvas-plane > .win').count(),
+      windowRendersDuringPan: panRenders,
+      bodiesAt100: bodiesAt100.n,
+      bodiesOffscreen: bodiesAt100.offscreen,
       windowRendersDuringGesture: gesture,
       windowRendersTotal: await page.evaluate(() => window.__perf?.c.windowRender ?? 0),
       bodiesMounted: await page.locator('.canvas-plane > .win .win-body > :not(.win-resize):not(p)').count(),

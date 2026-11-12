@@ -339,7 +339,12 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 .dock { position: sticky; bottom: calc(env(safe-area-inset-bottom) + 12px); display: flex; max-width: 100%; overflow-x: auto; align-items: center; justify-content: center; gap: 10px; margin-top: 14px; z-index: var(--z-dock); flex-wrap: wrap; }
 .dock .glass { display: flex; gap: 4px; padding: 6px; border-radius: var(--r-pill); align-items: center; }
 .canvas-wrap { position: relative; height: calc(100dvh - 190px); overflow: hidden; border-radius: var(--r-panel); touch-action: none; }
-.canvas-plane { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.canvas-plane { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+/* Prompt 11 · 5: capa propia solo durante el gesto; al soltar, el texto se vuelve a rasterizar nítido */
+.canvas-wrap.moving .canvas-plane { will-change: transform; }
+.win.lite .lite-card { height: 100%; margin: 0; display: grid; place-content: center; justify-items: center; gap: 16px; padding: 24px; font-size: 3rem; font-weight: 600; text-align: center; cursor: grab; touch-action: none; }
+.win.lite .lite-card svg { width: 96px; height: 96px; }
+.win.lite .lite-card .ellipsis { max-width: 100%; }
 .canvas-plane > .win { position: absolute; }
 .win.asleep .win-body { filter: grayscale(1); opacity: .5; }
 .minimap { position: absolute; right: 12px; bottom: 12px; width: 160px; height: 110px; border-radius: 14px; overflow: hidden; }

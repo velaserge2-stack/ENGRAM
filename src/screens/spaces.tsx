@@ -1,4 +1,5 @@
-import { zoomAt } from '../lib/canvaszoom';
+import { awakePanels, LITE_ZOOM, zoomAt } from '../lib/canvaszoom';
+import { memo } from 'preact/compat';
 import { perf } from '../lib/perf';
 import { t as tr } from '../i18n';
 import { BarChart3, BookOpen, CalendarDays, ChevronsDownUp, ChevronsUpDown, ClipboardCheck, FilePlus2, FileSpreadsheet, FileText, FolderTree, Image as ImageIcon, Layers, Lock, NotebookPen, Plus, Scan, Settings2, Timer, Unlock, X, LayoutGrid, Inbox as InboxIcon, Sparkles } from 'lucide-preact';
@@ -330,6 +331,9 @@ function Tiles(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
   const panels = p.ph ? visible(p.sp).filter((x) => x.id === shownId(p.sp, p.ph!)) : visible(p.sp).slice(0, 3);
   const sizes = p.sp.sizes.length === panels.length ? p.sp.sizes : initialSizes(panels);
   const drag = useRef<{ i: number; x: number; s: number[] } | null>(null);
+  const cur = useRef(p);
+  cur.current = p;
+  const api = useMemo(() => winApi(() => ({ sp: cur.current.sp, save: cur.current.save, k: 1 })), []);
   if (!panels.length) return <div class="empty glass"><p>{tr('spaces.anade_paneles_desde_el_dock_1')}</p></div>;
   const cols = sizes.flatMap((s, i) => (i ? ['10px', `${s}fr`] : [`${s}fr`])).join(' ');
   return (
@@ -340,23 +344,88 @@ function Tiles(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
           onPointerMove={(e) => { const d = drag.current; if (!d) return; const W = box.current!.clientWidth; const dx = (e.clientX - d.x) / W; const tot = d.s[d.i - 1]! + d.s[d.i]!; const a = Math.min(tot - minFrac(panels[d.i]), Math.max(minFrac(panels[d.i - 1]), d.s[d.i - 1]! + dx)); const s = [...d.s]; s[d.i - 1] = a; s[d.i] = tot - a; p.save({ ...p.sp, sizes: s }); }}
           onPointerUp={() => (drag.current = null)}
           onKeyDown={(e) => { if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; const s = [...sizes]; const dx = e.key === 'ArrowLeft' ? -0.05 : 0.05; s[i - 1] = Math.max(minFrac(panels[i - 1]), s[i - 1]! + dx); s[i] = Math.max(minFrac(panels[i]), s[i]! - dx); p.save({ ...p.sp, sizes: s }); }} />] : []),
-        <Window key={pn.id} panel={pn} sp={p.sp} save={p.save} />,
+        <Window key={pn.id} panel={pn} api={api} />,
       ])}
     </div>
   );
 }
 
-/** Lienzo infinito (nivel 2): transformaciones CSS sobre contenedores DOM, paneo/zoom con dos dedos. */
+/** Operaciones de un panel; un objeto estable para que `Window` (memo) no se re-renderice por ellas. */
+interface WinApi { upd(id: string, patch: Partial<Panel>): void; close(id: string): void; minimize(id: string): void; front(id: string): void; k(): number }
+function winApi(get: () => { sp: Space; save: (s: Space) => void; k: number; front?: (id: string) => void }): WinApi {
+  return {
+    upd: (id, patch) => { const { sp, save } = get(); save({ ...sp, panels: sp.panels.map((x) => (x.id === id ? { ...x, ...patch } : x)) }); },
+    close: (id) => { const { sp, save } = get(); const rest = sp.panels.filter((x) => x.id !== id); save({ ...sp, panels: rest, sizes: rest.map((_, _i, a) => 1 / a.length) }); },
+    minimize: (id) => { const { sp, save } = get(); minimizePanel(sp, save, id); },
+    front: (id) => get().front?.(id),
+    k: () => get().k,
+  };
+}
+
+/**
+ * Lienzo infinito (nivel 2): transformaciones CSS sobre contenedores DOM, paneo/zoom con dos dedos.
+ * Prompt 11 · 5: durante el gesto la vista vive en una ref y se aplica al DOM en rAF (plano, zoom
+ * y minimapa), sin re-renderizar paneles; al terminar se confirma (`setV` + guardar) y se recalcula
+ * qué paneles están en pantalla (solo esos montan su contenido).
+ */
 function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
   const wrap = useRef<HTMLDivElement>(null);
+  const plane = useRef<HTMLDivElement>(null);
+  const chip = useRef<HTMLSpanElement>(null);
+  const mini = useRef<HTMLElement>(null);
   const [v, setV] = useState(p.sp.view);
+  const vr = useRef(v);
+  const [size, setSize] = useState({ w: 0, h: 0 });
   const [focus, setFocus] = useState<string | null>(p.sp.panels[p.sp.panels.length - 1]?.id ?? null);
   const pts = useRef(new Map<number, { x: number; y: number }>());
   const last = useRef<{ d: number } | null>(null);
-  const commit = (nv: typeof v) => (setV(nv), p.save({ ...p.sp, view: nv }));
-  live.view = v;
+  const cur = useRef(p);
+  cur.current = p;
+  const commit = (nv: typeof v) => { vr.current = nv; setV(nv); cur.current.save({ ...cur.current.sp, view: nv }); };
+  live.view = vr.current;
   live.focus = focus;
-  useEffect(() => { const r = () => wrap.current && ((live.w = wrap.current.clientWidth), (live.h = wrap.current.clientHeight)); r(); addEventListener('resize', r); return () => (removeEventListener('resize', r), (live.view = null)); }, []);
+  const ps = p.sp.panels;
+  const minX = Math.min(0, ...ps.map((x) => x.x)), minY = Math.min(0, ...ps.map((x) => x.y));
+  const maxX = Math.max(1, ...ps.map((x) => x.x + x.w)), maxY = Math.max(1, ...ps.map((x) => x.y + x.h));
+  const mk = Math.min(160 / (maxX - minX), 110 / (maxY - minY));
+  const mm = useRef({ minX, minY, mk });
+  mm.current = { minX, minY, mk };
+  const miniBox = (o: typeof v) => {
+    const { minX: mx, minY: my, mk: m } = mm.current, w = wrap.current;
+    return w ? { left: `${(-o.x / o.k - mx) * m}px`, top: `${(-o.y / o.k - my) * m}px`, width: `${(w.clientWidth / o.k) * m}px`, height: `${(w.clientHeight / o.k) * m}px` } : null;
+  };
+  // gesto en curso: vista en la ref, DOM en rAF, confirmación al final
+  const g = useRef({ raf: 0, timer: 0 as unknown as ReturnType<typeof setTimeout> });
+  const paint = () => {
+    g.current.raf = 0;
+    const o = vr.current;
+    if (plane.current) plane.current.style.transform = `translate(${o.x}px, ${o.y}px) scale(${o.k})`;
+    if (chip.current) chip.current.textContent = `${Math.round(o.k * 100)} %`;
+    const b = miniBox(o);
+    if (b && mini.current) Object.assign(mini.current.style, b);
+  };
+  const preview = (f: (o: typeof v) => typeof v) => {
+    vr.current = f(vr.current);
+    live.view = vr.current;
+    wrap.current?.classList.add('moving');
+    if (!g.current.raf) g.current.raf = requestAnimationFrame(paint);
+  };
+  const end = () => {
+    clearTimeout(g.current.timer);
+    if (g.current.raf) (cancelAnimationFrame(g.current.raf), paint());
+    wrap.current?.classList.remove('moving');
+    if (vr.current !== v) commit(vr.current);
+  };
+  const endRef = useRef(end);
+  endRef.current = end;
+  /** Rueda y pellizco del trackpad no tienen «fin»: se confirma tras 150 ms sin eventos. */
+  const endSoon = () => { clearTimeout(g.current.timer); g.current.timer = setTimeout(() => endRef.current(), 150); };
+  useEffect(() => {
+    const r = () => wrap.current && setSize({ w: (live.w = wrap.current.clientWidth), h: (live.h = wrap.current.clientHeight) });
+    r();
+    addEventListener('resize', r);
+    return () => (removeEventListener('resize', r), (live.view = null), clearTimeout(g.current.timer), cancelAnimationFrame(g.current.raf));
+  }, []);
   // Prompt 7 · 1: el lienzo consume TODO gesto de zoom que ocurra sobre él (también en el tope
   // y sobre los paneles), para que Safari nunca lo convierta en zoom o rebote de la página.
   // Listeners nativos con { passive: false }: con pasivos, preventDefault se ignora.
@@ -369,25 +438,26 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
       const own = (target as HTMLElement | null)?.closest?.('[data-own-zoom]');
       if (own && el.contains(own)) return own.dispatchEvent(new CustomEvent('ownzoom', { detail: { f } }));
       const [cx, cy] = rel(x, y);
-      setV((o) => zoomAt(o, f, cx, cy));
+      preview((o) => zoomAt(o, f, cx, cy));
     };
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
       if (e.ctrlKey || e.metaKey) zoom(e.target, Math.exp(-e.deltaY / 300), e.clientX, e.clientY);
-      else setV((o) => ({ ...o, x: o.x - e.deltaX, y: o.y - e.deltaY }));
+      else preview((o) => ({ ...o, x: o.x - e.deltaX, y: o.y - e.deltaY }));
+      endSoon();
     };
     // WebKit: pellizco del trackpad (Safari en Mac) y de dos dedos sobre paneles (iPad)
     let gs = 1;
     const gstart = (e: Event) => { e.preventDefault(); gs = 1; };
     const gchange = (e: Event) => {
       e.preventDefault();
-      const g = e as Event & { scale: number; clientX: number; clientY: number };
-      const f = g.scale / gs;
-      gs = g.scale;
+      const ge = e as Event & { scale: number; clientX: number; clientY: number };
+      const f = ge.scale / gs;
+      gs = ge.scale;
       if (pts.current.size >= 2) return; // el pellizco con Pointer Events ya lo aplica
-      zoom(e.target, f, g.clientX, g.clientY);
+      zoom(e.target, f, ge.clientX, ge.clientY);
     };
-    const gend = (e: Event) => { e.preventDefault(); gs = 1; };
+    const gend = (e: Event) => { e.preventDefault(); gs = 1; if (!pts.current.size) endRef.current(); };
     const touch = (e: TouchEvent) => { if (e.touches.length >= 2) e.preventDefault(); };
     el.addEventListener('wheel', wheel, { passive: false });
     el.addEventListener('gesturestart', gstart, { passive: false } as AddEventListenerOptions);
@@ -411,31 +481,30 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
     if (!pn || !wrap.current) return;
     live.reveal = null;
     setFocus(pn.id);
+    const o = vr.current;
     const W = wrap.current.clientWidth, H = wrap.current.clientHeight;
-    const k = Math.min(v.k, (W - 32) / pn.w, (H - 32) / pn.h);
-    const sx = pn.x * k + v.x * (k / v.k), sy = pn.y * k + v.y * (k / v.k);
-    if (k === v.k && sx >= 0 && sy >= 0 && sx + pn.w * k <= W && sy + pn.h * k <= H) return;
+    const k = Math.min(o.k, (W - 32) / pn.w, (H - 32) / pn.h);
+    const sx = pn.x * k + o.x * (k / o.k), sy = pn.y * k + o.y * (k / o.k);
+    if (k === o.k && sx >= 0 && sy >= 0 && sx + pn.w * k <= W && sy + pn.h * k <= H) return;
     const clamp = (x0: number, lo: number, hi: number) => Math.min(Math.max(x0, lo), hi);
-    const nx = clamp(v.x * (k / v.k), 16 - pn.x * k, W - 16 - (pn.x + pn.w) * k), ny = clamp(v.y * (k / v.k), 16 - pn.y * k, H - 16 - (pn.y + pn.h) * k);
+    const nx = clamp(o.x * (k / o.k), 16 - pn.x * k, W - 16 - (pn.x + pn.w) * k), ny = clamp(o.y * (k / o.k), 16 - pn.y * k, H - 16 - (pn.y + pn.h) * k);
     commit({ k, x: nx, y: ny });
   }, [p.sp.panels.length]);
-  const front = (id: string) => { setFocus(id); const next = toFront(p.sp, id); if (next) p.save(next); };
-  // máximo 4 activos: los menos recientes se "duermen"
-  const order = visible(p.sp).sort((a, b) => (a.id === focus ? 1 : b.id === focus ? -1 : 0));
-  const awake = new Set(order.slice(-MAX_ACTIVE).map((x) => x.id));
+  const front = (id: string) => { setFocus(id); const next = toFront(cur.current.sp, id); if (next) cur.current.save(next); };
+  const frontRef = useRef(front);
+  frontRef.current = front;
+  const api = useMemo(() => winApi(() => ({ sp: cur.current.sp, save: cur.current.save, k: vr.current.k, front: (id) => frontRef.current(id) })), []);
+  // solo los paneles en pantalla montan su contenido; de ellos, máximo 4 activos (el foco primero)
+  const W = size.w || innerWidth, H = size.h || innerHeight * 0.7;
+  const awake = awakePanels(visible(p.sp), v, W, H, focus, MAX_ACTIVE);
+  const lite = v.k < LITE_ZOOM;
   const fit = () => {
-    const ps = p.sp.panels;
     if (!ps.length || !wrap.current) return;
-    const minX = Math.min(...ps.map((x) => x.x)), minY = Math.min(...ps.map((x) => x.y));
-    const maxX = Math.max(...ps.map((x) => x.x + x.w)), maxY = Math.max(...ps.map((x) => x.y + x.h));
     const W = wrap.current.clientWidth, H = wrap.current.clientHeight;
     const k = Math.min(1.5, Math.min(W / (maxX - minX + 80), H / (maxY - minY + 80)));
     commit({ k, x: (W - (maxX - minX) * k) / 2 - minX * k, y: (H - (maxY - minY) * k) / 2 - minY * k });
   };
-  const ps = p.sp.panels;
-  const minX = Math.min(0, ...ps.map((x) => x.x)), minY = Math.min(0, ...ps.map((x) => x.y));
-  const maxX = Math.max(1, ...ps.map((x) => x.x + x.w)), maxY = Math.max(1, ...ps.map((x) => x.y + x.h));
-  const mk = Math.min(160 / (maxX - minX), 110 / (maxY - minY));
+  const mb = size.w ? miniBox(v) : null;
   return (
     <div ref={wrap} class="canvas-wrap glass flat"
       onPointerDown={(e) => { if ((e.target as HTMLElement).closest('.win')) return; try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* puntero ya liberado */ } pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY }); }}
@@ -444,78 +513,98 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
         if (!m.has(e.pointerId)) return;
         const prev = m.get(e.pointerId)!;
         m.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        if (m.size === 1) setV((o) => ({ ...o, x: o.x + e.clientX - prev.x, y: o.y + e.clientY - prev.y }));
+        if (m.size === 1) preview((o) => ({ ...o, x: o.x + e.clientX - prev.x, y: o.y + e.clientY - prev.y }));
         else {
           const [a, b] = [...m.values()];
           const d = Math.hypot(a!.x - b!.x, a!.y - b!.y);
           const r = wrap.current!.getBoundingClientRect();
           const cx = (a!.x + b!.x) / 2 - r.left, cy = (a!.y + b!.y) / 2 - r.top;
-          if (last.current) { const f = d / last.current.d; setV((o) => zoomAt(o, f, cx, cy)); }
+          if (last.current) { const f = d / last.current.d; preview((o) => zoomAt(o, f, cx, cy)); }
           last.current = { d };
         }
       }}
-      onPointerUp={(e) => { pts.current.delete(e.pointerId); last.current = null; if (!pts.current.size) p.save({ ...p.sp, view: v }); }}
-      onPointerCancel={(e) => { pts.current.delete(e.pointerId); last.current = null; }}>
-      <div class="canvas-plane" style={{ transform: `translate(${v.x}px, ${v.y}px) scale(${v.k})` }}>
-        {visible(p.sp).map((pn) => <Window key={pn.id} panel={pn} sp={p.sp} save={p.save} free scale={v.k} asleep={!awake.has(pn.id)} focused={focus === pn.id} onFocus={() => front(pn.id)} />)}
+      onPointerUp={(e) => { pts.current.delete(e.pointerId); last.current = null; if (!pts.current.size) end(); }}
+      onPointerCancel={(e) => { pts.current.delete(e.pointerId); last.current = null; if (!pts.current.size) end(); }}>
+      <div ref={plane} class="canvas-plane" style={{ transform: `translate(${v.x}px, ${v.y}px) scale(${v.k})` }}>
+        {visible(p.sp).map((pn) => <Window key={pn.id} panel={pn} api={api} free asleep={!awake.has(pn.id)} lite={lite} focused={focus === pn.id} />)}
       </div>
       <div class="row" style={{ position: 'absolute', left: '12px', bottom: '12px' }}>
         <button type="button" class="btn small glass" onClick={fit}><Scan size={16} />{' '}{tr('spaces.ajustar_al_contenido')}</button>
-        <span class="chip">{Math.round(v.k * 100)} %</span>
+        <span ref={chip} class="chip">{Math.round(v.k * 100)} %</span>
       </div>
       <div class="minimap glass" aria-hidden="true">
         {ps.map((x) => <i style={{ left: `${(x.x - minX) * mk}px`, top: `${(x.y - minY) * mk}px`, width: `${x.w * mk}px`, height: `${x.h * mk}px` }} />)}
-        {wrap.current && <b style={{ left: `${(-v.x / v.k - minX) * mk}px`, top: `${(-v.y / v.k - minY) * mk}px`, width: `${(wrap.current.clientWidth / v.k) * mk}px`, height: `${(wrap.current.clientHeight / v.k) * mk}px` }} />}
+        {mb && <b ref={mini} style={mb} />}
       </div>
     </div>
   );
 }
 
-function Window(p: { panel: Panel; sp: Space; save: (s: Space) => void; free?: boolean; scale?: number; asleep?: boolean; focused?: boolean; onFocus?: () => void }) {
+/**
+ * Un panel. Memoizado: el paneo y el zoom no lo tocan; arrastrar o redimensionar mueve el DOM
+ * directamente y confirma una sola vez al soltar (Prompt 11 · 5). Sin la escala como prop: la
+ * lee de `api.k()` al arrastrar. `lite` (zoom bajo) lo dibuja como tarjeta con icono y título.
+ */
+const Window = memo(function Window(p: { panel: Panel; api: WinApi; free?: boolean; asleep?: boolean; lite?: boolean; focused?: boolean }) {
   const pn = p.panel;
   perf.inc('windowRender');
   const t = TYPES().find((x) => x.t === pn.type)!;
-  const upd = (patch: Partial<Panel>) => p.save({ ...p.sp, panels: p.sp.panels.map((x) => (x.id === pn.id ? { ...x, ...patch } : x)) });
-  const dragRef = useRef<{ x: number; y: number; px: number; py: number; mode: 'move' | 'size' } | null>(null);
+  const upd = (patch: Partial<Panel>) => p.api.upd(pn.id, patch);
+  const dragRef = useRef<{ x: number; y: number; px: number; py: number; mode: 'move' | 'size'; nx: number; ny: number } | null>(null);
   const winRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (restored.has(pn.id)) (restored.delete(pn.id), growIn(winRef.current));
   }, []);
+  const minW = pn.type === 'nota' ? 480 : 260, minH = pn.type === 'nota' ? 360 : 200;
   const start = (mode: 'move' | 'size') => (e: PointerEvent) => {
     if (!p.free || pn.locked || (e.target as HTMLElement).closest('button')) return;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    dragRef.current = { x: e.clientX, y: e.clientY, px: mode === 'move' ? pn.x : pn.w, py: mode === 'move' ? pn.y : pn.h, mode };
-    p.onFocus?.();
+    const px = mode === 'move' ? pn.x : pn.w, py = mode === 'move' ? pn.y : pn.h;
+    dragRef.current = { x: e.clientX, y: e.clientY, px, py, mode, nx: px, ny: py };
+    p.api.front(pn.id);
   };
   const move = (e: PointerEvent) => {
-    const d = dragRef.current;
-    if (!d) return;
-    const k = p.scale ?? 1;
+    const d = dragRef.current, el = winRef.current;
+    if (!d || !el) return;
+    const k = p.api.k();
     const dx = (e.clientX - d.x) / k, dy = (e.clientY - d.y) / k;
-    if (d.mode === 'move') upd({ x: Math.round(d.px + dx), y: Math.round(d.py + dy) });
-    else upd({ w: Math.max(pn.type === 'nota' ? 480 : 260, Math.round(d.px + dx)), h: Math.max(pn.type === 'nota' ? 360 : 200, Math.round(d.py + dy)) });
+    if (d.mode === 'move') {
+      d.nx = Math.round(d.px + dx); d.ny = Math.round(d.py + dy);
+      el.style.transform = `translate(${d.nx - d.px}px, ${d.ny - d.py}px)`;
+    } else {
+      d.nx = Math.max(minW, Math.round(d.px + dx)); d.ny = Math.max(minH, Math.round(d.py + dy));
+      el.style.width = `${d.nx}px`; el.style.height = `${d.ny}px`;
+    }
+  };
+  const stop = () => {
+    const d = dragRef.current, el = winRef.current;
+    dragRef.current = null;
+    if (!d || !el || (d.nx === d.px && d.ny === d.py)) return;
+    if (d.mode === 'move') { el.style.left = `${d.nx}px`; el.style.top = `${d.ny}px`; el.style.transform = ''; upd({ x: d.nx, y: d.ny }); }
+    else upd({ w: d.nx, h: d.ny });
   };
   const style = p.free ? { left: `${pn.x}px`, top: `${pn.y}px`, width: `${pn.w}px`, height: `${pn.h}px`, zIndex: String(pn.z ?? 0) } : {};
+  const title = pn.arg ? pn.arg.split('/').pop() : t.label;
   return (
-    <section ref={winRef} class={`win glass${p.focused ? ' focused' : ''}${p.asleep ? ' asleep flat' : ''}`} style={style} aria-label={tr('spaces.panel_label', { label: t.label })} onPointerDown={() => p.onFocus?.()}>
-      <header class="win-bar" onPointerDown={start('move')} onPointerMove={move} onPointerUp={() => (dragRef.current = null)}>
+    <section ref={winRef} class={`win glass${p.focused ? ' focused' : ''}${p.asleep && !p.lite ? ' asleep flat' : ''}${p.lite ? ' lite' : ''}`} style={style} aria-label={tr('spaces.panel_label', { label: t.label })} onPointerDown={() => p.api.front(pn.id)}>
+      <header class="win-bar" onPointerDown={start('move')} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop}>
         {t.icon}
-        <span class="t ellipsis">{pn.arg ? pn.arg.split('/').pop() : t.label}</span>
+        <span class="t ellipsis">{title}</span>
         <span class="chip">{p.asleep ? tr('spaces.en_pausa') : t.label}</span>
         <span class="grow" />
         {p.free && <button type="button" class="btn icon small ghost" aria-label={pn.locked ? tr('spaces.desbloquear') : tr('design.bloquear')} onClick={() => upd({ locked: !pn.locked })}>{pn.locked ? <Lock size={16} /> : <Unlock size={16} />}</button>}
-        {MINIMIZABLE.includes(pn.type) && <MinButton label={t.label} onClick={async () => { await shrinkToTray(winRef.current); minimizePanel(p.sp, p.save, pn.id); }} />}
-        <button type="button" class="btn icon small ghost" aria-label={tr('spaces.cerrar_panel')} onClick={() => p.save({ ...p.sp, panels: p.sp.panels.filter((x) => x.id !== pn.id), sizes: p.sp.panels.filter((x) => x.id !== pn.id).map((_, _i, a) => 1 / a.length) })}><X size={16} /></button>
+        {MINIMIZABLE.includes(pn.type) && <MinButton label={t.label} onClick={async () => { await shrinkToTray(winRef.current); p.api.minimize(pn.id); }} />}
+        <button type="button" class="btn icon small ghost" aria-label={tr('spaces.cerrar_panel')} onClick={() => p.api.close(pn.id)}><X size={16} /></button>
       </header>
-      {(
-        <div class="win-body">
-          {p.asleep ? <p class="t2" style={{ padding: '16px' }}>{tr('spaces.panel_en_pausa_para_cuidar_la', { MAX_ACTIVE: MAX_ACTIVE })}</p> : <PanelBody panel={pn} onArg={(arg) => upd({ arg })} />}
-          {p.free && <div class="win-resize" onPointerDown={start('size')} onPointerMove={move} onPointerUp={() => (dragRef.current = null)} aria-hidden="true" />}
-        </div>
-      )}
+      <div class="win-body">
+        {p.lite ? <p class="lite-card" onPointerDown={start('move')} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop}>{t.icon}<span class="ellipsis">{title}</span></p>
+          : p.asleep ? <p class="t2" style={{ padding: '16px' }}>{tr('spaces.panel_en_pausa_para_cuidar_la', { MAX_ACTIVE: MAX_ACTIVE })}</p>
+          : <PanelBody panel={pn} onArg={(arg) => upd({ arg })} />}
+        {p.free && !p.lite && <div class="win-resize" onPointerDown={start('size')} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop} aria-hidden="true" />}
+      </div>
     </section>
   );
-}
+});
 
 function FilePicker(p: { exts: string[]; dir: string; onPick: (path: string) => void; label: string }) {
   const app = useApp();

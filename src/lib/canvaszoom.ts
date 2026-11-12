@@ -31,3 +31,22 @@ export function zoomAt(v: View, f: number, cx: number, cy: number): View {
   if (r === 1) return v;
   return { k, x: cx - (cx - v.x) * r, y: cy - (cy - v.y) * r };
 }
+
+/**
+ * Culling por ventana visible (Prompt 11 · 5). Un panel está «en pantalla» si su rectángulo del
+ * mundo se cruza con la vista (más un margen en px de pantalla). Solo esos pueden montar su
+ * contenido; de ellos, a lo sumo `max` despiertos, con prioridad para el que tiene el foco y
+ * luego los más recientes (el orden de `panels`).
+ */
+export interface WorldRect { id: string; x: number; y: number; w: number; h: number }
+export function onScreen(r: WorldRect, v: View, W: number, H: number, margin = 200): boolean {
+  const x = r.x * v.k + v.x, y = r.y * v.k + v.y;
+  return x < W + margin && x + r.w * v.k > -margin && y < H + margin && y + r.h * v.k > -margin;
+}
+export function awakePanels(panels: WorldRect[], v: View, W: number, H: number, focus: string | null, max: number, margin = 200): Set<string> {
+  const vis = panels.filter((r) => onScreen(r, v, W, H, margin));
+  const order = [...vis.filter((r) => r.id !== focus), ...vis.filter((r) => r.id === focus)];
+  return new Set(order.slice(-max).map((r) => r.id));
+}
+/** Por debajo de este zoom los paneles se dibujan como tarjeta ligera (icono y título). */
+export const LITE_ZOOM = 0.35;
