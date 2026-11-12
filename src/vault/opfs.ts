@@ -1,5 +1,5 @@
 import { normalizePath } from './paths';
-import { type FileStat, type VaultAdapter, VaultError } from './types';
+import { type BlobWriteOptions, type FileStat, type VaultAdapter, VaultError } from './types';
 import { toBytes } from './util';
 import type { WorkerRequest, WorkerResponse } from './opfs.worker';
 
@@ -10,7 +10,7 @@ export class OPFSBackend implements VaultAdapter {
   readonly kind = 'opfs' as const;
   private worker: Worker;
   private seq = 0;
-  private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+  private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; progress?: (n: number) => void }>();
   strategy = '';
 
   private constructor() {
@@ -19,9 +19,11 @@ export class OPFSBackend implements VaultAdapter {
       const r = ev.data;
       const p = this.pending.get(r.id);
       if (!p) return;
+      if ('progress' in r) return p.progress?.(r.progress);
       this.pending.delete(r.id);
       if (r.ok) p.resolve(r.value);
-      else p.reject(new VaultError(r.error, r.code === 'not-found' || r.code === 'NotFoundError' ? 'not-found' : 'io'));
+      else if (r.code === 'AbortError') p.reject(new DOMException(r.error, 'AbortError'));
+      else p.reject(new VaultError(r.error, r.code === 'not-found' || r.code === 'NotFoundError' ? 'not-found' : r.code === 'QuotaExceededError' ? 'quota' : 'io'));
     };
     this.worker.onerror = (ev) => {
       for (const p of this.pending.values()) p.reject(new VaultError(ev.message || 'Error del Worker', 'io'));
@@ -41,12 +43,32 @@ export class OPFSBackend implements VaultAdapter {
     return b;
   }
 
-  private call(req: DistributiveOmit<WorkerRequest, 'id'>, transfer: Transferable[] = []): Promise<unknown> {
+  private call(req: DistributiveOmit<WorkerRequest, 'id'>, transfer: Transferable[] = [], progress?: (n: number) => void, onId?: (id: number) => void): Promise<unknown> {
     const id = ++this.seq;
+    onId?.(id);
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      this.pending.set(id, { resolve, reject, progress });
       this.worker.postMessage({ ...req, id }, transfer);
     });
+  }
+
+  /** El File viaja al Worker como referencia (no se copian sus bytes); se escribe allí por trozos. */
+  async writeBlob(path: string, blob: Blob, opts: BlobWriteOptions = {}) {
+    if (opts.signal?.aborted) throw new DOMException('Cancelado', 'AbortError');
+    let id = 0;
+    const abort = () => void this.worker.postMessage({ op: 'cancel', target: id, id: ++this.seq });
+    opts.signal?.addEventListener('abort', abort, { once: true });
+    try {
+      return (await this.call({ op: 'writeBlob', path: normalizePath(path), blob }, [], (n) => opts.onProgress?.(n, blob.size), (x) => (id = x))) as { size: number; hash: string };
+    } finally {
+      opts.signal?.removeEventListener('abort', abort);
+    }
+  }
+  hash(path: string) {
+    return this.call({ op: 'hash', path: normalizePath(path) }) as Promise<{ size: number; hash: string }>;
+  }
+  file(path: string) {
+    return this.call({ op: 'file', path: normalizePath(path) }) as Promise<File>;
   }
 
   list(path: string) {

@@ -24,12 +24,26 @@ export interface VaultAdapter {
   move(from: string, to: string): Promise<void>;
   exists(path: string): Promise<boolean>;
   stat(path: string): Promise<FileStat | null>;
+  /**
+   * Opcional (Prompt 11): escribir un Blob por trozos sin cargarlo entero, con suma incremental.
+   * `onProgress` recibe los bytes escritos; con `signal` abortado se detiene y lanza AbortError.
+   */
+  writeBlob?(path: string, blob: Blob, opts?: BlobWriteOptions): Promise<{ size: number; hash: string }>;
+  /** Opcional: suma (FNV-1a) y tamaño de un archivo, leyéndolo por trozos. */
+  hash?(path: string): Promise<{ size: number; hash: string }>;
+  /** Opcional: el archivo como `File` (lectura por rangos con `slice`, sin cargarlo entero). */
+  file?(path: string): Promise<File>;
+}
+
+export interface BlobWriteOptions {
+  onProgress?: (written: number, total: number) => void;
+  signal?: AbortSignal;
 }
 
 export class VaultError extends Error {
   constructor(
     message: string,
-    readonly code: 'not-found' | 'invalid-path' | 'io' | 'unsupported',
+    readonly code: 'not-found' | 'invalid-path' | 'io' | 'unsupported' | 'quota',
     readonly path?: string,
   ) {
     super(message);

@@ -24,6 +24,12 @@ export function fingerprint(bytes: Uint8Array): { size: number; hash: string } {
   const head = bytes.subarray(0, 256 * 1024), tail = bytes.subarray(Math.max(0, bytes.length - 64 * 1024));
   return { size: bytes.length, hash: `${checksum(head)}-${checksum(tail)}` };
 }
+/** La misma huella leyendo solo la cabecera y la cola del archivo (Prompt 11: sin cargarlo entero). */
+export async function fingerprintFile(f: Blob): Promise<{ size: number; hash: string }> {
+  const head = new Uint8Array(await f.slice(0, 256 * 1024).arrayBuffer());
+  const tail = new Uint8Array(await f.slice(Math.max(0, f.size - 64 * 1024)).arrayBuffer());
+  return { size: f.size, hash: `${checksum(head)}-${checksum(tail)}` };
+}
 export const samePdf = (a: Annots['pdf'], b: { size: number; hash: string }) => !a || (a.size === b.size && a.hash === b.hash);
 
 export function parseAnnots(text: string): Annots {

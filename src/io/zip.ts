@@ -25,6 +25,8 @@ export interface Manifest {
 export interface VaultFile {
   path: string;
   data: Uint8Array;
+  /** Prompt 11: archivo grande que se escribe por trozos desde el File (sin leerlo antes); `data` va vacío. */
+  blob?: Blob;
 }
 
 /** No se exportan transitorios del diario ni cachés. */

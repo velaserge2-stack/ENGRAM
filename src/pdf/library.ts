@@ -7,7 +7,7 @@ import type { VaultAdapter } from '../vault/types';
 import { readTextOr, walk } from '../vault/util';
 
 export const PDF_META = '.app/pdfs.json';
-export interface PdfMeta { last?: number; pages?: number; tags?: string[]; opened?: number }
+export interface PdfMeta { last?: number; pages?: number; tags?: string[]; opened?: number; /** Prompt 11: proporción (alto/ancho) de la pág. 1 y las páginas que difieren */ ratio?: number; aspects?: Record<number, number> }
 
 export async function readMeta(vault: VaultAdapter): Promise<Record<string, PdfMeta>> {
   try { const m = JSON.parse(await readTextOr(vault, PDF_META, '{}')) as Record<string, PdfMeta>; return m && typeof m === 'object' && !Array.isArray(m) ? m : {}; } catch { return {}; }

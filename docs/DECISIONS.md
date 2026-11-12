@@ -487,3 +487,65 @@
 - Bandeja (add-on): asignar materia y tema es opcional; archivar sin materia deja la nota en «Sin clasificar» (antes usaba carpetas «Sin materia/General»).
 - Cabecera de la nota y vista «Todo»: rotulan «Sin clasificar» y «Sin tema» en vez de dejar el hueco.
 - Sin cambios: buscador, wikilinks, backlinks, grafo, papelera, historial, vínculos del calendario, `src:`, exportación, índice y paneles (todos trabajan por ruta o título y ya aceptaban rutas de 1 o 2 segmentos). Las plantillas no usan `{{materia}}`/`{{tema}}`.
+
+## Prompt 11 — Rendimiento con PDF pesados y Lienzo (rama `perf-pdf-lienzo`)
+
+### Medición (`npm run e2e:perf`, `?perf`)
+- `scripts/perf-fixtures.mjs` genera PDF de 50, 300 y 800 páginas (9.6 / 38 / 96 MB, con imágenes de ruido para que no se compriman) en `tests/fixtures/perf/` (no se versionan). `e2e/perf.mjs` mide importar, abrir, continuo, desplazarse, miniaturas, buscar y un lienzo de 30 paneles; tareas largas (`longtask` en Chromium, huecos de rAF > 50 ms en cualquiera), memoria (`performance.memory` con `--enable-precise-memory-info`, solo Chromium) y los contadores de `src/lib/perf.ts` (`getPage`, lecturas por rango, páginas dibujadas, renders de panel). Al final comprueba los criterios de aceptación y falla si alguno no se cumple.
+- Resultados completos: `docs/perf/perf-antes.json` (línea base, `main`) y `docs/perf/perf-despues.json`. Chromium headless en el contenedor; los números de WebKit en iPad serán otros, por eso existe `?perf`.
+
+| PDF de 800 páginas (96 MB) | Antes | Después |
+|---|---|---|
+| Importar: tareas largas · pico de memoria JS | 4 (máx. 149 ms) · 294 MB | 0 · 10 MB |
+| Abrir hasta ver la página 1 · memoria · bytes leídos | 918 ms · 295 MB · el archivo entero | 845 ms · 12 MB · 1.8 MB |
+| Continuo: páginas en el DOM · canvas · MP · `getPage` | 800 · 1601 · 815.5 · 799 | 3 · 2 · 1 · 2 |
+| Continuo: tarea más larga | 1219 ms | 0 |
+| Desplazarse 30 saltos: tiempo · tareas largas · páginas · canvas | 28 s · 46 (máx. 524 ms) · 800 · 1602 | 5.1 s · 0 · 6 · 4 |
+| Miniaturas montadas | 800 | 13 |
+| Buscar en 800 páginas: tiempo · tarea más larga | 3.3 s · 543 ms | 2.3 s · 0 (cancelable; 2.ª vez desde caché) |
+
+| Lienzo, 30 paneles | Antes | Después |
+|---|---|---|
+| Renders de `Window` durante paneo y zoom | 1170 | 0 |
+| Paneles con contenido montado a 100 % | 4 (cualesquiera, también fuera de la vista) | 3 (solo los de la vista; 0 fuera) |
+| Al 10 % | 4 cuerpos completos | 0 (tarjetas ligeras) |
+
+### 1 · Subir por trozos (`SafeVault.writeStream`)
+- `writeStream(path, blob)` escribe al temporal con `raw.writeBlob` en trozos de 4 MB (OPFS: en el Worker con `SyncAccessHandle`; FS Access: `createWritable`), calcula la suma FNV-1a por trozos, anota en el diario `{ op: 'write', stream: true, sum, size }`, mueve el temporal al destino y borra el diario. Si se corta, `recover()` termina el movimiento si el temporal está completo (suma correcta) o lo da por hecho si el destino ya la tiene. Sin `writeBlob` (memoria), cae a `write` normal. Pruebas: corte simulado (`MemoryBackend.failAfter`) y recuperación.
+- Progreso y «Cancelar» (`AbortSignal`; en OPFS se avisa al Worker, que borra el temporal). Antes de importar se compara el tamaño con `navigator.storage.estimate()` y se avisa si no cabe; `QuotaExceededError` → código `quota` con mensaje claro. Se quitó el aviso «más de 50 MB».
+- Importar (`.zip`, Bandeja y PDFs): los binarios de ≥ 8 MB ya no se leen enteros a memoria; viajan como `Blob` hasta `writeStream`. La miniatura y la proporción de página se obtienen al importar, por rangos.
+
+### 2 · Abrir por rangos (`src/pdf/open.ts`)
+- `PDFDataRangeTransport` sobre `File.slice()` (trozos de 256 KB), `disableAutoFetch` y `disableStream`: pdf.js pide solo lo que necesita (xref, página 1). Sin `blob:` URL (la CSP `connect-src 'self'` sigue intacta y no hay `fetch`). La huella del PDF para las anotaciones usa cabeza (256 KB) + cola (64 KB) + tamaño, no el archivo entero.
+- `page.cleanup()` tras cada render y `doc.destroy()` al cerrar.
+
+### 3 · Visor virtualizado (`src/pdf/virtual.ts`, `src/screens/pdf.tsx`)
+- Tabla de alturas con sumas prefijas (proporción común + excepciones guardadas en la biblioteca como `aspects`), ventana visible ±2 en el DOM y **canvas solo para la visible ±1**; espaciadores arriba/abajo; scroll en rAF sin medir el DOM; al corregir la proporción de una página por encima, se compensa el scroll.
+- Cola de render (2 a la vez, la central primero, cancelable) y presupuesto de píxeles (40 MP en total, 16 MP por página; la del foco puede pasarse y se re-renderiza a resolución completa cuando hay sitio). Al salir de la ventana: `canvas.width = height = 0`, capa de texto vacía; la capa de tinta solo existe si se anota o la página tiene trazos (antes había 2 canvas de tinta por página).
+- Miniaturas laterales virtualizadas (caché de 60) y búsqueda cancelable con caché de texto en `.app/cache/pdf-text/<hash>-<tamaño>.json` (reconstruible).
+
+### 4 · Biblioteca
+- Miniaturas con `IntersectionObserver` + cola de 1, por rangos; se generan al importar. Nada se renderiza fuera de la vista.
+
+### 5 · Lienzo (`src/screens/spaces.tsx`, `src/lib/canvaszoom.ts`)
+- Durante el gesto la vista vive en una ref y se aplica en rAF al plano, al porcentaje y al minimapa; `setV` + guardar solo al terminar (soltar, `gestureend`, o 150 ms sin rueda). `Window` va con `memo` y una API estable (las funciones leen el espacio vigente de una ref), sin `scale` como prop.
+- Arrastrar mueve con `transform` y redimensionar cambia ancho/alto directo en el DOM; se confirma una sola vez al soltar (antes, un guardado por cada `pointermove`).
+- Culling: un panel monta su contenido solo si su rectángulo cruza la vista (+200 px); de esos, máximo 4 despiertos con prioridad del foco (`awakePanels`, probado). Bajo 35 % de zoom, tarjeta ligera (icono y título grandes) en lugar del contenido.
+- `will-change: transform` solo mientras dura el gesto (`.canvas-wrap.moving`): con él fijo, Safari conserva una capa enorme rasterizada a la escala con que se creó (texto borroso tras el zoom y memoria de GPU constante); al quitarlo, se vuelve a rasterizar nítido una vez. En Chromium headless no hay diferencia medible en tareas largas; validar en iPad con `?perf`.
+
+### Modo `?perf`
+Abrir la app con `?perf` (p. ej. `https://…/engrama/?perf#/pdfs`) muestra en una esquina: páginas de PDF en el DOM, canvas (y megapíxeles), `getPage`, lecturas por rango (MB), páginas dibujadas, paneles con contenido / total, renders de panel, tareas largas (si el navegador las expone), cuadros > 50 ms y memoria JS (si existe). «Reiniciar» pone los contadores en cero. Sin el parámetro no se monta nada.
+
+**Para repetir en iPad / iPhone** (Safari, app instalada o no):
+1. Pasa un PDF grande (≥ 300 páginas, ≥ 50 MB) a Archivos. Abre la app con `?perf` al final de la dirección.
+2. PDFs → Importar: la barra avanza y «Cancelar» responde; la app no se congela. Anota «Tareas largas» / «Cuadros > 50 ms».
+3. Abre el PDF: la página 1 aparece sin esperar al archivo entero; «Páginas de PDF» ≤ 7, «Canvas» ≤ 5, «Lecturas por rango» unos pocos MB.
+4. «Ver continuo» y desliza rápido hasta la mitad y más allá: las cifras de páginas y canvas no crecen; vuelve arriba y la página 1 se redibuja.
+5. Miniaturas y Buscar (prueba «Cancelar» a la mitad).
+6. Espacios → Lienzo con 20–30 paneles: pellizca y pasea. «Renders de panel» no sube durante el gesto; «Paneles con contenido» solo cuenta los que ves. Aleja por debajo de 35 %: tarjetas ligeras. Arrastra y redimensiona un panel.
+7. Si algo se siente lento, toma captura del recuadro y dime en qué paso.
+
+### Límites conocidos de Safari
+- WebKit no expone `longtask` ni `performance.memory`: en iPad se usan los cuadros > 50 ms y los contadores propios.
+- `SyncAccessHandle` existe en Safari ≥ 15.2 solo dentro de un Worker (así se usa). `File.slice()` de un archivo elegido en Archivos puede invalidarse si iOS lo libera: el visor siempre abre la copia de la bóveda (OPFS), nunca el archivo original.
+- Safari limita la memoria de canvas por pestaña (≈ 384 MB en iPad): por eso el presupuesto de 40 MP y liberar a tamaño 0.

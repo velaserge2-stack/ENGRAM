@@ -23,7 +23,8 @@
     "e2e:p6": "node e2e/p6.mjs",
     "e2e:p7": "node e2e/p7.mjs",
     "e2e:p10": "node e2e/p10.mjs",
-    "e2e:p12": "node e2e/p12.mjs"
+    "e2e:p12": "node e2e/p12.mjs",
+    "e2e:perf": "node e2e/perf.mjs"
   },
   "dependencies": {
     "docx": "^9.15.3",

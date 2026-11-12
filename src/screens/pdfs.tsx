@@ -1,7 +1,8 @@
-import { t } from '../i18n';
-import { ArrowLeft, FileText, LayoutGrid, Tags, Upload } from 'lucide-preact';
+import { errMsg, t } from '../i18n';
+import { formatBytes, storageInfo } from '../lib/storage';
+import { ArrowLeft, FileText, LayoutGrid, Tags, Upload, X } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { pdfjs } from '../io/extract';
+import { fileOf, openPdfFile } from '../pdf/open';
 import { listPdfs, pdfLink, progress, updatePdfMeta } from '../pdf/library';
 import { useApp, useAsync } from '../state';
 import { mediaUrl } from '../ui/background';
@@ -35,26 +36,58 @@ function PdfScreen(p: { path: string; page?: number }) {
   );
 }
 
-/** Miniatura de la primera página (en caché, se regenera si cambia el archivo). */
-function Thumb(p: { path: string; size: number }) {
-  const app = useApp();
-  const { data: url } = useAsync(async () => {
-    const key = `${THUMBS}/${checksum(new TextEncoder().encode(p.path + p.size))}.jpg`;
-    if (await app.vault.exists(key)) return mediaUrl(app.vault, key, 'image/jpeg');
-    const lib = await pdfjs();
-    const d = await lib.getDocument({ data: (await app.vault.read(p.path)).slice() }).promise;
-    const pg = await d.getPage(1);
+/**
+ * Miniaturas de la biblioteca (Prompt 11 · Fase 4): en caché (`THUMBS`, se regenera si cambia el
+ * archivo), y si falta, se genera solo cuando la tarjeta es visible, de una en una (cola), leyendo
+ * por rangos (nunca el PDF entero).
+ */
+let thumbQ: Promise<unknown> = Promise.resolve();
+const thumbKey = (path: string, size: number) => `${THUMBS}/${checksum(new TextEncoder().encode(path + size))}.jpg`;
+async function renderThumb(vault: ReturnType<typeof useApp>['vault'], path: string, file: Blob): Promise<Blob | null> {
+  const { doc, destroy } = await openPdfFile(file);
+  try {
+    const pg = await doc.getPage(1);
     const v = pg.getViewport({ scale: 220 / pg.getViewport({ scale: 1 }).width });
     const c = document.createElement('canvas');
     c.width = Math.ceil(v.width);
     c.height = Math.ceil(v.height);
     await pg.render({ canvas: c, canvasContext: c.getContext('2d')!, viewport: v } as never).promise;
-    void (d as unknown as { destroy?: () => Promise<void> }).destroy?.();
+    pg.cleanup();
     const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/jpeg', 0.75));
-    if (blob) await app.vault.write(key, new Uint8Array(await blob.arrayBuffer()));
-    return blob ? URL.createObjectURL(blob) : null;
+    c.width = c.height = 0; // Safari libera la memoria del lienzo solo así
+    if (blob) await vault.write(thumbKey(path, file.size), new Uint8Array(await blob.arrayBuffer()));
+    return blob;
+  } finally {
+    await destroy();
+  }
+}
+/** En cola (una a la vez). Al importar se llama con el File que ya está a mano. */
+export function thumbFromFile(vault: ReturnType<typeof useApp>['vault'], path: string, file: Blob): Promise<Blob | null> {
+  const job = thumbQ.then(() => renderThumb(vault, path, file)).catch(() => null);
+  thumbQ = job;
+  return job;
+}
+
+function Thumb(p: { path: string; size: number }) {
+  const app = useApp();
+  const ref = useRef<HTMLSpanElement>(null);
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true, own: string | null = null;
+    const io = new IntersectionObserver(([e]) => {
+      if (!e!.isIntersecting) return;
+      io.disconnect();
+      void (async () => {
+        const key = thumbKey(p.path, p.size);
+        if (await app.vault.exists(key)) return alive && setUrl(await mediaUrl(app.vault, key, 'image/jpeg'));
+        const blob = await thumbFromFile(app.vault, p.path, await fileOf(app.vault, p.path));
+        if (blob && alive) setUrl((own = URL.createObjectURL(blob)));
+      })().catch(() => {});
+    }, { rootMargin: '200px' });
+    if (ref.current) io.observe(ref.current);
+    return () => { alive = false; io.disconnect(); if (own) URL.revokeObjectURL(own); };
   }, [p.path, p.size]);
-  return url ? <img src={url} alt="" loading="lazy" /> : <FileText size={36} aria-hidden="true" />;
+  return <span ref={ref} class="pdf-thumb-slot">{url ? <img src={url} alt="" loading="lazy" /> : <FileText size={36} aria-hidden="true" />}</span>;
 }
 
 function Library() {
@@ -65,14 +98,34 @@ function Library() {
   const [tag, setTag] = useState('');
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  // Prompt 11: se escribe por trozos (nunca el archivo entero en memoria), con progreso y Cancelar
+  const [job, setJob] = useState<{ name: string; done: number; total: number; i: number; n: number; ac: AbortController } | null>(null);
   const take = async (files: FileList | File[] | null) => {
     const pdfs = [...(files ?? [])].filter((f) => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
-    for (const f of pdfs) {
-      let path = `docs/${f.name.replace(/[\\/:*?"<>|#]+/g, '_')}`;
-      for (let n = 2; await app.vault.exists(path); n++) path = `docs/${f.name.replace(/\.pdf$/i, '')} (${n}).pdf`;
-      await app.vault.write(path, new Uint8Array(await f.arrayBuffer()));
+    if (!pdfs.length || job) return;
+    const need = pdfs.reduce((a, f) => a + f.size, 0);
+    const info = await storageInfo();
+    if (info.quota && info.usage !== null && info.quota - info.usage < need * 1.05) {
+      return app.toast(t('pdfs.sin_espacio', { need: formatBytes(need), left: formatBytes(info.quota - info.usage) }));
     }
-    if (pdfs.length) (app.changed(), app.toast(t('pdfs.n_importados', { n: pdfs.length })));
+    const ac = new AbortController();
+    let ok = 0;
+    try {
+      for (const [i, f] of pdfs.entries()) {
+        let path = `docs/${f.name.replace(/[\\/:*?"<>|#]+/g, '_')}`;
+        for (let n = 2; await app.vault.exists(path); n++) path = `docs/${f.name.replace(/\.pdf$/i, '')} (${n}).pdf`;
+        setJob({ name: f.name, done: 0, total: f.size, i: i + 1, n: pdfs.length, ac });
+        await app.vault.writeStream(path, f, { signal: ac.signal, onProgress: (done) => setJob((j) => j && { ...j, done }) });
+        ok++;
+        void thumbFromFile(app.vault, path, f); // miniatura ahora que el archivo está a mano
+      }
+    } catch (e) {
+      const err = e as { name?: string; code?: string };
+      app.toast(err.name === 'AbortError' ? t('pdfs.importacion_cancelada') : err.code === 'quota' || err.name === 'QuotaExceededError' ? t('pdfs.sin_espacio_corto') : errMsg(e));
+    } finally {
+      setJob(null);
+    }
+    if (ok) (app.changed(), app.toast(t('pdfs.n_importados', { n: ok })));
   };
   useEffect(() => { if (input.current) input.current.value = ''; }, [data]);
   const folders = [...new Set(data?.map((x) => x.folder).filter(Boolean))].sort();
@@ -84,6 +137,14 @@ function Library() {
       <PageTitle title={t('pdfs.pdfs')} sub={t('pdfs.sub', { n: data?.length ?? 0 })}>
         <label class="btn primary"><Upload size={18} />{' '}{t('pdfs.importar')}<input ref={input} type="file" accept="application/pdf,.pdf" multiple hidden onChange={(e) => void take((e.target as HTMLInputElement).files)} /></label>
       </PageTitle>
+      {job && (
+        <div class="glass panel stack-s pdf-import" role="status" aria-live="polite">
+          <div class="row wrap"><b class="grow ellipsis" data-user-content>{job.name}</b><span class="foot num">{job.n > 1 ? `${job.i}/${job.n} · ` : ''}{formatBytes(job.done)} / {formatBytes(job.total)}</span>
+            <button type="button" class="btn small" onClick={() => job.ac.abort()}><X size={16} />{' '}{t('pdfs.cancelar')}</button></div>
+          <Bar value={job.total ? job.done / job.total : 0} label={t('pdfs.importando_x', { name: job.name })} />
+          {job.total > 200 * 1048576 && <p class="foot">{t('pdfs.grande_nota', { size: formatBytes(job.total) })}</p>}
+        </div>
+      )}
       {!data?.length ? (
         <Empty icon={<FileText size={44} />} title={t('pdfs.vacia')}>{t('pdfs.vacia_sub')}</Empty>
       ) : (

@@ -96,7 +96,7 @@ export function ImportSheet(props: { onClose: () => void }) {
         <div style={{ display: 'grid', gap: '12px' }}>
           <button type="button" class="btn small" style={{ justifySelf: 'start' }} onClick={() => setPreview(null)}>{t('import.volver')}</button>
           <b style={{ wordBreak: 'break-all' }}>{preview.path}</b>
-          {preview.preview ? <pre class="preview">{preview.preview}</pre> : <p>{(preview.data.length / 1024).toFixed(1)}{' '}{t('import.kb_sin_vista_previa')}</p>}
+          {preview.preview ? <pre class="preview">{preview.preview}</pre> : <p>{((preview.blob?.size ?? preview.data.length) / 1024).toFixed(1)}{' '}{t('import.kb_sin_vista_previa')}</p>}
         </div>
       ) : plan && plan.length === 0 ? (
         <div style={{ display: 'grid', gap: '12px' }}>
