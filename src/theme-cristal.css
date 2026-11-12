@@ -350,6 +350,15 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 .minimap { position: absolute; right: 12px; bottom: 12px; width: 160px; height: 110px; border-radius: 14px; overflow: hidden; }
 .minimap i { position: absolute; background: var(--t3); border-radius: 2px; }
 .minimap b { position: absolute; border: 1.5px solid var(--t1); border-radius: 3px; }
+/* Prompt 15: el minimapa navega (encima de paneles y asas, debajo de las capas) */
+.minimap { z-index: var(--z-panel); touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.minimap:focus-visible { outline: 2px solid var(--t1); outline-offset: 2px; }
+.minimap i.on { background: var(--t2); }
+.minimap b { pointer-events: none; }
+.minimap.settle i, .minimap.settle b { transition: left .25s, top .25s, width .25s, height .25s; }
+@media (prefers-reduced-motion: reduce) { .minimap.settle i, .minimap.settle b { transition: none; } }
+.minimap-toggle { position: absolute; right: 180px; bottom: 12px; z-index: var(--z-panel); }
+.minimap-toggle.alone { right: 12px; }
 .pdf-page { margin: 10px auto; position: relative; box-shadow: var(--shadow); background: #fff; }
 .pdf-page canvas { display: block; width: 100%; height: 100%; }
 .pdf-text { position: absolute; inset: 0; line-height: 1; overflow: hidden; }
