@@ -1,8 +1,8 @@
 import { t as tr, deviceLang, firstDayOfWeek, LANGS, setLang } from '../i18n';
-import { Check, ChevronLeft, Crop, FolderOpen, ImagePlus, PlusSquare, Share as ShareIcon, Trash2 } from 'lucide-preact';
+import { Check, ChevronLeft, ChevronsDownUp, ChevronsUpDown, Crop, FolderOpen, ImagePlus, PlusSquare, Share as ShareIcon, Trash2 } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { DEFAULT_FRAMING, framingStyle, FRAMING_PATH, normFraming, parseFramings, type Framing } from '../lib/framing';
-import { AddonsGroup } from './addons';
+import { addonOn, AddonsGroup, MODULES } from './addons';
 import { StorageSheet } from './storage';
 import { KeySettings } from './keysettings';
 import { verifyDeterminism } from '../data/collection';
@@ -15,7 +15,9 @@ import { deliver } from '../io/share';
 import { State, workloadEstimate } from '../srs/engine';
 import { href, useApp, useAsync } from '../state';
 import { BUILTINS, BuiltinThumb, deleteBackground, importBackground, mediaUrl, regenThumb, SOLIDS } from '../ui/background';
-import { Group, PageTitle, Row, Segmented, Sheet, Switch } from '../ui/kit';
+import { FoldCtx, Group, PageTitle, Row, Segmented, Sheet, Switch } from '../ui/kit';
+import { keymap, useKeymap } from '../ui/keys';
+import type { ComponentChildren } from 'preact';
 import { FSAccessBackend } from '../vault/fsaccess';
 import { rememberFolder } from '../vault/open';
 import { readTextOr, walk } from '../vault/util';
@@ -226,6 +228,9 @@ function FramingEditor(props: { path: string; onClose: () => void }) {
   );
 }
 
+/** Secciones plegables de Ajustes, en su orden. */
+const FOLDS = ['idioma', 'fondo', 'acento', 'estudio', 'fsrs', 'pomodoro', 'notas', 'almacenamiento', 'respaldo', 'integridad', 'tinta', 'atajos', 'addons', 'instalar', 'mas', 'acerca'];
+
 export function SettingsScreen(props: { focus?: string | null } = {}) {
   const app = useApp();
   // #/ajustes/<sección>: desplaza hasta ella (p. ej. Add-ons)
@@ -242,24 +247,53 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
   const work = col ? workloadEstimate([...col.states.values()].filter((x) => x.card.state !== State.New), [s.retention]) : {};
   const ig = app.integrity;
   const days = s.lastExportAt ? Math.floor((Date.now() - s.lastExportAt) / 86_400_000) : null;
+  useKeymap();
+  // acordeón (Prompt 6 · B4): el estado se recuerda en los ajustes del usuario
+  const open = new Set(s.settingsOpen);
+  const fold = {
+    isOpen: (k: string) => open.has(k) || k === props.focus,
+    toggle: (k: string) => { const n = new Set(open); if (n.has(k) || k === props.focus) n.delete(k); else n.add(k); u({ settingsOpen: [...n] }); if (k === props.focus) location.replace('#/ajustes'); },
+    summary: { atajos: (() => { const n = Object.keys(keymap.cfg.keys).length + Object.keys(keymap.cfg.pad).length; return n ? tr('settings.sum_personalizados_n', { n }) : tr('settings.sum_de_fabrica'); })(),
+      addons: tr('settings.sum_activos', { n: MODULES().filter((m) => addonOn(s, m.id)).length }) } as Record<string, ComponentChildren>,
+  };
+  const allOpen = FOLDS.every((k) => open.has(k));
+  const pct = (n: number) => `${Math.round(n * 100)} %`;
+  const sum: Record<string, string> = {
+    idioma: s.lang && s.lang !== 'xx' ? LANGS.find((x) => x.id === s.lang)?.name ?? '' : tr('settings.idioma_auto', { lang: LANGS.find((x) => x.id === deviceLang())!.name }),
+    fondo: `${s.glassMode === 'auto' ? tr('settings.auto') : s.glassMode === 'dark' ? tr('design.oscuro') : tr('design.claro')} · ${tr('settings.sum_vidrio', { n: s.glass })}${s.lightMode ? ` · ${tr('settings.modo_ligero')}` : ''}`,
+    acento: s.accent.color ? tr('settings.sum_acento_en', { n: s.accent.usos.length }) : tr('settings.sum_sin_acento'),
+    estudio: tr('settings.sum_estudio', { r: pct(s.retention), n: s.newPerDay }),
+    fsrs: s.fsrsW ? tr('settings.sum_w_personalizados') : tr('settings.sum_w_defecto'),
+    pomodoro: tr('settings.sum_pomo', { w: s.pomo.work, s: s.pomo.short, l: s.pomo.long }),
+    notas: tr('settings.sum_etiquetas', { n: s.tagList.length }),
+    almacenamiento: tr('settings.usado_de', { used: formatBytes(info?.usage ?? null), quota: formatBytes(info?.quota ?? null) }),
+    respaldo: days === null ? tr('settings.nunca') : days === 0 ? tr('today.hoy') : tr('settings.hace_days_dias', { days }),
+    integridad: ig ? (ig.problems.length ? tr('settings.n_problemas', { n: ig.problems.length }) : tr('settings.sin_problemas')) : tr('settings.comprobando'),
+    tinta: s.inkFinger === 'pencil' ? tr('ink.solo_pencil') : s.inkFinger === 'scroll' ? tr('ink.dedo_desplaza') : tr('ink.dedo_dibuja'),
+    instalar: isStandalone() ? tr('settings.engrama_esta_instalada') : tr('settings.sum_no_instalada'),
+    mas: tr('settings.pagina_de_diseno'),
+    acerca: `${tr('settings.engrama')} ${APP_VERSION}`,
+  };
   return (
+    <FoldCtx.Provider value={fold}>
     <div class="settings">
       <PageTitle title={tr('app.ajustes')}>
         <a class="btn" href="#/perfil"><ChevronLeft size={18} aria-hidden="true" />{' '}{tr('settings.volver_al_perfil')}</a>
+        <button type="button" class="btn" aria-expanded={allOpen} onClick={() => u({ settingsOpen: allOpen ? [] : [...FOLDS] })}>{allOpen ? <ChevronsDownUp size={18} aria-hidden="true" /> : <ChevronsUpDown size={18} aria-hidden="true" />}{' '}{allOpen ? tr('settings.plegar_todo') : tr('settings.desplegar_todo')}</button>
       </PageTitle>
 
       <Group>
         <Row k={tr('profile.perfil')} sub={tr('profile.ajustes_sub')} onClick={() => (location.hash = href('perfil'))}><span class="v">›</span></Row>
       </Group>
 
-      <Group title={tr('settings.idioma')} footer={tr('settings.idioma_nota')}>
+      <Group id="idioma" summary={sum.idioma} title={tr('settings.idioma')} footer={tr('settings.idioma_nota')}>
         <div class="row-i">
           <Segmented label={tr('settings.idioma')} value={s.lang === 'xx' ? '' : s.lang} onChange={(v) => { setLang(v || deviceLang()); app.update({ lang: v, weekStartsMonday: firstDayOfWeek() === 1 }, true); }}
             options={[['', tr('settings.idioma_auto', { lang: LANGS.find((x) => x.id === deviceLang())!.name })], ...LANGS.map((x) => [x.id, x.name] as [typeof x.id, string])]} />
         </div>
       </Group>
 
-      <Group title={tr('settings.apariencia_fondo')} footer={tr('settings.el_color_de_engrama_lo_pones')}>
+      <Group id="fondo" summary={sum.fondo} title={tr('settings.apariencia_fondo')} footer={tr('settings.el_color_de_engrama_lo_pones')}>
         <Backgrounds />
         <Slider label={tr('settings.desenfoque_del_fondo')} min={0} max={40} step={1} unit=" px" value={s.bgBlur} onInput={(v) => u({ bgBlur: v })} />
         <Slider label={tr('settings.oscurecer_aclarar')} min={-50} max={50} step={5} unit=" %" value={s.bgDim} onInput={(v) => u({ bgDim: v })} />
@@ -271,11 +305,11 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
         <Row k={tr('settings.guardian_de_legibilidad')} sub={tr('settings.ajusta_el_vidrio_para_mantener_4', { p: (window as unknown as { __guard?: { panels: number; adjusted: number; minContrast: number } }).__guard?.panels ?? '—', p2: (window as unknown as { __guard?: { adjusted: number } }).__guard?.adjusted ?? 0 })}><a class="link" href="#/design">{tr('settings.ver_design')}</a></Row>
       </Group>
 
-      <Group title={tr('settings.apariencia_color_de_acento')} footer={tr('settings.opcional_con_sin_acento_la_interfaz')}>
+      <Group id="acento" summary={sum.acento} title={tr('settings.apariencia_color_de_acento')} footer={tr('settings.opcional_con_sin_acento_la_interfaz')}>
         <AccentPicker />
       </Group>
 
-      <Group title={tr('settings.estudio_fsrs')} footer={tr('settings.cuatro_botones_calibrados_para_fsrs_la')}>
+      <Group id="estudio" summary={sum.estudio} title={tr('settings.estudio_fsrs')} footer={tr('settings.cuatro_botones_calibrados_para_fsrs_la')}>
         <Slider label={tr('settings.retencion_deseada')} min={0.8} max={0.97} step={0.01} value={s.retention} onInput={(v) => u({ retention: Math.round(v * 100) / 100 })} />
         <Row k={tr('settings.carga_estimada')} sub={tr('settings.con_tu_historial_actual')}><span class="v">≈ {Math.round(work[String(s.retention)] ?? 0)}{' '}{tr('settings.repasos_dia')}</span></Row>
         <Row k={tr('decks.nuevas_por_dia')} sub={tr('settings.por_defecto_cada_mazo_puede_tener')}><input class="input" style={{ width: '90px' }} type="number" min={0} value={s.newPerDay} onChange={(e) => u({ newPerDay: Number((e.target as HTMLInputElement).value) })} /></Row>
@@ -294,7 +328,7 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
         <Row k={tr('settings.idioma_de_voz_por_defecto')}><input class="input" style={{ width: '110px' }} value={s.ttsLang} onChange={(e) => u({ ttsLang: (e.target as HTMLInputElement).value })} /></Row>
       </Group>
 
-      <Group title={tr('settings.parametros_fsrs')} footer={reviews >= 1000 ? tr('settings.ya_tienes_historial_suficiente_para_optimi') : tr('settings.se_usan_los_parametros_por_defecto', { reviews: reviews })}>
+      <Group id="fsrs" summary={sum.fsrs} title={tr('settings.parametros_fsrs')} footer={reviews >= 1000 ? tr('settings.ya_tienes_historial_suficiente_para_optimi') : tr('settings.se_usan_los_parametros_por_defecto', { reviews: reviews })}>
         <Row k={tr('settings.exportar_historial_csv_para_optimizador')}>
           <button type="button" class="btn small" disabled={!col} onClick={async () => {
             const lines = ['card_id,review_time,review_rating,review_state,review_duration', ...col!.log.filter((e) => e.rating).map((e) => `${e.id},${e.ts},${e.rating},${e.state ?? ''},${e.ms ?? 0}`)];
@@ -316,7 +350,7 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
         </Row>
       </Group>
 
-      <Group title={tr('today.pomodoro')}>
+      <Group id="pomodoro" summary={sum.pomodoro} title={tr('today.pomodoro')}>
         <Row k={tr('settings.trabajo_min')}><input class="input" style={{ width: '80px' }} type="number" min={1} value={s.pomo.work} onChange={(e) => u({ pomo: { ...s.pomo, work: Number((e.target as HTMLInputElement).value) } })} /></Row>
         <Row k={tr('settings.descanso_min')}><input class="input" style={{ width: '80px' }} type="number" min={1} value={s.pomo.short} onChange={(e) => u({ pomo: { ...s.pomo, short: Number((e.target as HTMLInputElement).value) } })} /></Row>
         <Row k={tr('settings.descanso_largo_min')}><input class="input" style={{ width: '80px' }} type="number" min={1} value={s.pomo.long} onChange={(e) => u({ pomo: { ...s.pomo, long: Number((e.target as HTMLInputElement).value) } })} /></Row>
@@ -324,7 +358,7 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
         <Row k={tr('settings.sonido_al_terminar')} sub={tr('settings.solo_tras_tocar_iniciar_safari_exige')}><Switch label={tr('settings.sonido')} checked={s.pomo.sound} onChange={(v) => u({ pomo: { ...s.pomo, sound: v } })} /></Row>
       </Group>
 
-      <Group title={tr('notes.notas')} footer={tr('settings.las_etiquetas_se_crean_aqui_lista')}>
+      <Group id="notas" summary={sum.notas} title={tr('notes.notas')} footer={tr('settings.las_etiquetas_se_crean_aqui_lista')}>
         <Row k={tr('settings.mostrar_grafo')}><Switch label={tr('settings.mostrar_grafo')} checked={s.showGraph} onChange={(v) => u({ showGraph: v })} /></Row>
         <Row k={tr('settings.mostrar_enlaces_entrantes')}><Switch label={tr('settings.mostrar_enlaces_entrantes')} checked={s.showBacklinks} onChange={(v) => u({ showBacklinks: v })} /></Row>
         <Row k={tr('deck.etiquetas')} sub={s.tagList.join(', ') || tr('settings.ninguna')}>
@@ -338,7 +372,7 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
         </Row>
       </Group>
 
-      <Group title={tr('settings.almacenamiento')} footer={tr('backup.safari_guarda_tu_boveda_en_un')}>
+      <Group id="almacenamiento" summary={sum.almacenamiento} title={tr('settings.almacenamiento')} footer={tr('backup.safari_guarda_tu_boveda_en_un')}>
         <Row k={tr('settings.donde_se_guarda')} sub={app.detail} />
         <Row k={tr('settings.almacenamiento_persistente')} sub={info?.persisted ? tr('settings.el_sistema_no_deberia_borrar_tus') : tr('settings.sin_garantia_el_sistema_podria_borrarlos')}>
           <span class="v">{info?.persisted == null ? '—' : info.persisted ? tr('settings.concedido') : tr('settings.no_concedido')}</span>
@@ -355,7 +389,7 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
         {app.vault.kind === 'fsaccess' && <Row k={tr('settings.volver_al_almacenamiento_privado')}><button type="button" class="link" onClick={async () => (await rememberFolder(null), location.reload())}>{tr('settings.desconectar_carpeta')}</button></Row>}
       </Group>
 
-      <Group title={tr('app.respaldo')}>
+      <Group id="respaldo" summary={sum.respaldo} title={tr('app.respaldo')}>
         <Row k={tr('settings.ultimo_respaldo')} sub={days === null ? tr('settings.nunca') : days === 0 ? tr('today.hoy') : tr('settings.hace_days_dias', { days: days })}><button type="button" class="btn small primary" onClick={() => app.openSheet('backup')}>{tr('settings.respaldar_ahora')}</button></Row>
         <Row k={tr('settings.recordatorio_semanal')} sub={tr('settings.aviso_discreto_en_hoy_nunca_notificaciones')}><Switch label={tr('settings.recordatorio_semanal')} checked={s.weeklyBackupReminder} onChange={(v) => u({ weeklyBackupReminder: v })} /></Row>
         <Row k={tr('settings.avisar_si_pasan_mas_de')}>
@@ -364,13 +398,13 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
         <Row k={tr('settings.importar_archivos_o_restaurar')}><button type="button" class="link" onClick={() => app.openSheet('import')}>{tr('settings.importar')}</button></Row>
       </Group>
 
-      <Group title={tr('settings.integridad')} footer={tr('settings.se_comprueba_al_abrir_engrama_nunca')}>
+      <Group id="integridad" summary={sum.integridad} title={tr('settings.integridad')} footer={tr('settings.se_comprueba_al_abrir_engrama_nunca')}>
         <Row k={tr('settings.archivos')} sub={ig ? Object.entries(ig.byFolder).map(([k, n]) => `${k}: ${n}`).join(' · ') || tr('settings.boveda_vacia') : tr('settings.comprobando')}><span class="v">{ig?.files ?? '—'}</span></Row>
         {ig?.problems.map((p) => <Row k={<code style={{ wordBreak: 'break-all' }}>{p.path}</code>} sub={`⚠ ${p.reason}`} />)}
         <Row k={ig?.problems.length ? tr('settings.n_problemas', { n: ig.problems.length }) : tr('settings.sin_problemas')}><button type="button" class="link" onClick={() => void app.recheckIntegrity()}>{tr('settings.comprobar_de_nuevo')}</button></Row>
       </Group>
 
-      <Group title={tr('ink.apple_pencil')} footer={tr('ink.pencil_nota')}>
+      <Group id="tinta" summary={sum.tinta} title={tr('ink.apple_pencil')} footer={tr('ink.pencil_nota')}>
         <div class="row-i"><Segmented label={tr('ink.el_dedo')} value={s.inkFinger} onChange={(v) => u({ inkFinger: v })} options={[['pencil', tr('ink.solo_pencil')], ['scroll', tr('ink.dedo_desplaza')], ['draw', tr('ink.dedo_dibuja')]]} /></div>
       </Group>
 
@@ -378,11 +412,11 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
 
       <AddonsGroup />
 
-      <Group title={tr('settings.instalar')}>
+      <Group id="instalar" summary={sum.instalar} title={tr('settings.instalar')}>
         {isStandalone() ? <Row k={tr('settings.engrama_esta_instalada')} sub={tr('settings.abierta_desde_la_pantalla_de_inicio')} /> : <div class="row-i"><div class="k"><InstallSteps /></div></div>}
       </Group>
 
-      <Group title={tr('settings.mas')}>
+      <Group id="mas" summary={sum.mas} title={tr('settings.mas')}>
         <Row k={tr('settings.pagina_de_diseno')} sub={tr('settings.componentes_sobre_5_fondos_de_prueba')} onClick={() => (location.hash = href('design'))}><span class="v">›</span></Row>
         <Row k={tr('settings.cargar_boveda_de_ejemplo')} sub={tr('settings.anade_mazos_y_notas_de_muestra')}>
           <button type="button" class="link" onClick={async () => {
@@ -393,7 +427,7 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
           }}>{tr('settings.cargar')}</button>
         </Row>
       </Group>
-      <Group title={tr('settings.acerca_de')}>
+      <Group id="acerca" summary={sum.acerca} title={tr('settings.acerca_de')}>
         <div class="row" style={{ padding: '14px 18px', gap: '16px' }}>
           <img class="brand-logo" src="brand/logo-256.png" width="72" height="72" alt={tr('settings.logo_de_engrama')} style={{ borderRadius: '18px' }} />
           <div><div style={{ fontWeight: 500, fontSize: 'var(--t-3)' }}>{tr('settings.engrama')}</div><div class="foot">{tr('settings.version_app_version_sin_servidores_sin', { APP_VERSION: APP_VERSION })}</div></div>
@@ -401,5 +435,6 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
       </Group>
       <div style={{ height: '24px' }} />
     </div>
+    </FoldCtx.Provider>
   );
 }

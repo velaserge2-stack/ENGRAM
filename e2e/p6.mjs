@@ -17,6 +17,9 @@ let browser;
 try { browser = await type.launch(); } catch { type = pw.chromium; browser = await type.launch(); }
 console.log('Navegador:', type.name());
 const check = (c, m) => { if (!c) throw new Error('FALLÓ: ' + m); console.log('  ✓', m); };
+
+// Ajustes en acordeón (Prompt 6 · B4): desplegar todo antes de usar sus controles
+const openAll = async (page) => { await page.locator('.settings').waitFor(); const b = page.getByRole('button', { name: 'Desplegar todo' }); if (await b.count()) { await b.click(); await page.waitForTimeout(300); } };
 const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
 const run = (k) => !only || only.includes(k);
 const errors = [];
@@ -105,6 +108,7 @@ try {
     await page.locator('.toast', { hasText: 'Cefaleas' }).waitFor();
     check(true, 'desde la lista del mazo: tarjeta a Cefaleas');
     await page.goto(URL_ + '#/ajustes');
+    await openAll(page);
     await page.getByRole('button', { name: 'Comprobar' }).first().click();
     await page.getByText(/idéntico/i).first().waitFor();
     check(true, 'verifyDeterminism: el estado reconstruido es idéntico');
@@ -180,6 +184,60 @@ try {
     await page.locator('.toast', { hasText: 'Urgencias/Choque' }).waitFor();
     await page.locator('.tree button.ti', { hasText: 'ECG' }).waitFor({ state: 'detached' });
     check(true, 'varias notas a la vez (selección)');
+  }
+
+  if (run('perfil')) {
+    console.log('Perfil como centro: Ajustes y Respaldo');
+    await page.goto(URL_ + '#/hoy');
+    await page.locator('.topbar').waitFor();
+    check(await page.locator('.topbar').getByRole('link', { name: 'Ajustes' }).count() === 0 && await page.locator('.topbar').getByRole('button', { name: 'Respaldo' }).count() === 0, 'la barra superior ya no tiene Ajustes ni Respaldo');
+    await page.locator('.topbar').getByRole('link', { name: 'Perfil' }).click();
+    await page.getByRole('heading', { name: 'Perfil', level: 1 }).waitFor();
+    await page.getByRole('button', { name: /^Respaldo/ }).click();
+    await page.getByRole('dialog', { name: /Respaldo/ }).waitFor();
+    check(true, 'Perfil → Respaldo abre la hoja de respaldo');
+    await page.getByRole('dialog', { name: /Respaldo/ }).getByRole('button', { name: 'Cerrar' }).click();
+    await page.getByRole('button', { name: /^Ajustes/ }).click();
+    await page.getByRole('heading', { name: 'Ajustes', level: 1 }).waitFor();
+    check(page.url().endsWith('#/ajustes'), 'Perfil → Ajustes lleva a #/ajustes');
+    // acordeón
+    const heads = page.locator('.settings .fold-btn');
+    const n = await heads.count();
+    const expanded = await heads.evaluateAll((b) => b.filter((x) => x.getAttribute('aria-expanded') === 'true').length);
+    check(n >= 14 && expanded === 0, `${n} secciones, todas plegadas por defecto`);
+    check(await heads.first().getAttribute('aria-controls') !== null, 'aria-expanded y aria-controls');
+    const estudio = page.getByRole('button', { name: /^Estudio \(FSRS\)/ });
+    check((await estudio.innerText()).includes('Retención 90 %'), 'cada sección muestra un resumen de una línea');
+    const below = page.getByRole('button', { name: /^Parámetros FSRS/ });
+    const y0 = (await below.boundingBox()).y;
+    await estudio.focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(400);
+    check(await estudio.getAttribute('aria-expanded') === 'true' && (await below.boundingBox()).y > y0 + 100, 'con el teclado se despliega y las de abajo bajan');
+    await page.getByRole('slider', { name: /Retención deseada/ }).waitFor();
+    await page.waitForTimeout(800);
+    await page.reload();
+    await page.getByRole('heading', { name: 'Ajustes', level: 1 }).waitFor();
+    check(await page.getByRole('button', { name: /^Estudio \(FSRS\)/ }).getAttribute('aria-expanded') === 'true', 'lo desplegado persiste tras recargar');
+    await page.getByRole('button', { name: 'Desplegar todo' }).click();
+    await page.waitForTimeout(300);
+    check(await heads.evaluateAll((b) => b.every((x) => x.getAttribute('aria-expanded') === 'true')), '«Desplegar todo»');
+    await page.getByRole('button', { name: 'Plegar todo' }).click();
+    await page.waitForTimeout(300);
+    check(await heads.evaluateAll((b) => b.every((x) => x.getAttribute('aria-expanded') === 'false')), '«Plegar todo»');
+    await page.goto(URL_ + '#/ajustes/addons');
+    await page.getByRole('region', { name: 'Add-ons' }).getByRole('switch').first().waitFor();
+    check(true, '#/ajustes/addons abre directamente esa sección');
+    await page.getByRole('link', { name: 'Volver al perfil' }).click();
+    await page.getByRole('heading', { name: 'Perfil', level: 1 }).waitFor();
+    check(true, '«Volver al perfil»');
+    // barra a 834 px (informe)
+    await page.setViewportSize({ width: 834, height: 1194 });
+    await page.goto(URL_ + '#/hoy');
+    await page.waitForTimeout(400);
+    const bar = await page.locator('.seg-nav').evaluate((n) => ({ visible: n.clientWidth, total: n.scrollWidth }));
+    console.log(`    barra a 834 px: ${bar.visible} px visibles de ${bar.total} px${bar.total <= bar.visible + 1 ? ' (cabe entera)' : ' (no cabe entera)'}`);
+    await page.setViewportSize({ width: 1180, height: 820 });
   }
 
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));

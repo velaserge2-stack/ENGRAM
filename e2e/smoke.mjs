@@ -33,6 +33,9 @@ console.log('Navegador:', browserType.name());
 
 const errors = [];
 const check = (cond, msg) => {
+
+// Ajustes en acordeón (Prompt 6 · B4): desplegar todo antes de usar sus controles
+const openAll = async (page) => { await page.locator('.settings').waitFor(); const b = page.getByRole('button', { name: 'Desplegar todo' }); if (await b.count()) { await b.click(); await page.waitForTimeout(300); } };
   if (!cond) throw new Error('FALLÓ: ' + msg);
   console.log('  ✓', msg);
 };
@@ -59,6 +62,7 @@ try {
   check((await page.getByText('Bienvenido a Engrama').count()) === 0, 'tras recargar, los datos y ajustes sobreviven (OPFS)');
 
   await page.goto(URL_ + '#/ajustes');
+  await openAll(page);
   await page.getByText('OPFS').first().waitFor();
   const detail = await page.getByText('OPFS').first().textContent();
   check(true, 'backend: ' + detail);
@@ -74,6 +78,7 @@ try {
   await page.getByText(/Estudiaste 1 tarjetas/).waitFor();
   check(true, 'estudiar registra el repaso y Hoy lo refleja');
   await page.goto(URL_ + '#/ajustes');
+  await openAll(page);
   await page.getByRole('button', { name: 'Comprobar', exact: true }).click();
   await page.getByText(/✓ Idéntico/).waitFor();
   check(true, 'reconstruir desde reviews.jsonl da el mismo estado que state.json');

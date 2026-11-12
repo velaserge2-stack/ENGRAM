@@ -63,6 +63,8 @@ export interface Settings {
   accent: { color: string | null; usos: AccentUse[] };
   /** idioma de la interfaz; '' = el del dispositivo (es, en o fr; si no, es) */
   lang: '' | 'es' | 'en' | 'fr' | 'xx';
+  /** secciones desplegadas en Ajustes (acordeón; por defecto todas plegadas) */
+  settingsOpen: string[];
   /** días que un mazo borrado se queda en la papelera antes de vaciarse solo (0 = nunca) */
   deckTrashDays: number;
   /** add-on «Sonido ambiente» (Prompt 5 · A): volúmenes 0–1 por sonido y opciones */
@@ -127,6 +129,7 @@ export function defaultSettings(): Settings {
     deckEmoji: {},
     accent: { color: null, usos: [] },
     lang: '',
+    settingsOpen: [],
   };
 }
 

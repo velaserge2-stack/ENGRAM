@@ -18,6 +18,9 @@ let browser;
 try { browser = await type.launch(); } catch { type = pw.chromium; browser = await type.launch(); }
 console.log('Navegador:', type.name());
 const check = (c, m) => { if (!c) throw new Error('FALLÓ: ' + m); console.log('  ✓', m); };
+
+// Ajustes en acordeón (Prompt 6 · B4): desplegar todo antes de usar sus controles
+const openAll = async (page) => { await page.locator('.settings').waitFor(); const b = page.getByRole('button', { name: 'Desplegar todo' }); if (await b.count()) { await b.click(); await page.waitForTimeout(300); } };
 const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
 const run = (k) => !only || only.includes(k);
 const errors = [];
@@ -228,6 +231,7 @@ try {
     // mazo de 25 tarjetas nuevas (sin tocar la pantalla para repasar)
     const deck = '---\ndeck: Teclado\nnew_per_day: 40\n---\n' + Array.from({ length: 25 }, (_, i) => `Q:: Pregunta ${i + 1}\nA:: Respuesta ${i + 1} ^tk${i + 1}`).join('\n\n') + '\n';
     await page.goto(URL_ + '#/ajustes');
+    await openAll(page);
     await page.getByRole('region', { name: 'Respaldo' }).getByRole('button', { name: /Importar/ }).click();
     await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'Teclado.md', mimeType: 'text/markdown', buffer: Buffer.from(deck) });
     await page.locator('.sheet .btn.primary').filter({ hasText: /Importar/ }).click();
