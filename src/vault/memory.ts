@@ -1,6 +1,7 @@
 import { basename, normalizePath } from './paths';
 import { type FileStat, type VaultAdapter, VaultError } from './types';
-import { toBytes } from './util';
+import { CHUNK, checksum, FNV_INIT, fnvHex, fnvUpdate, toBytes } from './util';
+import type { BlobWriteOptions } from './types';
 
 /** Backend en memoria: pruebas y "modo temporal" cuando OPFS no está disponible. */
 export class MemoryBackend implements VaultAdapter {
@@ -71,6 +72,37 @@ export class MemoryBackend implements VaultAdapter {
       }
     }
     if (!moved) throw new VaultError(`No existe: ${from}`, 'not-found', from);
+  }
+
+  /** Por trozos como los demás (pruebas de cancelación y de corte a mitad). `failAfter`: simula un corte. */
+  failAfter: number | null = null;
+  async writeBlob(path: string, blob: Blob, opts: BlobWriteOptions = {}): Promise<{ size: number; hash: string }> {
+    const p = normalizePath(path);
+    const out = new Uint8Array(blob.size);
+    let h = FNV_INIT, at = 0;
+    while (at < blob.size) {
+      if (opts.signal?.aborted) throw new DOMException('Cancelado', 'AbortError');
+      if (this.failAfter !== null && at >= this.failAfter) {
+        this.files.set(p, { data: out.slice(0, at), mtime: Date.now() }); // el disco quedó a medias
+        throw new VaultError('Corte simulado', 'io', p);
+      }
+      const b = new Uint8Array(await blob.slice(at, at + CHUNK).arrayBuffer());
+      out.set(b, at);
+      h = fnvUpdate(h, b);
+      at += b.length;
+      opts.onProgress?.(at, blob.size);
+    }
+    this.files.set(p, { data: out, mtime: Date.now() });
+    return { size: at, hash: fnvHex(h) };
+  }
+  async hash(path: string): Promise<{ size: number; hash: string }> {
+    const d = (await this.read(path));
+    return { size: d.length, hash: checksum(d) };
+  }
+  async file(path: string): Promise<File> {
+    const d = this.files.get(normalizePath(path));
+    if (!d) throw new VaultError(`No existe: ${path}`, 'not-found', path);
+    return new File([d.data as BlobPart], basename(path));
   }
 
   async exists(path: string): Promise<boolean> {

@@ -143,3 +143,89 @@ describe('codificación de nombres OPFS', () => {
     expect(asciiCodec.enc('a%20b.md')).toBe('a%2520b.md');
   });
 });
+
+describe('writeStream: archivos grandes por trozos (Prompt 11)', () => {
+  const big = (n: number) => { const b = new Uint8Array(n); for (let i = 0; i < n; i++) b[i] = (i * 31 + 7) & 255; return b; };
+  it('escribe por trozos con progreso; misma suma que checksum; sin temporales', async () => {
+    const { SafeVault, TMP_DIR, JOURNAL_PATH } = await import('../src/vault/safe');
+    const { MemoryBackend } = await import('../src/vault/memory');
+    const { checksum, CHUNK } = await import('../src/vault/util');
+    const raw = new MemoryBackend();
+    const v = new SafeVault(raw);
+    const data = big(CHUNK * 2 + 123);
+    const seen: number[] = [];
+    await v.writeStream('docs/grande.pdf', new Blob([data]), { onProgress: (n) => seen.push(n) });
+    expect(seen).toEqual([CHUNK, CHUNK * 2, CHUNK * 2 + 123]);
+    expect(checksum(await v.read('docs/grande.pdf'))).toBe(checksum(data));
+    expect(await v.hash('docs/grande.pdf')).toEqual({ size: data.length, hash: checksum(data) });
+    expect(await raw.exists(JOURNAL_PATH)).toBe(false);
+    expect((await raw.list(TMP_DIR)).length).toBe(0);
+    const f = await v.file('docs/grande.pdf');
+    expect(f.size).toBe(data.length);
+    expect(new Uint8Array(await f.slice(10, 14).arrayBuffer())).toEqual(data.slice(10, 14));
+  });
+  it('cancelar borra el temporal y no toca el destino', async () => {
+    const { SafeVault, TMP_DIR } = await import('../src/vault/safe');
+    const { MemoryBackend } = await import('../src/vault/memory');
+    const { CHUNK } = await import('../src/vault/util');
+    const raw = new MemoryBackend();
+    const v = new SafeVault(raw);
+    await v.write('docs/a.pdf', 'versión anterior');
+    const ac = new AbortController();
+    const p = v.writeStream('docs/a.pdf', new Blob([big(CHUNK * 3)]), { signal: ac.signal, onProgress: () => ac.abort() });
+    await expect(p).rejects.toThrow(/Cancelado/);
+    expect(new TextDecoder().decode(await v.read('docs/a.pdf'))).toBe('versión anterior');
+    expect((await raw.list(TMP_DIR)).length).toBe(0);
+  });
+  it('corte a mitad de la escritura del temporal: recover() lo descarta y el destino queda igual', async () => {
+    const { SafeVault, TMP_DIR, JOURNAL_PATH } = await import('../src/vault/safe');
+    const { MemoryBackend } = await import('../src/vault/memory');
+    const { CHUNK } = await import('../src/vault/util');
+    const raw = new MemoryBackend();
+    const v = new SafeVault(raw);
+    await v.write('docs/a.pdf', 'original');
+    raw.failAfter = CHUNK; // el «disco» se corta tras el primer trozo
+    await expect(v.writeStream('docs/a.pdf', new Blob([big(CHUNK * 3)]))).rejects.toThrow(/Corte/);
+    raw.failAfter = null;
+    expect(await raw.exists(JOURNAL_PATH)).toBe(false); // el diario nunca se escribió
+    const rep = await new SafeVault(raw).recover();
+    expect(rep.recovered).toEqual([]);
+    expect(new TextDecoder().decode(await raw.read('docs/a.pdf'))).toBe('original');
+    expect((await raw.list(TMP_DIR)).length).toBe(0);
+  });
+  it('caída tras el diario (antes o después de mover): recover() termina la escritura verificando por trozos', async () => {
+    const { SafeVault, TMP_DIR, JOURNAL_PATH } = await import('../src/vault/safe');
+    const { MemoryBackend } = await import('../src/vault/memory');
+    const { checksum } = await import('../src/vault/util');
+    const data = big(5000);
+    const entry = (tmp: string, hash = checksum(data)) => JSON.stringify({ v: 1, entries: [{ op: 'write', stream: true, path: 'docs/b.pdf', tmp, size: data.length, hash, ts: 1 }] });
+    // (1) temporal completo, sin mover
+    let raw = new MemoryBackend();
+    await raw.write(`${TMP_DIR}/x`, data);
+    await raw.write(JOURNAL_PATH, entry(`${TMP_DIR}/x`));
+    let rep = await new SafeVault(raw).recover();
+    expect(rep.recovered).toEqual(['docs/b.pdf']);
+    expect(checksum(await raw.read('docs/b.pdf'))).toBe(checksum(data));
+    expect(await raw.exists(`${TMP_DIR}/x`)).toBe(false);
+    // (2) ya movido, faltaba borrar el diario
+    raw = new MemoryBackend();
+    await raw.write('docs/b.pdf', data);
+    await raw.write(JOURNAL_PATH, entry(`${TMP_DIR}/y`));
+    rep = await new SafeVault(raw).recover();
+    expect(rep.recovered).toEqual(['docs/b.pdf']);
+    // (3) temporal con suma distinta: se descarta y el destino no se toca
+    raw = new MemoryBackend();
+    await raw.write('docs/b.pdf', 'previo');
+    await raw.write(`${TMP_DIR}/z`, data);
+    await raw.write(JOURNAL_PATH, entry(`${TMP_DIR}/z`, 'deadbeef'));
+    rep = await new SafeVault(raw).recover();
+    expect(rep.discarded).toEqual(['docs/b.pdf']);
+    expect(new TextDecoder().decode(await raw.read('docs/b.pdf'))).toBe('previo');
+  });
+  it('suma incremental = checksum de una vez', async () => {
+    const { FNV_INIT, fnvHex, fnvUpdate, checksum, blobChecksum } = await import('../src/vault/util');
+    const d = big(10_000);
+    expect(fnvHex(fnvUpdate(fnvUpdate(FNV_INIT, d.subarray(0, 3333)), d.subarray(3333)))).toBe(checksum(d));
+    expect(await blobChecksum(new Blob([d]))).toBe(checksum(d));
+  });
+});

@@ -28,4 +28,8 @@ export class FSAccessBackend implements VaultAdapter {
   move(a: string, b: string) { return this.fs.move(normalizePath(a), normalizePath(b)); }
   async exists(p: string) { return (await this.fs.stat(normalizePath(p))) !== null; }
   stat(p: string) { return this.fs.stat(normalizePath(p)); }
+  // Prompt 11: por trozos (hilo principal: cada trozo cede el hilo al esperar la lectura)
+  writeBlob(p: string, blob: Blob, o: import('./types').BlobWriteOptions = {}) { return this.fs.writeBlob(normalizePath(p), blob, (n) => o.onProgress?.(n, blob.size), () => !!o.signal?.aborted); }
+  hash(p: string) { return this.fs.hash(normalizePath(p)); }
+  file(p: string) { return this.fs.file(normalizePath(p)); }
 }

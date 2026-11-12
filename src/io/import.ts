@@ -6,7 +6,7 @@ import { errMsg, t } from '../i18n';
 import { parseFrontmatter } from '../lib/frontmatter';
 import { basename, extname, normalizePath, withSuffix } from '../vault/paths';
 import type { VaultAdapter } from '../vault/types';
-import { bytesEqual, decodeText } from '../vault/util';
+import { blobChecksum, bytesEqual, decodeText } from '../vault/util';
 import { LIMITS } from './limits';
 import type { ApkgResult } from './apkg';
 import type { LogEntry } from '../srs/engine';
@@ -46,13 +46,20 @@ export interface IncomingFile {
   name: string;
   relativePath?: string;
   bytes: () => Promise<Uint8Array>;
+  /** El File original (Prompt 11): los binarios grandes sueltos se escriben por trozos desde aquí. */
+  file?: File;
 }
+
+/** Binarios sueltos a partir de este tamaño no se leen: viajan como File y se escriben por trozos. */
+export const STREAM_FROM = 8 * 1024 * 1024;
+const STREAMABLE = /^(pdf|docx|pptx|xlsx|mp3|m4a|wav|aac|mp4|mov|jpe?g|png|heic|webp|gif)$/;
 
 export function fromFileList(list: FileList | File[]): IncomingFile[] {
   return [...list].map((f) => ({
     name: f.name,
     relativePath: (f as File & { webkitRelativePath?: string }).webkitRelativePath || undefined,
     bytes: async () => new Uint8Array(await f.arrayBuffer()),
+    file: f,
   }));
 }
 
@@ -96,6 +103,18 @@ export async function gather(incoming: IncomingFile[], opts: GatherOptions = {})
   const stripRoot =
     rels.length > 0 && rels.some((r) => VAULT_ROOTS.some((root) => r.split('/').slice(1).join('/').startsWith(root)));
   for (const f of incoming) {
+    // Prompt 11: binario grande suelto → sin leerlo (se escribe por trozos al aplicar)
+    if (f.file && f.file.size >= STREAM_FROM && STREAMABLE.test(extname(f.name))) {
+      let rel = f.relativePath || f.name;
+      if (stripRoot && f.relativePath) rel = f.relativePath.split('/').slice(1).join('/');
+      if (/(^|\/)(\.DS_Store|\.obsidian|\.trash)(\/|$)/.test(rel)) continue;
+      try {
+        files.push({ path: placeLoose(rel, new Uint8Array()), data: new Uint8Array(), blob: f.file });
+      } catch {
+        warnings.push(t('import.rel_ruta_no_permitida_omitido', { rel: rel }));
+      }
+      continue;
+    }
     const data = await f.bytes();
     if (data.length > LIMITS.maxFileBytes) {
       warnings.push(t('import.name_demasiado_grande_omitido', { name: f.name }));
@@ -163,7 +182,11 @@ export async function buildPlan(vault: VaultAdapter, files: VaultFile[]): Promis
   for (const f of seen.values()) {
     let status: ItemStatus = 'new';
     if (await vault.exists(f.path)) {
-      status = bytesEqual(await vault.read(f.path), f.data) ? 'same' : 'conflict';
+      if (f.blob) {
+        // grande: tamaño y suma por trozos (sin leer ninguno de los dos entero)
+        const cur = vault.hash ? await vault.hash(f.path) : null;
+        status = cur && cur.size === f.blob.size && cur.hash === (await blobChecksum(f.blob)) ? 'same' : 'conflict';
+      } else status = bytesEqual(await vault.read(f.path), f.data) ? 'same' : 'conflict';
     }
     const isText = /\.(md|txt|json|jsonl|csv|ics)$/i.test(f.path);
     plan.push({ ...f, kind: kindOf(f.path), status, preview: isText ? decodeText(f.data.subarray(0, 600)) : '' });
@@ -203,7 +226,9 @@ export async function applyPlan(
       }
     }
     res.previous.set(target, (await vault.exists(target)) ? await vault.read(target) : null);
-    await vault.write(target, item.data);
+    const sv = vault as VaultAdapter & { writeStream?: (p: string, b: Blob) => Promise<void> };
+    if (item.blob && sv.writeStream) await sv.writeStream(target, item.blob);
+    else await vault.write(target, item.blob ? new Uint8Array(await item.blob.arrayBuffer()) : item.data);
     res.written.push(target);
   }
   return res;

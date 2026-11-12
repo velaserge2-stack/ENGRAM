@@ -5,6 +5,7 @@ import { extractText } from '../io/extract';
 import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
 import { docxToMarkdown, pdfToMarkdown } from '../notes/io';
 import { saveImage } from '../notes/images';
+import { STREAM_FROM } from '../io/import';
 import { buildTree, classNoteFromPlaud, glossarySuggestions, listNotes, newNoteText, notePath, plaudGroupKey, plaudKind, type PlaudKind, replaceAll, suggestPlace } from '../notes/model';
 import { go, href, useApp, useAsync } from '../state';
 import { Empty, PageTitle } from '../ui/kit';
@@ -52,9 +53,16 @@ async function intake(vault: ReturnType<typeof useApp>['vault'], files: File[], 
     const item: Item = { id, title: '', created: Date.now(), kind: 'nota', files: [], materia: '', tema: '', draft: '', step: 0 };
     const parts: { kind: PlaudKind; name: string; text?: string; media?: string }[] = [];
     for (const f of fs) {
-      const bytes = new Uint8Array(await f.arrayBuffer());
       const ext = extname(f.name);
       const path = `inbox/${id}/${f.name.replace(/[\\/]/g, '_')}`;
+      // Prompt 11: binario grande (PDF, Word, audio) → por trozos, sin leerlo entero; queda adjunto
+      if (f.size >= STREAM_FROM && /^(pdf|docx|mp3|wav|m4a)$/.test(ext)) {
+        await vault.writeStream(path, f);
+        item.files.push({ name: f.name, kind: ext === 'pdf' || ext === 'docx' ? 'doc' : 'audio', path });
+        parts.push({ kind: ext === 'pdf' || ext === 'docx' ? 'otro' : 'audio', name: f.name, text: ext === 'pdf' || ext === 'docx' ? t('inbox.grande_adjunto') : undefined });
+        continue;
+      }
+      const bytes = new Uint8Array(await f.arrayBuffer());
       if (/^(jpe?g|png|heic|webp|gif)$/.test(ext)) {
         const media = await saveImage(vault, f, f.name);
         item.files.push({ name: f.name, kind: 'img', path: `media/${media}`, media });

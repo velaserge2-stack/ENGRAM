@@ -35,9 +35,14 @@ export type WorkerRequest =
   | { id: number; op: 'init' }
   | { id: number; op: 'list' | 'read' | 'remove' | 'exists' | 'stat'; path: string }
   | { id: number; op: 'write'; path: string; data: Uint8Array }
-  | { id: number; op: 'move'; from: string; to: string };
+  | { id: number; op: 'move'; from: string; to: string }
+  // Prompt 11: archivos grandes por trozos (el Blob llega sin copiar sus bytes)
+  | { id: number; op: 'writeBlob'; path: string; blob: Blob }
+  | { id: number; op: 'hash' | 'file'; path: string }
+  | { id: number; op: 'cancel'; target: number };
 
 export type WorkerResponse =
+  | { id: number; progress: number }
   | { id: number; ok: true; value: unknown }
   | { id: number; ok: false; error: string; code?: string };
 
@@ -57,8 +62,12 @@ function getFS() {
 // Las operaciones se ejecutan en serie: un sync handle abierto bloquea el archivo.
 let chain: Promise<unknown> = Promise.resolve();
 
+const cancelled = new Set<number>();
+
 self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
   const req = ev.data;
+  // cancelar no espera en la cola: marca la escritura en curso para que se detenga
+  if (req.op === 'cancel') return void cancelled.add(req.target);
   chain = chain.then(async () => {
     try {
       const { fs, strategy } = await getFS();
@@ -85,6 +94,26 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
           break;
         case 'move':
           await fs.move(req.from, req.to);
+          break;
+        case 'writeBlob': {
+          let last = 0;
+          try {
+            value = await fs.writeBlob(req.path, req.blob, (n) => {
+              if (n - last >= 1 << 20 || n === req.blob.size) ((last = n), (self as unknown as Worker).postMessage({ id: req.id, progress: n } satisfies WorkerResponse));
+            }, () => cancelled.has(req.id));
+          } catch (e) {
+            await fs.remove(req.path).catch(() => {}); // no dejar el temporal a medias
+            throw e;
+          } finally {
+            cancelled.delete(req.id);
+          }
+          break;
+        }
+        case 'hash':
+          value = await fs.hash(req.path);
+          break;
+        case 'file':
+          value = await fs.file(req.path);
           break;
         case 'exists':
           value = (await fs.stat(req.path)) !== null;
