@@ -26,6 +26,8 @@ export const MODULES = (): Module[] => ([
   { id: 'challenge', name: t('addons.n_challenge'), version: '0.9', description: t('addons.repasa_30_tarjetas_hoy'), defaultOn: false, hooks: ['renderDashboardTile'] },
   { id: 'fact', name: t('addons.n_fact'), version: '0.9', description: t('addons.una_linea_al_azar_de_notes'), defaultOn: false, hooks: ['renderDashboardTile'] },
   { id: 'ambient', name: t('addons.n_ambient'), version: '1.0', description: t('addons.ambient_desc'), defaultOn: false, hooks: ['registerView'] },
+  // Prompt 6 · C: oculta por ahora; apagada no se muestra ni cuenta pendientes (inbox/ no se toca)
+  { id: 'inbox', name: t('addons.n_inbox'), version: '1.0', description: t('addons.inbox_desc'), defaultOn: false, hooks: ['registerView'] },
 ]);
 
 export function addonOn(s: { addons: Record<string, boolean> }, id: string): boolean {

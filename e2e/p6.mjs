@@ -241,6 +241,121 @@ try {
     await ctx.close();
   }
 
+  if (run('bandeja')) {
+    console.log('Bandeja oculta tras un add-on');
+    const { ctx, page } = await fresh();
+    check(await page.locator('.topbar a[href="#/bandeja"]').count() === 0, 'apagada por defecto: sin icono ni contador en la barra');
+    await page.goto(URL_ + '#/bandeja');
+    await page.waitForURL(/#\/hoy$/);
+    await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
+    check(true, '#/bandeja redirige a Hoy');
+    await page.keyboard.press('Control+k');
+    await page.getByRole('dialog').waitFor();
+    await page.keyboard.type('bandeja');
+    await page.waitForTimeout(300);
+    check(await page.getByRole('dialog').getByText('Procesar bandeja').count() === 0, 'la paleta no ofrece «Procesar bandeja»');
+    await page.keyboard.press('Escape');
+    await page.goto(URL_ + '#/espacios');
+    await page.getByRole('button', { name: 'Nuevo espacio' }).first().waitFor();
+    check(await page.locator('a[href="#/bandeja"]').count() === 0, 'ni en el dock de Espacios');
+    // encender: todo vuelve
+    await page.goto(URL_ + '#/ajustes/addons');
+    await page.getByRole('region', { name: 'Add-ons' }).getByRole('switch', { name: 'Bandeja de entrada' }).check();
+    await page.waitForTimeout(400);
+    await page.locator('.topbar a[href="#/bandeja"]').waitFor();
+    check(true, 'al encenderla vuelve el icono con su contador');
+    await page.goto(URL_ + '#/bandeja');
+    await page.getByRole('heading', { name: 'Bandeja', level: 1 }).waitFor();
+    check(page.url().endsWith('#/bandeja'), 'y #/bandeja abre la Bandeja');
+    await ctx.close();
+  }
+
+  if (run('mini')) {
+    console.log('Mini reproductor de sonido ambiente');
+    const start = async (pg) => {
+      await pg.goto(URL_ + '#/ajustes/addons');
+      await pg.getByRole('region', { name: 'Add-ons' }).getByRole('switch', { name: 'Sonido ambiente' }).check();
+      await pg.waitForTimeout(300);
+      check(await pg.locator('.mini-amb').count() === 0 && await pg.evaluate(() => window.__ambient.state() === 'none'), 'nada suena al abrir: sin mini reproductor');
+      await pg.evaluate(() => document.querySelector('.phone-tabbar') ? null : null);
+      // abrir el panel y poner lluvia
+      if (await pg.locator('.phone-tabbar').count()) { await pg.locator('.phone-tabbar').getByRole('button', { name: 'Más' }).click(); await pg.getByRole('button', { name: 'Sonido ambiente' }).click(); }
+      else await pg.locator('.topbar').getByRole('button', { name: 'Sonido ambiente' }).click();
+      const sh = pg.getByRole('dialog', { name: 'Sonido ambiente' });
+      await sh.getByRole('slider', { name: 'Volumen de Lluvia' }).fill('60');
+      await sh.getByRole('button', { name: 'Reproducir', exact: true }).first().click();
+      await sh.getByRole('button', { name: 'Cerrar' }).click();
+      await pg.locator('.mini-amb').waitFor();
+      check((await pg.locator('.mini-amb').innerText()).includes('Lluvia'), 'con lluvia sonando aparece el mini reproductor con su título');
+    };
+    // escritorio / iPad con cursor
+    {
+      const { ctx, page } = await fresh();
+      await start(page);
+      check(await page.locator('.topbar .mini-amb').count() === 1, 'está en la barra, junto al icono de Sonido ambiente');
+      await page.locator('.mini-amb').hover();
+      await page.locator('.mini-amb-x').waitFor();
+      check(true, 'al pasar el cursor se extiende');
+      const x = await page.locator('.mini-amb-x').boundingBox();
+      check(x.x >= 0 && x.y >= 0 && x.x + x.width <= 1180 && x.y + x.height <= 820, 'el panel extendido queda dentro de la pantalla');
+      await page.locator('.mini-amb-x').getByRole('slider', { name: 'Volumen general' }).fill('50');
+      check(await page.evaluate(() => window.__ambient.volume === 0.5), 'cambia el volumen general sin abrir el panel');
+      await page.locator('.mini-amb-x').getByRole('slider', { name: 'Volumen de Lluvia' }).fill('30');
+      check(await page.evaluate(() => window.__ambient.levels().rain === 0.3), 'y el volumen de cada capa activa');
+      await page.locator('.mini-amb-x').getByRole('button', { name: 'Pausar' }).click();
+      check(await page.evaluate(() => !window.__ambient.playing && window.__ambient.paused), 'pausar sin abrir el panel');
+      check(await page.locator('.mini-amb').count() === 1, 'en pausa sigue visible para reanudar');
+      await page.locator('.mini-amb-x').getByRole('button', { name: 'Reanudar' }).click();
+      check(await page.evaluate(() => window.__ambient.playing && window.__ambient.state() === 'running'), 'reanudar: el mismo motor (AudioContext) vuelve a sonar');
+      await page.mouse.move(600, 600);
+      await page.waitForTimeout(150);
+      check(await page.locator('.mini-amb-x').count() === 1, 'al salir hay gracia (no se cierra de golpe)');
+      await page.waitForTimeout(400);
+      check(await page.locator('.mini-amb-x').count() === 0, 'y luego se contrae');
+      // teclado
+      await page.locator('.topbar').getByRole('button', { name: 'Sonido ambiente' }).focus();
+      await page.keyboard.press('Tab');
+      await page.locator('.mini-amb-x').waitFor();
+      check(true, 'con el foco del teclado también se extiende');
+      await page.keyboard.press('Escape');
+      await page.locator('.mini-amb-x').waitFor({ state: 'detached' });
+      check(true, 'Esc lo contrae');
+      await page.locator('.mini-amb').hover();
+      await page.locator('.mini-amb-x').getByRole('button', { name: 'Abrir panel' }).click();
+      const sh = page.getByRole('dialog', { name: 'Sonido ambiente' });
+      await sh.waitFor();
+      check(true, '«Abrir panel» abre el panel de Sonido ambiente');
+      await sh.getByRole('button', { name: 'Detener' }).click();
+      await sh.getByRole('button', { name: 'Cerrar' }).click();
+      await page.locator('.mini-amb').waitFor({ state: 'detached' });
+      check(true, 'al detener desaparece');
+      await ctx.close();
+    }
+    // teléfono: píldora flotante sobre la barra inferior; se extiende al tocar
+    {
+      const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'es-MX', hasTouch: true, isMobile: true });
+      const page = await ctx.newPage();
+      page.on('pageerror', (e) => errors.push(String(e)));
+      await page.goto(URL_);
+      await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
+      await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
+      await start(page);
+      const pill = await page.locator('.mini-amb.floating').boundingBox();
+      const bar = await page.locator('.phone-tabbar').boundingBox();
+      check(pill && pill.y + pill.height <= bar.y && pill.x + pill.width <= 390, 'teléfono: píldora flotante sobre la barra inferior, sin taparla');
+      await page.locator('.mini-amb-main').tap();
+      await page.locator('.mini-amb-x').waitFor();
+      const x = await page.locator('.mini-amb-x').boundingBox();
+      check(x.y >= 0 && x.y + x.height <= bar.y + 1 && x.x >= 0 && x.x + x.width <= 390, 'al tocar se extiende (sin hover) dentro de la pantalla y sin tapar la barra');
+      await page.locator('.mini-amb-x').getByRole('button', { name: 'Pausar' }).tap();
+      check(await page.evaluate(() => window.__ambient.paused), 'pausa con el dedo');
+      await page.mouse.click(30, 300);
+      await page.waitForTimeout(200);
+      check(await page.locator('.mini-amb-x').count() === 0, 'tocar fuera lo contrae');
+      await ctx.close();
+    }
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   await ctx.close();
   console.log('\nOK');

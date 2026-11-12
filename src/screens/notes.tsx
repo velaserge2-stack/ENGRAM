@@ -28,6 +28,7 @@ import { noteStore, onNoteSaved } from '../notes/store';
 import { createDrawing, DRAW_RE, DrawingBlock } from '../ink/DrawingBlock';
 import { pressArmed, usePressDrag } from '../ui/pressdrag';
 import { MoveNotesSheet, type NoteItems, useNoteMover } from './notemove';
+import { addonOn } from './addons';
 
 // tras cada guardado (venga de la pestaña o de un panel): historial de versiones e índice de búsqueda
 onNoteSaved(async (vault, path, text) => { await snapshot(vault, path, text); void notesIndex.upsert(path, text); });
@@ -294,7 +295,7 @@ function NoteTree(props: { data: NotesData; current: string | null; onNew: () =>
         <div>
           <button type="button" class="ti" onClick={() => tog('__loose')}><Folder size={16} /> <b>{tr('notes.sin_clasificar')}</b> <span class="foot">{loose.length}</span></button>
           {closed.has('__loose') ? null : loose.map((n) => link(n, 1))}
-          <p class="foot">{tr('notes.notas_fuera_de_materia_tema_abrelas')}</p>
+          <p class="foot">{addonOn(app.settings, 'inbox') ? tr('notes.notas_fuera_de_materia_tema_abrelas') : tr('notes.notas_fuera_sin_bandeja')}</p>
         </div>
       )}
       <button type="button" class="ti" onClick={() => setTrashOpen(true)}><Trash2 size={16} />{' '}{tr('notes.papelera')}</button>
