@@ -336,6 +336,10 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 /* Prompt 14 · 1: las asas son hijas de .win (que no se desplaza), encima del contenido; el dibujo
    de 22 px no cambia y la zona táctil crece a 44 px con puntero grueso (dedo, Pencil) */
 .canvas-plane > .win > .win-body { padding-bottom: 22px; }
+/* Prompt 14 · 3: panel de imagen (versión reducida, zoom propio y marcador de carga) */
+.img-view { position: relative; overflow: hidden; }
+.img-skeleton { min-height: 200px; display: grid; place-items: center; }
+.img-bar { position: sticky; bottom: 0; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 8px; }
 .win-resize, .win-edge { position: absolute; z-index: var(--z-panel); touch-action: none; }
 .win-resize { right: 0; bottom: 0; width: 24px; height: 24px; cursor: nwse-resize; }
 .win-resize::after { content: ''; position: absolute; right: 2px; bottom: 2px; width: 22px; height: 22px; border-right: 2px solid var(--t3); border-bottom: 2px solid var(--t3); border-radius: 0 0 8px 0; pointer-events: none; }

@@ -207,6 +207,66 @@ try {
     check(await page.locator('.doc').getByText('añadido').count() === 1, 'tras recargar, lo escrito sigue ahí');
     await ctx.close();
   }
+  if (run('img')) {
+    console.log('Imagen grande en un panel del lienzo');
+    const { ctx, page } = await fresh();
+    await ctx.addInitScript(() => {
+      const live = new Set(); const c = URL.createObjectURL.bind(URL), r = URL.revokeObjectURL.bind(URL);
+      URL.createObjectURL = (o) => { const u = c(o); live.add(u); return u; };
+      URL.revokeObjectURL = (u) => { live.delete(u); r(u); };
+      window.__blobs = () => live.size;
+    });
+    // foto de 12 MP (4000×3000) generada en el navegador e importada a media/
+    const b64 = await page.evaluate(async () => { const c = new OffscreenCanvas(4000, 3000), x = c.getContext('2d'); const g = x.createLinearGradient(0, 0, 4000, 3000); g.addColorStop(0, '#89a'); g.addColorStop(1, '#234'); x.fillStyle = g; x.fillRect(0, 0, 4000, 3000); const b = await c.convertToBlob({ type: 'image/jpeg', quality: 0.8 }); return await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.readAsDataURL(b); }); });
+    const orig = Buffer.from(b64, 'base64');
+    await page.goto(URL_ + '#/mazos');
+    await page.getByRole('button', { name: 'Importar archivo' }).click();
+    await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'foto.zip', mimeType: 'application/zip', buffer: Buffer.from(zipSync({ 'media/foto-12mp.jpg': new Uint8Array(orig) }, { level: 0 })) });
+    await page.locator('.sheet').getByRole('button', { name: 'Importar', exact: true }).click();
+    await page.waitForTimeout(1000);
+    for (let i = 0; i < 3 && (await page.locator('.scrim').count()); i++) { await page.keyboard.press('Escape'); await page.waitForTimeout(200); }
+    await page.reload();
+    await page.goto(URL_ + '#/espacios');
+    await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
+    await page.locator('.sheet input[name=n]').fill('Foto');
+    await page.getByRole('button', { name: 'Crear', exact: true }).click();
+    await page.getByRole('group', { name: 'Modo' }).getByRole('button', { name: 'Lienzo' }).click();
+    await page.locator('.canvas-wrap').waitFor();
+    const t0 = Date.now();
+    await page.goto(URL_ + '#/espacios/abrir/' + encodeURIComponent('media/foto-12mp.jpg'));
+    const img = page.locator('.canvas-plane .win .img-view img');
+    await page.waitForFunction(() => { const i = document.querySelector('.canvas-plane .win .img-view img'); return i && i.complete && i.naturalWidth > 0; }, null, { timeout: 15000 });
+    const ms = Date.now() - t0;
+    const nat = await img.evaluate((i) => [i.naturalWidth, i.clientWidth]);
+    check(nat[0] < 4000 && nat[0] >= nat[1], `muestra una versión reducida (${nat[0]} px de ancho para ${nat[1]} px en pantalla) en ${ms} ms`);
+    // zoom propio: Ctrl+rueda sobre la imagen la acerca a ella (no al lienzo)
+    const chip0 = await page.locator('.canvas-wrap .chip').last().innerText();
+    const bb = await img.boundingBox();
+    await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.keyboard.down('Control'); await page.mouse.wheel(0, -400); await page.keyboard.up('Control');
+    await page.waitForTimeout(400);
+    check(await img.evaluate((i) => /scale\((?!1\))/.test(i.style.transform)) && (await page.locator('.canvas-wrap .chip').last().innerText()) === chip0, 'el pellizco/Ctrl+rueda sobre la imagen la acerca a ella; el lienzo no cambia');
+    await page.waitForFunction(() => document.querySelector('.canvas-plane .win .img-view img')?.naturalWidth > 640, null, { timeout: 15000 }).catch(() => {});
+    check((await img.evaluate((i) => i.naturalWidth)) > nat[0], `al acercar se pide una versión mayor (${await img.evaluate((i) => i.naturalWidth)} px)`);
+    await page.getByRole('button', { name: 'Ajustar', exact: true }).click();
+    await page.getByRole('button', { name: 'Ver original' }).click();
+    await page.waitForFunction(() => document.querySelector('.canvas-plane .win .img-view img')?.naturalWidth === 4000, null, { timeout: 15000 });
+    check(true, '«Ver original» carga el original (4000 px)');
+    // el original no se tocó: respaldo → media/foto-12mp.jpg idéntico; la reducida vive en .app/cache/img
+    await page.getByRole('button', { name: 'Cerrar panel' }).first().click();
+    await page.waitForTimeout(400);
+    check(await page.evaluate(() => window.__blobs()) === 0, 'al cerrar el panel no queda ninguna blob: viva');
+    await page.goto(URL_ + '#/perfil');
+    await page.getByRole('button', { name: /^Respaldo/ }).first().click();
+    await page.getByRole('button', { name: 'Preparar respaldo (.zip)' }).click();
+    const dl = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Guardar en Archivos' }).click();
+    const { unzipSync } = await import('fflate');
+    const z = unzipSync(readFileSync(await (await dl).path()));
+    check(Buffer.from(z['media/foto-12mp.jpg']).equals(orig), 'el original en media/ es idéntico byte a byte');
+    check(!Object.keys(z).some((k) => k.startsWith('media/') && k !== 'media/foto-12mp.jpg' && /foto/.test(k)), 'ninguna versión reducida en media/');
+    await ctx.close();
+  }
   if (run('guardado')) {
     // mismo flujo en esta rama y en la base: el .md guardado debe ser idéntico byte a byte
     const { ctx, page } = await fresh();
