@@ -34,11 +34,12 @@ console.log('Navegador:', browserType.name());
 const errors = [];
 const check = (cond, msg) => {
 
-// Ajustes en acordeón (Prompt 6 · B4): desplegar todo antes de usar sus controles
-const openAll = async (page) => { await page.locator('.settings').waitFor(); const b = page.getByRole('button', { name: 'Desplegar todo' }); if (await b.count()) { await b.click(); await page.waitForTimeout(300); } };
   if (!cond) throw new Error('FALLÓ: ' + msg);
   console.log('  ✓', msg);
 };
+// Ajustes en acordeón (Prompt 6 · B4): desplegar todo antes de usar sus controles
+const openAll = async (page) => { await page.locator('.settings').waitFor(); const b = page.getByRole('button', { name: 'Desplegar todo' }); if (await b.count()) { await b.click(); await page.waitForTimeout(300); } };
+
 
 try {
   const ctx = await browser.newContext({ locale: 'es-MX', viewport: { width: 1180, height: 820 }, acceptDownloads: true });
@@ -66,7 +67,7 @@ try {
   await page.getByText('OPFS').first().waitFor();
   const detail = await page.getByText('OPFS').first().textContent();
   check(true, 'backend: ' + detail);
-  check((await page.getByText('✓ Sin problemas').count()) === 1, 'comprobación de integridad sin problemas');
+  check((await page.locator('#integridad .fold-in').getByText('✓ Sin problemas').count()) === 1, 'comprobación de integridad sin problemas');
   await page.screenshot({ path: OUT + '2-ajustes.png', fullPage: false });
 
   // estudiar una tarjeta: mostrar respuesta → Bien; queda en reviews.jsonl

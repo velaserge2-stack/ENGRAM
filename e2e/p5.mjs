@@ -277,7 +277,8 @@ try {
     await page.goto(URL_ + '#/ajustes/atajos');
     await page.getByRole('button', { name: 'Cambiar tecla de «Bien»' }).click();
     await page.keyboard.press('b');
-    await page.waitForTimeout(400);
+    await page.getByRole('button', { name: 'Restablecer «Bien»' }).waitFor(); // guardado en .app/atajos.json
+    await page.waitForTimeout(600);
     await page.reload();
     await page.goto(URL_ + '#/ajustes/atajos');
     await page.getByRole('region', { name: /Atajos/ }).waitFor();

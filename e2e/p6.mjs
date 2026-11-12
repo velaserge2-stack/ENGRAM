@@ -188,6 +188,7 @@ try {
 
   if (run('perfil')) {
     console.log('Perfil como centro: Ajustes y Respaldo');
+    const { ctx, page } = await fresh(); // ajustes de fábrica (todo plegado)
     await page.goto(URL_ + '#/hoy');
     await page.locator('.topbar').waitFor();
     check(await page.locator('.topbar').getByRole('link', { name: 'Ajustes' }).count() === 0 && await page.locator('.topbar').getByRole('button', { name: 'Respaldo' }).count() === 0, 'la barra superior ya no tiene Ajustes ni Respaldo');
@@ -237,7 +238,7 @@ try {
     await page.waitForTimeout(400);
     const bar = await page.locator('.seg-nav').evaluate((n) => ({ visible: n.clientWidth, total: n.scrollWidth }));
     console.log(`    barra a 834 px: ${bar.visible} px visibles de ${bar.total} px${bar.total <= bar.visible + 1 ? ' (cabe entera)' : ' (no cabe entera)'}`);
-    await page.setViewportSize({ width: 1180, height: 820 });
+    await ctx.close();
   }
 
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));

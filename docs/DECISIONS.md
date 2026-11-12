@@ -368,3 +368,19 @@
 ### Pruebas
 - Unitarias: mover submazo (Cardiología/ECG → Urgencias) con historial, estado, frontmatter, exámenes y calendario intactos y `verifyDeterminism`; destinos inválidos; renombrar/fusionar; selección con padre e hijo; carpeta sin mazo propio; mover tarjetas (ID e historial; omitir/duplicar); deshacer. Notas: reescritura de rutas, nota con imágenes/enlaces entrantes/src:/historial/calendario, renombrar/reemplazar, tema entero, destinos sin el Diario, deshacer.
 - `e2e:p6` (Chromium aquí; WebKit en CI): engranaje, deshacer, menú contextual, arrastrar y soltar, selección múltiple, tarjeta desde el navegador y desde la lista del mazo, `verifyDeterminism` desde Ajustes; nota desde la barra de acciones, buscador en la nueva ubicación, deshacer, menú contextual del árbol, tema arrastrado a otra materia, varias notas a la vez.
+
+## Prompt 6 · Bloque B — Perfil como centro: Ajustes y Respaldo dentro
+
+### B3 y B5 · Ajustes y Respaldo en Perfil
+- Ajustes y Respaldo salen de la barra superior, del menú «⋯» de iPad y de «Más» en el teléfono. El «⋯» de iPad (601–1100 px) queda solo para Sonido ambiente y solo aparece si ese add-on está activo.
+- Perfil (avatar en la barra; «Más → Perfil» en el teléfono) tiene dos filas nuevas: «Ajustes» (navega a `#/ajustes`, que sigue funcionando igual, también desde la paleta y los atajos) y «Respaldo» (abre la misma hoja de respaldo, con los días desde el último). Ajustes tiene «Volver al perfil». En Ajustes, el avatar (y «Más → Perfil») queda marcado como sección actual.
+- El aviso de respaldo pendiente sigue abriendo la hoja de respaldo.
+- B3 y B5 van en un solo commit (tocan las mismas líneas de la barra y del menú «Más»).
+- **Barra a 834 px (iPad vertical)**: sin Ajustes ni Respaldo se ven 359 px de 466 px de secciones (antes 305): todavía no cabe entera y sigue siendo desplazable con el dedo. No se cambió nada más de la barra, como se pidió.
+
+### B4 · Ajustes en acordeón
+- `Group` (en `ui/kit.tsx`) solo se vuelve plegable dentro de `FoldCtx`, que únicamente provee la pantalla de Ajustes: el resto de la app no cambia. Mismo contenido y orden; cada sección tiene un `id` estable (también Atajos y Add-ons), que es la clave del estado.
+- Cabecera = botón con título, resumen de una línea (idioma, modo y vidrio, acento, retención y nuevas al día, parámetros, pomodoro, etiquetas, espacio usado, último respaldo, integridad, dedo/lápiz, atajos personalizados, add-ons activos, instalación, versión) y chevron. `aria-expanded`/`aria-controls`, foco visible, Intro/Espacio; el cuerpo plegado es `inert` (no recibe foco).
+- Animación con `grid-template-rows` (0fr → 1fr) y opacidad, ~240 ms; sin animación con `prefers-reduced-motion`. Desplegar una sección empuja las de abajo de forma continua.
+- Por defecto todas plegadas; «Desplegar todo / Plegar todo». Estado recordado en `.app/settings.json` (`settingsOpen`, cambio retrocompatible). `#/ajustes/<sección>` (p. ej. `addons`, `atajos`) abre esa sección.
+- En la comparación de píxeles la pantalla Ajustes cambia (es lo pedido); el resto no.
