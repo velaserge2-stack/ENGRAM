@@ -381,6 +381,9 @@ function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { ma
   const [tema, setTema] = useState(props.initial?.tema ?? '');
   const [title, setTitle] = useState(props.initial?.title ?? '');
   const [tpl, setTpl] = useState('Clase');
+  // el título lleva el foco al abrir (después de que la hoja enfoque su contenedor)
+  const titleRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { const r = requestAnimationFrame(() => titleRef.current?.focus()); return () => cancelAnimationFrame(r); }, []);
   const temas = tree.find((m) => m.materia === materia)?.temas.map((t) => t.tema) ?? [];
   return (
     <Sheet title={tr('notes.nueva_nota')} onClose={props.onClose}>
@@ -394,7 +397,7 @@ function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { ma
         if (props.onCreated) props.onCreated(path);
         else go('notas', ...path.split('/').slice(1));
       }}>
-        <label class="field">{tr('calendar.titulo')}<input class="input" required autoFocus value={title} onInput={(e) => setTitle((e.target as HTMLInputElement).value)} placeholder={tr('notes.clase_3_bloqueos_av')} /></label>
+        <label class="field">{tr('calendar.titulo')}<input ref={titleRef} class="input" required autoFocus value={title} onInput={(e) => setTitle((e.target as HTMLInputElement).value)} placeholder={tr('notes.clase_3_bloqueos_av')} /></label>
         <label class="field">{tr('notes.materia_opcional')}<input class="input" list="materias" value={materia} onInput={(e) => setMateria((e.target as HTMLInputElement).value)} placeholder={tr('notes.opcional')} /><datalist id="materias">{tree.map((m) => <option value={m.materia} />)}</datalist></label>
         <label class="field">{tr('notes.tema_opcional')}<input class="input" list="temas" value={tema} onInput={(e) => setTema((e.target as HTMLInputElement).value)} placeholder={tr('notes.opcional')} /><datalist id="temas">{temas.map((t) => <option value={t} />)}</datalist></label>
         {tema.trim() && !materia.trim() && <p class="foot" role="status">{tr('notes.tema_sin_materia')}</p>}
