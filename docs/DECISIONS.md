@@ -384,3 +384,17 @@
 - Animación con `grid-template-rows` (0fr → 1fr) y opacidad, ~240 ms; sin animación con `prefers-reduced-motion`. Desplegar una sección empuja las de abajo de forma continua.
 - Por defecto todas plegadas; «Desplegar todo / Plegar todo». Estado recordado en `.app/settings.json` (`settingsOpen`, cambio retrocompatible). `#/ajustes/<sección>` (p. ej. `addons`, `atajos`) abre esa sección.
 - En la comparación de píxeles la pantalla Ajustes cambia (es lo pedido); el resto no.
+
+## Prompt 7 — Lienzo estático, PDF por página y firma (rama `mejoras-5`)
+
+### 1 · El lienzo consume todo el zoom (`src/lib/canvaszoom.ts`, `src/screens/spaces.tsx`)
+- **Causa real encontrada** (no había ningún `transform` en un ancestro común de barra, riel, dock y lienzo; tampoco listeners pasivos: Preact registra `onWheel` en el propio elemento, y ahí Chromium y WebKit no lo hacen pasivo):
+  1. **Pellizco sobre un panel**: `onPointerDown` del lienzo sale si el toque empieza en un `.win`, y el cuerpo del panel tiene desplazamiento propio, que corta la herencia de `touch-action: none`. Ese pellizco nadie lo consumía y Safari lo tomaba como **zoom de página**: toda la interfaz se encogía. Con el lienzo lleno de paneles, esto pasa casi siempre al alejar.
+  2. **Safari no manda `Ctrl+rueda` para el pellizco del trackpad**: manda `gesturestart/gesturechange/gestureend`, que no se escuchaban; el zoom de página se los quedaba.
+  3. **En el tope** el ancla se calculaba con el factor sin limitar aunque `k` ya estuviera en 0.2: el contenido seguía deslizándose aunque el zoom no cambiara.
+- Corrección, solo dentro del contenedor del lienzo: listeners nativos `{ passive: false }` para `wheel`, `gesturestart/change/end` (WebKit) y `touchmove` con dos dedos; `preventDefault()` siempre, también en el tope y sobre los paneles. El pellizco del fondo sigue con Pointer Events (dos punteros: distancia y punto medio, `touch-action: none` solo en `.canvas-wrap`); el de `gesturechange` se aplica cuando no hay pellizco de punteros en curso (trackpad de Safari y dos dedos sobre un panel).
+- Quién consume: sobre un panel con zoom propio (`data-own-zoom`: el visor de PDF) el lienzo le envía el factor (`ownzoom`) y cambia el zoom del PDF; sobre el resto, el lienzo. Fuera del lienzo nada cambia (la sección PDFs y las notas siguen como estaban).
+- `zoomAt` (puro): `clamp` a [0.1, 3], ancla con el factor **realmente aplicado** (en el tope no se mueve nada) y resistencia en el último tramo (0.1–0.2 y 2–3): el factor se amortigua (`f ** t`, `t` ≥ 0.15) para que se note el límite. **Mínimo 0.1** (antes 0.2): un lienzo de ~10 000 px cabe en el ancho de un iPad y un panel de 480 px queda en 48 px, todavía un objetivo distinguible; más abajo solo serían puntos y habría que componer demasiados paneles.
+- Sin rebote: `html.in-canvas` (solo mientras se ve el lienzo) y `.canvas-wrap` con `overscroll-behavior: none` (`body` ya lo tenía). **No** se tocó el `viewport` (`maximum-scale`/`user-scalable=no`): no hizo falta y afectaría la accesibilidad global.
+- Sin animaciones nuevas (el zoom sigue al gesto), así que `prefers-reduced-motion` no aplica. Minimapa, «Ajustar al contenido» y paneo con dos dedos/rueda no cambian.
+- Límites de Safari: `gesture*` solo existe en WebKit (en Chromium las pruebas los simulan); en iPadOS la página puede seguir haciendo zoom si el pellizco empieza **fuera** del lienzo (barra, riel), que es el comportamiento normal de la web y no se bloquea; validar en iPad real con dedos y con trackpad.

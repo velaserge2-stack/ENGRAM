@@ -1056,3 +1056,29 @@ Reglas: implementar únicamente lo descrito; sin refactorizar, renombrar ni aña
 
 ## 8. Pruebas y entrega
 Unitarias (mover mazo/submazo, destinos inválidos, duplicados, mover tarjetas, `verifyDeterminism`, mover nota y tema, deshacer, rutas antiguas, plegables, add-on de Bandeja); WebKit (mover mazo, tarjeta y nota; Perfil → Ajustes/Respaldo; acordeón; Bandeja; mini reproductor con hover y toque; diferencia cero; «sin color» y legibilidad; tres idiomas y pseudoidioma; nombres larguísimos y jerarquías profundas). Lista manual en iPad, iPhone y escritorio. Entrega por bloque con archivos tocados y no tocados y límites de Safari.
+
+---
+
+# PROMPT 7: Lienzo estático al alejar, PDF por página y firma del desarrollador
+Debug y mejoras menores para Engrama (ya desplegada)
+
+## 0. Contexto y reglas
+Leer `CLAUDE.md`, `docs/SPEC.md`, `docs/DECISIONS.md` y los prompts anteriores; plan corto por punto (causa probable, archivos, riesgos). Implementar **únicamente** lo descrito; sin refactorizar, renombrar ni añadir dependencias. Retrocompatibilidad (espacios `.app/spaces/*.json`, anotaciones de PDF y ajustes siguen abriéndose; cambios perezosos, sin migraciones). Todo texto por `t()` (es/en/fr). Tema Cristal (sin color, ≥ 44 px), pruebas de «sin color» y legibilidad sin regresiones. iPad, iPhone y web no cambian fuera de lo pedido (`MODE=compare npm run e2e:phone`, diferencia cero en pantallas no tocadas). Rama `mejoras-5`, un commit por punto; resumen por punto (qué cambió, archivos tocados y no tocados) y esperar prueba en dispositivo; no hacer push ni unir a `main` sin confirmación. Actualizar `CLAUDE.md` y `docs/DECISIONS.md`; guardar el prompt en `docs/PROMPTS.md`.
+
+## 1. Interfaz estática al alejar en el lienzo infinito
+Síntoma: al alejar (pellizco o `Ctrl/⌘ + rueda`) toda la interfaz (barra, riel, dock, paneles) se mueve o encoge por un instante; debe quedarse fija y solo el contenido del lienzo se aleja/acerca.
+Causas probables a verificar: en el zoom mínimo/máximo el gesto deja de consumirse y Safari lo toma como zoom de página o rebote; el `viewport` no bloquea el zoom de página y `touch-action`/`preventDefault` no cubren `gesturestart/change/end` ni `touchmove` de dos dedos; listeners pasivos ignoran `preventDefault`.
+Corrección: listeners `{ passive: false }` en el contenedor del lienzo para `wheel` (Ctrl/⌘), `gesture*` y `touchmove` de dos dedos, con `preventDefault()` siempre sobre el lienzo, incluso en el tope. Pellizco con Pointer Events (dos punteros, distancia y punto medio), `touch-action: none` solo en el lienzo, `clamp` y ancla en el punto medio. Bajar el mínimo (p. ej. 0.1, justificado) con resistencia cerca del tope. Sin rebote ni zoom de página solo en Espacios (`overscroll-behavior: none`); evitar `maximum-scale`/`user-scalable=no` salvo que sea imprescindible (documentar y pedir confirmación). No cambiar otras pantallas; sobre un panel con zoom propio manda el panel, sobre el fondo vacío manda el lienzo. Mantener minimapa, «ajustar al contenido», paneo; `prefers-reduced-motion`. Barra, riel, dock y bandeja fuera de la capa transformada.
+Pruebas: unitarias (clamp, ancla, resistencia); WebKit: `Ctrl+wheel` más allá del mínimo con `visualViewport.scale === 1`, posiciones fijas sin cambiar ni un píxel, `defaultPrevented`; `gesturechange` y dos punteros táctiles; capturas antes/después.
+Criterio: en iPad real, alejar hasta el tope y seguir pellizcando no mueve ni encoge la barra, el riel ni el dock.
+
+## 2. Visores de PDF: «Ver por página» por defecto
+El visor arranca en «por página» siempre al abrir (sección PDFs, paneles del lienzo y cualquier otro lugar; un solo cambio). El botón permite pasar a continuo durante la sesión; no se recuerda la elección (si hay un modo guardado, se ignora para el inicio sin borrarlo). Se mantiene la última página recordada; los accesos a una página concreta (`src: archivo.pdf#p12`, resaltado, búsqueda) abren esa página en modo por página. Siguen funcionando anotaciones, tinta, resaltador inteligente, miniaturas, índice, búsqueda, zoom, flechas, atajos y «n / total». Prueba: PDF nuevo, con página recordada y desde `#p12` (sección y panel); actualizar `e2e:p5` sin perder cobertura.
+Criterio: cualquier PDF se abre por página en todos los lugares; continuo es manual y no persiste.
+
+## 3. Firma discreta del desarrollador
+Texto pequeño en la esquina inferior izquierda: «Desarrollador: SergeV» / «Developer: SergeV» / «Développeur : SergeV» (SergeV no se traduce). Cristal: sin color, Helvetica Neue, ≈ 11–12 px, opacidad ≈ 38 %, sin fondo ni borde, `pointer-events: none`, `user-select: none`, `aria-hidden="true"`; la línea también en Ajustes → Acerca de como texto normal. Posición fija con `env(safe-area-inset-left/bottom)`, capa baja (`--z-base` o justo encima), nunca sobre modales, dock, hojas, tooltips ni la barra del teléfono; si algo ocupa la esquina, queda detrás sin taparlo o se desplaza lo mínimo (reportar). Verificar en Hoy, Mazos, Estudio, Notas, PDFs, Calendario, Espacios, Simulacros y Ajustes (iPad, web, iPhone vertical/horizontal); oculta en estudio y en notas a pantalla completa. Legibilidad sobre los 5 fondos de prueba (≥ 3:1 estimado o sombra neutra) y «sin color». Elemento estático en `app.tsx`; si hace falta, excluir solo esa zona de la comparación de píxeles.
+Criterio: la firma se ve en la esquina inferior izquierda en todas las pantallas, no tapa ni es tapada, no es seleccionable ni tocable, y se oculta en estudio y notas a pantalla completa.
+
+## 4. Pruebas y entrega
+Unitarias, WebKit (iPad e iPhone), diferencia cero en pantallas no tocadas, «sin color» y legibilidad, claves de idioma. Lista manual en iPad real. Entrega por punto con archivos tocados y no tocados, causa real del punto 1 y límites de Safari.

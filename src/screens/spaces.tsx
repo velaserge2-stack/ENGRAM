@@ -1,3 +1,4 @@
+import { zoomAt } from '../lib/canvaszoom';
 import { t as tr } from '../i18n';
 import { BarChart3, BookOpen, CalendarDays, ChevronsDownUp, ChevronsUpDown, ClipboardCheck, FilePlus2, FileSpreadsheet, FileText, FolderTree, Image as ImageIcon, Layers, Lock, NotebookPen, Plus, Scan, Settings2, Timer, Unlock, X, LayoutGrid, Inbox as InboxIcon, Sparkles } from 'lucide-preact';
 import { Popover } from '../ui/overlay';
@@ -355,6 +356,54 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
   live.view = v;
   live.focus = focus;
   useEffect(() => { const r = () => wrap.current && ((live.w = wrap.current.clientWidth), (live.h = wrap.current.clientHeight)); r(); addEventListener('resize', r); return () => (removeEventListener('resize', r), (live.view = null)); }, []);
+  // Prompt 7 · 1: el lienzo consume TODO gesto de zoom que ocurra sobre él (también en el tope
+  // y sobre los paneles), para que Safari nunca lo convierta en zoom o rebote de la página.
+  // Listeners nativos con { passive: false }: con pasivos, preventDefault se ignora.
+  useEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    const rel = (x: number, y: number) => { const r = el.getBoundingClientRect(); return [x - r.left, y - r.top] as const; };
+    /** Sobre un panel con zoom propio (PDF) manda el panel; si no, el lienzo. */
+    const zoom = (target: EventTarget | null, f: number, x: number, y: number) => {
+      const own = (target as HTMLElement | null)?.closest?.('[data-own-zoom]');
+      if (own && el.contains(own)) return own.dispatchEvent(new CustomEvent('ownzoom', { detail: { f } }));
+      const [cx, cy] = rel(x, y);
+      setV((o) => zoomAt(o, f, cx, cy));
+    };
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) zoom(e.target, Math.exp(-e.deltaY / 300), e.clientX, e.clientY);
+      else setV((o) => ({ ...o, x: o.x - e.deltaX, y: o.y - e.deltaY }));
+    };
+    // WebKit: pellizco del trackpad (Safari en Mac) y de dos dedos sobre paneles (iPad)
+    let gs = 1;
+    const gstart = (e: Event) => { e.preventDefault(); gs = 1; };
+    const gchange = (e: Event) => {
+      e.preventDefault();
+      const g = e as Event & { scale: number; clientX: number; clientY: number };
+      const f = g.scale / gs;
+      gs = g.scale;
+      if (pts.current.size >= 2) return; // el pellizco con Pointer Events ya lo aplica
+      zoom(e.target, f, g.clientX, g.clientY);
+    };
+    const gend = (e: Event) => { e.preventDefault(); gs = 1; };
+    const touch = (e: TouchEvent) => { if (e.touches.length >= 2) e.preventDefault(); };
+    el.addEventListener('wheel', wheel, { passive: false });
+    el.addEventListener('gesturestart', gstart, { passive: false } as AddEventListenerOptions);
+    el.addEventListener('gesturechange', gchange, { passive: false } as AddEventListenerOptions);
+    el.addEventListener('gestureend', gend, { passive: false } as AddEventListenerOptions);
+    el.addEventListener('touchmove', touch, { passive: false });
+    // sin rebote ni zoom de página solo mientras se ve el lienzo
+    document.documentElement.classList.add('in-canvas');
+    return () => {
+      el.removeEventListener('wheel', wheel);
+      el.removeEventListener('gesturestart', gstart);
+      el.removeEventListener('gesturechange', gchange);
+      el.removeEventListener('gestureend', gend);
+      el.removeEventListener('touchmove', touch);
+      document.documentElement.classList.remove('in-canvas');
+    };
+  }, []);
   // un panel nuevo fuera de la vista: desplazar (sin cambiar el zoom) hasta que se vea entero
   useEffect(() => {
     const pn = p.sp.panels.find((x) => x.id === live.reveal);
@@ -388,7 +437,7 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
   const mk = Math.min(160 / (maxX - minX), 110 / (maxY - minY));
   return (
     <div ref={wrap} class="canvas-wrap glass flat"
-      onPointerDown={(e) => { if ((e.target as HTMLElement).closest('.win')) return; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY }); }}
+      onPointerDown={(e) => { if ((e.target as HTMLElement).closest('.win')) return; try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* puntero ya liberado */ } pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY }); }}
       onPointerMove={(e) => {
         const m = pts.current;
         if (!m.has(e.pointerId)) return;
@@ -400,12 +449,12 @@ function CanvasView(p: { sp: Space; save: (s: Space) => void }) {
           const d = Math.hypot(a!.x - b!.x, a!.y - b!.y);
           const r = wrap.current!.getBoundingClientRect();
           const cx = (a!.x + b!.x) / 2 - r.left, cy = (a!.y + b!.y) / 2 - r.top;
-          if (last.current) { const k = d / last.current.d; setV((o) => ({ k: Math.min(3, Math.max(0.2, o.k * k)), x: cx - (cx - o.x) * k, y: cy - (cy - o.y) * k })); }
+          if (last.current) { const f = d / last.current.d; setV((o) => zoomAt(o, f, cx, cy)); }
           last.current = { d };
         }
       }}
       onPointerUp={(e) => { pts.current.delete(e.pointerId); last.current = null; if (!pts.current.size) p.save({ ...p.sp, view: v }); }}
-      onWheel={(e) => { e.preventDefault(); const r = wrap.current!.getBoundingClientRect(); const cx = e.clientX - r.left, cy = e.clientY - r.top; if (e.ctrlKey || e.metaKey) { const k = Math.exp(-e.deltaY / 300); setV((o) => ({ k: Math.min(3, Math.max(0.2, o.k * k)), x: cx - (cx - o.x) * k, y: cy - (cy - o.y) * k })); } else setV((o) => ({ ...o, x: o.x - e.deltaX, y: o.y - e.deltaY })); }}>
+      onPointerCancel={(e) => { pts.current.delete(e.pointerId); last.current = null; }}>
       <div class="canvas-plane" style={{ transform: `translate(${v.x}px, ${v.y}px) scale(${v.k})` }}>
         {visible(p.sp).map((pn) => <Window key={pn.id} panel={pn} sp={p.sp} save={p.save} free scale={v.k} asleep={!awake.has(pn.id)} focused={focus === pn.id} onFocus={() => front(pn.id)} />)}
       </div>

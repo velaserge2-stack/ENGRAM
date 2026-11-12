@@ -730,3 +730,7 @@ mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border
 .fold.open .fold-in { opacity: 1; }
 .fold-all { justify-content: flex-end; margin-top: 10px; }
 @media (prefers-reduced-motion: reduce) { .fold .chev, .fold-body, .fold-in { transition: none; } }
+
+/* Prompt 7 · 1 — el lienzo consume el zoom: sin rebote ni zoom de página mientras se ve */
+html.in-canvas, html.in-canvas body { overscroll-behavior: none; }
+.canvas-wrap { overscroll-behavior: none; }

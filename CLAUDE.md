@@ -37,12 +37,13 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 ## Comandos
 - `npm run dev` · `npm run build` · `npm run preview`
 - `npm test` (Vitest) · `npm run typecheck`
-- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras && npm run e2e:mejoras2 && npm run e2e:phone && npm run e2e:bloquec && npm run e2e:p5 && npm run e2e:p6` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
+- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras && npm run e2e:mejoras2 && npm run e2e:phone && npm run e2e:bloquec && npm run e2e:p5 && npm run e2e:p6 && npm run e2e:p7` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
 - `node scripts/icons.mjs` regenera íconos desde `scripts/icon.svg`
 
 ## Fase actual
 **Fases 1–11**, tema Cristal, **Mejoras 1** y **Mejoras 2 · A** en `main`. En la rama `claude/exciting-cerf-u1rtor`: Mejoras 2 · B (iPhone), C (Add-ons en Ajustes, perfil, papelera de mazos, fondos, almacenamiento), D (buscador de notas, mapa proporcional), E (lienzo conectado, exámenes) y F (calendario con horas), y el **prompt 5** completo (sonido ambiente, motor de tinta `src/ink/`, PDFs, notas manuscritas, atajos y mando; `docs/PROMPTS.md`). Pendiente de prueba en iPad, iPhone, Apple Pencil, teclado y mando reales. No unir a `main` (rama de despliegue) sin confirmación.
-**Prompt 6** en la rama local `mejoras-4` (sin push hasta confirmación): A (mover mazos, tarjetas y notas con deshacer: `src/data/move.ts`, `src/notes/move.ts`, `src/ui/pressdrag.tsx`) y B (Ajustes y Respaldo dentro de Perfil; Ajustes en acordeón con `FoldCtx`).
+**Prompt 6** A y B en `main`: A (mover mazos, tarjetas y notas con deshacer: `src/data/move.ts`, `src/notes/move.ts`, `src/ui/pressdrag.tsx`) y B (Ajustes y Respaldo dentro de Perfil; Ajustes en acordeón con `FoldCtx`); C y D pendientes.
+**Prompt 7** en la rama `mejoras-5` (sin push hasta confirmación): 1 (el lienzo consume todo el zoom; `src/lib/canvaszoom.ts`, mínimo 0.1).
 
 ## Skills activas
 Mantenimiento: webapp-testing, security-review (importadores), frontend-design (Cristal), ponytail. Máx. 5–6 a la vez.
