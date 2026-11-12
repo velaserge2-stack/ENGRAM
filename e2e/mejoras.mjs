@@ -71,7 +71,8 @@ try {
     await page.goto(URL_ + '#/notas/Cardiología/ECG/Ejes.md');
     await page.getByRole('button', { name: 'Mover a otra materia o tema' }).click();
     await page.locator('.sheet').getByLabel('Título').fill('Ejes eléctricos');
-    await page.getByRole('button', { name: 'Mover', exact: true }).click();
+    await page.getByRole('button', { name: 'Renombrar', exact: true }).click();
+    await page.waitForURL(/Ejes%20el|Ejes el/);
     await page.getByRole('tab', { name: 'Eventos' }).click();
     await page.locator('.insp').getByText('Repaso ECG').first().waitFor();
     check(true, 'la nota renombrada muestra el evento en su inspector');

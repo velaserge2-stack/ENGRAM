@@ -1013,3 +1013,46 @@ Nota de interpretación: "Anki controller" se entiende como **poder estudiar las
 - Lista de verificación manual **con Apple Pencil real**, teclado Bluetooth y, si está disponible, un mando: audio con pantalla bloqueada, latencia de tinta, resaltado ajustado al texto, PDF grande, exportaciones.
 - Entrega, por bloque: resumen corto, archivos tocados y no tocados, y **qué límites de Safari encontraste** (audio en segundo plano, mando, Pencil Pro, OCR).
 - Actualiza `CLAUDE.md` y `docs/DECISIONS.md` al cerrar cada bloque.
+
+# PROMPT 6: Mover mazos y notas, Ajustes y Respaldo dentro de Perfil, Bandeja oculta y mini reproductor
+Debug y mejoras para Engrama (ya desplegada)
+
+## 0. Contexto y reglas
+Engrama ya está desplegada (PWA). Antes de escribir código: leer `CLAUDE.md`, `docs/SPEC.md`, `docs/DECISIONS.md` y los prompts anteriores; explorar el repositorio y responder con un plan corto por bloque.
+
+Reglas: implementar únicamente lo descrito; sin refactorizar, renombrar ni añadir dependencias sin justificar (MIT/Apache/BSD/ISC). Retrocompatibilidad de datos y cambios de formato perezosos. **Nada se pierde al mover**: `reviews.jsonl`, `state.json`, IDs `^xxxx`, `id:` de frontmatter, vínculos del calendario, `src:` de las tarjetas y `[[wikilinks]]` siguen funcionando. Toda escritura por `SafeVault`; todo texto por `t()`; lo flotante por `overlay.tsx` con `--z-*`; botones solo-icono con `aria-label`. Tema Cristal; pruebas de «sin color» y legibilidad pasan. iPad y web no cambian fuera de lo pedido (`MODE=compare npm run e2e:phone`). Bloques A–D en la rama `mejoras-4`, un commit por punto, resumen por bloque y esperar prueba en dispositivo; no hacer push ni unir a `main` sin confirmación. Actualizar `CLAUDE.md` y `docs/DECISIONS.md` al cerrar cada bloque.
+
+## BLOQUE A. Mover mazos, tarjetas y notas
+### 1. Mover mazos y submazos
+- «Mover a…» en el engranaje del mazo, en el menú contextual (pulsación larga) y al deslizar la fila. Selector (hoja) con el árbol de mazos: cualquier mazo o submazo existente como destino (el mazo se vuelve su submazo) o «Nivel superior». Elegir destino es opcional; se puede crear uno nuevo («＋ Nuevo mazo aquí») pero nunca se exige. Excluye el propio mazo y sus descendientes; ante nombre duplicado: Renombrar / Fusionar / Cancelar.
+- Arrastrar y soltar en la lista (Pointer Events, con alternativa de tocar para seleccionar y luego el destino). Selección múltiple.
+- Mover tarjetas entre mazos (navegador, lista del mazo, panel de mazo del lienzo): una o varias → «Mover a mazo…». Conservan ID, historial y programación; si el ID ya existe en el destino: omitir / duplicar con ID nuevo.
+- Reconciliación por ID; no archivar ni duplicar; `verifyDeterminism` igual. Conservar `color`, `new_per_day`, `id:`; actualizar vínculos del calendario y `temas` de exámenes o dejarlos resolver por `id`. Deshacer (aviso con «Deshacer»).
+- Criterio: mover «Cardiología/ECG» a «Urgencias» (existente) y una tarjeta a otro submazo, sin crear nada nuevo, conserva ID, historial y vínculos; reconstruir desde `reviews.jsonl` coincide con `state.json`.
+
+### 2. Mover notas `.md` entre carpetas y subcarpetas
+- Estructura Materia → Tema → Notas. «Mover a…» en cada nota (menú contextual, deslizar, barra de acciones) con selector del árbol existente: cualquier Materia/Tema existente o uno nuevo creado en el selector (opcional); subcarpetas existentes también; no crear anidación por cuenta propia. Varias notas a la vez y un tema completo a otra materia. Arrastrar y soltar en el explorador (con alternativa tocar-y-elegir); pulsación larga = menú contextual.
+- Nada se rompe (usar `vault.move`): `[[wikilinks]]` por título (o `id`), enlaces por ruta actualizados; vínculos del calendario con `id:` válidos, los de ruta se reparan o quedan como «enlace roto» con Reparar; `src:` de tarjetas actualizados; imágenes y dibujos siguen resolviendo; historial y papelera se conservan; índice de búsqueda actualizado. Nombre repetido: Renombrar / Reemplazar / Cancelar. Deshacer. Igual en Notas y en paneles (mismo `NoteStore`).
+- Criterio: mover una nota con imágenes, enlaces entrantes y un bloque de calendario vinculado a otro tema; todo funciona y el buscador la encuentra en su nueva ubicación.
+
+## BLOQUE B. Perfil como centro: Ajustes y Respaldo dentro
+### 3. Ajustes dentro de Perfil
+- Quitar Ajustes de la barra superior, del menú «⋯» de iPad y de «Más». En Perfil, fila «Ajustes» que redirige a la pantalla actual (`#/ajustes` sigue funcionando) y «Volver al perfil». Atajos y paleta siguen llevando a la misma ruta.
+### 4. Ajustes con secciones plegables
+- No cambiar contenido ni orden; convertir las secciones en acordeón (chevron, título, resumen de una línea). Animación corta con `transform`/`opacity` o `grid-template-rows`, respetando `prefers-reduced-motion`. Por defecto plegadas (la primera vez puede abrirse una). «Desplegar todo» / «Plegar todo». Estado recordado por usuario. `aria-expanded`, `aria-controls`, foco visible, teclado. Igual en teléfono.
+- Criterio: lista limpia de secciones plegadas; desplegar una no mueve bruscamente las demás; persiste tras recargar.
+### 5. Respaldo dentro de Perfil
+- Quitar Respaldo de la barra, de «⋯» y de «Más». Fila «Respaldo» en Perfil hacia la pantalla existente; el recordatorio sigue llevando ahí. Comprobar la barra a 834 px y reportar si cabe entera; no cambiar nada más de la barra.
+
+## BLOQUE C. Bandeja oculta
+### 6. Ocultar la Bandeja por ahora
+- Quitar icono/contador de la barra, de «Más», del dock/riel y avisos. Interruptor en Ajustes → Add-ons «Bandeja de entrada», apagado por defecto: apagado no se muestra, no cuenta pendientes y `#/bandeja` redirige a Hoy. Los datos de `inbox/` no se tocan; al encenderlo todo vuelve.
+
+## BLOQUE D. Sonido ambiente: mini reproductor flotante
+### 7. Mini reproductor que se extiende al pasar el cursor
+- No cambiar el panel de Sonido ambiente. Añadir un mini reproductor que aparece solo mientras algo suena, junto al icono de Sonido ambiente (en teléfono, píldora flotante sobre la barra inferior). Compacto: píldora de vidrio con barras de nivel monocromas, título corto y pausa. Se extiende (hacia abajo, resorte, solo `transform`/`opacity`) con hover del cursor o lápiz, con foco de teclado y, sin hover, al tocar; se contrae al salir (~300 ms de gracia) o al tocar fuera. Extendido: título, pausa/reanudar, siguiente/anterior (música), volumen general, capas activas con su volumen, temporizador restante y «Abrir panel».
+- Vista del mismo estado de `ambient.ts` (sin otro motor ni `AudioContext`). Desaparece al detener. Capas `--z-*`, tooltips, es/en/fr, ≥ 44 px, `aria-live`, `prefers-reduced-motion`. No tapar la barra ni salir de pantalla; en teléfono no depende del hover.
+- Criterio: con lluvia sonando aparece; al pasar el cursor se extiende y permite pausar y cambiar volumen sin abrir el panel; al detener desaparece; nada suena al abrir la app.
+
+## 8. Pruebas y entrega
+Unitarias (mover mazo/submazo, destinos inválidos, duplicados, mover tarjetas, `verifyDeterminism`, mover nota y tema, deshacer, rutas antiguas, plegables, add-on de Bandeja); WebKit (mover mazo, tarjeta y nota; Perfil → Ajustes/Respaldo; acordeón; Bandeja; mini reproductor con hover y toque; diferencia cero; «sin color» y legibilidad; tres idiomas y pseudoidioma; nombres larguísimos y jerarquías profundas). Lista manual en iPad, iPhone y escritorio. Entrega por bloque con archivos tocados y no tocados y límites de Safari.

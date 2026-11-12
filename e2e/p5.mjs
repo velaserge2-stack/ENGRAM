@@ -18,6 +18,9 @@ let browser;
 try { browser = await type.launch(); } catch { type = pw.chromium; browser = await type.launch(); }
 console.log('Navegador:', type.name());
 const check = (c, m) => { if (!c) throw new Error('FALLÓ: ' + m); console.log('  ✓', m); };
+
+// Ajustes en acordeón (Prompt 6 · B4): desplegar todo antes de usar sus controles
+const openAll = async (page) => { await page.locator('.settings').waitFor(); const b = page.getByRole('button', { name: 'Desplegar todo' }); if (await b.count()) { await b.click(); await page.waitForTimeout(300); } };
 const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
 const run = (k) => !only || only.includes(k);
 const errors = [];
@@ -228,6 +231,7 @@ try {
     // mazo de 25 tarjetas nuevas (sin tocar la pantalla para repasar)
     const deck = '---\ndeck: Teclado\nnew_per_day: 40\n---\n' + Array.from({ length: 25 }, (_, i) => `Q:: Pregunta ${i + 1}\nA:: Respuesta ${i + 1} ^tk${i + 1}`).join('\n\n') + '\n';
     await page.goto(URL_ + '#/ajustes');
+    await openAll(page);
     await page.getByRole('region', { name: 'Respaldo' }).getByRole('button', { name: /Importar/ }).click();
     await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'Teclado.md', mimeType: 'text/markdown', buffer: Buffer.from(deck) });
     await page.locator('.sheet .btn.primary').filter({ hasText: /Importar/ }).click();
@@ -273,7 +277,8 @@ try {
     await page.goto(URL_ + '#/ajustes/atajos');
     await page.getByRole('button', { name: 'Cambiar tecla de «Bien»' }).click();
     await page.keyboard.press('b');
-    await page.waitForTimeout(400);
+    await page.getByRole('button', { name: 'Restablecer «Bien»' }).waitFor(); // guardado en .app/atajos.json
+    await page.waitForTimeout(600);
     await page.reload();
     await page.goto(URL_ + '#/ajustes/atajos');
     await page.getByRole('region', { name: /Atajos/ }).waitFor();
@@ -321,13 +326,15 @@ try {
     await page.locator('.seg-nav').waitFor();
     await page.waitForTimeout(300);
     check(await page.locator('.seg-nav').evaluate((n) => n.scrollWidth <= n.clientWidth + 1), 'a 1024 px se ven todas las secciones, PDFs incluida');
-    check(!(await page.getByRole('link', { name: 'Ajustes', exact: true }).first().isVisible()), 'Respaldo y Ajustes salen de la barra en ese ancho');
-    await page.locator('.more-pill').click();
-    await page.getByRole('menuitem', { name: 'Ajustes' }).click();
-    await page.getByRole('heading', { name: 'Ajustes', level: 1 }).waitFor();
-    check(true, '«⋯» lleva a Ajustes (y a Respaldo)');
-    await page.setViewportSize({ width: 1366, height: 768 });
-    check(await page.locator('.more-pill').isHidden(), 'en escritorio no cambia nada');
+    check(await page.getByRole('link', { name: 'Ajustes', exact: true }).count() === 0, 'Respaldo y Ajustes ya no están en la barra (viven en Perfil)');
+    if (await page.locator('.more-pill').count()) {
+      await page.locator('.more-pill').click();
+      await page.getByRole('menuitem', { name: 'Sonido ambiente' }).click();
+      await page.getByRole('dialog', { name: 'Sonido ambiente' }).getByRole('button', { name: 'Cerrar' }).click();
+      check(true, '«⋯» lleva a Sonido ambiente');
+      await page.setViewportSize({ width: 1366, height: 768 });
+      check(await page.locator('.more-pill').isHidden(), 'en escritorio no cambia nada');
+    }
     await page.setViewportSize({ width: 1180, height: 820 });
   }
 

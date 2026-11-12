@@ -18,6 +18,9 @@ let browser;
 try { browser = await type.launch(); } catch { type = pw.chromium; browser = await type.launch(); }
 console.log('Navegador:', type.name());
 const check = (c, m) => { if (!c) throw new Error('FALLÓ: ' + m); console.log('  ✓', m); };
+
+// Ajustes en acordeón (Prompt 6 · B4): desplegar todo antes de usar sus controles
+const openAll = async (page) => { await page.locator('.settings').waitFor(); const b = page.getByRole('button', { name: 'Desplegar todo' }); if (await b.count()) { await b.click(); await page.waitForTimeout(300); } };
 const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
 const run = (k) => !only || only.includes(k);
 const errors = [];
@@ -40,6 +43,7 @@ try {
   if (run('perfil')) {
     console.log('Perfil');
     await page.goto(URL_ + '#/ajustes');
+    await openAll(page);
     await page.getByRole('button', { name: /^Perfil/ }).first().click();
     await page.getByRole('heading', { name: 'Perfil', level: 1 }).waitFor();
     await page.getByLabel('Nombre', { exact: true }).fill('Ana López');
@@ -110,6 +114,7 @@ try {
       const b = await new Promise((r) => c.toBlob(r, 'image/png')); return [...new Uint8Array(await b.arrayBuffer())];
     });
     await page.goto(URL_ + '#/ajustes');
+    await openAll(page);
     await page.locator('.bg-grid input[type=file]').setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: Buffer.from(png) });
     await page.locator('.bg-layer img').waitFor();
     await page.getByRole('region', { name: 'Apariencia · Fondo' }).getByRole('button', { name: 'Aplicar' }).click();
@@ -133,6 +138,7 @@ try {
     await page.waitForFunction(() => document.querySelector('.bg-layer img')?.style.getPropertyValue('--bg-zoom') === '1.5', null, { timeout: 10000 });
     check(JSON.stringify(await pos()) === JSON.stringify(p1), 'el encuadre se conserva al volver a abrir la app');
     await page.goto(URL_ + '#/ajustes');
+    await openAll(page);
     await page.getByRole('button', { name: 'Gestionar' }).click();
     await page.getByRole('checkbox', { name: 'Imagen propia' }).click();
     await page.getByRole('button', { name: 'Eliminar (1)' }).click();
@@ -148,6 +154,7 @@ try {
       const b = await new Promise((r) => c.toBlob(r, 'image/png')); return [...new Uint8Array(await b.arrayBuffer())];
     });
     await page.goto(URL_ + '#/ajustes');
+    await openAll(page);
     await page.getByRole('region', { name: 'Respaldo' }).getByRole('button', { name: /Importar/ }).click();
     await page.locator('.sheet input[type=file]').first().setInputFiles([
       { name: 'usado.png', mimeType: 'image/png', buffer: Buffer.from(png) },
@@ -180,6 +187,7 @@ try {
   if (run('buscar')) {
     console.log('Buscador de notas');
     await page.goto(URL_ + '#/ajustes');
+    await openAll(page);
     await page.getByRole('region', { name: 'Respaldo' }).getByRole('button', { name: /Importar/ }).click();
     await page.locator('.sheet input[type=file]').first().setInputFiles([
       { name: 'Hipertensión.md', mimeType: 'text/markdown', buffer: Buffer.from('# Hipertensión\n\nPrimer párrafo sin cifras.\n\nMeta de presión 120/80 en diabéticos.\n\nOtra vez la presión: 130/80.\n') },

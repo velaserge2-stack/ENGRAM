@@ -1,9 +1,9 @@
 import { t } from '../i18n';
-import type { ComponentChildren, JSX } from 'preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { type ComponentChildren, createContext, type JSX } from 'preact';
+import { useContext, useEffect, useRef, useState } from 'preact/hooks';
 import { Portal, useLayer } from './overlay';
 import { isPhone, trackPhone } from '../theme';
-import { X } from 'lucide-preact';
+import { ChevronDown, X } from 'lucide-preact';
 
 export function Switch(props: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
@@ -38,7 +38,36 @@ export function Row(props: { k: ComponentChildren; sub?: ComponentChildren; chil
   );
 }
 
-export function Group(props: { title?: string; footer?: ComponentChildren; children: ComponentChildren; id?: string }) {
+/**
+ * Secciones plegables (Prompt 6 · B4): dentro de este contexto, cada `Group` con título es un
+ * acordeón (chevron, título y resumen de una línea). Fuera de él, `Group` no cambia.
+ */
+export const FoldCtx = createContext<{ isOpen: (key: string) => boolean; toggle: (key: string) => void; summary: Record<string, ComponentChildren> } | null>(null);
+
+export function Group(props: { title?: string; footer?: ComponentChildren; children: ComponentChildren; id?: string; summary?: ComponentChildren }) {
+  const fold = useContext(FoldCtx);
+  if (fold && props.title) {
+    const key = props.id ?? props.title;
+    const open = fold.isOpen(key);
+    const bodyId = `fold-${key.replace(/[^\p{L}\p{N}]+/gu, '-')}`;
+    const sum = props.summary ?? fold.summary[key];
+    return (
+      <section class={`group glass fold${open ? ' open' : ''}`} style={{ marginTop: '18px' }} aria-label={props.title} id={props.id}>
+        <h2 class="group-h fold-h">
+          <button type="button" class="fold-btn" aria-expanded={open} aria-controls={bodyId} onClick={() => fold.toggle(key)}>
+            <span class="fold-t">{props.title}{sum != null && sum !== '' && <small class="fold-s">{sum}</small>}</span>
+            <ChevronDown size={20} class="chev" aria-hidden="true" />
+          </button>
+        </h2>
+        <div class="fold-body" id={bodyId}>
+          <div class="fold-in" inert={!open}>
+            {props.children}
+            {props.footer && <p class="group-f">{props.footer}</p>}
+          </div>
+        </div>
+      </section>
+    );
+  }
   return (
     <section class="group glass" style={{ marginTop: '18px' }} aria-label={props.title} id={props.id}>
       {props.title && <h2 class="group-h">{props.title}</h2>}

@@ -1,5 +1,5 @@
 import { locale, t } from '../i18n';
-import { ArrowDownUp, Pencil } from 'lucide-preact';
+import { ArrowDownUp, FolderOutput, Pencil } from 'lucide-preact';
 import { useMemo, useState } from 'preact/hooks';
 import { stateOp } from '../data/ops';
 import { srsParams } from '../lib/settings';
@@ -10,6 +10,7 @@ import { useApp } from '../state';
 import { PageTitle } from '../ui/kit';
 import { Html } from '../ui/md';
 import { NotePreview } from './deck';
+import { MoveCardsSheet } from './move';
 import { EditNote } from './study';
 
 const STATE = () => ([t('explorar.nueva'), t('today.aprendiendo'), t('explorar.repaso'), t('explorar.reaprendiendo')]);
@@ -24,6 +25,7 @@ export function Explorar(props: { q?: string }) {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [cur, setCur] = useState<string | null>(null);
   const [edit, setEdit] = useState(false);
+  const [moving, setMoving] = useState(false);
   const res = useMemo(() => {
     if (!col) return [];
     const r = search(col, q, Date.now(), app.settings.leechThreshold);
@@ -71,9 +73,11 @@ export function Explorar(props: { q?: string }) {
               <b>{sel.size} seleccionadas</b>
               <button type="button" class="btn small" onClick={() => batch('suspend')}>{t('decks.suspender')}</button>
               <button type="button" class="btn small" onClick={() => batch('unsuspend')}>{t('explorar.reactivar')}</button>
+              <button type="button" class="btn small" onClick={() => setMoving(true)}><FolderOutput size={14} />{' '}{t('move.mover_a_mazo_btn')}</button>
               <button type="button" class="btn small danger" onClick={() => batch('forget')}>{t('explorar.reiniciar')}</button>
             </div>
           )}
+          {moving && col && <MoveCardsSheet cids={[...sel]} onClose={() => setMoving(false)} onDone={() => setSel(new Set())} />}
           <div style={{ overflowX: 'auto' }}>
             <table class="tbl">
               <thead><tr><th><input type="checkbox" aria-label={t('explorar.seleccionar_todas')} onChange={(e) => setSel((e.target as HTMLInputElement).checked ? new Set(res.map((r) => r.cid)) : new Set())} /></th>{th('front', t('explorar.tarjeta'))}{th('deck', t('deck.mazo'))}<th>{t('exams.estado')}</th>{th('due', t('explorar.vence'))}{th('lapses', t('explorar.lapsos'))}{th('stability', 'S')}</tr></thead>

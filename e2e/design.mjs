@@ -18,6 +18,8 @@ try { browser = await type.launch(); } catch { type = pw.chromium; browser = awa
 console.log('Navegador:', type.name());
 
 // Recorre el DOM y devuelve colores con croma > 5 % fuera del fondo, emojis y contenido del usuario.
+// Ajustes en acordeón (Prompt 6 · B4): desplegar todo antes de usar sus controles
+const openAll = async (page) => { await page.locator('.settings').waitFor(); const b = page.getByRole('button', { name: 'Desplegar todo' }); if (await b.count()) { await b.click(); await page.waitForTimeout(300); } };
 const NO_COLOR = (allow = []) => {
   const bad = [];
   const allowSel = allow.join(', ');
@@ -72,6 +74,7 @@ try {
   // ── acento: con 3 usos activos solo esos elementos cambian de tono
   const ALLOW = { nav: ['.seg-nav .slider', '.seg-nav a[aria-current="page"]'], progreso: ['.ring.prog', '.bar.prog'], enlaces: ['.doc .md a'], seleccion: [], calor: ['.heat .c', '.legend .c'], boton: ['.btn.primary', '.grade.inv'], calendario: ['.cal .ev', '.cal .day.today'] };
   await page.goto(`${URL_}#/ajustes`);
+  await openAll(page);
   await page.getByRole('radio', { name: 'Azul' }).click();
   await page.waitForTimeout(700);
   const usos = await page.evaluate(() => [...document.documentElement.classList].filter((c) => c.startsWith('acc-')).map((c) => c.slice(4)));
@@ -92,6 +95,7 @@ try {
     await page.screenshot({ path: `${OUT}acento-${modo}.png` });
   }
   await page.goto(`${URL_}#/ajustes`);
+  await openAll(page);
   await page.getByRole('radio', { name: 'Sin acento' }).click();
   await page.waitForTimeout(500);
 

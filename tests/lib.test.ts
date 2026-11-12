@@ -128,3 +128,12 @@ describe('mapa de adherencia proporcional', () => {
     expect(heatWeeks('2026-11-02', '2026-11-11', true)).toBe(53); // «Ver año completo»
   });
 });
+
+describe('Ajustes plegables (Prompt 6 · B4)', () => {
+  it('por defecto todo plegado; lo desplegado se recuerda', async () => {
+    const { mergeSettings, defaultSettings } = await import('../src/lib/settings');
+    expect(defaultSettings().settingsOpen).toEqual([]);
+    expect(mergeSettings({ settingsOpen: ['idioma', 'addons'] }).settingsOpen).toEqual(['idioma', 'addons']);
+    expect(mergeSettings({ settingsOpen: 'x' }).settingsOpen).toEqual([]);
+  });
+});

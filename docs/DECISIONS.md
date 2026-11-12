@@ -347,3 +347,40 @@
 ### Barra de secciones en iPad (opción b, confirmada por el usuario)
 - Entre 601 y 1100 px (iPad, nunca teléfono) Respaldo y Ajustes (y Sonido ambiente, si el add-on está activo) salen de la barra superior y quedan en un botón «⋯» (menú del gestor de capas). A 1024 px se ven todas las secciones, PDFs incluida; por encima de 1100 px (iPad 11" horizontal, escritorio) no cambia nada.
 - A 834 px (iPad vertical) la barra mejora (305 px visibles frente a 235) pero sigue sin caber entera (466 px): sigue siendo desplazable con el dedo. Para que quepa haría falta además quitar otro control (p. ej. el minipomodoro o el avatar) o pasar la barra a una segunda fila; pendiente de decidir.
+
+## Prompt 6 · Bloque A — Mover mazos, tarjetas y notas (rama `mejoras-4`)
+
+### A1 · Mazos, submazos y tarjetas (`src/data/move.ts`, `src/screens/move.tsx`)
+- Un mazo es `decks/<carpeta>/<archivo>.md` y sus submazos viven en `decks/<carpeta>/<nombre>/`: mover = mover esos archivos uno a uno por SafeVault (no se reescribe el contenido). Los IDs `^xxxx` no cambian, así que `reviews.jsonl`, `state.json` y `verifyDeterminism` quedan igual; el frontmatter (`color`, `new_per_day`, `id:`) viaja con el archivo.
+- Se reescribe lo que nombra mazos por jerarquía: `temas:` de los exámenes, vínculos `engrama://topic/<carpeta>` y `engrama://deck/<ruta>` del calendario, y los paneles «mazo»/«tema» del lienzo (`.app/spaces/*.json`). Los vínculos por `id` no se tocan (siguen resolviendo).
+- Selector «Mover a…» (hoja): árbol de mazos y carpetas, «Nivel superior», «＋ Nuevo mazo aquí» opcional; excluye el propio mazo y sus descendientes; el sitio actual aparece como «aquí». Nombre repetido: **Renombrar** («Nombre (2)», cambia `deck:`) / **Fusionar** (las notas se agregan al mazo existente con sus IDs; los submazos pasan a su carpeta) / Cancelar.
+- Entradas: engranaje (Opciones del mazo), menú contextual (pulsación larga de 450 ms o clic derecho), deslizar la fila («Mover»), arrastrar y soltar (pulsación larga + arrastrar, Pointer Events, `src/ui/pressdrag.tsx`; el destino «Nivel superior» aparece en la cabecera del panel para no desplazar las filas), y selección múltiple («Seleccionar» → «Mover (n)», que es también la alternativa de tocar-y-elegir). Un submazo seleccionado junto a su padre viaja con él.
+- Tarjetas: «Mover a mazo…» en el navegador (selección) y en la lista del mazo (que es también el panel de mazo del lienzo). Se mueve la nota completa (todas sus tarjetas de cloze) con su ID; si el destino ya tiene ese ID: **Omitir** u **Duplicar con ID nuevo** (sin historial; el original se queda).
+- Deshacer: cada operación devuelve un registro (movimientos inversos y textos previos) y el aviso muestra «Deshacer» durante 8 s (`app.toast(msg, action)`; los avisos sin acción no cambian).
+
+### A2 · Notas y temas (`src/notes/move.ts`, `src/screens/notemove.tsx`)
+- `vault.move` por nota; se reparan solo las referencias por **ruta**: `[[Materia/Tema/Nota]]` y `[[notes/…]]` (con `#ancla` o `|alias`), `[texto](notes/….md)`, `<!-- src: notes/….md#pN -->` de las tarjetas, `engrama://note/<ruta>` del calendario y los paneles «nota» del lienzo. `[[Título]]` y los vínculos por `id:` siguen resolviendo sin cambios. Imágenes y dibujos están en `media/` y no se mueven. El historial `.app/history/<ruta>/` viaja con la nota; la papelera no se toca. `materia:`/`tema:` del frontmatter se actualizan solo si la nota ya los tenía.
+- Selector con el árbol existente (temas y subcarpetas; las materias se pueden elegir para crear dentro «＋ Nuevo tema aquí»; «＋ Nueva materia»). Las notas solo caen en un tema (o en una carpeta que ya tenga notas sueltas): no se crea anidación por cuenta propia. Un tema entero se mueve a otra materia. Para una sola nota, el campo «Título» de la hoja anterior se conserva (renombrar al mover).
+- Nombre repetido: **Renombrar** («Nota (2)») / **Reemplazar** (la existente va a la papelera de notas, restaurable) / Cancelar.
+- Antes de mover se guarda lo pendiente y se olvida el documento en NoteStore; después se actualiza el índice de búsqueda (quitar ruta vieja, indexar la nueva) y, si la nota abierta se movió, se navega a su ruta nueva. Funciona igual desde la pestaña Notas y desde los paneles (mismo NoteStore).
+- Entradas: barra de acciones de la nota (botón «Mover a otra materia o tema»), menú contextual en el árbol (pulsación larga o clic derecho), arrastrar una nota a un tema o un tema a una materia, y selección múltiple en el árbol. **Deslizar** una fila del árbol no se usa: en Notas, deslizar ya oculta/muestra el explorador y el inspector (se respeta lo existente); la pulsación larga no dispara ese gesto.
+
+### Pruebas
+- Unitarias: mover submazo (Cardiología/ECG → Urgencias) con historial, estado, frontmatter, exámenes y calendario intactos y `verifyDeterminism`; destinos inválidos; renombrar/fusionar; selección con padre e hijo; carpeta sin mazo propio; mover tarjetas (ID e historial; omitir/duplicar); deshacer. Notas: reescritura de rutas, nota con imágenes/enlaces entrantes/src:/historial/calendario, renombrar/reemplazar, tema entero, destinos sin el Diario, deshacer.
+- `e2e:p6` (Chromium aquí; WebKit en CI): engranaje, deshacer, menú contextual, arrastrar y soltar, selección múltiple, tarjeta desde el navegador y desde la lista del mazo, `verifyDeterminism` desde Ajustes; nota desde la barra de acciones, buscador en la nueva ubicación, deshacer, menú contextual del árbol, tema arrastrado a otra materia, varias notas a la vez.
+
+## Prompt 6 · Bloque B — Perfil como centro: Ajustes y Respaldo dentro
+
+### B3 y B5 · Ajustes y Respaldo en Perfil
+- Ajustes y Respaldo salen de la barra superior, del menú «⋯» de iPad y de «Más» en el teléfono. El «⋯» de iPad (601–1100 px) queda solo para Sonido ambiente y solo aparece si ese add-on está activo.
+- Perfil (avatar en la barra; «Más → Perfil» en el teléfono) tiene dos filas nuevas: «Ajustes» (navega a `#/ajustes`, que sigue funcionando igual, también desde la paleta y los atajos) y «Respaldo» (abre la misma hoja de respaldo, con los días desde el último). Ajustes tiene «Volver al perfil». En Ajustes, el avatar (y «Más → Perfil») queda marcado como sección actual.
+- El aviso de respaldo pendiente sigue abriendo la hoja de respaldo.
+- B3 y B5 van en un solo commit (tocan las mismas líneas de la barra y del menú «Más»).
+- **Barra a 834 px (iPad vertical)**: sin Ajustes ni Respaldo se ven 359 px de 466 px de secciones (antes 305): todavía no cabe entera y sigue siendo desplazable con el dedo. No se cambió nada más de la barra, como se pidió.
+
+### B4 · Ajustes en acordeón
+- `Group` (en `ui/kit.tsx`) solo se vuelve plegable dentro de `FoldCtx`, que únicamente provee la pantalla de Ajustes: el resto de la app no cambia. Mismo contenido y orden; cada sección tiene un `id` estable (también Atajos y Add-ons), que es la clave del estado.
+- Cabecera = botón con título, resumen de una línea (idioma, modo y vidrio, acento, retención y nuevas al día, parámetros, pomodoro, etiquetas, espacio usado, último respaldo, integridad, dedo/lápiz, atajos personalizados, add-ons activos, instalación, versión) y chevron. `aria-expanded`/`aria-controls`, foco visible, Intro/Espacio; el cuerpo plegado es `inert` (no recibe foco).
+- Animación con `grid-template-rows` (0fr → 1fr) y opacidad, ~240 ms; sin animación con `prefers-reduced-motion`. Desplegar una sección empuja las de abajo de forma continua.
+- Por defecto todas plegadas; «Desplegar todo / Plegar todo». Estado recordado en `.app/settings.json` (`settingsOpen`, cambio retrocompatible). `#/ajustes/<sección>` (p. ej. `addons`, `atajos`) abre esa sección.
+- En la comparación de píxeles la pantalla Ajustes cambia (es lo pedido); el resto no.

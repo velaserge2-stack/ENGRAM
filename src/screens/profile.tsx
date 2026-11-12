@@ -1,5 +1,5 @@
 import { locale, t } from '../i18n';
-import { Camera, Trash2, UserRound } from 'lucide-preact';
+import { Archive, Camera, Settings as Gear, Trash2, UserRound } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { useExtra } from '../data/extra';
 import { dayKey, streaks } from '../lib/days';
@@ -88,6 +88,12 @@ export function ProfileScreen() {
           <div><b class="num">{fmt(hours, 1)}</b><span class="foot">{t('profile.horas_de_estudio')}</span></div>
         </div>
       </section>
+
+      {/* Perfil como centro (Prompt 6 · B): Ajustes y Respaldo viven aquí */}
+      <Group>
+        <Row k={<><Gear size={18} aria-hidden="true" /> {t('app.ajustes')}</>} sub={t('profile.ajustes_fila_sub')} onClick={() => (location.hash = '#/ajustes')}><span class="v" aria-hidden="true">›</span></Row>
+        <Row k={<><Archive size={18} aria-hidden="true" /> {t('app.respaldo')}</>} sub={s.lastExportAt ? t('profile.respaldo_hace', { n: Math.floor((Date.now() - s.lastExportAt) / 86_400_000) }) : t('profile.respaldo_nunca')} onClick={() => app.openSheet('backup')}><span class="v" aria-hidden="true">›</span></Row>
+      </Group>
 
       <Group title={t('profile.foto_o_emoji')} footer={t('profile.nunca_sale_del_dispositivo')}>
         <Row k={t('profile.foto')}>

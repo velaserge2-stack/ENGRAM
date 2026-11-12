@@ -37,7 +37,8 @@ export interface AppCtx {
   tick: number;
   refresh(): void;
   col: Collection | null;
-  toast(msg: string): void;
+  /** Aviso breve; con `action`, un botón (p. ej. «Deshacer») y el aviso dura más. */
+  toast(msg: string, action?: { label: string; run: () => void }): void;
   sheet: SheetId;
   sheetArg: string | null;
   openSheet(s: SheetId, arg?: string | null): void;

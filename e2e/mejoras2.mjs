@@ -19,6 +19,9 @@ console.log('Navegador:', type.name());
 const errors = [];
 const check = (c, m) => { if (!c) throw new Error('FALLÓ: ' + m); console.log('  ✓', m); };
 
+// Ajustes en acordeón (Prompt 6 · B4): desplegar todo antes de usar sus controles
+const openAll = async (page) => { await page.locator('.settings').waitFor(); const b = page.getByRole('button', { name: 'Desplegar todo' }); if (await b.count()) { await b.click(); await page.waitForTimeout(300); } };
+
 // Mejoras 2 · E13: sin preajustes; los paneles se añaden con el menú «＋ Añadir panel»
 async function addPanel(page, name) {
   const b = page.getByRole('button', { name: 'Añadir panel', exact: true });
@@ -48,6 +51,7 @@ try {
 
   if (only.includes('lang')) {
     await page.goto(URL_ + '#/ajustes');
+    await openAll(page);
     const grp = page.getByRole('group', { name: 'Idioma' });
     await grp.getByRole('button', { name: 'English' }).click();
     await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor({ timeout: 3000 });
@@ -55,6 +59,7 @@ try {
     await page.goto(URL_ + '#/hoy');
     await page.getByRole('heading', { name: 'Today', level: 1 }).waitFor();
     await page.goto(URL_ + '#/ajustes');
+    await openAll(page);
     await page.getByRole('group', { name: 'Language' }).getByRole('button', { name: 'Français' }).click();
     await page.getByRole('heading', { name: 'Réglages', level: 1 }).waitFor({ timeout: 3000 });
     check(await page.evaluate(() => document.documentElement.lang) === 'fr', 'cambio instantáneo a francés');
@@ -214,18 +219,18 @@ try {
     const a = await info();
     check(a.text === 'Buscar (⌘K)' && a.inside && a.z === '500', 'al pasar el puntero: vidrio con el mismo texto que el aria-label, z = --z-tooltip');
     // borde de la pantalla
-    await page.getByRole('link', { name: 'Ajustes' }).hover();
+    await page.getByRole('link', { name: 'Perfil' }).hover();
     await page.waitForTimeout(600);
     check((await info()).inside, 'cerca del borde derecho el tooltip queda dentro de la pantalla');
     await page.mouse.move(600, 500);
     await page.waitForTimeout(100);
     check(await tip.count() === 0, 'se oculta al salir');
     // teclado
-    await page.getByRole('button', { name: 'Respaldo' }).focus();
+    await page.getByRole('button', { name: 'Buscar (⌘K)' }).focus();
     await page.keyboard.press('Shift+Tab');
     await page.keyboard.press('Tab');
     await tip.waitFor({ timeout: 1000 });
-    check((await info()).text === 'Respaldo', 'con el foco del teclado aparece al instante');
+    check((await info()).text === 'Buscar (⌘K)', 'con el foco del teclado aparece al instante');
     await page.keyboard.press('Escape');
     await tip.waitFor({ state: 'detached' });
     // pulsación larga en táctil: muestra la ayuda y no ejecuta la acción

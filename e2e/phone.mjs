@@ -185,7 +185,8 @@ try {
     await page.locator('.phone-tabbar').getByRole('button', { name: 'Más' }).click();
     const more = page.locator('.sheet');
     await more.waitFor();
-    for (const name of ['Simulacros', 'Calendario', 'Espacios', 'Estadísticas', 'Ajustes']) check(await more.getByRole('link', { name }).count() === 1, `«Más» abre ${name}`);
+    for (const name of ['Simulacros', 'Calendario', 'Espacios', 'Estadísticas', 'Perfil']) check(await more.getByRole('link', { name }).count() === 1, `«Más» abre ${name}`);
+    await page.waitForTimeout(450); // fin de la animación de la hoja
     const sb = await more.boundingBox();
     check(Math.abs(sb.y + sb.height - 844) < 1 && sb.width === 390, `las hojas son inferiores y a todo el ancho (${JSON.stringify(sb)})`);
     await more.getByRole('link', { name: 'Calendario' }).click();

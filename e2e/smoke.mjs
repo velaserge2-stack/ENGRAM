@@ -33,9 +33,13 @@ console.log('Navegador:', browserType.name());
 
 const errors = [];
 const check = (cond, msg) => {
+
   if (!cond) throw new Error('FALLÓ: ' + msg);
   console.log('  ✓', msg);
 };
+// Ajustes en acordeón (Prompt 6 · B4): desplegar todo antes de usar sus controles
+const openAll = async (page) => { await page.locator('.settings').waitFor(); const b = page.getByRole('button', { name: 'Desplegar todo' }); if (await b.count()) { await b.click(); await page.waitForTimeout(300); } };
+
 
 try {
   const ctx = await browser.newContext({ locale: 'es-MX', viewport: { width: 1180, height: 820 }, acceptDownloads: true });
@@ -59,10 +63,11 @@ try {
   check((await page.getByText('Bienvenido a Engrama').count()) === 0, 'tras recargar, los datos y ajustes sobreviven (OPFS)');
 
   await page.goto(URL_ + '#/ajustes');
+  await openAll(page);
   await page.getByText('OPFS').first().waitFor();
   const detail = await page.getByText('OPFS').first().textContent();
   check(true, 'backend: ' + detail);
-  check((await page.getByText('✓ Sin problemas').count()) === 1, 'comprobación de integridad sin problemas');
+  check((await page.locator('#integridad .fold-in').getByText('✓ Sin problemas').count()) === 1, 'comprobación de integridad sin problemas');
   await page.screenshot({ path: OUT + '2-ajustes.png', fullPage: false });
 
   // estudiar una tarjeta: mostrar respuesta → Bien; queda en reviews.jsonl
@@ -74,6 +79,7 @@ try {
   await page.getByText(/Estudiaste 1 tarjetas/).waitFor();
   check(true, 'estudiar registra el repaso y Hoy lo refleja');
   await page.goto(URL_ + '#/ajustes');
+  await openAll(page);
   await page.getByRole('button', { name: 'Comprobar', exact: true }).click();
   await page.getByText(/✓ Idéntico/).waitFor();
   check(true, 'reconstruir desde reviews.jsonl da el mismo estado que state.json');
@@ -88,7 +94,8 @@ try {
   await page.screenshot({ path: OUT + '1-hoy-claro.png' });
 
   // Exportar → descarga (Chromium/WebKit headless no comparten archivos)
-  await page.getByRole('button', { name: 'Respaldo' }).first().click();
+  await page.goto(URL_ + '#/perfil');
+  await page.getByRole('button', { name: /^Respaldo/ }).first().click();
   await page.getByRole('button', { name: 'Preparar respaldo (.zip)' }).click();
   const dl = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Guardar en Archivos' }).click();
