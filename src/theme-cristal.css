@@ -333,7 +333,19 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 .win-bar { height: 44px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 16px; border-bottom: var(--hair) solid var(--line); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .win-bar .t { font-weight: 600; font-size: .9375rem; }
 .win-body { flex: 1; overflow: auto; position: relative; min-height: 0; }
-.win-resize { position: absolute; right: 2px; bottom: 2px; width: 22px; height: 22px; cursor: nwse-resize; touch-action: none; border-right: 2px solid var(--t3); border-bottom: 2px solid var(--t3); border-radius: 0 0 8px 0; }
+/* Prompt 14 · 1: las asas son hijas de .win (que no se desplaza), encima del contenido; el dibujo
+   de 22 px no cambia y la zona táctil crece a 44 px con puntero grueso (dedo, Pencil) */
+.canvas-plane > .win > .win-body { padding-bottom: 22px; }
+.win-resize, .win-edge { position: absolute; z-index: var(--z-panel); touch-action: none; }
+.win-resize { right: 0; bottom: 0; width: 24px; height: 24px; cursor: nwse-resize; }
+.win-resize::after { content: ''; position: absolute; right: 2px; bottom: 2px; width: 22px; height: 22px; border-right: 2px solid var(--t3); border-bottom: 2px solid var(--t3); border-radius: 0 0 8px 0; pointer-events: none; }
+.win-edge.right { top: 44px; right: 0; bottom: 24px; width: 6px; cursor: ew-resize; }
+.win-edge.bottom { left: 0; right: 24px; bottom: 0; height: 6px; cursor: ns-resize; }
+@media (pointer: coarse) {
+  .win-resize { width: 44px; height: 44px; }
+  .win-edge.right { width: 12px; bottom: 44px; }
+  .win-edge.bottom { height: 12px; right: 44px; }
+}
 .divider { width: 10px; cursor: col-resize; touch-action: none; display: grid; place-items: center; }
 .divider::after { content: ""; width: 4px; height: 40px; border-radius: 2px; background: var(--t3); }
 .dock { position: sticky; bottom: calc(env(safe-area-inset-bottom) + 12px); display: flex; max-width: 100%; overflow-x: auto; align-items: center; justify-content: center; gap: 10px; margin-top: 14px; z-index: var(--z-dock); flex-wrap: wrap; }
@@ -568,7 +580,7 @@ pre.preview { background: var(--fill-2); border: var(--hair) solid var(--line); 
 .is-phone .rail button { flex: none; width: 44px; height: 44px; }
 .is-phone .tiles { grid-template-columns: minmax(0, 1fr) !important; height: auto !important; min-height: 0; }
 .is-phone .tiles > .win { height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--tabbar-h) - 250px); min-height: 300px; }
-.is-phone .win-resize { display: none; }
+.is-phone .win-resize, .is-phone .win-edge { display: none; }
 
 /* ───────── perfil (Mejoras 2 · C7) ───────── */
 .avatar { display: inline-grid; place-items: center; flex: none; border-radius: 50%; overflow: hidden; background: var(--fill); color: var(--t1); border: var(--hair) solid var(--border); line-height: 1; }
