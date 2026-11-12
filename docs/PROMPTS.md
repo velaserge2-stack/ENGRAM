@@ -1082,3 +1082,30 @@ Criterio: la firma se ve en la esquina inferior izquierda en todas las pantallas
 
 ## 4. Pruebas y entrega
 Unitarias, WebKit (iPad e iPhone), diferencia cero en pantallas no tocadas, «sin color» y legibilidad, claves de idioma. Lista manual en iPad real. Entrega por punto con archivos tocados y no tocados, causa real del punto 1 y límites de Safari.
+
+---
+
+# PROMPT 10: Corregir la importación de `.apkg` de Anki (formato nuevo) y errores visibles
+Debug para Engrama (ya desplegada)
+
+## 0. Contexto y síntoma
+Al subir un `.apkg` de Anki «se sube pero no aparece en los mazos». Hipótesis a verificar antes de corregir: (1) las versiones recientes de Anki exportan el formato nuevo (`collection.anki21b` con zstd, `meta`, `media` protobuf comprimido) y `collection.anki2` es un marcador falso («Please update to the latest Anki version…»); (2) `src/io/apkg.ts` abre `anki21 ?? anki2` y puede importar el marcador o fallar con una base comprimida; (3) `rows()` traga todos los errores; (4) con 0 mazos la hoja de importación no dice nada claro. Leer CLAUDE.md, SPEC §5, DECISIONS, `apkg.ts`, `apkg.worker.ts`, `import.ts`, `import.tsx`, `tests/apkg.test.ts`; reproducir con paquetes de los tres formatos (legado, compatibilidad, nuevo) y reportar la causa real antes de corregir.
+Reglas: solo lo descrito; no tocar el parser de tarjetas, los importadores `.md`/`.zip`/CSV, la vista previa ni deshacer; mismo formato de salida. Datos no confiables (SPEC §12): conservar `MAX_APKG`, `LIMITS`, límite por archivo, profundidad, HTML→texto y renombrado seguro; añadir tope de descompresión zstd y de nº de notas. Dependencias solo si son imprescindibles y MIT/Apache/BSD/ISC (candidata `fzstd`, solo en el Worker); protobuf con decodificador mínimo propio. Sin red; WASM de sql.js empaquetado. Texto por `t()` (es/en/fr). Cristal; diferencia cero fuera de la hoja de importación. Rama `fix-apkg`, un commit por punto, sin push ni merge sin confirmación. Actualizar CLAUDE.md, DECISIONS y guardar el prompt.
+
+## 1. Elegir la colección correcta
+Leer `meta`; preferencia `anki21b` → `anki21` → `anki2`; descomprimir si empieza con `28 B5 2F FD`, abrir directo si es `SQLite format 3\0`. Detectar el marcador falso y no importarlo; si es lo único, informar que el paquete es del formato nuevo. Si nada es legible, error claro y accionable.
+
+## 2. Soportar el formato nuevo (`anki21b`)
+zstd en el Worker con límite de salida (≤ 1 GB, en `LIMITS`). Esquema v18 (`notetypes`, `fields`, `templates`, `decks`, `deck_config`; mazos con `\x1f`) y v11, detectando por `sqlite_master`. Cloze (nombre, `config` protobuf o `{{c1::`), inversa y ambos. `media` nuevo (protobuf zstd; archivos numerados en zstd) con decodificador mínimo; medio ilegible se omite con aviso. `revlog` igual que hoy (`src: 'anki'`, ease 1–4, ≤ 60 s, `mergeLog`).
+
+## 3. Dejar de tragarse los errores
+`rows()` distingue «tabla inexistente» de «error real» (aviso con motivo). Reportar el esquema detectado (v11/v18, notas, mazos, medios). Advertir si hay notas y 0 mazos o 0 notas, con la causa probable. Contar y avisar las notas con primer campo vacío. No escribir «Default» vacío; si tiene tarjetas, nombrarlo como el archivo.
+
+## 4. Hoja de importación
+Con 0 mazos y 0 archivos: mensaje principal visible (icono + negrita, sin color) con causa y paso siguiente. Si funciona: resumen («3 mazos · 1 240 tarjetas · 86 imágenes · 5 310 repasos») antes de confirmar y «Ver mazos» después. Verificar `app.changed()` y recarga de la colección (incluidos `decks/A/B/C.md`). Progreso mientras se descomprime; si el Worker falla, mensaje claro sin congelar.
+
+## 5. Pruebas
+Unitarias (selección de colección, marcador falso, v11/v18, `\x1f`, cloze/básica/inversa, medios nuevos y legados, `revlog`, tope de descompresión, corrupto, vacío, 0 notas, rutas `../`). Paquetes de ejemplo generados con un script reproducible en `scripts/` y guardados en `tests/fixtures/apkg/`. WebKit: importar cada paquete → resumen → confirmar → Mazos → estudiar → deshacer; archivo basura `.apkg` → error claro. Regresión completa y diferencia cero.
+
+## 6. Entrega
+Causa real, qué cambió, archivos tocados y no tocados, dependencias (nombre, licencia, peso), límites conocidos. Actualizar la ayuda de importación y el README con «cómo exportar desde Anki».

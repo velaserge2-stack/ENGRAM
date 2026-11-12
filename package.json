@@ -27,6 +27,7 @@
     "docx": "^9.15.3",
     "dompurify": "^3.4.17",
     "fflate": "^0.8.3",
+    "fzstd": "^0.1.1",
     "lucide-preact": "^1.71.0",
     "mammoth": "^1.13.0",
     "markdown-it": "^15.0.3",
