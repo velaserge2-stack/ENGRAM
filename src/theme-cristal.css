@@ -101,10 +101,13 @@ body.focus .bg-veil { background: rgba(0, 0, 0, .35) !important; }
   box-shadow: var(--hilite), var(--shadow);
   border-radius: var(--r-panel); color: var(--t1);
 }
-.glass.strong { background: var(--glass-strong); -webkit-backdrop-filter: blur(40px) saturate(var(--sat)); backdrop-filter: blur(40px) saturate(var(--sat)); }
+.glass.strong { background: var(--glass-strong); -webkit-backdrop-filter: blur(calc(40px * min(1, var(--k) / .7))) saturate(var(--sat)); backdrop-filter: blur(calc(40px * min(1, var(--k) / .7))) saturate(var(--sat)); }
+/* ↑ vidrio: «Intensidad del vidrio» también gobierna las superficies fuertes (40 px al valor por defecto .7, 0 px al 0 %) */
 /* dentro de un vidrio: solo relleno translúcido (no anidar desenfoques) */
 .glass .glass, .inset { background: var(--fill-2); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; border: var(--hair) solid var(--line); }
 .light-mode .glass, .glass.flat { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--glass-flat); }
+/* modo ligero: también sin sombras grandes (una sombra corta; el borde y el relleno opaco ya separan) */
+.light-mode .glass { box-shadow: var(--hilite), 0 2px 8px rgba(0, 0, 0, .18); }
 @media (prefers-reduced-transparency: reduce) { .glass, .glass.strong { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--glass-flat); } }
 @media (prefers-contrast: more) { .glass { border-width: 1px; border-color: var(--border-strong); } [data-glass] { --t2: var(--t1); } }
 
@@ -136,6 +139,9 @@ button.pill, a.pill { border: var(--hair) solid var(--border); }
 .wrap > .btn, .wrap > label.btn { white-space: normal; text-align: center; } /* i18n: textos largos bajan de línea en vez de desbordar */
 .btn:active { transform: scale(.96); background: var(--fill-sel); }
 .btn.primary, .btn[aria-pressed="true"] { background: var(--inverse-bg); color: var(--inverse-fg); border-color: transparent; }
+/* «Añadir examen» en Hoy: una píldora de vidrio alrededor del botón (y su ayuda si no hay exámenes) */
+.exam-add { display: grid; justify-items: center; gap: 6px; padding: 6px; border-radius: 26px; max-width: 100%; text-align: center; }
+.exam-add .foot { padding: 0 12px 6px; max-width: 34ch; }
 .btn.ghost { background: transparent; }
 .btn.outline { background: transparent; border: 1px solid var(--border-strong); }
 .btn.small { min-height: 36px; padding: 0 14px; font-size: var(--t-note); }
@@ -499,7 +505,7 @@ pre.preview { background: var(--fill-2); border: var(--hair) solid var(--line); 
    (max-width: 600px), (max-height: 500px) and (orientation: landscape)). Un iPad nunca la cumple:
    nada de lo que sigue cambia iPad ni web. */
 .is-phone { --blur: 14px; --tabbar-h: 60px; }
-.is-phone .glass.strong { -webkit-backdrop-filter: blur(22px) saturate(var(--sat)); backdrop-filter: blur(22px) saturate(var(--sat)); }
+.is-phone .glass.strong { -webkit-backdrop-filter: blur(calc(22px * min(1, var(--k) / .7))) saturate(var(--sat)); backdrop-filter: blur(calc(22px * min(1, var(--k) / .7))) saturate(var(--sat)); }
 .is-phone .app { padding: calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 12px) calc(env(safe-area-inset-bottom) + var(--tabbar-h) + 28px) calc(env(safe-area-inset-left) + 12px); }
 .is-phone.kb-open .app { padding-bottom: calc(var(--kb-inset) + 16px); }
 
