@@ -114,6 +114,8 @@ export function InkLayer(p: { doc: InkDoc; onChange: (d: InkDoc) => void; histor
   };
   useEffect(() => { if (live.current) drawLive(); }, [sel, p.doc]);
   useEffect(() => setSel(new Set()), [p.tools.tool]);
+  // Prompt 11: al desmontarse, lienzos a tamaño 0 (Safari no libera su memoria si no)
+  useEffect(() => () => { for (const c of [base.current, live.current]) if (c) c.width = c.height = 0; }, []);
 
   const ER = 12 / Math.max(1, W); // radio del borrador: 12 px de pantalla
   const commit = (d: InkDoc) => { if (d !== p.doc) (p.history.push(d), p.onChange(d)); };
