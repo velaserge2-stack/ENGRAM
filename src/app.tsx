@@ -29,7 +29,7 @@ import { PhoneTabBar } from './ui/phonebar';
 import { usePhone } from './ui/kit';
 import { Avatar, useProfile } from './screens/profile';
 import { addonOn } from './screens/addons';
-import { AmbientController, AmbientPlayer } from './screens/ambient';
+import { AmbientController, AmbientPlayer, MiniAmbient } from './screens/ambient';
 import { Headphones } from 'lucide-preact';
 import { Sheet } from './ui/kit';
 import { GlobalKeys, keymap, ShortcutSheet } from './ui/keys';
@@ -278,6 +278,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       <GlobalKeys run={runGlobal} />
       {keysHelp && <ShortcutSheet onClose={() => setKeysHelp(false)} />}
       {addonOn(settings, 'ambient') && <AmbientController />}
+      {addonOn(settings, 'ambient') && phone && <MiniAmbient floating />}
       {sheet === 'ambient' && <Sheet title={t('addons.n_ambient')} onClose={() => setSheet(null)}><AmbientPlayer /></Sheet>}
       {toastMsg && <div class="toast glass strong" role="status" aria-live="polite">{toastMsg}{toastAct && <>{' '}<button type="button" class="btn small toast-act" onClick={() => { const a = toastAct; setToast(null); setToastAct(null); a.run(); }}>{toastAct.label}</button></>}</div>}
       <TooltipLayer />
@@ -288,6 +289,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
 
 function TopBar(props: { tab: string }) {
   const app = ctxHook();
+  const phoneBar = usePhone();
   const nav = useRef<HTMLElement>(null);
   const [slider, setSlider] = useState<{ x: number; w: number } | null>(null);
   useLayoutEffect(() => {
@@ -341,6 +343,7 @@ function TopBar(props: { tab: string }) {
         </Popover>
       )}
       {addonOn(app.settings, 'ambient') && <button type="button" class="pill glass ph-hide mid-hide" aria-label={t('addons.n_ambient')} onClick={() => app.openSheet('ambient')}><Headphones size={18} /></button>}
+      {addonOn(app.settings, 'ambient') && !phoneBar && <MiniAmbient />}
       <a class="pill glass avatar-pill ph-hide" href="#/perfil" aria-label={t('profile.perfil')} aria-current={props.tab === 'perfil' || props.tab === 'ajustes' ? 'page' : undefined}>
         <Avatar profile={profile} size={32} />
       </a>

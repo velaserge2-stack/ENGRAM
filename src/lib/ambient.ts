@@ -51,7 +51,10 @@ function bufferFor(id: SoundId): AudioBuffer {
   return b;
 }
 
-const target = () => (muted ? 0 : duckOn ? 0.25 : 1);
+/** Volumen general (mini reproductor, Prompt 6 · D); por sesión, como el temporizador. */
+let volume = 1;
+let paused = false;
+const target = () => (muted ? 0 : (duckOn ? 0.25 : 1) * volume);
 
 function applyLive(levels: Levels) {
   const c = ctx!;
@@ -117,6 +120,7 @@ export const ambient = {
     levelsNow = levels;
     mode = background ? 'background' : 'live';
     playing = true;
+    paused = false;
     if (mode === 'live') {
       bg?.pause();
       const c = ensureCtx();
@@ -142,8 +146,27 @@ export const ambient = {
   },
   stop() {
     playing = false;
+    paused = false;
     if (ctx) applyLive({});
     bg?.pause();
+    emit();
+  },
+  /** Pausa desde el mini reproductor: como detener, pero recuerda que se puede reanudar. */
+  pause() {
+    if (!playing) return;
+    ambient.stop();
+    paused = true;
+    emit();
+  },
+  /** Reanudar (desde un toque) con los mismos sonidos y el mismo modo. */
+  resume() { if (paused) ambient.play(levelsNow, mode === 'background'); },
+  get paused() { return paused; },
+  get volume() { return volume; },
+  setVolume(v: number) {
+    volume = Math.max(0, Math.min(1, v));
+    if (ctx && master) master.gain.setTargetAtTime(target(), ctx.currentTime, 0.05);
+    if (bg) bg.volume = target();
+    player.setVolume(volume);
     emit();
   },
   /** Desvanecer en `ms` y parar (temporizador de apagado). */
@@ -180,6 +203,8 @@ let idx = 0;
 let shuffle = false;
 let loopAll = true;
 const mListeners = new Set<() => void>();
+let mVolume = 1;
+let ducked = false;
 export const player = {
   get current() { return queue[idx] ?? null; },
   get playing() { return !!music && !music.paused; },
@@ -191,6 +216,7 @@ export const player = {
     loopAll = opts.loop;
     idx = Math.max(0, Math.min(start, list.length - 1));
     music ??= new Audio();
+    music.volume = (ducked ? 0.3 : 1) * mVolume;
     music.onended = () => player.next();
     music.onplay = music.onpause = () => mListeners.forEach((f) => f());
     music.src = queue[idx]?.url ?? '';
@@ -222,5 +248,6 @@ export const player = {
     const a = music, v0 = a.volume, t0 = Date.now();
     const iv = setInterval(() => { const k = 1 - (Date.now() - t0) / ms; if (k <= 0) { clearInterval(iv); a.pause(); a.volume = v0; mListeners.forEach((f) => f()); } else a.volume = Math.max(0, v0 * k); }, 100);
   },
-  setDuck(on: boolean) { if (music) music.volume = on ? 0.3 : 1; },
+  setDuck(on: boolean) { ducked = on; if (music) music.volume = (on ? 0.3 : 1) * mVolume; },
+  setVolume(v: number) { mVolume = v; if (music) music.volume = (ducked ? 0.3 : 1) * mVolume; },
 };

@@ -1,6 +1,7 @@
 import { t } from '../i18n';
 import { ExternalLink, Music, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, Square, Upload } from 'lucide-preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { Popover } from '../ui/overlay';
 import { ambient, player } from '../lib/ambient';
 import { fadeGain, sleepAt, SOUNDS, type SoundId } from '../lib/noise';
 import type { Settings } from '../lib/settings';
@@ -157,3 +158,70 @@ function Duration(p: { path: string; onDur: (s: number) => void }) {
   }, [p.path]);
   return <>—</>;
 }
+
+/**
+ * Mini reproductor (Prompt 6 · D): aparece solo mientras algo suena (o quedó en pausa desde él).
+ * Es una vista del mismo estado de `ambient.ts` (sin otro motor ni AudioContext). Compacto:
+ * barras de nivel, título corto y pausa. Se extiende con el cursor o el lápiz encima, con el
+ * foco del teclado o, sin hover, al tocarlo; se contrae al salir (300 ms de gracia) o al
+ * tocar fuera. En el teléfono es una píldora flotante sobre la barra inferior.
+ */
+export function MiniAmbient(p: { floating?: boolean }) {
+  const app = useApp();
+  const s = app.settings.ambient;
+  useEngine();
+  useTick(1000, sleep.at !== null);
+  const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const grace = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(grace.current), []);
+  const musicOn = !!player.current && (player.playing || musicHeld.on);
+  const sounding = ambient.playing || player.playing;
+  const visible = sounding || ambient.paused || musicHeld.on;
+  useEffect(() => { if (player.playing) musicHeld.on = false; if (!visible) setOpen(false); }, [player.playing, visible]);
+  if (!visible) return null;
+  const layers = SOUNDS.filter((id) => (s.levels[id] ?? 0) > 0);
+  const title = musicOn && player.current ? player.current.title : layers.length ? layers.map(label).join(' + ') : t('addons.n_ambient');
+  const show = () => { clearTimeout(grace.current); setOpen(true); };
+  const hide = () => { clearTimeout(grace.current); grace.current = setTimeout(() => setOpen(false), 300); };
+  const toggle = () => {
+    if (sounding) { ambient.pause(); if (player.playing) { musicHeld.on = true; player.pause(); } }
+    else { ambient.resume(); if (musicHeld.on) { musicHeld.on = false; player.resume(); } }
+  };
+  const setLevel = (id: SoundId, v: number) => { const levels = { ...s.levels, [id]: v }; app.update({ ambient: { ...s, levels } }); ambient.setLevels(levels); };
+  const left = sleep.at ? Math.max(0, Math.ceil((sleep.at - Date.now()) / 60000)) : null;
+  const hover = (e: PointerEvent) => e.pointerType !== 'touch';
+  return (
+    <div ref={setAnchor} class={`mini-amb glass${p.floating ? ' floating' : ''}${sounding ? ' on' : ''}`} role="group" aria-label={t('addons.n_ambient')}
+      onPointerEnter={(e) => hover(e) && show()} onPointerLeave={(e) => hover(e) && hide()}
+      onFocusIn={(e) => (e.target as HTMLElement).matches(':focus-visible') && show()} onFocusOut={hide}>
+      <button type="button" class="mini-amb-main" aria-expanded={open} aria-label={t('mini.controles_de', { name: title })} onClick={(e) => { if ((e as unknown as PointerEvent).pointerType === 'mouse') return; clearTimeout(grace.current); setOpen(!open); }}>
+        <span class="bars" aria-hidden="true"><i /><i /><i /></span>
+        <span class="ellipsis mini-amb-t" data-user-content={musicOn ? '' : undefined}>{title}</span>
+      </button>
+      <button type="button" class="btn icon small ghost" aria-label={sounding ? t('ambient.pausar') : t('mini.reanudar')} onClick={toggle}>{sounding ? <Pause size={16} /> : <Play size={16} />}</button>
+      <span class="sr-only" role="status" aria-live="polite">{sounding ? t('mini.sonando', { name: title }) : t('mini.en_pausa')}</span>
+      {open && anchor && (
+        <Popover anchor={anchor} onClose={() => setOpen(false)} label={t('addons.n_ambient')} role="group" class="glass strong mini-amb-x">
+          <div class="stack-s" onPointerEnter={(e) => hover(e as PointerEvent) && show()} onPointerLeave={(e) => hover(e as PointerEvent) && hide()} onFocusIn={show} onFocusOut={hide}>
+            <b class="ellipsis" data-user-content={musicOn ? '' : undefined}>{title}</b>
+            <div class="row">
+              {musicOn && <button type="button" class="btn icon small" aria-label={t('ambient.anterior')} onClick={() => player.prev()}><SkipBack size={16} /></button>}
+              <button type="button" class="btn icon small" aria-label={sounding ? t('ambient.pausar') : t('mini.reanudar')} onClick={toggle}>{sounding ? <Pause size={16} /> : <Play size={16} />}</button>
+              {musicOn && <button type="button" class="btn icon small" aria-label={t('ambient.siguiente')} onClick={() => player.next()}><SkipForward size={16} /></button>}
+              <span class="grow" />
+              {left !== null && <span class="foot">{t('ambient.se_apaga_en', { n: left })}</span>}
+            </div>
+            <label class="mini-amb-row"><span>{t('mini.volumen_general')}</span><input type="range" min={0} max={100} step={5} value={Math.round(ambient.volume * 100)} aria-label={t('mini.volumen_general')} onInput={(e) => ambient.setVolume(Number((e.target as HTMLInputElement).value) / 100)} /></label>
+            {layers.map((id) => (
+              <label class="mini-amb-row"><span>{label(id)}</span><input type="range" min={0} max={100} step={5} value={Math.round((s.levels[id] ?? 0) * 100)} aria-label={t('ambient.volumen_x', { name: label(id) })} onInput={(e) => setLevel(id, Number((e.target as HTMLInputElement).value) / 100)} /></label>
+            ))}
+            <button type="button" class="btn small" onClick={() => { setOpen(false); app.openSheet('ambient'); }}><ExternalLink size={14} />{' '}{t('mini.abrir_panel')}</button>
+          </div>
+        </Popover>
+      )}
+    </div>
+  );
+}
+/** Música pausada desde el mini reproductor (para poder reanudarla desde él). */
+const musicHeld = { on: false };

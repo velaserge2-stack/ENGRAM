@@ -419,3 +419,23 @@
 - Apagado: sin icono ni contador en la barra superior ni en el dock de Espacios, sin «Procesar bandeja» en la paleta, no se recorre `inbox/` para contar pendientes y `#/bandeja` redirige a Hoy (`location.replace`, sin dejar entrada en el historial). La Bandeja nunca estuvo en «Más», en el riel ni en los avisos de Hoy. El pie de «Sin clasificar» en Notas ya no sugiere «envíalas a la Bandeja».
 - Los datos de `inbox/` no se tocan; al encender el add-on todo vuelve (icono, contador, ruta y comando). Almacenamiento sigue contando las citas desde `inbox/`.
 - La página /design conserva la píldora de Bandeja como muestra del componente.
+
+## Prompt 6 · Bloque D — Mini reproductor de sonido ambiente (rama `mejoras-5`)
+- `MiniAmbient` (`src/screens/ambient.tsx`) es una vista del mismo estado de `ambient.ts`: sin otro motor ni otro `AudioContext`. El panel de Sonido ambiente no cambia.
+- El motor gana dos cosas mínimas: **volumen general** por sesión (`ambient.setVolume`, que también aplica a la música propia y se multiplica por la atenuación) y **pausa/reanudar** (`ambient.pause/resume`: detiene como «Detener», pero recuerda que se puede reanudar con los mismos sonidos y el mismo modo). «Detener» desde el panel borra la pausa.
+- **Aparece solo mientras algo suena**, o si se pausó desde el propio mini reproductor (para poder reanudar). Desaparece al detener.
+- Dónde está:
+  - iPad y web: en la barra superior, junto al icono de Sonido ambiente. Entre 601 y 1100 px el icono vive en «⋯» y el mini reproductor queda en la barra.
+  - Teléfono: píldora flotante a la derecha, sobre la barra inferior, sin taparla.
+- **Compacto**: píldora de vidrio con tres barras de nivel monocromas (animadas solo con `transform`; estáticas con `prefers-reduced-motion`), título corto (las capas activas o la pista) y pausa.
+- **Extendido**: se abre con el cursor o el lápiz encima (Pointer Events que no son táctiles), con el foco del teclado (`:focus-visible`) o, sin hover, al tocar. Se contrae al salir (300 ms de gracia), con Esc o al tocar fuera. Va en `Popover` de `overlay.tsx` (portal y pila, `--z-popover`), siempre dentro de la pantalla. La animación es de resorte, solo `transform`/`opacity`. Contenido:
+  - título;
+  - pausa/reanudar;
+  - anterior/siguiente si hay música;
+  - volumen general;
+  - cada capa activa con su volumen (se guarda igual que en el panel);
+  - minutos que quedan del temporizador;
+  - «Abrir panel».
+- Accesibilidad: objetivos ≥ 44 px, `aria-expanded`, estado anunciado con `aria-live`. Las etiquetas pasan por `t()` (es/en/fr).
+- Límites de Safari: el AudioContext solo se reanuda dentro de un toque, y «Reanudar» lo es. En segundo plano (pantalla bloqueada) `<audio>.volume` no tiene efecto en iOS, así que el volumen general solo cambia el sonido en primer plano.
+- Barra a 834 px tras ocultar la Bandeja: 449 de 466 px de secciones visibles (antes 359). Faltan 17 px para que quepa entera; sigue siendo desplazable.
