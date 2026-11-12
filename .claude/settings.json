@@ -1,0 +1,6 @@
+{
+  "env": {
+    "GRAPHIFY_BACKEND": "off",
+    "GRAPHIFY_NO_TIPS": "1"
+  }
+}

@@ -42,4 +42,4 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 **Fases 1–11**, tema Cristal y **Mejoras 1** desplegados (`main`). **Mejoras 2** en la rama `mejoras-2`: bloque A (idiomas, capas, minimizar todo, tooltips) hecho, en espera de prueba en el iPad; siguen los bloques B (iPhone), C (ajustes y datos), D (notas y mapa de calor), E (lienzo conectado y simulacros) y F (calendario). No unir a `main` sin confirmación.
 
 ## Skills activas
-Mantenimiento: webapp-testing, security-review (importadores), frontend-design (Cristal), ponytail. Máx. 5–6 a la vez.
+En `.claude/skills/` (proyecto; registro en `docs/audit/LOG.md`): ponytail (código mínimo; nunca recortar SafeVault, integridad, FSRS, sanitización ni accesibilidad), systematic-debugging de superpowers (reproducir antes de corregir), webapp-testing (Playwright), break-ui (datos extremos), security-review (incluida en Claude Code; importadores y sanitización), graphify (grafo del proyecto; no ejecutar `/graphify` antes de la etapa 1b; `GRAPHIFY_BACKEND=off`). Máx. 6 a la vez.
