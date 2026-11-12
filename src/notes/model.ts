@@ -28,12 +28,31 @@ export function noteMeta(path: string): NoteMeta {
   const parts = path.split('/').slice(1);
   const title = basename(path).replace(/\.md$/, '');
   if (parts[0] === DAILY && parts.length === 2) return { path, title, materia: DAILY, tema: '', structured: true };
+  // Prompt 12: con materia y sin tema (notes/<Materia>/<Título>.md) va dentro de su materia, en «Sin tema»
+  if (parts.length === 2) return { path, title, materia: parts[0]!, tema: '', structured: true };
   return parts.length === 3 ? { path, title, materia: parts[0]!, tema: parts[1]!, structured: true } : { path, title, materia: parts.length > 1 ? parts[0]! : '', tema: '', structured: false };
 }
 
+/** Nombre seguro: sin caracteres prohibidos y ≤ 200 bytes (sin partir un emoji ni el sufijo « (2)»). */
+export function safeSegment(s: string): string {
+  const c = s.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').replace(/\s+/g, ' ').replace(/^[.\s]+/, '').trim();
+  const [, base = c, suf = ''] = /^(.*?)( \(\d+\))?$/.exec(c) ?? [];
+  const enc = new TextEncoder();
+  let out = '';
+  for (const ch of base) { if (enc.encode(out + ch + suf).length > 200) break; out += ch; }
+  return (out.trim() + suf).trim();
+}
+
+/**
+ * Ruta de una nota nueva. Solo el título es obligatorio (Prompt 12):
+ * materia y tema → notes/<Materia>/<Tema>/<Título>.md · solo materia → notes/<Materia>/<Título>.md ·
+ * sin materia (con o sin tema) → notes/<Título>.md («Sin clasificar»; el tema queda en el frontmatter).
+ */
 export function notePath(materia: string, tema: string, title: string): string {
-  const clean = (s: string) => s.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').replace(/\s+/g, ' ').trim() || t('inbox.sin_titulo');
-  return materia === DAILY ? `notes/${DAILY}/${clean(title)}.md` : `notes/${clean(materia)}/${clean(tema)}/${clean(title)}.md`;
+  const name = safeSegment(title) || t('inbox.sin_titulo');
+  if (materia === DAILY) return `notes/${DAILY}/${name}.md`;
+  const m = safeSegment(materia), tm = safeSegment(tema);
+  return m ? (tm ? `notes/${m}/${tm}/${name}.md` : `notes/${m}/${name}.md`) : `notes/${name}.md`;
 }
 
 export async function listNotes(vault: VaultAdapter): Promise<NoteMeta[]> {
@@ -81,7 +100,8 @@ export function fillTemplate(t: string, title: string, now = new Date()): string
 
 export function newNoteText(materia: string, tema: string, title: string, template = 'Clase', tags: string[] = [], now = new Date()): string {
   const body = fillTemplate(TEMPLATES[template] ?? TEMPLATES.Clase!, title, now);
-  const fm: Frontmatter = materia === DAILY ? { fecha: fillTemplate('{{fecha}}', '', now) } : { materia, tema, fecha: fillTemplate('{{fecha}}', '', now), tags };
+  // materia y tema solo si tienen valor (Prompt 12)
+  const fm: Frontmatter = materia === DAILY ? { fecha: fillTemplate('{{fecha}}', '', now) } : { ...(materia.trim() ? { materia: materia.trim() } : {}), ...(tema.trim() ? { tema: tema.trim() } : {}), fecha: fillTemplate('{{fecha}}', '', now), tags };
   return stringifyFrontmatter(fm, body);
 }
 
