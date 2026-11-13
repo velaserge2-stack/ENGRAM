@@ -44,3 +44,9 @@ Activas para la auditoría (≤ 6): ponytail, systematic-debugging, webapp-testi
 - Revisados `cards/parse`, `srs/engine`, `srs/queue` y `data/*` (collection, ops, extra, decktrash, move). Informe en `docs/audit/02-data.md`: 14 hallazgos (3 altos, 5 medios, 6 bajos).
 - Altos: el patrón `readTextOr(…, '')` seguido de escritura destruye datos con una lectura fallida en `appendLog` (historial FSRS), `appendCard`/`setDeckMeta` (mazo) y `restoreAttempt` (intentos); además `appendLog` pierde entradas si se solapan dos llamadas.
 - Pruebas: `tests/audit-data.test.ts` con 17 `it.fails` (cambiar a `it()` al corregir). Sin cambios en `src/`. Sección «para etapa 3» en el informe.
+
+## Etapa 2.3 · notes/sim/io (2026-11-13) · subagente Sonnet
+
+- Revisados `notes/*`, `sim/*`, `io/*` y la lógica pura de `md`, `share/period`, `tasks`, `stickies`, `ink`, `pdf`. Informe en `docs/audit/02-notes-io.md`: 26 hallazgos (3 altos, 13 medios, 10 bajos).
+- Altos: `noteStore.load/refresh` cachea `''` ante una lectura fallida y el autosave pisa la nota; `rewriteNoteRefs` convierte `[[Título]]` en `[[Materia/Título]]` al mover una nota suelta (enlaces rotos); la importación admite `.app/journal.json` y `.app/tmp/*`.
+- Pruebas: `tests/audit-notes-io.test.ts` con 30 `it.fails` (cambiar a `it()` al corregir). Sin cambios en `src/`. Sección «para etapa 3» en el informe (zip con cabeceras mentirosas, `.apkg`, sanitización, NoteStore, memoria en Safari).
