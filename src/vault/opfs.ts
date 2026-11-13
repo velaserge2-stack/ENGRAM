@@ -17,9 +17,19 @@ export class OPFSBackend implements VaultAdapter {
   private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; progress?: (n: number) => void }>();
   strategy = '';
 
+  /** Sin respuesta del Worker durante este tiempo con operaciones pendientes → se reinicia. */
+  static TIMEOUT = 20_000;
+  private last = 0;
+  private watchdog: ReturnType<typeof setInterval> | null = null;
+
   private constructor() {
-    this.worker = new Worker(new URL('./opfs.worker.ts', import.meta.url), { type: 'module' });
-    this.worker.onmessage = (ev: MessageEvent<WorkerResponse>) => {
+    this.worker = this.spawn();
+  }
+
+  private spawn(): Worker {
+    const w = new Worker(new URL('./opfs.worker.ts', import.meta.url), { type: 'module' });
+    w.onmessage = (ev: MessageEvent<WorkerResponse>) => {
+      this.last = Date.now(); // cualquier mensaje (también el progreso) cuenta como vida
       const r = ev.data;
       const p = this.pending.get(r.id);
       if (!p) return;
@@ -29,10 +39,35 @@ export class OPFSBackend implements VaultAdapter {
       else if (r.code === 'AbortError') p.reject(new DOMException(r.error, 'AbortError'));
       else p.reject(new VaultError(r.error, codeOf(r.code)));
     };
-    this.worker.onerror = (ev) => {
-      for (const p of this.pending.values()) p.reject(new VaultError(ev.message || 'Error del Worker', 'io'));
-      this.pending.clear();
-    };
+    w.onerror = (ev) => this.fail(ev.message || 'Error del Worker');
+    return w;
+  }
+
+  /** Rechaza todo lo pendiente (el llamador ve un error, no una espera eterna). */
+  private fail(msg: string) {
+    for (const p of this.pending.values()) p.reject(new VaultError(msg, 'io'));
+    this.pending.clear();
+  }
+
+  /**
+   * Safari puede dejar el Worker colgado (segundo plano con un sync handle abierto, `getFile` tras
+   * volver): sin esto la cola del Worker y la de SafeVault quedarían bloqueadas para siempre. Si
+   * hay operaciones pendientes y el Worker no dice nada en TIMEOUT, se rechazan con `io` (la
+   * escritura en curso no se dio por buena: SafeVault conserva su diario) y el Worker se recrea.
+   */
+  private arm() {
+    if (this.watchdog) return;
+    this.watchdog = setInterval(() => {
+      if (!this.pending.size) {
+        clearInterval(this.watchdog!);
+        this.watchdog = null;
+        return;
+      }
+      if (Date.now() - this.last < OPFSBackend.TIMEOUT) return;
+      this.fail('El almacenamiento no responde; se reinició');
+      this.worker.terminate();
+      this.worker = this.spawn();
+    }, Math.max(50, Math.min(5000, OPFSBackend.TIMEOUT / 4)));
   }
 
   static isSupported(): boolean {
@@ -51,8 +86,10 @@ export class OPFSBackend implements VaultAdapter {
     const id = ++this.seq;
     onId?.(id);
     return new Promise((resolve, reject) => {
+      if (!this.pending.size) this.last = Date.now(); // el reloj empieza con la primera pendiente
       this.pending.set(id, { resolve, reject, progress });
       this.worker.postMessage({ ...req, id }, transfer);
+      this.arm();
     });
   }
 

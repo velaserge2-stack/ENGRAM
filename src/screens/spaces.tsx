@@ -820,7 +820,8 @@ function DocxView(p: { path: string }) {
   const app = useApp();
   const { data, error } = useAsync(async () => {
     const r = await docxToHtml(await app.vault.read(p.path));
-    for (const im of r.images) await app.vault.write(`media/${im.name}`, im.data);
+    // nombres por contenido (extract.ts): solo se escribe la imagen que aún no está en media/
+    for (const im of r.images) if (!(await app.vault.exists(`media/${im.name}`))) await app.vault.write(`media/${im.name}`, im.data);
     return sanitize(r.html.replace(/src="media:([^"]+)"/g, 'data-media="$1"'));
   }, [p.path]);
   if (error) return <div class="err">{tr('spaces.no_se_pudo_leer_el_documento')}</div>;
