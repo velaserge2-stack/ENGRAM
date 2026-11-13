@@ -8,12 +8,12 @@
 import { pdfjs } from '../io/extract';
 import { countGetPage, perf } from '../lib/perf';
 
-export type PdfLib = Awaited<ReturnType<typeof pdfjs>>;
+type PdfLib = Awaited<ReturnType<typeof pdfjs>>;
 export type PDFDoc = Awaited<ReturnType<PdfLib['getDocument']>['promise']>;
 interface FileSource { file?(path: string): Promise<File>; read(path: string): Promise<Uint8Array> }
 
 /** Tamaño de cada rango pedido a pdf.js (bytes). */
-export const RANGE_CHUNK = 256 * 1024;
+const RANGE_CHUNK = 256 * 1024;
 
 export async function fileOf(vault: FileSource, path: string): Promise<File> {
   if (vault.file) return vault.file(path);

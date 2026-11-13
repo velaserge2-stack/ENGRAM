@@ -112,7 +112,11 @@ describe('mover tarjetas', () => {
     const d = await moveCards(v, c2, ['e1'], target, 'duplicate');
     expect(d).toMatchObject({ moved: 0, duplicated: 1 });
     const c3 = await loadCollection(v, DEFAULT_PARAMS, t);
-    expect(c3.decks.find((x) => x.full === 'Urgencias')!.cards.length).toBe(3);
+    // plan 8: la copia con ^e1 repetido sigue en el archivo pero no entra al estudio (se avisa); la duplicada sí
+    const urg3 = c3.decks.find((x) => x.full === 'Urgencias')!;
+    expect(urg3.notes.length).toBe(3);
+    expect(urg3.cards.length).toBe(2);
+    expect(urg3.errors.join(' ')).toContain('e1');
   });
 });
 
@@ -127,5 +131,20 @@ describe('mover carpetas', () => {
     expect(c.decks.map((d) => d.full).sort()).toEqual(['Urgencias', 'Urgencias/Cardiología/ECG', 'Urgencias/Cardiología/ECG/Arritmias']);
     expect(await readTextOr(v, 'exams/Parcial.md', '')).toContain('Urgencias/Cardiología/ECG');
     void col;
+  });
+
+  it('plan 11: moveCards deshace el destino si falla la escritura de un origen (ni perdida ni duplicada)', async () => {
+    const v = new MemoryBackend(); // sin SafeVault: tras un apply fallido, SafeVault (plan 2) bloquea más escrituras
+    const raw = v;
+    await v.write('decks/A.md', 'Q:: mueve\nA:: r ^mv001\n');
+    await v.write('decks/B.md', 'Q:: dest\nA:: r ^ds001\n');
+    const col = await loadCollection(v, DEFAULT_PARAMS, NOW);
+    const target = col.decks.find((d) => d.path === 'decks/B.md')!;
+    const orig = raw.write.bind(raw);
+    raw.write = async (p, d) => { if (p === 'decks/A.md') throw new Error('cuota'); return orig(p, d); };
+    await expect(moveCards(v, col, ['mv001'], target)).rejects.toBeTruthy();
+    raw.write = orig;
+    expect(await readTextOr(v, 'decks/A.md', '')).toContain('^mv001');
+    expect(await readTextOr(v, 'decks/B.md', '')).not.toContain('^mv001');
   });
 });

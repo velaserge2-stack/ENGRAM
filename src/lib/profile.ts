@@ -3,7 +3,7 @@
  * La foto vive en `media/.app/perfil/`. Todo es opcional y nunca sale del dispositivo
  * (solo viaja dentro del respaldo de la bóveda).
  */
-import { parseFrontmatter, stringifyFrontmatter, type Frontmatter } from './frontmatter';
+import { headOf, parseFrontmatter, rewriteDoc, stringifyFrontmatter, type Frontmatter } from './frontmatter';
 
 export const PROFILE_PATH = 'profile/perfil.md';
 export const PHOTO_DIR = 'media/.app/perfil';
@@ -36,11 +36,17 @@ export function parseProfile(text: string): Profile {
   return p;
 }
 
-export function serializeProfile(p: Profile): string {
+/** `prev`: el archivo actual; sus líneas ajenas del frontmatter se conservan. */
+export function serializeProfile(p: Profile, prev = ''): string {
   const data: Frontmatter = {};
   for (const [k, file] of Object.entries(KEYS) as [Exclude<keyof Profile, 'bio'>, string][]) if (p[k].trim()) data[file] = p[k].trim();
+  const body = p.bio.trim() ? `${p.bio.trim()}\n` : '';
+  if (headOf(prev) !== null) {
+    const out = rewriteDoc(prev, body, Object.fromEntries(Object.values(KEYS).map((f) => [f, data[f]])));
+    if (headOf(out) !== null) return out;
+  }
   // sin datos: el archivo queda vacío pero válido
-  return stringifyFrontmatter(Object.keys(data).length ? data : { nombre: '' }, p.bio.trim() ? `${p.bio.trim()}\n` : '');
+  return stringifyFrontmatter(Object.keys(data).length ? data : { nombre: '' }, body);
 }
 
 /** Letra del avatar cuando no hay foto ni emoji. */

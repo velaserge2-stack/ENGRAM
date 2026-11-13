@@ -35,3 +35,31 @@ describe('NoteStore: una sola fuente para la pestaña Notas y los paneles', () =
     expect(await readText(v, 'notes/x.md')).toBe('b');
   });
 });
+
+describe('autoguardado fallido: aviso visible sin repetir', () => {
+  it('avisa una vez por nota hasta que vuelva a guardar bien', async () => {
+    const { onNoteSaveFailed } = await import('../src/notes/store');
+    const v = new SafeVault(new MemoryBackend());
+    await v.write('notes/f.md', 'a');
+    await noteStore.load(v, 'notes/f.md');
+    const avisos: string[] = [];
+    onNoteSaveFailed((p) => avisos.push(p));
+    const write = v.write.bind(v);
+    let fail = true;
+    v.write = (async (p: string, d: string) => { if (fail) throw new Error('disco'); return write(p, d); }) as typeof v.write;
+    noteStore.set(v, 'notes/f.md', 'b');
+    await noteStore.flush('notes/f.md').catch(() => undefined);
+    noteStore.set(v, 'notes/f.md', 'c');
+    await noteStore.flush('notes/f.md').catch(() => undefined);
+    expect(avisos).toEqual(['notes/f.md']); // sin spam
+    fail = false;
+    noteStore.set(v, 'notes/f.md', 'd');
+    await noteStore.flush('notes/f.md');
+    fail = true;
+    noteStore.set(v, 'notes/f.md', 'e');
+    await noteStore.flush('notes/f.md').catch(() => undefined);
+    expect(avisos).toEqual(['notes/f.md', 'notes/f.md']); // volvió a guardar bien: el siguiente fallo avisa
+    onNoteSaveFailed(() => {});
+    await noteStore.forget('notes/f.md').catch(() => undefined); // devuelve el último guardado (fallido)
+  });
+});

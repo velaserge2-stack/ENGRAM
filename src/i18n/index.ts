@@ -39,11 +39,6 @@ export function getLang(): Lang {
   return lang;
 }
 
-export function onLang(f: () => void): () => void {
-  listeners.add(f);
-  return () => listeners.delete(f);
-}
-
 /** Locale para Intl (fechas, horas, números). */
 export function locale(): string {
   return LOCALE[lang];
@@ -109,8 +104,4 @@ export function errMsg(e: unknown): string {
     return v.path ? `${s}: ${v.path}` : s;
   }
   return String(v?.message ?? e);
-}
-
-export function allKeys(l: Exclude<Lang, 'xx'>): string[] {
-  return Object.keys(TABLES[l]);
 }

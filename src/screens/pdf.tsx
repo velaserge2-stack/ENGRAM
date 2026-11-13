@@ -404,7 +404,8 @@ function ThumbList(p: { doc: PDFDoc; ratio: number; cur: number; onGo: (n: numbe
     sc.addEventListener('scroll', on, { passive: true });
     return () => { sc.removeEventListener('scroll', on); cancelAnimationFrame(raf); };
   }, [ROW, n]);
-  useEffect(() => () => { for (const u of cache.current.values()) URL.revokeObjectURL(u); cache.current.clear(); }, []);
+  const gone = useRef(false);
+  useEffect(() => () => { gone.current = true; for (const u of cache.current.values()) URL.revokeObjectURL(u); cache.current.clear(); }, []);
   useEffect(() => {
     let alive = true;
     for (let i = range.from; i <= range.to; i++) {
@@ -421,7 +422,7 @@ function ThumbList(p: { doc: PDFDoc; ratio: number; cur: number; onGo: (n: numbe
           await pg.render({ canvas: c, canvasContext: c.getContext('2d')!, viewport: v } as never).promise;
           const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/jpeg', 0.7));
           c.width = c.height = 0;
-          if (!blob) return;
+          if (!blob || gone.current) return; // desmontado durante el render: no crear una URL que nadie revocará
           cache.current.set(k, URL.createObjectURL(blob));
           // caché limitada: se liberan las más lejanas a la página actual
           if (cache.current.size > 60) {

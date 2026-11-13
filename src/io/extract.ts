@@ -4,8 +4,9 @@ import { t as tr } from '../i18n';
  * con pdfjs-dist. Bibliotecas cargadas bajo demanda. Todo archivo es no confiable.
  */
 import { extname } from '../vault/paths';
+import { checksum } from '../vault/util';
 
-export const MAX_DOC_BYTES = 60 * 1024 * 1024;
+const MAX_DOC_BYTES = 60 * 1024 * 1024;
 
 export async function pdfjs() {
   const lib = await import('pdfjs-dist');
@@ -51,9 +52,11 @@ export async function docxToHtml(bytes: Uint8Array): Promise<{ html: string; ima
   const res = await mammoth.convertToHtml({ arrayBuffer: bytes.slice().buffer as ArrayBuffer }, {
     convertImage: mammoth.images.imgElement(async (img: { contentType: string; read: (enc: 'base64') => Promise<string> }) => {
       const b64 = await img.read('base64');
-      const ext = img.contentType.split('/')[1]?.replace('jpeg', 'jpg') ?? 'png';
-      const name = `docx-${Date.now().toString(36)}-${images.length}.${ext}`;
-      images.push({ name, data: Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)), type: img.contentType });
+      const ext = (img.contentType.split('/')[1]?.replace('jpeg', 'jpg') ?? '').replace(/[^a-z0-9]/gi, '').slice(0, 8) || 'png';
+      const data = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      // nombre por contenido: abrir el mismo .docx otra vez no crea copias nuevas en media/
+      const name = `docx-${checksum(data)}-${data.length.toString(36)}.${ext}`;
+      if (!images.some((x) => x.name === name)) images.push({ name, data, type: img.contentType });
       return { src: `media:${name}` };
     }),
   });

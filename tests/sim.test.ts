@@ -67,3 +67,32 @@ describe('analizador de simulacros', () => {
     expect(timeLeft(10_000, 99_000)).toBe(0);
   });
 });
+
+describe('intentos guardados con el id antiguo (qid antes de codePointAt)', () => {
+  it('una pregunta con emoji casa con su intento viejo y conserva sus respuestas', async () => {
+    const { legacyQid, pastResult, pastResults } = await import('../src/sim/parse');
+    const [q] = parseText('1. ¿Qué indica 🫀?\nA) Corazón *\nB) Pulmón');
+    const old = legacyQid(q!);
+    expect(old).not.toBe(q!.id); // el id cambió con el emoji
+    const oldQ = { ...q!, id: old };
+    const attempt = { qs: [{ q: oldQ }], answers: { [old]: ['B'] } };
+    expect(score([oldQ], attempt.answers)).toMatchObject({ wrong: 1, blank: 0 }); // el intento muestra su respuesta (B), no en blanco
+    const seen = pastResults([attempt]);
+    expect(pastResult(seen, q!)).toBe(true); // «falladas» la sigue encontrando
+    const [plain] = parseText('1. Sin emoji\nA) a *\nB) b');
+    expect(legacyQid(plain!)).toBe(plain!.id);
+    expect(pastResult(seen, plain!)).toBeUndefined();
+  });
+});
+
+describe('simConfig: campos numéricos de un simulacro acotados', () => {
+  it('vacíos, cero, negativos y enormes', async () => {
+    const { simConfig, clampMinutes, MAX_MINUTES } = await import('../src/sim/parse');
+    expect(simConfig({ n: 0, minutes: 0, penalty: -1, pass: 0 }, 10)).toEqual({ n: 1, minutes: 1, penalty: 0, pass: 1 });
+    expect(simConfig({ n: NaN, minutes: NaN, penalty: NaN, pass: NaN }, 10)).toEqual({ n: 10, minutes: 60, penalty: 0, pass: 60 });
+    expect(simConfig({ n: 999, minutes: 1e9, penalty: 5, pass: 300 }, 25)).toEqual({ n: 25, minutes: MAX_MINUTES, penalty: 1, pass: 100 });
+    expect(simConfig({ n: 2.6, minutes: 30.4, penalty: 0.25, pass: 59.5 }, 25)).toEqual({ n: 3, minutes: 30, penalty: 0.25, pass: 60 });
+    expect(clampMinutes(-5)).toBe(1);
+    expect(parseBankMarkdown('---\nminutos: -3\n---\n1. a\nA) x *\nB) y', 'b').minutes).toBe(1);
+  });
+});

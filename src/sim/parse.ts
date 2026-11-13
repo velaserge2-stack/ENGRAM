@@ -34,8 +34,27 @@ export interface Bank {
 
 export function qid(text: string, opts: { text: string }[]): string {
   let h = 0x811c9dc5;
-  for (const ch of text + '|' + opts.map((o) => o.text).join('|')) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
+  for (const ch of text + '|' + opts.map((o) => o.text).join('|')) h = Math.imul(h ^ ch.codePointAt(0)!, 0x01000193);
   return (h >>> 0).toString(36);
+}
+
+/** Id anterior a la auditoría (`charCodeAt`: de un emoji solo contaba la primera mitad; sin sufijo «-2» en repetidas). Solo para casar intentos guardados. */
+export function legacyQid(q: Pick<Question, 'case' | 'text' | 'options'>): string {
+  let h = 0x811c9dc5;
+  for (const ch of q.case + q.text + '|' + q.options.map((o) => o.text).join('|')) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
+  return (h >>> 0).toString(36);
+}
+
+/** Por id de pregunta: true si alguna vez se falló, false si siempre se acertó (solo respondidas). */
+export function pastResults(attempts: { qs: { q: Question }[]; answers: Record<string, string[]> }[]): Map<string, boolean> {
+  const seen = new Map<string, boolean>();
+  for (const a of attempts) for (const x of a.qs) if (a.answers[x.q.id]?.length) seen.set(x.q.id, (seen.get(x.q.id) ?? false) || !isCorrect(x.q, a.answers[x.q.id]));
+  return seen;
+}
+
+/** Resultado previo de `q`: por su id y, si no, por el id antiguo (intentos guardados antes del cambio de `qid`). */
+export function pastResult(seen: Map<string, boolean>, q: Question): boolean | undefined {
+  return seen.get(q.id) ?? seen.get(legacyQid(q));
 }
 
 const Q_RE = /^\s{0,3}(\d{1,3})[.)]\s+(.*)$/;
@@ -60,6 +79,16 @@ export function finalize(q: Omit<Question, 'id' | 'problems'> & { problems?: str
   return { ...q, problems, id: qid(q.case + q.text, q.options) };
 }
 
+/** Dos preguntas idénticas no pueden compartir id (score/byTopic indexan por id): la primera conserva el suyo, las siguientes llevan «-2», «-3»… */
+function uniqueIds(qs: Question[]): Question[] {
+  const seen = new Map<string, number>();
+  return qs.map((q) => {
+    const n = (seen.get(q.id) ?? 0) + 1;
+    seen.set(q.id, n);
+    return n > 1 ? { ...q, id: `${q.id}-${n}` } : q;
+  });
+}
+
 export function parseText(text: string): Question[] {
   const lines = text.replace(/\r/g, '').split('\n');
   const out: (Omit<Question, 'id' | 'problems'>)[] = [];
@@ -68,7 +97,15 @@ export function parseText(text: string): Question[] {
   let cur: (typeof out)[number] | null = null;
   let mode: 'text' | 'exp' | 'opt' = 'text';
   const key = new Map<number, string[]>();
-  for (const raw of lines) {
+  // dentro de una explicación, «N. …» abre pregunta solo si después vienen opciones (si no, es una lista numerada)
+  const opensQuestion = (from: number) => {
+    for (let j = from + 1; j < lines.length; j++) {
+      if (Q_RE.test(lines[j]!) || CASE_RE.test(lines[j]!)) return false;
+      if (OPT_RE.test(lines[j]!)) return true;
+    }
+    return false;
+  };
+  for (const [li, raw] of lines.entries()) {
     const line = raw.trimEnd();
     if (/^\s*<!--.*-->\s*$/.test(line)) continue;
     let m: RegExpExecArray | null;
@@ -85,7 +122,7 @@ export function parseText(text: string): Question[] {
       cur = null;
       continue;
     }
-    if ((m = Q_RE.exec(line))) {
+    if ((m = Q_RE.exec(line)) && (mode !== 'exp' || !cur || opensQuestion(li))) {
       inCase = false;
       cur = { n: Number(m[1]), case: caseText, text: m[2]!, options: [], answer: [], explanation: '', topic: '' };
       out.push(cur);
@@ -100,8 +137,8 @@ export function parseText(text: string): Question[] {
     if ((m = OPT_RE.exec(line)) && mode !== 'exp') {
       let t = m[2]!.trim();
       const k = m[1]!.toUpperCase();
-      if (/\s*\*$/.test(t)) {
-        t = t.replace(/\s*\*$/, '');
+      if (/(?<!\*)\s*\*$/.test(t)) {
+        t = t.replace(/(?<!\*)\s*\*$/, '');
         if (!cur.answer.includes(k)) cur.answer.push(k);
       }
       cur.options.push({ key: k, text: t });
@@ -121,14 +158,14 @@ export function parseText(text: string): Question[] {
     }
   }
   for (const q of out) if (!q.answer.length && key.has(q.n)) q.answer = key.get(q.n)!;
-  return out.map(finalize);
+  return uniqueIds(out.map(finalize));
 }
 
 export function parseBankMarkdown(text: string, fallbackName: string): Bank {
   const { data, body } = parseFrontmatter(text);
   return {
     name: typeof data.examen === 'string' ? data.examen : fallbackName,
-    minutes: typeof data.minutos === 'number' ? data.minutos : 60,
+    minutes: typeof data.minutos === 'number' ? clampMinutes(data.minutos) : 60,
     shuffle: data.aleatorio !== false,
     questions: parseText(body),
   };
@@ -148,24 +185,24 @@ export function parseBankCSV(text: string): Question[] {
   const ci = idx(['correcta', 'respuesta', 'answer'], 6);
   const ei = idx(['explicación', 'explicacion', 'explanation'], 7);
   const ti = idx(['tema', 'topic'], 8);
-  return rows.slice(hasHeader ? 1 : 0).map((r, n) => {
+  return uniqueIds(rows.slice(hasHeader ? 1 : 0).map((r, n) => {
     const options = oi.map((i, k) => ({ key: 'ABCDE'[k]!, text: (i >= 0 ? r[i] ?? '' : '').trim() })).filter((o) => o.text);
     return finalize({ n: n + 1, case: '', text: (r[qi] ?? '').trim(), options, answer: letters(ci >= 0 ? r[ci] ?? '' : ''), explanation: (ei >= 0 ? r[ei] ?? '' : '').trim(), topic: (ti >= 0 ? r[ti] ?? '' : '').trim() });
-  });
+  }));
 }
 
 /** JSON: [{pregunta, opciones: [..] | {A: ..}, correcta, explicacion, tema, caso}] */
 export function parseBankJSON(text: string): Question[] {
   const data = JSON.parse(text) as unknown;
   const arr = (Array.isArray(data) ? data : (data as { preguntas?: unknown[]; questions?: unknown[] }).preguntas ?? (data as { questions?: unknown[] }).questions ?? []) as Record<string, unknown>[];
-  return arr.map((o, n) => {
+  return uniqueIds(arr.map((o, n) => {
     const raw = o.opciones ?? o.options ?? [];
     const options = Array.isArray(raw)
-      ? raw.map((t, k) => ({ key: 'ABCDEF'[k]!, text: String(t) }))
+      ? raw.map((t, k) => ({ key: String.fromCharCode(65 + k), text: String(t) }))
       : Object.entries(raw as Record<string, unknown>).map(([k, t]) => ({ key: k.toUpperCase(), text: String(t) }));
     const ans = o.correcta ?? o.respuesta ?? o.answer ?? '';
     return finalize({ n: n + 1, case: String(o.caso ?? o.case ?? ''), text: String(o.pregunta ?? o.question ?? ''), options, answer: Array.isArray(ans) ? ans.map((x) => String(x).toUpperCase()) : letters(String(ans)), explanation: String(o.explicacion ?? o.explicación ?? o.explanation ?? ''), topic: String(o.tema ?? o.topic ?? '') });
-  });
+  }));
 }
 
 export function summarize(qs: Question[]): string {
@@ -183,7 +220,8 @@ export function serializeBank(b: Bank): string {
   let lastCase = '';
   const body = b.questions.map((q, i) => {
     const parts: string[] = [];
-    if (q.case && q.case !== lastCase) parts.push(`Caso:: ${q.case}\n`);
+    // sin caso tras una con caso: «Caso::» vacío corta la herencia al releer
+    if (q.case !== lastCase) parts.push(q.case ? `Caso:: ${q.case}\n` : 'Caso::\n');
     lastCase = q.case;
     if (q.problems.length) parts.push(`<!-- borrador: ${q.problems.join(', ')} -->`);
     parts.push(`${i + 1}. ${q.text}`);
@@ -196,9 +234,26 @@ export function serializeBank(b: Bank): string {
   return stringifyFrontmatter({ examen: b.name, minutos: b.minutes, aleatorio: b.shuffle }, body.join('\n\n') + '\n');
 }
 
+/** Tope de minutos de un simulacro (12 h). */
+export const MAX_MINUTES = 720;
+const clampInt = (v: number, lo: number, hi: number, d: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d);
+/** Minutos válidos: entero de 1 a MAX_MINUTES (vacío, 0, negativo o texto → 60 o el tope). */
+export const clampMinutes = (m: number) => clampInt(m, 1, MAX_MINUTES, 60);
+
+/** Configuración de un intento con valores válidos: nº de preguntas 1…disponibles, minutos, penalización 0…1, aprobado 1…100 %. */
+export function simConfig(c: { n: number; minutes: number; penalty: number; pass: number }, available: number) {
+  return {
+    n: clampInt(c.n, 1, Math.max(1, available), Math.min(40, Math.max(1, available))),
+    minutes: clampMinutes(c.minutes),
+    penalty: Number.isFinite(c.penalty) ? Math.min(1, Math.max(0, c.penalty)) : 0,
+    pass: clampInt(c.pass, 1, 100, 60),
+  };
+}
+
 export function isCorrect(q: Question, given: string[] | undefined): boolean {
   if (!given?.length) return false;
-  return given.length === q.answer.length && given.every((g) => q.answer.includes(g));
+  const g = new Set(given);
+  return g.size === q.answer.length && [...g].every((x) => q.answer.includes(x));
 }
 
 export interface Score {

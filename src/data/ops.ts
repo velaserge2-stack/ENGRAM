@@ -1,7 +1,8 @@
 import { t } from '../i18n';
 /** Operaciones sobre mazos (escritura segura vía SafeVault). */
-import { ensureIds, newId, parseDeck } from '../cards/parse';
-import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
+import { newId, noteIdOf, parseDeck } from '../cards/parse';
+import { noteStore } from '../notes/store';
+import { parseFrontmatter, setKeys, stringifyFrontmatter } from '../lib/frontmatter';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr } from '../vault/util';
 import { appendLog, type Collection } from './collection';
@@ -22,35 +23,31 @@ export async function createDeck(vault: VaultAdapter, name: string, folder = '')
 
 /** Añade un bloque de tarjeta al final del mazo con ID nuevo. */
 export async function appendCard(vault: VaultAdapter, deckPath: string, block: string, col: Collection | null): Promise<string> {
-  const text = await readTextOr(vault, deckPath, '');
-  const taken = new Set<string>(col ? [...col.byCid.keys()].map((c) => c.split(':')[0]!) : []);
+  // si el mazo está abierto en un editor (NoteStore), se añade sobre ese documento y se guarda ya
+  const open = noteStore.peek(deckPath);
+  const text = open ?? (await readTextOr(vault, deckPath, ''));
+  // también los IDs del historial (tarjetas archivadas o en la papelera): un ID nuevo no hereda su FSRS
+  const taken = new Set<string>(col ? [...col.byCid.keys(), ...col.log.map((e) => e.id)].map(noteIdOf) : []);
   for (const n of parseDeck(text).notes) if (n.id) taken.add(n.id);
   const id = newId(taken);
   const body = text.replace(/\s*$/, '');
-  await vault.write(deckPath, `${body}\n\n${block.trim()} ^${id}\n`);
+  const next = `${body}\n\n${block.trim()} ^${id}\n`;
+  if (open !== null) (noteStore.set(vault, deckPath, next), await noteStore.flush(deckPath));
+  else await vault.write(deckPath, next);
   return id;
 }
 
 export async function setDeckMeta(vault: VaultAdapter, deckPath: string, patch: Record<string, string | number | string[] | null>): Promise<void> {
   const text = await readTextOr(vault, deckPath, '');
-  const { data, body } = parseFrontmatter(text);
-  for (const [k, v] of Object.entries(patch)) {
-    if (v === null || v === '') delete data[k];
-    else data[k] = v;
-  }
-  await vault.write(deckPath, stringifyFrontmatter(data, body));
-}
-
-export async function saveDeckText(vault: VaultAdapter, deckPath: string, text: string, taken: Set<string>): Promise<{ added: string[] }> {
-  const r = ensureIds(text, taken);
-  await vault.write(deckPath, r.text);
-  return { added: r.added };
+  // solo las claves que cambian (setKeys): lo que el parser no entiende no se pierde
+  await vault.write(deckPath, setKeys(text, Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === null || v === '' ? undefined : v]))));
 }
 
 /** Operación de estado (suspender, enterrar, olvidar) sobre varias tarjetas: se agrega al historial. */
 export async function stateOp(vault: VaultAdapter, col: Collection, cids: string[], op: 'suspend' | 'unsuspend' | 'forget' | 'bury', params: SrsParams, ref?: string): Promise<void> {
   const ts = Date.now();
   const entries: LogEntry[] = cids.map((id, i) => ({ id, ts: ts + i, op, ...(ref ? { ref } : {}) }));
+  const snap = new Map(entries.map((e) => [e.id, col.states.has(e.id) ? structuredClone(col.states.get(e.id)!) : undefined] as const));
   for (const e of entries) {
     const st = col.states.get(e.id) ?? newState(e.ts);
     if (op === 'suspend') st.suspended = true;
@@ -59,7 +56,16 @@ export async function stateOp(vault: VaultAdapter, col: Collection, cids: string
     if (op === 'forget') Object.assign(st, newState(e.ts), { history: st.history });
     col.states.set(e.id, st);
   }
-  await appendLog(vault, col, entries, params);
+  try {
+    await appendLog(vault, col, entries, params);
+  } catch (err) {
+    // la memoria no debe quedar distinta del disco si el historial no se escribió
+    for (const [id, st] of snap) {
+      if (st) col.states.set(id, st);
+      else col.states.delete(id);
+    }
+    throw err;
+  }
 }
 
 /** Medios referenciados con ![[...]] en un texto. */

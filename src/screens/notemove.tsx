@@ -1,4 +1,4 @@
-import { t as tr } from '../i18n';
+import { errMsg, t as tr } from '../i18n';
 import { FolderInput, FolderPlus } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { type Undo, undoMove } from '../data/move';
@@ -18,7 +18,7 @@ const depth = (f: string) => f.split('/').length;
 const parentOf = (f: string) => (f.includes('/') ? f.slice(0, f.lastIndexOf('/')) : '');
 
 /** Destinos: para notas, temas y subcarpetas existentes (y carpetas que ya tienen notas sueltas); para un tema, las materias. */
-export function noteDestinations(all: string[], items: NoteItems): string[] {
+function noteDestinations(all: string[], items: NoteItems): string[] {
   const folders = noteFolders(all);
   const direct = new Set(all.map((p) => parentOf(p.slice('notes/'.length))).filter(Boolean));
   return folders.filter((f) =>
@@ -32,13 +32,19 @@ export async function runNoteMove(app: ReturnType<typeof useApp>, items: NoteIte
   for (const f of items.folders) involved.push(...(await walk(app.vault, `notes/${f}`)).filter((x) => x.path.endsWith('.md')).map((x) => x.path));
   for (const p of involved) { await noteStore.flush(p); await noteStore.forget(p); }
   const undo: Undo = [], moved: [string, string][] = [];
-  if (items.notes.length) { const r = await moveNotes(app.vault, items.notes, dest, clash, new Map(items.notes.map((n) => [n, fileName(items, n)]))); undo.push(...r.undo); moved.push(...r.moved); }
-  for (const f of items.folders) { const r = await moveNoteFolder(app.vault, f, dest, clash); undo.push(...r.undo); moved.push(...r.moved); }
+  try {
+    // el registro se comparte: si algo lanza a mitad, tiene todo lo hecho hasta ahí
+    if (items.notes.length) moved.push(...(await moveNotes(app.vault, items.notes, dest, clash, new Map(items.notes.map((n) => [n, fileName(items, n)])), undo)).moved);
+    for (const f of items.folders) moved.push(...(await moveNoteFolder(app.vault, f, dest, clash, undo)).moved);
+  } catch (e) {
+    await undoMove(app.vault, undo).catch(() => {});
+    app.changed();
+    return app.toast(tr('move.fallo', { message: errMsg(e) }));
+  }
   const reindex = async (pairs: [string, string][]) => {
     for (const [a, b] of pairs) { await noteStore.forget(a); await notesIndex.remove(a); await notesIndex.upsert(b, await readTextOr(app.vault, b, '')); }
   };
-  await reindex(moved);
-  app.changed();
+  try { await reindex(moved); } finally { app.changed(); }
   const open = moved.find(([a]) => a === current);
   if (open) go('notas', ...open[1].split('/').slice(1));
   if (!moved.length) return;

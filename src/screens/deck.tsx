@@ -1,16 +1,15 @@
 import { locale, t as tr, tn } from '../i18n';
 import { BookOpen, FileSpreadsheet, FolderOutput, ImagePlus, ListChecks, Plus, Settings2, Share } from 'lucide-preact';
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { cardsOf, type Note, type NoteType, parseDeck, type Rect } from '../cards/parse';
 import { appendCard } from '../data/ops';
 import { guessMapping, parseCSV, rowsToBlocks } from '../io/csv';
 import { deliver } from '../io/share';
-import { createAutosave } from '../lib/autosave';
+import { noteStore } from '../notes/store';
 import { renderCloze, renderInline, renderMarkdown } from '../md/render';
 import { go, href, useApp } from '../state';
 import { PageTitle, Segmented, Sheet } from '../ui/kit';
 import { Html } from '../ui/md';
-import { readTextOr } from '../vault/util';
 import { MoveCardsSheet } from './move';
 import { OcclusionEditor } from './occlusion';
 import { useLinkedEvents } from '../ui/links';
@@ -36,7 +35,7 @@ const TYPES = (): [NoteType, string][] => ([
 const one = (s: string) => s.replace(/\r?\n\s*\r?\n/g, '\n').trim();
 
 /** Construye la sintaxis del bloque desde el formulario visual (sin que el usuario la escriba). */
-export function buildBlock(t: NoteType, f: { front: string; back: string; lines: string; image: string; rects: Rect[] }): string {
+function buildBlock(t: NoteType, f: { front: string; back: string; lines: string; image: string; rects: Rect[] }): string {
   const items = f.lines.split('\n').map((x) => x.trim()).filter(Boolean);
   switch (t) {
     case 'basic': return `Q:: ${one(f.front)}\nA:: ${one(f.back)}`;
@@ -80,6 +79,7 @@ export function CardForm(props: { onAdd: (block: string) => Promise<void>; initi
   const [lines, setLines] = useState('');
   const [image, setImage] = useState('');
   const [imgUrl, setImgUrl] = useState<string | null>(null);
+  useEffect(() => () => { if (imgUrl) URL.revokeObjectURL(imgUrl); }, [imgUrl]); // la anterior al elegir otra y al cerrar
   const [rects, setRects] = useState<Rect[]>([]);
   const ta = useRef<HTMLTextAreaElement>(null);
   const block = buildBlock(type, { front, back, lines, image, rects });
@@ -160,27 +160,30 @@ export function AddCardSheet(props: { deckPath: string | null; onClose: () => vo
 /** Editor del archivo del mazo: Markdown a la izquierda, tarjetas renderizadas a la derecha. */
 export function DeckEditor(props: { path: string; onGear?: () => void }) {
   const app = useApp();
-  const [text, setText] = useState<string | null>(null);
+  // el mismo modelo que las notas (NoteStore): appendCard, ensureIds o mover desde otro panel se ven aquí
+  const [text, setText] = useState<string | null>(() => noteStore.peek(props.path));
   const [mode, setMode] = useState<'visual' | 'md'>('visual');
   const [csv, setCsv] = useState(false);
   const [pick, setPick] = useState<Set<string> | null>(null);
   const [moving, setMoving] = useState(false);
   const dirty = useRef(false);
-  const saver = useMemo(() => createAutosave(async (t: string) => { await app.vault.write(props.path, t); }), [props.path]);
+  const saver = { flush: () => noteStore.flush(props.path) };
   useEffect(() => {
-    void readTextOr(app.vault, props.path, '').then(setText);
+    let alive = true;
+    const un = noteStore.subscribe(app.vault, props.path, (t) => alive && setText(t));
+    void noteStore.load(app.vault, props.path).then((t) => alive && setText(t));
     return () => {
+      alive = false;
       void saver.flush().then(() => dirty.current && app.changed());
-      saver.dispose();
+      un();
     };
   }, [props.path]);
+  useEffect(() => { void noteStore.refresh(app.vault, props.path); }, [app.version]);
   if (text === null) return <p class="t2">{tr('deck.cargando')}</p>;
   const parsed = parseDeck(text);
   const name = typeof parsed.data.deck === 'string' ? parsed.data.deck : props.path.split('/').pop()!.replace(/\.md$/, '');
   const onAdd = async (block: string) => {
-    await saver.flush();
     await appendCard(app.vault, props.path, block, app.col);
-    setText(await readTextOr(app.vault, props.path, ''));
     dirty.current = true;
     app.toast(tr('deck.tarjeta_anadida'));
   };
@@ -197,7 +200,7 @@ export function DeckEditor(props: { path: string; onGear?: () => void }) {
       <div class="editor">
         {mode === 'md' ? (
           <section class="glass strong panel">
-            <textarea class="input code" value={text} spellcheck={false} aria-label={tr('deck.markdown_del_mazo')} onInput={(e) => { const t = (e.target as HTMLTextAreaElement).value; setText(t); dirty.current = true; saver.schedule(t); }} />
+            <textarea class="input code" value={text} spellcheck={false} aria-label={tr('deck.markdown_del_mazo')} onInput={(e) => { const t = (e.target as HTMLTextAreaElement).value; setText(t); dirty.current = true; noteStore.set(app.vault, props.path, t); }} />
             <p class="foot">{tr('deck.se_guarda_solo_los_ids_xxxx')}</p>
           </section>
         ) : (
@@ -220,9 +223,9 @@ export function DeckEditor(props: { path: string; onGear?: () => void }) {
             <label class="pick-note"><input type="checkbox" class="pick" checked={pick.has(n.id)} aria-label={tr('move.seleccionar_tarjeta', { id: n.id })} onChange={() => setPick((s) => { const x = new Set(s); x.has(n.id) ? x.delete(n.id) : x.add(n.id); return x; })} /><NotePreview note={n} /></label>
           ) : <NotePreview note={n} />)}
         </section>
-        {moving && pick && app.col && <MoveCardsSheet cids={[...pick]} onClose={() => setMoving(false)} onDone={async () => { setPick(null); setText(await readTextOr(app.vault, props.path, '')); }} />}
+        {moving && pick && app.col && <MoveCardsSheet cids={[...pick]} onClose={() => setMoving(false)} onDone={async () => { setPick(null); await noteStore.refresh(app.vault, props.path); }} />}
       </div>
-      {csv && <CsvImport onClose={() => setCsv(false)} onAdd={async (blocks) => { for (const b of blocks) await appendCard(app.vault, props.path, b, app.col); setText(await readTextOr(app.vault, props.path, '')); dirty.current = true; app.toast(tr('deck.n_tarjetas_importadas', { n: blocks.length })); }} />}
+      {csv && <CsvImport onClose={() => setCsv(false)} onAdd={async (blocks) => { for (const b of blocks) await appendCard(app.vault, props.path, b, app.col); dirty.current = true; app.toast(tr('deck.n_tarjetas_importadas', { n: blocks.length })); }} />}
     </>
   );
 }

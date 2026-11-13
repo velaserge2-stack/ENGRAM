@@ -1,4 +1,4 @@
-import { t } from '../i18n';
+import { errMsg, t } from '../i18n';
 import { FilePlus2, FolderInput } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import type { Collection, Deck } from '../data/collection';
@@ -15,7 +15,7 @@ export interface MoveItems { decks: Deck[]; folders: string[] }
 const label = (folder: string) => folder.split('/').pop()!;
 
 /** Destinos posibles: «Nivel superior» y cada mazo o carpeta existente (sin el propio ni sus descendientes). */
-export function destinations(col: Collection, items: MoveItems): string[] {
+function destinations(col: Collection, items: MoveItems): string[] {
   const all = new Set<string>();
   for (const d of col.decks) {
     all.add(d.full);
@@ -27,27 +27,34 @@ export function destinations(col: Collection, items: MoveItems): string[] {
 }
 
 /** ¿Algo choca por nombre en el destino? */
-export function hasClash(col: Collection, items: MoveItems, dest: string): boolean {
+function hasClash(col: Collection, items: MoveItems, dest: string): boolean {
   return items.decks.some((d) => clashOf(col, d, dest)) ||
     items.folders.some((f) => { const to = dest ? `${dest}/${label(f)}` : label(f); return to !== f && col.decks.some((d) => d.full === to || d.folder === to || d.folder.startsWith(to + '/')); });
 }
 
 /** Ejecuta el movimiento (los descendientes de otro elemento viajan con su padre). */
-export async function runMove(app: ReturnType<typeof useApp>, items: MoveItems, dest: string, clash: Clash): Promise<void> {
+async function runMove(app: ReturnType<typeof useApp>, items: MoveItems, dest: string, clash: Clash): Promise<void> {
   const col = app.col!;
   const roots = [...items.decks.map((d) => d.full), ...items.folders];
   const inside = (full: string) => roots.some((r) => r !== full && full.startsWith(r + '/'));
   const log: Undo = [];
-  for (const d of items.decks) if (!inside(d.full) && canMoveTo(d, dest)) await moveDeck(app.vault, col, d, dest, clash, log);
-  for (const f of items.folders) if (!inside(f)) await moveFolder(app.vault, col, f, dest, clash, log);
-  app.changed();
+  try {
+    for (const d of items.decks) if (!inside(d.full) && canMoveTo(d, dest)) await moveDeck(app.vault, col, d, dest, clash, log);
+    for (const f of items.folders) if (!inside(f)) await moveFolder(app.vault, col, f, dest, clash, log);
+  } catch (e) {
+    // a medias: se deshace lo que alcanzó a moverse (el registro sí está completo hasta el fallo)
+    await undoMove(app.vault, log).catch(() => {});
+    return app.toast(t('move.fallo', { message: errMsg(e) }));
+  } finally {
+    app.changed();
+  }
   if (!log.length) return;
   const n = items.decks.length + items.folders.length;
   app.toast(t('move.movidos', { n, dest: dest || t('move.nivel_superior') }), { label: t('move.deshacer'), run: async () => { await undoMove(app.vault, log); app.changed(); app.toast(t('move.deshecho')); } });
 }
 
 /** Renombrar / Fusionar / Cancelar cuando el destino ya tiene un mazo con ese nombre. */
-export function ClashSheet(p: { onPick: (c: Clash | null) => void; names: string }) {
+function ClashSheet(p: { onPick: (c: Clash | null) => void; names: string }) {
   return (
     <Sheet title={t('move.nombre_repetido')} onClose={() => p.onPick(null)}>
       <div class="stack">
@@ -140,7 +147,14 @@ export function MoveCardsSheet(p: { cids: string[]; onClose: () => void; onDone?
   const from = new Set(col.decks.filter((d) => d.notes.some((n) => ids.has(n.id))).map((d) => d.path));
   const [ask, setAsk] = useState<{ target: Deck; n: number } | null>(null);
   const run = async (target: Deck, mode: IdClash) => {
-    const r = await moveCards(app.vault, col, p.cids, target, mode);
+    let r: Awaited<ReturnType<typeof moveCards>>;
+    try {
+      r = await moveCards(app.vault, col, p.cids, target, mode); // si falla, ya deshizo lo escrito
+    } catch (e) {
+      app.changed();
+      p.onClose();
+      return app.toast(t('move.fallo', { message: errMsg(e) }));
+    }
     app.changed();
     p.onClose();
     p.onDone?.();

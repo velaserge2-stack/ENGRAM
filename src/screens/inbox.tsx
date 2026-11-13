@@ -1,15 +1,15 @@
-import { errMsg, locale, t, tn } from '../i18n';
+import { errMsg, t, tn } from '../i18n';
 import { Archive, Camera, Check, FileUp, Inbox as InboxIcon, Replace, Sparkles } from 'lucide-preact';
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { extractText } from '../io/extract';
-import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
+import { parseFrontmatter, rewriteDoc, stringifyFrontmatter } from '../lib/frontmatter';
 import { docxToMarkdown, pdfToMarkdown } from '../notes/io';
 import { saveImage } from '../notes/images';
 import { STREAM_FROM } from '../io/import';
-import { buildTree, classNoteFromPlaud, glossarySuggestions, listNotes, newNoteText, notePath, plaudGroupKey, plaudKind, type PlaudKind, replaceAll, suggestPlace } from '../notes/model';
+import { buildTree, classNoteFromPlaud, glossarySuggestions, listNotes, localDate, newNoteText, notePath, plaudGroupKey, plaudKind, type PlaudKind, replaceAll, suggestPlace } from '../notes/model';
 import { go, href, useApp, useAsync } from '../state';
 import { Empty, PageTitle } from '../ui/kit';
-import { extname } from '../vault/paths';
+import { extname, withSuffix } from '../vault/paths';
 import { readTextOr, walk } from '../vault/util';
 import { PromptSheet } from './notes';
 
@@ -103,7 +103,7 @@ async function intake(vault: ReturnType<typeof useApp>['vault'], files: File[], 
     } else {
       item.kind = item.files.some((x) => x.kind === 'doc') ? 'documento' : 'nota';
       const t = parts.map((p) => p.text ?? '').join('\n\n');
-      item.draft = /^---\n/.test(t) ? t : stringifyFrontmatter({ materia: '', tema: '', fecha: new Date().toISOString().slice(0, 10), tags: [] }, `# ${item.title}\n\n${t}\n`);
+      item.draft = /^---\n/.test(t) ? t : stringifyFrontmatter({ fecha: localDate(), tags: [] }, `# ${item.title}\n\n${t}\n`);
     }
     await vault.write(META(id), JSON.stringify(item));
   }
@@ -175,31 +175,43 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
   const finalPath = notePath(it.materia, it.tema, it.title);
   const doc = parseFrontmatter(it.draft);
   const sugg = glossarySuggestions(doc.body, app.settings.glossary);
+  const archiving = useRef(false);
+  const [busy, setBusy] = useState(false);
   const archive = async () => {
-    let path = finalPath;
-    for (let i = 2; await app.vault.exists(path); i++) path = notePath(it.materia, it.tema, `${it.title} (${i})`);
-    let body = doc.body;
-    const attach: string[] = [];
-    for (const f of it.files) {
-      if (f.kind === 'doc') {
-        const dest = it.materia.trim() ? `docs/${it.materia}/${f.name}` : `docs/${f.name}`;
+    if (archiving.current) return; // doble toque: no crear «(2)»
+    archiving.current = true;
+    setBusy(true);
+    // todo o nada: si algo falla antes de escribir la nota, los archivos vuelven a la bandeja
+    const moved: [string, string][] = [];
+    try {
+      let path = finalPath;
+      for (let i = 2; await app.vault.exists(path); i++) path = notePath(it.materia, it.tema, `${it.title} (${i})`);
+      let body = doc.body;
+      const attach: string[] = [];
+      for (const f of it.files) {
+        if (f.kind !== 'doc' && f.kind !== 'audio') continue;
+        let dest = f.kind === 'doc' ? (it.materia.trim() ? `docs/${it.materia}/${f.name}` : `docs/${f.name}`) : `media/${f.name}`;
+        for (let k = 2; await app.vault.exists(dest); k++) dest = withSuffix(f.kind === 'doc' ? (it.materia.trim() ? `docs/${it.materia}/${f.name}` : `docs/${f.name}`) : `media/${f.name}`, k); // nunca encima de otro archivo
         await app.vault.move(f.path, dest);
-        attach.push(`- [${f.name}](#/espacios/abrir/${encodeURIComponent(dest)})`);
-      } else if (f.kind === 'audio') {
-        const dest = `media/${f.name}`;
-        await app.vault.move(f.path, dest);
+        moved.push([f.path, dest]);
+        if (f.kind === 'doc') attach.push(`- [${f.name}](#/espacios/abrir/${encodeURIComponent(dest)})`);
       }
+      if (attach.length) body = body.replace('## Fuente\n', () => `## Fuente\n${attach.join('\n')}\n`);
+      // solo materia y tema cambian: el resto del frontmatter del borrador queda tal cual
+      await app.vault.write(path, rewriteDoc(it.draft, body, { materia: it.materia.trim() || undefined, tema: it.tema.trim() || undefined }));
+      moved.length = 0; // la nota ya existe: lo que siga (borrar la carpeta de la bandeja) no deshace nada
+      await app.vault.remove(`inbox/${it.id}`);
+      app.changed();
+      app.toast(t('inbox.archivado_en_materia_tema_p_s', { materia: it.materia || t('notes.sin_clasificar'), tema: it.tema || '—', p: Math.round((Date.now() - started) / 1000) }));
+      p.onDone(true);
+      go('notas', ...path.split('/').slice(1));
+    } catch (e) {
+      for (const [from, to] of moved.reverse()) await app.vault.move(to, from).catch(() => undefined);
+      app.toast(t('inbox.no_se_archivo', { e: errMsg(e) }));
+    } finally {
+      archiving.current = false;
+      setBusy(false);
     }
-    if (attach.length) body = body.replace('## Fuente\n', `## Fuente\n${attach.join('\n')}\n`);
-    const data = { ...doc.data, materia: it.materia.trim(), tema: it.tema.trim() } as Record<string, unknown>;
-    if (!data.materia) delete data.materia;
-    if (!data.tema) delete data.tema;
-    await app.vault.write(path, stringifyFrontmatter(data as typeof doc.data, body));
-    await app.vault.remove(`inbox/${it.id}`);
-    app.changed();
-    app.toast(t('inbox.archivado_en_materia_tema_p_s', { materia: it.materia || t('notes.sin_clasificar'), tema: it.tema || '—', p: Math.round((Date.now() - started) / 1000) }));
-    p.onDone(true);
-    go('notas', ...path.split('/').slice(1));
   };
   const materias = p.tree.map((m) => m.materia);
   const temas = p.tree.find((m) => m.materia === it.materia)?.temas.map((t) => t.tema) ?? [];
@@ -224,13 +236,13 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
           {sugg.length > 0 && (
             <div class="inset stack-s" style={{ padding: '10px', borderRadius: 'var(--r-row)' }}>
               <b class="note">{t('inbox.glosario_posibles_errores_de_transcripcion')}</b>
-              {sugg.slice(0, 10).map((s) => <div class="row"><span class="grow">{s.wrong} → <b>{s.right}</b> <span class="foot">×{s.count}</span></span><button type="button" class="btn small" onClick={() => save({ ...it, draft: stringifyFrontmatter(doc.data, replaceAll(doc.body, s.wrong, s.right).text) })}>{t('inbox.corregir')}</button></div>)}
+              {sugg.slice(0, 10).map((s) => <div class="row"><span class="grow">{s.wrong} → <b>{s.right}</b> <span class="foot">×{s.count}</span></span><button type="button" class="btn small" onClick={() => save({ ...it, draft: rewriteDoc(it.draft, replaceAll(doc.body, s.wrong, s.right).text) })}>{t('inbox.corregir')}</button></div>)}
             </div>
           )}
           <div class="row wrap">
             <input class="input" placeholder={t('inbox.buscar')} value={from} onInput={(e) => setFrom((e.target as HTMLInputElement).value)} aria-label={t('inbox.buscar')} />
             <input class="input" placeholder={t('inbox.reemplazar_por')} value={to} onInput={(e) => setTo((e.target as HTMLInputElement).value)} aria-label={t('inbox.reemplazar_por')} />
-            <button type="button" class="btn" disabled={!from} onClick={() => { const r = replaceAll(doc.body, from, to); void save({ ...it, draft: stringifyFrontmatter(doc.data, r.text) }); app.toast(t('inbox.n_reemplazos', { n: r.n })); }}><Replace size={16} />{' '}{t('inbox.reemplazar_en_toda_la_clase')}</button>
+            <button type="button" class="btn" disabled={!from} onClick={() => { const r = replaceAll(doc.body, from, to); void save({ ...it, draft: rewriteDoc(it.draft, r.text) }); app.toast(t('inbox.n_reemplazos', { n: r.n })); }}><Replace size={16} />{' '}{t('inbox.reemplazar_en_toda_la_clase')}</button>
           </div>
           <textarea class="input code" style={{ minHeight: '45dvh' }} value={it.draft} onInput={(e) => { const v = (e.target as HTMLTextAreaElement).value; setIt((x) => ({ ...x, draft: v })); }} onBlur={() => save(it)} aria-label={t('inbox.borrador_de_la_nota')} />
           <p class="foot">{t('inbox.quita_relleno_y_corrige_terminos_anade')}</p>
@@ -251,7 +263,7 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
       {it.step === 3 && (
         <div class="stack">
           <p>{t('inbox.se_guardara_en')}{' '}<b>{finalPath}</b>. {it.files.some((f) => f.kind === 'doc') ? t('inbox.los_pdf_word_van_a_docs') : ''} {it.files.some((f) => f.kind === 'audio') ? t('inbox.el_audio_va_a_media') : ''}</p>
-          <button type="button" class="btn primary" onClick={archive}><Archive size={18} />{' '}{t('inbox.archivar')}</button>
+          <button type="button" class="btn primary" disabled={busy} onClick={archive}><Archive size={18} />{' '}{t('inbox.archivar')}</button>
           <a class="foot" href={href('notas')}>{t('inbox.tras_archivar_la_nota_muestra_cuantas')}</a>
         </div>
       )}

@@ -29,20 +29,36 @@ export interface ApkgResult {
 
 const MAX_APKG = 500 * 1024 * 1024;
 
-/** HTML de un campo de Anki → Markdown sencillo. */
-export function fieldToMd(html: string, mediaNames: Set<string>): string {
+/** Nombre seguro para `media/` y para `![[…]]`: sin separadores, `|`, `[`, `]`, `#`, `^` ni punto inicial. */
+export const safeMediaName = (name: string) => String(name).replace(/[\\/:*?"<>|[\]#^]+/g, '_').replace(/^\.+/, '_').slice(0, 120);
+
+/** Línea que el parser de mazos leería como marca (inicio de tarjeta, respuesta o título que corta el bloque). */
+const MARKER = /^(?:(?:QR|Q|T|LO|L|MC|MATCH|ORD|A|Explicación)::|(?:Cloze|IO):|#{1,6}\s)/;
+
+/**
+ * HTML de un campo de Anki → Markdown sencillo. `media`: nombre original → nombre guardado.
+ * El texto del campo no puede crear tarjetas: las líneas que empiezan con una marca del parser
+ * (`Q::`, `A::`, `Cloze:`, `# `…) llevan un espacio delante (el parser exige la marca en la
+ * columna 0; Markdown ignora ese espacio) o `\#`; y `<!-- … -->` no se convierte en metadato.
+ */
+export function fieldToMd(html: string, media: Map<string, string> | Set<string>): string {
+  const ref = (s: string) => `![[${(media instanceof Map ? media.get(s) : undefined) ?? safeMediaName(s)}]]`;
   return html
-    .replace(/<img[^>]*src="([^"]+)"[^>]*>/gi, (_, s: string) => (mediaNames.has(s) ? `![[${s}]]` : `![[${s}]]`))
-    .replace(/\[sound:([^\]]+)\]/g, '![[$1]]')
+    .replace(/<img[^>]*src="([^"]+)"[^>]*>/gi, (_, s: string) => ref(s))
+    .replace(/\[sound:([^\]]+)\]/g, (_, s: string) => ref(s))
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/(div|p|li)>/gi, '\n')
     .replace(/<li[^>]*>/gi, '- ')
     .replace(/<(b|strong)>(.*?)<\/\1>/gi, '**$2**')
     .replace(/<(i|em)>(.*?)<\/\1>/gi, '*$2*')
     .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&#x27;|&apos;/gi, "'").replace(/&amp;/g, '&')
+    .replace(/<!--/g, '&lt;!--')
     .replace(/\n\s*\n+/g, '\n')
-    .trim();
+    .trim()
+    .split('\n')
+    .map((l) => (MARKER.test(l) ? (l.startsWith('#') ? `\\${l}` : ` ${l}`) : l))
+    .join('\n');
 }
 
 /** Error con causa conocida (la hoja de importación muestra causa y paso siguiente). */
@@ -191,7 +207,19 @@ export function convertApkg(bytes: Uint8Array, SQL: SqlJs, withHistory = true, f
   if (!(bytes[0] === 0x50 && bytes[1] === 0x4b)) throw new ApkgError('invalid', t('apkg.no_es_un_paquete_de_anki'));
   let files: Record<string, Uint8Array>;
   try {
-    files = unzipSync(bytes, { filter: (f) => f.originalSize < 300 * 1024 * 1024 });
+    // límites como parseZip: por entrada, total y razón (fflate reserva lo que declara cada cabecera)
+    let total = 0, count = 0, skipped = 0;
+    files = unzipSync(bytes, {
+      filter: (f) => {
+        const coll = f.name.startsWith('collection.') || f.name === 'meta' || f.name === 'media';
+        const ok = f.originalSize < 300 * 1024 * 1024 && ++count <= LIMITS.maxFiles * 5 &&
+          (coll || !(f.size > 0 && f.originalSize / f.size > LIMITS.maxRatio && f.originalSize > 1024 * 1024)) &&
+          total + f.originalSize <= LIMITS.maxTotalBytes;
+        if (ok) total += f.originalSize; else skipped++;
+        return ok;
+      },
+    });
+    if (skipped) warnings.push(t('apkg.medios_omitidos', { n: skipped }));
   } catch {
     throw new ApkgError('invalid', t('apkg.no_es_un_paquete_de_anki'));
   }
@@ -239,17 +267,22 @@ export function convertApkg(bytes: Uint8Array, SQL: SqlJs, withHistory = true, f
       }
     }
     const media: ApkgResult['media'] = [];
-    const names = new Set<string>();
+    const names = new Map<string, string>(); // nombre original (el de los campos) → nombre guardado
+    const used = new Set<string>();
     let badMedia = 0;
     for (const [num, name] of Object.entries(mediaMap)) {
       let data = files[num];
-      const safe = String(name).replace(/[\\/:*?"<>|]+/g, '_').replace(/^\.+/, '_').slice(0, 120);
-      if (!data || !safe) continue;
+      let safe = safeMediaName(name);
+      if (!data || !safe || names.has(String(name))) continue;
       if (isZstd(data)) {
         try { data = unzstd(data, Math.min(LIMITS.maxUnzstdBytes, LIMITS.maxFileBytes)); } catch { badMedia++; continue; }
       }
+      // dos nombres que se sanean igual no se pisan: «a_b (2).png»
+      const b = safe, dot = b.lastIndexOf('.');
+      for (let n = 2; used.has(safe.toLowerCase()); n++) safe = dot > 0 ? `${b.slice(0, dot)} (${n})${b.slice(dot)}` : `${b} (${n})`;
+      used.add(safe.toLowerCase());
       media.push({ name: safe, data });
-      names.add(safe);
+      names.set(String(name), safe);
     }
     if (badMedia) warnings.push(t('apkg.medios_omitidos', { n: badMedia }));
 
@@ -283,18 +316,26 @@ export function convertApkg(bytes: Uint8Array, SQL: SqlJs, withHistory = true, f
       for (const t of String(n.tags).trim().split(/\s+/).filter(Boolean)) d.tags.add(t.replace(/::/g, '/'));
     }
     const out: ApkgResult['decks'] = [];
+    const paths = new Set<string>();
     for (const [name, d] of byDeck) {
-      const parts = name.split(/::|\x1f/).map((x) => x.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').trim() || t('deck.mazo'));
+      // segmentos válidos para la bóveda: sin «.»/«..» ni punto inicial, ≤ 120 caracteres, ≤ 12 niveles
+      let parts = name.split(/::|\x1f/).map((x) => x.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').replace(/^\.+/, '_').trim().slice(0, 120).trim() || t('deck.mazo'));
+      if (parts.length > 12) parts = [...parts.slice(0, 11), parts.slice(11).join(' · ').slice(0, 120)];
+      // dos mazos que se sanean igual («A:B» y «A B») no comparten archivo: «A B (2)»
+      const base = parts[parts.length - 1]!;
+      for (let n = 2; paths.has(`decks/${parts.join('/')}.md`.toLowerCase()); n++) parts[parts.length - 1] = `${base} (${n})`;
+      paths.add(`decks/${parts.join('/')}.md`.toLowerCase());
       out.push({ path: `decks/${parts.join('/')}.md`, text: stringifyFrontmatter({ deck: parts[parts.length - 1]!, tags: [...d.tags].slice(0, 30), origen: 'anki' }, `\n${d.blocks.join('\n\n')}\n`), cards: d.n });
     }
 
     const log: LogEntry[] = [];
     if (withHistory) {
       const card2cid = new Map<string, string>();
+      const noteById = new Map(notes.map((x) => [String(x.id), x]));
       for (const c of cards) {
         const nid = nid2id.get(String(c.nid));
         if (!nid) continue;
-        const note = notes.find((x) => String(x.id) === String(c.nid));
+        const note = noteById.get(String(c.nid));
         const isCloze = models.get(String(note?.mid))?.type === 1 || /\{\{c\d+::/.test(String(note?.flds ?? ''));
         const reverse = reverseOf(models.get(String(note?.mid)));
         card2cid.set(String(c.id), isCloze ? `${nid}:c${Number(c.ord) + 1}` : reverse && Number(c.ord) === 1 ? `${nid}:r` : nid);

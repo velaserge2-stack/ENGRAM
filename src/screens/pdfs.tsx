@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { fileOf, openPdfFile } from '../pdf/open';
 import { listPdfs, pdfLink, progress, updatePdfMeta } from '../pdf/library';
 import { useApp, useAsync } from '../state';
-import { mediaUrl } from '../ui/background';
+import { acquireMediaUrl, releaseMediaUrl } from '../ui/background';
 import { Bar, Empty, PageTitle } from '../ui/kit';
 import { checksum } from '../vault/util';
 import { PdfViewer } from './pdf';
@@ -62,7 +62,7 @@ async function renderThumb(vault: ReturnType<typeof useApp>['vault'], path: stri
   }
 }
 /** En cola (una a la vez). Al importar se llama con el File que ya está a mano. */
-export function thumbFromFile(vault: ReturnType<typeof useApp>['vault'], path: string, file: Blob): Promise<Blob | null> {
+function thumbFromFile(vault: ReturnType<typeof useApp>['vault'], path: string, file: Blob): Promise<Blob | null> {
   const job = thumbQ.then(() => renderThumb(vault, path, file)).catch(() => null);
   thumbQ = job;
   return job;
@@ -73,19 +73,25 @@ function Thumb(p: { path: string; size: number }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
-    let alive = true, own: string | null = null;
+    let alive = true, own: string | null = null, loaned: string | null = null;
     const io = new IntersectionObserver(([e]) => {
       if (!e!.isIntersecting) return;
       io.disconnect();
       void (async () => {
         const key = thumbKey(p.path, p.size);
-        if (await app.vault.exists(key)) return alive && setUrl(await mediaUrl(app.vault, key, 'image/jpeg'));
+        if (await app.vault.exists(key)) {
+          // préstamo (no fijada): se devuelve al desmontar y la URL se libera si nadie más la usa
+          const u = await acquireMediaUrl(app.vault, key, 'image/jpeg');
+          if (!alive) return void releaseMediaUrl(key);
+          loaned = key;
+          return setUrl(u);
+        }
         const blob = await thumbFromFile(app.vault, p.path, await fileOf(app.vault, p.path));
         if (blob && alive) setUrl((own = URL.createObjectURL(blob)));
       })().catch(() => {});
     }, { rootMargin: '200px' });
     if (ref.current) io.observe(ref.current);
-    return () => { alive = false; io.disconnect(); if (own) URL.revokeObjectURL(own); };
+    return () => { alive = false; io.disconnect(); if (own) URL.revokeObjectURL(own); if (loaned) releaseMediaUrl(loaned); };
   }, [p.path, p.size]);
   return <span ref={ref} class="pdf-thumb-slot">{url ? <img src={url} alt="" loading="lazy" /> : <FileText size={36} aria-hidden="true" />}</span>;
 }

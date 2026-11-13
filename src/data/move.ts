@@ -10,7 +10,7 @@
  * Cada operación devuelve un registro para deshacerla (movimientos inversos y textos previos).
  */
 import { newId, noteIdOf, parseDeck } from '../cards/parse';
-import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
+import { parseFrontmatter, setKeys } from '../lib/frontmatter';
 import { fromICS, toICS } from '../lib/ics';
 import { makeUri, parseUri } from '../lib/links';
 import { withSuffix } from '../vault/paths';
@@ -19,7 +19,7 @@ import { readTextOr, walk } from '../vault/util';
 import type { Collection, Deck } from './collection';
 import { withSubdecks } from './decktrash';
 
-export type UndoOp = { kind: 'move'; from: string; to: string } | { kind: 'write'; path: string; before: string | null };
+type UndoOp = { kind: 'move'; from: string; to: string } | { kind: 'write'; path: string; before: string | null };
 export type Undo = UndoOp[];
 export type Clash = 'rename' | 'merge';
 
@@ -37,12 +37,13 @@ export async function undoMove(vault: VaultAdapter, log: Undo): Promise<void> {
 async function write(vault: VaultAdapter, log: Undo, path: string, text: string) {
   const before = (await vault.exists(path)) ? await readTextOr(vault, path, '') : null;
   if (before === text) return;
+  await vault.write(path, text); // se anota después: una escritura (atómica) que falla no cambió nada
   log.push({ kind: 'write', path, before });
-  await vault.write(path, text);
 }
 async function remove(vault: VaultAdapter, log: Undo, path: string) {
-  log.push({ kind: 'write', path, before: await readTextOr(vault, path, '') });
+  const before = await readTextOr(vault, path, '');
   await vault.remove(path);
+  log.push({ kind: 'write', path, before });
 }
 async function move(vault: VaultAdapter, log: Undo, from: string, to: string) {
   await vault.move(from, to);
@@ -64,7 +65,7 @@ const fileOf = (p: string) => p.split('/').pop()!;
 const dirOf = (folder: string) => (folder ? `decks/${folder}` : 'decks');
 
 /** Renombra el prefijo de jerarquía `from` → `to` en un nombre de tema o mazo. */
-export function renamePrefix(s: string, from: string, to: string): string {
+function renamePrefix(s: string, from: string, to: string): string {
   return s === from ? to : s.startsWith(from + '/') ? to + s.slice(from.length) : s;
 }
 
@@ -72,10 +73,9 @@ export function renamePrefix(s: string, from: string, to: string): string {
  * Reescribe los vínculos que nombran mazos o carpetas por su jerarquía.
  * `names`: pares nombre completo viejo → nuevo; `paths`: rutas de archivo viejas → nuevas.
  */
-export async function rewriteDeckRefs(vault: VaultAdapter, log: Undo, names: [string, string][], paths: [string, string][]): Promise<void> {
+async function rewriteDeckRefs(vault: VaultAdapter, log: Undo, names: [string, string][], paths: [string, string][]): Promise<void> {
   if (!names.length && !paths.length) return;
   const ren = (s: string) => names.reduce((acc, [a, b]) => renamePrefix(acc, a, b), s);
-  // calendario
   const ics = await readTextOr(vault, CAL, '');
   if (ics) {
     const blocks = fromICS(ics);
@@ -95,7 +95,6 @@ export async function rewriteDeckRefs(vault: VaultAdapter, log: Undo, names: [st
     }
     if (touched) await write(vault, log, CAL, toICS(blocks));
   }
-  // exámenes
   for (const f of await walk(vault, 'exams')) {
     if (!f.path.endsWith('.md')) continue;
     const text = await readTextOr(vault, f.path, '');
@@ -104,7 +103,7 @@ export async function rewriteDeckRefs(vault: VaultAdapter, log: Undo, names: [st
     const temas = doc.data.temas.map(String);
     const next = temas.map((x) => (x.startsWith('tag:') ? x : ren(x)));
     if (next.every((x, i) => x === temas[i])) continue;
-    await write(vault, log, f.path, stringifyFrontmatter({ ...doc.data, temas: next }, doc.body));
+    await write(vault, log, f.path, setKeys(text, { temas: next }));
   }
 }
 
@@ -143,8 +142,7 @@ export function removeBlock(text: string, id: string): string {
 
 /** Cambia el nombre visible (`deck:`) de un archivo de mazo. */
 function renameDeckText(text: string, name: string): string {
-  const doc = parseFrontmatter(text);
-  return stringifyFrontmatter({ ...doc.data, deck: name }, doc.hasFrontmatter ? doc.body : text);
+  return setKeys(text, { deck: name });
 }
 
 /**
@@ -242,6 +240,9 @@ export async function moveCards(vault: VaultAdapter, col: Collection, cids: stri
     }
     bySource.set(src.path, [...(bySource.get(src.path) ?? []), id]);
   }
+  // primero se calcula todo; se escribe el DESTINO antes que los orígenes: un fallo a mitad deja
+  // la tarjeta duplicada (aviso de ID repetido), nunca en ningún archivo. Y se deshace lo escrito.
+  const sources: [string, string][] = [];
   for (const [path, list] of bySource) {
     let text = await readTextOr(vault, path, '');
     for (const id of list) {
@@ -251,9 +252,15 @@ export async function moveCards(vault: VaultAdapter, col: Collection, cids: stri
       text = removeBlock(text, id);
       moved++;
     }
-    await write(vault, log, path, text);
+    sources.push([path, text]);
   }
-  if (moved || duplicated) await write(vault, log, target.path, dest);
+  try {
+    if (moved || duplicated) await write(vault, log, target.path, dest);
+    for (const [path, text] of sources) await write(vault, log, path, text);
+  } catch (e) {
+    await undoMove(vault, log).catch(() => {});
+    throw e;
+  }
   return { undo: log, moved, skipped, duplicated };
 }
 

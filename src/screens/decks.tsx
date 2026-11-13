@@ -280,7 +280,7 @@ export function DeckOptions(props: { deck: Deck; onClose: () => void }) {
 }
 
 /** Confirmación con cifras (C8): nada se borra, todo va a la papelera de mazos. */
-export function DeleteDecks(props: { decks: Deck[]; onClose: () => void; onDone?: () => void }) {
+function DeleteDecks(props: { decks: Deck[]; onClose: () => void; onDone?: () => void }) {
   const app = useApp();
   const col = app.col!;
   const plan = trashPlan(col, props.decks);

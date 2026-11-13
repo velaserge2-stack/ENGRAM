@@ -6,7 +6,7 @@ import type { PomoState } from './lib/pomodoro';
 import type { IntegrityReport } from './vault/integrity';
 import type { RecoveryReport, SafeVault } from './vault/safe';
 
-export type SheetId = 'import' | 'backup' | 'add' | 'exam' | 'palette' | 'ambient' | null;
+type SheetId = 'import' | 'backup' | 'add' | 'exam' | 'palette' | 'ambient' | null;
 
 export interface PomoCtl {
   state: PomoState;
@@ -71,6 +71,9 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): { data: T | 
   }, deps);
   return state;
 }
+
+/** Ruta de archivo de `#/espacios/abrir/<ruta>`: `parseHash` ya decodificó cada segmento (no se decodifica otra vez). */
+export const routeFilePath = (route: string[]): string => route.slice(1).join('/');
 
 export function parseHash(): string[] {
   return (location.hash.replace(/^#\/?/, '').split('?')[0] || 'hoy').split('/').map((s) => {

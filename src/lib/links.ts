@@ -5,7 +5,7 @@
  * (sin migraciones). Sin `id`, se resuelve por nombre o ruta; si no se encuentra, es un enlace roto.
  */
 import { newId } from '../cards/parse';
-import { parseFrontmatter, stringifyFrontmatter } from './frontmatter';
+import { parseFrontmatter, setKeys } from './frontmatter';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr, walk } from '../vault/util';
 
@@ -61,6 +61,7 @@ export function resolveLink(uri: string, idx: LinkIndex): Resolved {
     list.find((x) => x.id && x.id === p.key) ??
     list.find((x) => norm(x.path) === k) ??
     list.find((x) => norm(x.name) === k) ??
+    list.find((x) => p.kind === 'tag' && norm(x.path.replace(/^tag:/, '')) === k) ??
     list.find((x) => norm(x.path.split('/').pop() ?? '') === k) ??
     null;
   return { uri, kind: p.kind, target: t, label: t?.name ?? p.key };
@@ -79,7 +80,7 @@ export async function ensureFileId(vault: VaultAdapter, path: string, taken: Set
   if (typeof doc.data.id === 'string' && doc.data.id) return doc.data.id;
   if (typeof doc.data.id === 'number') return String(doc.data.id);
   const id = newId(taken);
-  await vault.write(path, stringifyFrontmatter({ ...doc.data, id }, doc.hasFrontmatter ? doc.body : text));
+  await vault.write(path, setKeys(text, { id })); // solo la línea `id:`: el resto del frontmatter queda intacto
   return id;
 }
 
@@ -87,7 +88,7 @@ export async function buildLinkIndex(vault: VaultAdapter, decks: { path: string;
   const notes: LinkTarget[] = [];
   for (const f of await walk(vault, 'notes')) {
     if (!f.path.endsWith('.md')) continue;
-    const fm = parseFrontmatter(await readTextOr(vault, f.path, '')).data;
+    const fm = parseFrontmatter(await readTextOr(vault, f.path, '').catch(() => '')).data; // solo lectura
     notes.push({ kind: 'note', path: f.path, name: f.name.replace(/\.md$/, ''), ...(fm.id ? { id: String(fm.id) } : {}) });
   }
   const folders = new Set<string>();

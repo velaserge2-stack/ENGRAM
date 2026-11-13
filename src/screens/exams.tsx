@@ -1,4 +1,4 @@
-import { locale, t as tr, tn } from '../i18n';
+import { t as tr, tn } from '../i18n';
 import { CircleCheck, CircleDashed, TriangleAlert, CircleHelp, Flag, Plus } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { setDeckMeta, safeName } from '../data/ops';
@@ -113,7 +113,7 @@ export function ExamSheet(props: { path: string | null; onClose: () => void }) {
       <form class="stack" onSubmit={async (ev) => {
         ev.preventDefault();
         const path = props.path ?? `exams/${safeName(e.name)}.md`;
-        await app.vault.write(path, serializeExam({ ...e, path }));
+        await app.vault.write(path, serializeExam({ ...e, path }, props.path ? await readTextOr(app.vault, props.path, '') : ''));
         app.changed();
         props.onClose();
       }}>

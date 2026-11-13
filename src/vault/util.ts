@@ -1,4 +1,4 @@
-import type { FileStat, VaultAdapter } from './types';
+import { type FileStat, type VaultAdapter, VaultError } from './types';
 
 export const enc = new TextEncoder();
 const dec = new TextDecoder('utf-8');
@@ -13,20 +13,69 @@ export function decodeText(bytes: Uint8Array, strict = false): string {
 }
 
 export async function readText(vault: VaultAdapter, path: string): Promise<string> {
-  return decodeText(await vault.read(path));
-}
-
-export async function readTextOr(vault: VaultAdapter, path: string, fallback: string): Promise<string> {
+  const bytes = await vault.read(path);
   try {
-    return await readText(vault, path);
+    return decodeText(bytes, true);
   } catch {
-    return fallback;
+    // no es UTF-8 (p. ej. Latin-1 de otro programa): se lee como windows-1252 para no sembrar U+FFFD al guardar
+    return new TextDecoder('windows-1252').decode(bytes);
   }
 }
 
-export async function readJson<T>(vault: VaultAdapter, path: string, fallback: T): Promise<T> {
-  if (!(await vault.exists(path))) return fallback;
-  return JSON.parse(await readText(vault, path)) as T;
+/** El archivo no existe (VaultError o DOMException de FS Access); cualquier otro fallo NO lo es. */
+export function isNotFound(e: unknown): boolean {
+  if (e instanceof VaultError) return e.code === 'not-found';
+  const name = (e as { name?: unknown } | null)?.name;
+  return e instanceof DOMException && (name === 'NotFoundError' || name === 'TypeMismatchError');
+}
+
+/**
+ * `fallback` SOLO si el archivo no existe. Un fallo de lectura (cuota, permiso, Worker) se propaga:
+ * leer «vacío» y luego escribir sustituiría el archivo del usuario.
+ */
+export async function readTextOr(vault: VaultAdapter, path: string, fallback: string): Promise<string> {
+  try {
+    return await readText(vault, path);
+  } catch (e) {
+    if (isNotFound(e)) return fallback;
+    throw e;
+  }
+}
+
+/**
+ * Colas por bóveda y ruta: leer-modificar-escribir de un mismo archivo nunca se intercala. Entre
+ * pestañas, el cerrojo de SafeVault solo cubre la escritura (otra pestaña podría leer entre medias y
+ * pisar las líneas añadidas): si existe `navigator.locks`, el ciclo entero toma `engrama-file:<ruta>`
+ * (otro nombre que el de SafeVault: los cerrojos no son reentrantes).
+ */
+const fileQueues = new WeakMap<VaultAdapter, Map<string, Promise<unknown>>>();
+type Locks = { request<T>(name: string, cb: () => Promise<T>): Promise<T> };
+export function serialFile<T>(vault: VaultAdapter, path: string, fn: () => Promise<T>): Promise<T> {
+  let m = fileQueues.get(vault);
+  if (!m) fileQueues.set(vault, (m = new Map()));
+  const nav = typeof navigator === 'undefined' ? null : (navigator as Navigator & { locks?: Locks });
+  const lk = nav && 'locks' in nav && nav.locks ? nav.locks : null;
+  const locked = () => (lk ? lk.request(`engrama-file:${path}`, fn) : fn());
+  const run = (m.get(path) ?? Promise.resolve()).then(locked, locked);
+  const tail = run.catch(() => undefined);
+  m.set(path, tail);
+  void tail.then(() => m.get(path) === tail && m.delete(path));
+  return run;
+}
+
+/**
+ * Añade líneas al final de un `.jsonl` (historial, intentos, pomodoro) en cola por ruta y con lectura
+ * estricta: si leer falla, no se escribe nada. `lines` puede decidir según lo que ya hay (p. ej. sin
+ * duplicados). Devuelve cuántas líneas añadió.
+ */
+export function appendLines(vault: VaultAdapter, path: string, lines: string[] | ((prev: string) => string[])): Promise<number> {
+  return serialFile(vault, path, async () => {
+    const prev = await readTextOr(vault, path, '');
+    const add = typeof lines === 'function' ? lines(prev) : lines;
+    if (!add.length) return 0;
+    await vault.write(path, `${prev && !prev.endsWith('\n') ? `${prev}\n` : prev}${add.join('\n')}\n`);
+    return add.length;
+  });
 }
 
 /** Recorre recursivamente y devuelve solo archivos. */

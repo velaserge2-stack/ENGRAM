@@ -13,13 +13,24 @@ let worker: Worker | null = null;
 let local: ReturnType<typeof searchCore> | null = null;
 let seq = 0;
 const pending = new Map<number, (v: unknown) => void>();
+/** Copia de lo indexado (para repoblar el índice local si el Worker muere). */
+const mirror = new Map<string, SearchDoc>();
 
 function call<T>(op: Op, arg: unknown, f?: Filters): Promise<T> {
   if (!worker && !local && typeof Worker !== 'undefined') {
     try {
       worker = new Worker(new URL('./search.worker.ts', import.meta.url), { type: 'module' });
       worker.onmessage = (e: MessageEvent<{ id: number; ok: boolean; res: unknown }>) => { pending.get(e.data.id)?.(e.data.ok ? e.data.res : undefined); pending.delete(e.data.id); };
-      worker.onerror = () => { worker = null; local = searchCore(); };
+      worker.onerror = () => {
+        // el Worker murió: lo pendiente se resuelve (si no, quien espera queda colgado: runNoteMove)
+        // y el índice local se repuebla con la copia de lo indexado
+        worker?.terminate();
+        worker = null;
+        for (const res of pending.values()) res(undefined);
+        pending.clear();
+        local = searchCore();
+        local.reset([...mirror.values()]);
+      };
     } catch {
       worker = null;
     }
@@ -32,7 +43,7 @@ function call<T>(op: Op, arg: unknown, f?: Filters): Promise<T> {
   return new Promise<T>((res) => { pending.set(id, res as (v: unknown) => void); worker!.postMessage({ id, op, arg, f }); });
 }
 
-export function toSearchDoc(path: string, text: string): SearchDoc {
+function toSearchDoc(path: string, text: string): SearchDoc {
   const m = noteMeta(path);
   const doc = parseFrontmatter(text);
   // los dibujos no se indexan (solo su referencia); su miniatura sale en los resultados
@@ -40,8 +51,13 @@ export function toSearchDoc(path: string, text: string): SearchDoc {
 }
 
 export const notesIndex = {
-  reset: (texts: Map<string, string>) => call<void>('reset', [...texts].map(([p, t]) => toSearchDoc(p, t))),
-  upsert: (path: string, text: string) => call<void>('upsert', toSearchDoc(path, text)),
-  remove: (path: string) => call<void>('remove', path),
+  reset: (texts: Map<string, string>) => {
+    const docs = [...texts].map(([p, t]) => toSearchDoc(p, t));
+    mirror.clear();
+    for (const d of docs) mirror.set(d.id, d);
+    return call<void>('reset', docs);
+  },
+  upsert: (path: string, text: string) => { const d = toSearchDoc(path, text); mirror.set(path, d); return call<void>('upsert', d); },
+  remove: (path: string) => { mirror.delete(path); return call<void>('remove', path); },
   query: (q: string, f: Filters = {}) => call<Result[]>('query', q, f),
 };

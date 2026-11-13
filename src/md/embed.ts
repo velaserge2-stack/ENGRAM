@@ -43,7 +43,7 @@ export function serializeEmbed(e: Embed): string {
 
 export const IMG_EXT = /\.(png|jpe?g|gif|webp|svg|heic|heif|avif|bmp)$/i;
 /** Embeds de imagen de un texto, en orden (para ubicar el n-ésimo y reescribirlo). */
-export const EMBED_RE = /!\[\[([^\]\n]+)\]\]/g;
+const EMBED_RE = /!\[\[([^\]\n]+)\]\]/g;
 
 /** Reescribe el n-ésimo embed de imagen de `text` con `fn`; devuelve el texto igual si no existe. */
 export function rewriteImageEmbed(text: string, n: number, fn: (e: Embed) => Embed): string {

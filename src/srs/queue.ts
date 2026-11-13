@@ -27,7 +27,6 @@ export function dayEnd(now: number, tz: string, dayStartHour: number): number {
   // buscar el primer instante (en pasos de 15 min) que pertenece a otro día de estudio
   let t = now;
   while (dayKey(t, tz, dayStartHour) === today) t += 15 * 60_000;
-  // refinar al minuto
   let lo = t - 15 * 60_000;
   while (t - lo > 60_000) {
     const mid = Math.floor((lo + t) / 2);
@@ -50,12 +49,16 @@ export function inDeck(deck: Deck, filter: string | null): boolean {
   return deck.path === filter;
 }
 
+/** Repasos deshechos (`op:'undo'`): no cuentan para los cupos del día. */
+const undoneOf = (col: Collection) => new Set(col.log.filter((e) => e.op === 'undo').map((e) => `${e.id}@${e.ref}`));
+
 /** Nuevas introducidas hoy por mazo. */
 export function newIntroducedToday(col: Collection, now: number, lim: StudyLimits): Map<string, number> {
   const today = dayKey(now, lim.tz, lim.dayStartHour);
   const m = new Map<string, number>();
+  const undone = undoneOf(col);
   for (const e of col.log) {
-    if (e.rating && e.state === 0 && dayKey(e.ts, lim.tz, lim.dayStartHour) === today) {
+    if (e.rating && e.state === 0 && !undone.has(`${e.id}@${e.ts}`) && dayKey(e.ts, lim.tz, lim.dayStartHour) === today) {
       const d = col.byCid.get(e.id)?.deck.path;
       if (d) m.set(d, (m.get(d) ?? 0) + 1);
     }
@@ -65,7 +68,8 @@ export function newIntroducedToday(col: Collection, now: number, lim: StudyLimit
 
 export function reviewsToday(col: Collection, now: number, lim: StudyLimits): number {
   const today = dayKey(now, lim.tz, lim.dayStartHour);
-  return col.log.filter((e) => e.rating && e.state === 2 && dayKey(e.ts, lim.tz, lim.dayStartHour) === today).length;
+  const undone = undoneOf(col);
+  return col.log.filter((e) => e.rating && e.state === 2 && !undone.has(`${e.id}@${e.ts}`) && dayKey(e.ts, lim.tz, lim.dayStartHour) === today).length;
 }
 
 function available(st: CardState, today: string): boolean {

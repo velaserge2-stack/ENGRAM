@@ -7,10 +7,10 @@ import type { Settings } from '../lib/settings';
 import { type PomoCtl, useApp } from '../state';
 import { Ring } from '../ui/kit';
 import type { VaultAdapter } from '../vault/types';
-import { readTextOr } from '../vault/util';
+import { appendLines, readTextOr } from '../vault/util';
 
 const STATE_PATH = '.app/pomodoro-state.json';
-export const POMO_LOG = '.app/pomodoro.jsonl';
+const POMO_LOG = '.app/pomodoro.jsonl';
 
 let audio: AudioContext | null = null;
 function unlockAudio() {
@@ -72,8 +72,7 @@ export function usePomodoro(vault: VaultAdapter, s: Settings, toast: (m: string)
 
   const log = async (session: { ts: number; end: number; minutes: number; label: string; completed: boolean } | null) => {
     if (!session || session.minutes < 0.5) return;
-    const prev = await readTextOr(vault, POMO_LOG, '');
-    await vault.write(POMO_LOG, prev + JSON.stringify(session) + '\n');
+    await appendLines(vault, POMO_LOG, [JSON.stringify(session)]);
     void countToday();
     onSession();
   };
@@ -104,8 +103,20 @@ export function usePomodoro(vault: VaultAdapter, s: Settings, toast: (m: string)
   // Mantener la pantalla encendida mientras corre (Screen Wake Lock, si existe)
   useEffect(() => {
     const nav = navigator as Navigator & { wakeLock?: { request(t: 'screen'): Promise<WakeLock> } };
-    if (state.running && nav.wakeLock) nav.wakeLock.request('screen').then((w) => (wake.current = w), () => {});
-    else if (!state.running && wake.current) void wake.current.release().then(() => (wake.current = null));
+    let alive = true;
+    const ask = () => nav.wakeLock?.request('screen').then((w) => {
+      if (!alive) void w.release(); // pausó mientras se concedía: no dejar el candado puesto
+      else wake.current = w;
+    }, () => {});
+    if (state.running && nav.wakeLock) {
+      void ask();
+      // Safari libera el candado al ocultar la pestaña: volver a pedirlo al regresar
+      const back = () => { if (document.visibilityState === 'visible') { void wake.current?.release().catch(() => {}); void ask(); } };
+      document.addEventListener('visibilitychange', back);
+      return () => { alive = false; document.removeEventListener('visibilitychange', back); };
+    }
+    if (wake.current) void wake.current.release().then(() => (wake.current = null));
+    return () => { alive = false; };
   }, [state.running]);
 
   return {

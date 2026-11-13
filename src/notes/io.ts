@@ -18,7 +18,7 @@ const SIZE_EM: Record<string, number> = { pequeno: 0.85, grande: 1.25, muygrande
 
 export function compatibleMarkdown(md: string, opts: { links: boolean; colors: 'keep' | 'html' | 'plain' }): string {
   let out = md;
-  if (opts.links) out = out.replace(/(?<!!)\[\[([^\]|#]+)(?:\|([^\]]+))?\]\]/g, (_, t: string, a?: string) => `[${a ?? t}](${encodeURI(t.trim())}.md)`).replace(/!\[\[([^\]|]+)\]\]/g, (_, f: string) => `![](${encodeURI(f.trim())})`);
+  if (opts.links) out = out.replace(/(?<!!)\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]/g, (_, t: string, h?: string, a?: string) => `[${a ?? (h ? `${t}#${h}` : t)}](${encodeURI(t.trim())}.md${h ? `#${encodeURI(h.trim())}` : ''})`).replace(/!\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g, (_, f: string) => `![](${encodeURI(f.trim())})`);
   // colores, tamaños (Prompt 17), ++subrayado++ y alineación ` {.centro}` para editores que no los conocen
   if (opts.colors === 'html') out = out
     .replace(/\[([^\]\n]+)\]\{((?:\.[a-z]+\s*)+)\}/g, (_, t: string, cs: string) => `<span style="${cs.split(/\s+/).filter(Boolean).map((c) => c.slice(1)).map((c) => (SIZE_EM[c] ? `font-size:${SIZE_EM[c]}em` : `color:#${COLORS[c] ?? '000000'}`)).join(';')}">${t}</span>`)

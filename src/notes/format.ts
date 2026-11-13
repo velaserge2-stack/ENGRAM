@@ -27,7 +27,7 @@ function snap(text: string, s: number, e: number): [number, number] {
   return [s, e];
 }
 /** Sin selección: la palabra bajo el cursor (letras, números, guion bajo; Unicode). */
-export function wordAt(text: string, pos: number): [number, number] {
+function wordAt(text: string, pos: number): [number, number] {
   const isW = (c: string | undefined) => !!c && /[\p{L}\p{N}_'’-]/u.test(c);
   let s = pos, e = pos;
   while (s > 0 && isW(text[s - 1])) s--;
@@ -126,7 +126,7 @@ export function clearFormat(sel: Sel): Sel {
   const seg = text.slice(s, e);
   const keep: string[] = [];
   const masked = seg.replace(/!?\[\[[^\]\n]*\]\]|`[^`\n]*`/g, (x) => `\u0000${keep.push(x) - 1}\u0000`);
-  const clean = masked.replace(/\[([^\]\n]+)\]\{(?:\.[a-z]+\s*)+\}/g, '$1').replace(/\*\*|\+\+|~~|==|(?<![\w*])\*(?!\s)|(?<=\S)\*(?![\w*])/g, '').replace(/\u0000(\d+)\u0000/g, (_m, i: string) => keep[Number(i)]!);
+  const clean = masked.replace(/\[([^\]\n]+)\]\{(?:\.[a-z]+\s*)+\}/g, '$1').replace(/(\+\+|==)(\S[^\n]*?)\1/g, '$2').replace(/\*\*|~~|(?<![\w*])\*(?!\s)|(?<=\S)\*(?![\w*])/g, '').replace(/\u0000(\d+)\u0000/g, (_m, i: string) => keep[Number(i)]!);
   return { text: text.slice(0, s) + clean + text.slice(e), s, e: s + clean.length };
 }
 
@@ -267,7 +267,7 @@ export function moveListItem(sel: Sel, dir: 1 | -1): Sel | null {
 
 // ───────── tablas (GFM) ─────────
 
-export type ColAlign = '' | 'l' | 'c' | 'r';
+type ColAlign = '' | 'l' | 'c' | 'r';
 export interface Table { a: number; b: number; rows: string[][]; align: ColAlign[]; row: number; col: number }
 const cells = (l: string) => l.trim().replace(/^\||\|$/g, '').split(/(?<!\\)\|/).map((c) => c.trim());
 

@@ -27,7 +27,7 @@ export function Palette(props: { mode: string | null; onClose: () => void }) {
   const { data: notes } = useAsync(async () => {
     const files = (await walk(app.vault, 'notes')).filter((f) => f.path.endsWith('.md'));
     const docs = [];
-    for (const f of files.slice(0, 3000)) docs.push({ id: f.path, title: f.name.replace(/\.md$/, ''), body: (await readTextOr(app.vault, f.path, '')).slice(0, 20000) });
+    for (const f of files.slice(0, 3000)) docs.push({ id: f.path, title: f.name.replace(/\.md$/, ''), body: (await readTextOr(app.vault, f.path, '').catch(() => '')).slice(0, 20000) /* solo lectura */ });
     const ms = new MiniSearch({ fields: ['title', 'body'], storeFields: ['title'], searchOptions: { prefix: true, fuzzy: 0.2, boost: { title: 3 }, processTerm: (t) => normalizeAnswer(t) }, processTerm: (t) => normalizeAnswer(t) || null });
     ms.addAll(docs);
     return { ms, docs };

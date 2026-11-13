@@ -84,4 +84,26 @@ describe('mover a «Sin clasificar» o a una materia sin tema (Prompt 12)', () =
     await undoMove(v, r.undo);
     expect(await readTextOr(v, NOTE, '')).toContain('materia: Cardiología');
   });
+
+  it('plan 11: renombrar solo mayúsculas no manda la nota a la papelera; un archivo distinto con ese nombre sí choca', async () => {
+    const v = new SafeVault(new MemoryBackend());
+    await v.write('notes/M/nota.md', 'uno');
+    const r = await moveNotes(v, ['notes/M/nota.md'], 'M', 'replace', new Map([['notes/M/nota.md', 'Nota.md']]));
+    expect(r.moved).toEqual([['notes/M/nota.md', 'notes/M/Nota.md']]);
+    expect(await readTextOr(v, 'notes/M/Nota.md', '')).toBe('uno');
+    expect((await walk(v, '.app/trash')).length).toBe(0);
+    await v.write('notes/M/nota.md', 'dos');
+    const r2 = await moveNotes(v, ['notes/M/nota.md'], 'M', 'rename', new Map([['notes/M/nota.md', 'Nota.md']]));
+    expect(r2.moved[0]![1]).toBe('notes/M/Nota (2).md');
+    expect(await readTextOr(v, 'notes/M/Nota.md', '')).toBe('uno');
+  });
+
+  it('plan 11: moveNoteFolder deja lo hecho en el registro que recibe (para deshacer si algo lanza después)', async () => {
+    const v = await setup();
+    const log: Parameters<typeof undoMove>[1] = [];
+    await moveNoteFolder(v, 'Cardiología/ECG', 'Urgencias', 'rename', log);
+    expect(log.length).toBeGreaterThan(0);
+    await undoMove(v, log);
+    expect(await v.exists(NOTE)).toBe(true);
+  });
 });

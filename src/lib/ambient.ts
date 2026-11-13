@@ -12,6 +12,7 @@
  *   «desbloquea» en el mismo toque (antes de leer los archivos); y un play() rechazado ya no se
  *   esconde: avisa (onAudioError) y deja el botón en «detenido».
  */
+import { t } from '../i18n';
 import { mix, SOUNDS, type SoundId, wav } from './noise';
 
 type Levels = Partial<Record<SoundId, number>>;
@@ -135,7 +136,7 @@ function bgFailed(e: unknown) {
  * Media Session única para los dos motores (teclas multimedia, pantalla bloqueada): reproducir y
  * pausar actúan sobre lo que estaba sonando; anterior/siguiente, sobre la música si la hay.
  */
-function mediaSession(title = 'Sonido ambiente') {
+function mediaSession(title = t('addons.n_ambient')) {
   if (!('mediaSession' in navigator)) return;
   try {
     navigator.mediaSession.metadata = new MediaMetadata({ title, artist: 'Engrama' });

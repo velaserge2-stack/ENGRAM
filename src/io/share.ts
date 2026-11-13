@@ -6,7 +6,7 @@
  */
 export type DeliverResult = 'shared' | 'downloaded' | 'cancelled';
 
-export function canShareFile(file: File): boolean {
+function canShareFile(file: File): boolean {
   try {
     return typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] });
   } catch {

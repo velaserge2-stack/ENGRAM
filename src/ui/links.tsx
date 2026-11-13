@@ -1,6 +1,6 @@
 import { locale, t, t as tr2 } from '../i18n'; // tr2: dentro de .map((t) => …) `t` es el destino
 /** Vínculos del calendario: selector, chips, datos vivos e «Iniciar bloque» (Mejora 1 · §2). */
-import { BookOpen, FileText, Folder, Hash, Link2, Unlink } from 'lucide-preact';
+import { BookOpen, FileText, Folder, Hash, Unlink } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { normalizeAnswer } from '../cards/parse';
 import { buildLinkIndex, ensureFileId, type LinkIndex, type LinkKind, type LinkTarget, makeUri, type Resolved, resolveLink, studyFilter } from '../lib/links';
@@ -10,7 +10,7 @@ import { deckCounts, inDeck, newIntroducedToday } from '../srs/queue';
 import { go, useApp, useAsync } from '../state';
 import { Segmented, Sheet } from './kit';
 
-export const CAL_PATH = 'calendar/estudio.ics';
+const CAL_PATH = 'calendar/estudio.ics';
 
 export function useLinkIndex() {
   const app = useApp();
@@ -20,7 +20,7 @@ export function useLinkIndex() {
 const ICON: Record<LinkKind, preact.JSX.Element> = { deck: <BookOpen size={14} />, note: <FileText size={14} />, topic: <Folder size={14} />, tag: <Hash size={14} /> };
 
 /** Datos vivos de un vínculo: "Cardiología: 34 vencidas". */
-export function liveData(app: ReturnType<typeof useApp>, r: Resolved): string {
+function liveData(app: ReturnType<typeof useApp>, r: Resolved): string {
   const col = app.col;
   if (!col || !r.target || r.kind === 'note') return '';
   const now = Date.now();
@@ -36,7 +36,7 @@ export function liveData(app: ReturnType<typeof useApp>, r: Resolved): string {
   return `${due} vencidas${fresh ? ` · ${fresh} nuevas` : ''}`;
 }
 
-export function openLink(r: Resolved) {
+function openLink(r: Resolved) {
   if (!r.target) return;
   if (r.kind === 'note') location.hash = `#/espacios/abrir/${encodeURIComponent(r.target.path)}`;
   else go('estudiar', ...r.target.path.split('/').filter(Boolean), ...(r.target.path.endsWith('/') ? [''] : []));
@@ -120,7 +120,7 @@ export async function startBlock(app: ReturnType<typeof useApp>, b: StudyBlock, 
 }
 
 /** Bloques del calendario propio vinculados a una ruta (vínculo inverso). */
-export function linkedBlocks(blocks: StudyBlock[], idx: LinkIndex, path: string): StudyBlock[] {
+function linkedBlocks(blocks: StudyBlock[], idx: LinkIndex, path: string): StudyBlock[] {
   return blocks.filter((b) => (b.links ?? []).some((u) => {
     const r = resolveLink(u, idx);
     return r.target && (r.target.path === path || (r.kind !== 'note' && r.kind !== 'deck' && path.startsWith('decks/') && inDeckPath(path, r.target.path)));

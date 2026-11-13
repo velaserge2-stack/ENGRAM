@@ -42,7 +42,7 @@ export async function listBankTrash(vault: VaultAdapter): Promise<BankTrashEntry
 }
 
 /** Ruta libre para restaurar: la original, o «Nombre (restaurado).md», «(restaurado 2)»… Nunca sobrescribe. */
-export async function freeBankPath(vault: VaultAdapter, path: string): Promise<string> {
+async function freeBankPath(vault: VaultAdapter, path: string): Promise<string> {
   if (!(await vault.exists(path))) return path;
   const dir = dirname(path), stem = basename(path).replace(/\.md$/, '');
   for (let n = 1; ; n++) {

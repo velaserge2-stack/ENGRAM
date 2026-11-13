@@ -25,7 +25,7 @@ export interface TrashEntry {
 
 /** Un mazo y sus submazos (carpeta con el mismo nombre que el mazo, p. ej. decks/Cardio.md + decks/Cardio/…). */
 export function withSubdecks(col: Collection, d: Deck): Deck[] {
-  const sub = d.folder ? `${d.folder}/${d.name}` : d.name;
+  const sub = d.path.slice('decks/'.length, -3); // la carpeta sigue el nombre del archivo, no el `deck:` del frontmatter
   return [d, ...col.decks.filter((x) => x !== d && (x.folder === sub || x.folder.startsWith(sub + '/')))];
 }
 

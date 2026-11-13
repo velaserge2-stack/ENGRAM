@@ -229,3 +229,127 @@ describe('writeStream: archivos grandes por trozos (Prompt 11)', () => {
     expect(await blobChecksum(new Blob([d]))).toBe(checksum(d));
   });
 });
+
+describe('SafeVault: apply fallido con la app viva (auditoría plan 2)', () => {
+  /** Destino que se trunca y falla `fails` veces seguidas (sync handle de OPFS sin cuota). */
+  class Truncating extends MemoryBackend {
+    target = '';
+    fails = 0;
+    override async write(p: string, d: Uint8Array | string) {
+      if (p === this.target && this.fails > 0) {
+        this.fails--;
+        await super.write(p, new Uint8Array());
+        throw new Error('sin espacio');
+      }
+      return super.write(p, d);
+    }
+  }
+  it('si el reintento también falla, el diario se conserva y la siguiente escritura lo recupera antes', async () => {
+    const raw = new Truncating();
+    const v = new SafeVault(raw);
+    await v.write('notes/a.md', 'v1');
+    raw.target = 'notes/a.md';
+    raw.fails = 2;
+    await expect(v.write('notes/a.md', 'v2')).rejects.toThrow('sin espacio');
+    expect(await raw.exists(JOURNAL_PATH)).toBe(true);
+    await v.write('notes/b.md', 'otra');
+    expect(await readText(raw, 'notes/a.md')).toBe('v2');
+    expect(await raw.exists(JOURNAL_PATH)).toBe(false);
+  });
+  it('si la recuperación tampoco puede, se niega a escribir (no pisa el diario) y un arranque lo rehace', async () => {
+    const raw = new Truncating();
+    const v = new SafeVault(raw);
+    raw.target = 'notes/a.md';
+    raw.fails = 3;
+    await expect(v.write('notes/a.md', 'v2')).rejects.toThrow();
+    await expect(v.write('notes/b.md', 'otra')).rejects.toThrow(/a medias/);
+    expect(await raw.exists('notes/b.md')).toBe(false);
+    const r = await new SafeVault(raw).recover();
+    expect(r.recovered).toEqual(['notes/a.md']);
+    expect(await readText(raw, 'notes/a.md')).toBe('v2');
+  });
+  it('writeStream: si mover el temporal falla dos veces, el temporal sobrevive y se mueve después', async () => {
+    class BadMove extends MemoryBackend {
+      fails = 2;
+      override async move(a: string, b: string) {
+        if (this.fails-- > 0) throw new Error('move falló');
+        return super.move(a, b);
+      }
+    }
+    const raw = new BadMove();
+    const v = new SafeVault(raw);
+    await expect(v.writeStream('docs/x.pdf', new Blob(['PDF']))).rejects.toThrow('move falló');
+    await v.write('notes/b.md', 'otra');
+    expect(await readText(raw, 'docs/x.pdf')).toBe('PDF');
+  });
+});
+
+describe('SafeVault: diario validado (auditoría plan 3)', () => {
+  it('descarta entradas con op desconocida, ruta al diario o `from` fuera de lugar, y aplica la válida', async () => {
+    const raw = new MemoryBackend();
+    const ok = new TextEncoder().encode('bien');
+    await raw.write('.app/tmp/a-1', ok);
+    await raw.write('notes/keep.md', 'no tocar');
+    const base = { tmp: '.app/tmp/a-1', size: ok.length, hash: checksum(ok), ts: 0 };
+    await raw.write(JOURNAL_PATH, JSON.stringify({ v: 1, entries: [
+      { ...base, op: 'delete', path: 'notes/keep.md' },
+      { ...base, op: 'write', path: JOURNAL_PATH },
+      { ...base, op: 'move', path: 'notes/x.md', from: '.app/tmp' },
+      { ...base, op: 'write', path: 'notes/ok.md' },
+    ] }));
+    const r = await new SafeVault(raw).recover();
+    expect(r.recovered).toEqual(['notes/ok.md']);
+    expect(r.discarded).toHaveLength(3);
+    expect(await readText(raw, 'notes/ok.md')).toBe('bien');
+    expect(await readText(raw, 'notes/keep.md')).toBe('no tocar');
+  });
+});
+
+describe('SafeVault: un solo escritor (auditoría plan 4)', () => {
+  it('con navigator.locks, cada operación toma el cerrojo «engrama-vault»', async () => {
+    const names: string[] = [];
+    const prev = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    Object.defineProperty(globalThis, 'navigator', { value: { locks: { request: (n: string, cb: () => Promise<unknown>) => (names.push(n), cb()) } }, configurable: true });
+    try {
+      const v = new SafeVault(new MemoryBackend());
+      await v.write('notes/a.md', 'x');
+      await v.remove('notes/a.md');
+      expect(names).toEqual(['engrama-vault', 'engrama-vault']);
+    } finally {
+      if (prev) Object.defineProperty(globalThis, 'navigator', prev);
+    }
+  });
+});
+
+describe('appendLines (auditoría plan 5)', () => {
+  it('serializa por ruta, filtra según lo que hay y no escribe si la lectura falla', async () => {
+    const { appendLines } = await import('../src/vault/util');
+    const v = new MemoryBackend();
+    await v.write('.app/x.jsonl', '1'); // sin salto final
+    await Promise.all(['2', '3', '4'].map((n) => appendLines(v, '.app/x.jsonl', [n])));
+    expect(await readText(v, '.app/x.jsonl')).toBe('1\n2\n3\n4\n');
+    expect(await appendLines(v, '.app/x.jsonl', (prev) => ['4', '5'].filter((n) => !prev.split('\n').includes(n)))).toBe(1);
+    const broken = Object.assign(Object.create(v), { read: async () => { throw new Error('E/S'); } }) as MemoryBackend;
+    await expect(appendLines(broken, '.app/x.jsonl', ['6'])).rejects.toThrow('E/S');
+    expect(await readText(v, '.app/x.jsonl')).toBe('1\n2\n3\n4\n5\n');
+  });
+  it('entre pestañas (dos SafeVault sobre el mismo disco) no se pierden líneas con navigator.locks', async () => {
+    const { appendLines } = await import('../src/vault/util');
+    const { vi } = await import('vitest');
+    const chains = new Map<string, Promise<unknown>>();
+    const request = <T,>(name: string, cb: () => Promise<T>): Promise<T> => {
+      const run = (chains.get(name) ?? Promise.resolve()).then(cb, cb);
+      chains.set(name, run.catch(() => undefined));
+      return run;
+    };
+    vi.stubGlobal('navigator', { locks: { request } });
+    try {
+      const disk = new MemoryBackend();
+      const tabA = new SafeVault(disk), tabB = new SafeVault(disk); // cada pestaña, su propia cola
+      await Promise.all([appendLines(tabA, '.app/r.jsonl', ['a']), appendLines(tabB, '.app/r.jsonl', ['b'])]);
+      expect((await readText(disk, '.app/r.jsonl')).split('\n').filter(Boolean).sort()).toEqual(['a', 'b']);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});

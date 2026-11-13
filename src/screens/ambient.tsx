@@ -10,7 +10,7 @@ import { mediaUrl } from '../ui/background';
 import { Group, Row, Segmented, Switch } from '../ui/kit';
 import { walk } from '../vault/util';
 
-export const MUSIC_DIR = 'media/audio';
+const MUSIC_DIR = 'media/audio';
 type SleepChoice = 0 | 15 | 30 | 60 | 'pomodoro';
 
 /** Temporizador de apagado (no se guarda: una sesión). */

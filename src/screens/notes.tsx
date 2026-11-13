@@ -1,12 +1,12 @@
 import { locale, t as tr } from '../i18n';
-import { Search, Maximize2, Minimize2, PanelLeft, PanelRight, Bookmark, ClipboardCopy, ClipboardPaste, Code, FilePlus2, FileText, Folder, FolderOutput, History, Import, Link2, ListChecks, ListTree, MoveRight, Network, Share, Sparkles, Star, Trash2 } from 'lucide-preact';
+import { Search, Maximize2, Minimize2, PanelLeft, PanelRight, Bookmark, ClipboardCopy, ClipboardPaste, Code, FilePlus2, FileText, Folder, FolderOutput, History, Import, Link2, ListChecks, ListTree, MoveRight, Share, Sparkles, Star, Trash2 } from 'lucide-preact';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { normalizeAnswer, parseDeck } from '../cards/parse';
 import { appendCard } from '../data/ops';
 import { deliver } from '../io/share';
 import { buildZip } from '../io/zip';
 import { addDays, dayKey } from '../lib/days';
-import { type Frontmatter, parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
+import { type Frontmatter, parseFrontmatter, setKeys } from '../lib/frontmatter';
 import { renderMarkdown, renderMarkdownCached } from '../md/render';
 import { memo } from 'preact/compat';
 import { compatibleMarkdown, htmlToMarkdown, markdownToDocx } from '../notes/io';
@@ -205,7 +205,7 @@ export function NotePanel(props: { path: string }) {
   const box = useRef<HTMLDivElement>(null);
   // panel corto del lienzo: la barra empieza plegada (sigue visible como franja)
   useEffect(() => { const h = box.current?.closest('.win-body')?.clientHeight ?? 0; if (h && h < 420) setUi((u) => ({ ...u, barFolded: true })); }, []);
-  return <div class="note-panel" ref={box}><NoteEditor path={props.path} data={data} ui={ui} setUi={(p) => setUi((u) => ({ ...u, ...p }))} overlay embedded /></div>;
+  return <div class="note-panel" ref={box}><NoteEditor key={props.path} path={props.path} data={data} ui={ui} setUi={(p) => setUi((u) => ({ ...u, ...p }))} overlay embedded /></div>;
 }
 
 /** «＋ Nueva nota» desde un panel: crea la nota de verdad (en la materia y tema elegidos) y la devuelve. */
@@ -630,8 +630,14 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
     const decks = [...new Set([...(app.col?.byCid.values() ?? [])].filter((x) => x.ref.note.src?.startsWith(`${props.path}#p`)).map((x) => x.deck.path))];
     if (decks.length && (await remapSources(app.vault, decks, props.path, parseFrontmatter(from).body, parseFrontmatter(to).body))) app.changed();
   };
-  const setBody = (body: string, kind: 'type' | 'action' = 'action') => set(stringifyFrontmatter(doc.data, body), kind);
-  const setFm = (fm: Frontmatter) => set(stringifyFrontmatter(fm, doc.body));
+  // el frontmatter se conserva tal cual (byte a byte) al editar el cuerpo; al editar campos, solo
+  // cambian las líneas de las claves tocadas (setKeys)
+  const setBody = (body: string, kind: 'type' | 'action' = 'action') => set(text.slice(0, text.length - doc.body.length) + body, kind);
+  const setFm = (fm: Frontmatter) => {
+    const patch: Record<string, Frontmatter[string] | undefined> = {};
+    for (const k of new Set([...Object.keys(doc.data), ...Object.keys(fm)])) if (JSON.stringify(fm[k]) !== JSON.stringify(doc.data[k])) patch[k] = k in fm ? fm[k] : undefined;
+    set(setKeys(text, patch));
+  };
   const blocks = splitBlocks(doc.body);
   /** Cambio desde la barra de imagen: una sola escritura, deshacible con ⌘Z. */
   const setBlocks = (next: string[]) => setBody(next.join('\n\n'));

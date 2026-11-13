@@ -18,11 +18,10 @@ import { Empty, PageTitle, Sheet } from '../ui/kit';
 import { readTextOr } from '../vault/util';
 import { CardView, isInteractive } from './cardview';
 import { deckEmoji } from './decks';
-import { modalOpen } from '../ui/overlay';
 
 const ICON: Record<Rating, preact.JSX.Element> = { 1: <RotateCcw size={18} />, 2: <HelpCircle size={18} />, 3: <Check size={18} />, 4: <Zap size={18} /> };
 
-export function speak(text: string, lang: string) {
+function speak(text: string, lang: string) {
   if (!('speechSynthesis' in window)) return;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
@@ -64,7 +63,6 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
 
   const queue = useMemo(() => (col ? buildQueue(col, props.filter, Date.now(), lim, params, extraNew) : null), [col, props.filter, extraNew, count, app.tick]);
 
-  // elegir la siguiente tarjeta
   useEffect(() => {
     if (!col || !queue) return;
     if (cur && col.byCid.has(cur) && !done.has(cur)) return;
@@ -89,19 +87,24 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
   const answer = async (r: Rating) => {
     if (!col || !cur || !st || busy) return;
     setBusy(true);
-    const ms = Math.min(60_000, Date.now() - started);
-    const e = applyReview(f, st, cur, r, Date.now(), ms);
-    col.states.set(cur, st);
-    await appendLog(app.vault, col, [e], params);
-    if (r === 1 && isLeech(st, s.leechThreshold) && st.card.lapses === s.leechThreshold) app.toast(tr('study.sanguijuela_esta_tarjeta_se_olvida_mucho'));
-    done.add(cur);
-    seen.add(noteIdOf(cur));
-    // las de aprendizaje vuelven a la cola de la sesión
-    if (st.card.state === 1 || st.card.state === 3) done.delete(cur);
-    setUndo((u) => [...u.slice(-20), e]);
-    setCount((c) => c + 1);
-    setCur(null);
-    setBusy(false);
+    try {
+      const ms = Math.min(60_000, Date.now() - started);
+      const snap = { card: st.card, history: [...st.history] };
+      const e = applyReview(f, st, cur, r, Date.now(), ms);
+      col.states.set(cur, st);
+      // si el historial no se pudo escribir, el estado en memoria vuelve atrás (el aviso lo da app.tsx)
+      try { await appendLog(app.vault, col, [e], params); } catch (err) { if (!col.log.includes(e)) Object.assign(st, snap); throw err; }
+      if (r === 1 && isLeech(st, s.leechThreshold) && st.card.lapses === s.leechThreshold) app.toast(tr('study.sanguijuela_esta_tarjeta_se_olvida_mucho'));
+      done.add(cur);
+      seen.add(noteIdOf(cur));
+      // las de aprendizaje vuelven a la cola de la sesión
+      if (st.card.state === 1 || st.card.state === 3) done.delete(cur);
+      setUndo((u) => [...u.slice(-20), e]);
+      setCount((c) => c + 1);
+      setCur(null);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const doUndo = async () => {
@@ -109,8 +112,10 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
     if (!col || !last) return;
     const u: LogEntry = { id: last.id, ts: Date.now(), op: 'undo', ref: last.ts };
     const rebuilt = replay([...col.log.filter((x) => x.id === last.id), u], params).get(last.id);
+    const prev = col.states.get(last.id);
     if (rebuilt) col.states.set(last.id, rebuilt);
-    await appendLog(app.vault, col, [u], params);
+    // si el historial no se pudo escribir, el estado en memoria vuelve atrás (el aviso lo da app.tsx)
+    try { await appendLog(app.vault, col, [u], params); } catch (err) { if (prev && !col.log.includes(u)) col.states.set(last.id, prev); throw err; }
     setUndo((x) => x.slice(0, -1));
     done.delete(last.id);
     seen.delete(noteIdOf(last.id));

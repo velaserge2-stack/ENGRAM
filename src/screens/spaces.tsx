@@ -17,9 +17,9 @@ import { Explorar } from './explorar';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { docxToHtml } from '../io/extract';
 import { parseCSV } from '../io/csv';
-import { renderMarkdown, sanitize } from '../md/render';
+import { sanitize } from '../md/render';
 import { listNotes } from '../notes/model';
-import { go, href, useApp, useAsync } from '../state';
+import { go, href, routeFilePath, useApp, useAsync } from '../state';
 import { Html } from '../ui/md';
 import { Segmented, Sheet, usePhone } from '../ui/kit';
 import { acquireMediaUrl, releaseMediaUrl } from '../ui/background';
@@ -96,19 +96,20 @@ export function Spaces(props: { route: string[] }) {
   const isPhone = usePhone();
   const [show, setShow] = useState<string | null>(null);
   const ph: Phone | undefined = isPhone ? { show, setShow } : undefined;
-  const saveT = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // un temporizador por espacio: guardar B no cancela el guardado pendiente de A
+  const saveT = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const save = (s: Space) => {
     setSp(s);
-    clearTimeout(saveT.current);
+    clearTimeout(saveT.current.get(s.id));
     const isNew = !spaces?.some((x) => x.id === s.id);
-    if (isNew) void app.vault.write(`${DIR}/${s.id}.json`, JSON.stringify(s)).then(() => app.changed());
-    else saveT.current = setTimeout(() => void app.vault.write(`${DIR}/${s.id}.json`, JSON.stringify(s)), 400);
+    if (isNew) (saveT.current.delete(s.id), void app.vault.write(`${DIR}/${s.id}.json`, JSON.stringify(s)).then(() => app.changed()));
+    else saveT.current.set(s.id, setTimeout(() => (saveT.current.delete(s.id), void app.vault.write(`${DIR}/${s.id}.json`, JSON.stringify(s))), 400));
   };
   // abrir un archivo desde un enlace: #/espacios/abrir/<ruta[#pN]>
   useEffect(() => {
     if (!spaces) return;
     if (props.route[0] === 'abrir' && props.route[1]) {
-      const [path, frag] = decodeURIComponent(props.route.slice(1).join('/')).split('#');
+      const [path, frag] = routeFilePath(props.route).split('#');
       const type: PType = /\.pdf$/i.test(path!) ? 'pdf' : /\.docx$/i.test(path!) ? 'docx' : /\.(csv|tsv)$/i.test(path!) ? 'hoja' : /\.(png|jpe?g|webp|gif)$/i.test(path!) ? 'imagen' : 'nota';
       const base = sp ?? spaces[0] ?? { id: 'general', name: 'General', emoji: '🗂️', mode: 'tiles' as const, panels: [], sizes: [], view: { x: 0, y: 0, k: 1 } };
       const at = base.mode === 'canvas' ? place(base, 640, 560, live.focus) : { x: 40, y: 40, w: 640, h: 560 };
@@ -799,7 +800,7 @@ function DeckPanelBody(p: { path: string }) {
         <span class="grow" />
         {deck && <button type="button" class="btn icon small" aria-label={tr('decks.opciones_de_label', { label: deck.name })} onClick={() => setGear(true)}><Settings2 size={16} /></button>}
       </div>
-      {!deck && app.col ? <div class="err">⚠ {tr('spaces.mazo_no_encontrado', { path: p.path })}</div> : tab === 'cards' ? <DeckEditor path={p.path} onGear={() => setGear(true)} /> : <Study filter={p.path} embedded />}
+      {!deck && app.col ? <div class="err">⚠ {tr('spaces.mazo_no_encontrado', { path: p.path })}</div> : tab === 'cards' ? <DeckEditor key={p.path} path={p.path} onGear={() => setGear(true)} /> : <Study filter={p.path} embedded />}
       {gear && deck && <DeckOptions deck={deck} onClose={() => setGear(false)} />}
     </div>
   );
@@ -820,7 +821,8 @@ function DocxView(p: { path: string }) {
   const app = useApp();
   const { data, error } = useAsync(async () => {
     const r = await docxToHtml(await app.vault.read(p.path));
-    for (const im of r.images) await app.vault.write(`media/${im.name}`, im.data);
+    // nombres por contenido (extract.ts): solo se escribe la imagen que aún no está en media/
+    for (const im of r.images) if (!(await app.vault.exists(`media/${im.name}`))) await app.vault.write(`media/${im.name}`, im.data);
     return sanitize(r.html.replace(/src="media:([^"]+)"/g, 'data-media="$1"'));
   }, [p.path]);
   if (error) return <div class="err">{tr('spaces.no_se_pudo_leer_el_documento')}</div>;

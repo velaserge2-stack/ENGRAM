@@ -13,7 +13,7 @@ const TOKEN = /[\p{L}\p{N}]+(?:[./\-,][\p{L}\p{N}]+)*/gu;
 const isNum = (t: string) => /\d/.test(t);
 
 /** Minúsculas sin diacríticos, carácter por carácter, con el índice original de cada uno. */
-export function foldMap(s: string): { text: string; map: number[] } {
+function foldMap(s: string): { text: string; map: number[] } {
   let text = '';
   const map: number[] = [];
   for (let i = 0; i < s.length; i++) {
@@ -36,7 +36,7 @@ export function tokenize(text: string): string[] {
 }
 
 /** Términos de la consulta (sin partir los compuestos: «120/80» se busca entero). */
-export function queryTerms(q: string): string[] {
+function queryTerms(q: string): string[] {
   return [...new Set([...fold(q).matchAll(TOKEN)].map((m) => m[0].replace(/[.,]$/, '')))];
 }
 

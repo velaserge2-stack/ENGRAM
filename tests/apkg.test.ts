@@ -57,6 +57,22 @@ const zstd = (b: Uint8Array) => new Uint8Array(zstdCompressSync(b));
 const code = (f: () => unknown) => { try { f(); } catch (e) { return (e as ApkgError).code; } return 'ok'; };
 
 /** Paquetes reales de Anki (scripts/apkg-fixtures.py): mismo contenido en los tres formatos. */
+describe('plan 12: .apkg hostil', () => {
+  it('fieldToMd: marcas del parser, títulos y comentarios de metadatos no salen como sintaxis', () => {
+    const md = fieldToMd('r<br>Q:: x<br>A:: y<br># t<br>Cloze: z<br>&lt;!-- origen: ia --&gt;', new Set());
+    expect(md.split('\n').some((l) => /^(Q::|A::|Cloze:|# )/.test(l))).toBe(false);
+    expect(md).not.toContain('<!--');
+    const deck = `Q:: p\nA:: ${md} ^abc12\n`;
+    expect(parseDeck(deck).notes).toHaveLength(1);
+    expect(parseDeck(deck).notes[0]!.id).toBe('abc12');
+    expect(parseDeck(deck).notes[0]!.origin).toBeNull();
+  });
+  it('medios: el nombre guardado y el de la tarjeta coinciden; dos que se sanean igual no se pisan; «]]» y «|» no rompen el embed', () => {
+    const map = new Map([['a|b.png', 'a_b.png']]);
+    expect(fieldToMd('<img src="a|b.png"> <img src="x]]y.png">', map)).toBe('![[a_b.png]] ![[x_y.png]]');
+  });
+});
+
 describe('importar .apkg: legado, compatibilidad y formato nuevo', () => {
   for (const [file, format, schema] of [['legado.apkg', 'legacy', 'v11'], ['compat.apkg', 'compat', 'v11'], ['nuevo.apkg', 'new', 'v18']] as const) {
     it(`${file}: elige la colección real (${format}, esquema ${schema}), nunca el marcador falso`, async () => {

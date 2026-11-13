@@ -2,7 +2,8 @@
 export function parseCSV(text: string): string[][] {
   const src = text.replace(/^﻿/, '');
   const first = src.split('\n', 1)[0] ?? '';
-  const sep = (first.match(/\t/g)?.length ?? 0) > (first.match(/,/g)?.length ?? 0) ? '\t' : (first.match(/;/g)?.length ?? 0) > (first.match(/,/g)?.length ?? 0) ? ';' : ',';
+  const head = first.replace(/"[^"]*"/g, ''); // las comillas no cuentan al elegir el separador
+  const sep = (head.match(/\t/g)?.length ?? 0) > (head.match(/,/g)?.length ?? 0) ? '\t' : (head.match(/;/g)?.length ?? 0) > (head.match(/,/g)?.length ?? 0) ? ';' : ',';
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = '';

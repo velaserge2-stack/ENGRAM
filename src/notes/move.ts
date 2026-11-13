@@ -10,7 +10,7 @@
  * Imágenes y dibujos viven en `media/` y no se mueven. La papelera no se toca.
  * Devuelve un registro para deshacer (el mismo formato que mover mazos).
  */
-import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
+import { parseFrontmatter, setKeys } from '../lib/frontmatter';
 import { fromICS, toICS } from '../lib/ics';
 import { makeUri, parseUri } from '../lib/links';
 import { rewriteSpaces, type Undo } from '../data/move';
@@ -45,9 +45,12 @@ export function noteFolders(paths: string[], extra: string[] = []): string[] {
 export function rewriteNoteRefs(text: string, from: string, to: string): string {
   const a = noExt(from), b = noExt(to);
   const a2 = a.replace(/^notes\//, ''), b2 = b.replace(/^notes\//, '');
+  // `[[Título]]` (sin carpeta) lo resuelve el título, no la ruta: no se reescribe (si no, `[[Nota]]`
+  // pasaría a `[[Materia/Nota]]`, que el resolvedor no encuentra). Solo las formas con carpeta.
+  const alt = a2.includes('/') ? `|${esc(a2)}` : '';
   return text
     // [[notes/M/T/N]] · [[M/T/N]] · con .md, #ancla o |alias
-    .replace(new RegExp(`(\\[\\[)(${esc(a)}|${esc(a2)})(\\.md)?(?=[\\]#|])`, 'g'), (_m, o: string, p: string, md = '') => `${o}${p === a ? b : b2}${md}`)
+    .replace(new RegExp(`(\\[\\[)(${esc(a)}${alt})(\\.md)?(?=[\\]#|])`, 'g'), (_m, o: string, p: string, md = '') => `${o}${p === a ? b : b2}${md}`)
     // [texto](notes/M/T/N.md) (también codificado con %20)
     .replace(new RegExp(`(\\]\\()(${esc(from)}|${esc(encodeURI(from))})(?=[)#])`, 'g'), (_m, o: string, p: string) => `${o}${p === from ? to : encodeURI(to)}`)
     // <!-- src: notes/M/T/N.md#p3 -->
@@ -57,8 +60,8 @@ export function rewriteNoteRefs(text: string, from: string, to: string): string 
 async function write(vault: VaultAdapter, log: Undo, path: string, text: string) {
   const before = (await vault.exists(path)) ? await readTextOr(vault, path, '') : null;
   if (before === text) return;
+  await vault.write(path, text); // se anota después: una escritura (atómica) que falla no cambió nada
   log.push({ kind: 'write', path, before });
-  await vault.write(path, text);
 }
 async function move(vault: VaultAdapter, log: Undo, from: string, to: string) {
   await vault.move(from, to);
@@ -86,7 +89,11 @@ export async function moveNotes(vault: VaultAdapter, paths: string[], dest: stri
   for (const from of paths) {
     let to = `${noteDir(dest)}/${rel?.get(from) ?? from.split('/').pop()}`;
     if (to === from) continue;
-    if (await vault.exists(to)) {
+    // solo cambia mayúsculas: en FS sin distinción, `exists(to)` es la propia nota; choca solo si
+    // la carpeta tiene de verdad otro archivo con ese nombre exacto, y se mueve vía un temporal
+    const caseOnly = to.toLowerCase() === from.toLowerCase();
+    const name = to.split('/').pop();
+    if (caseOnly ? (await vault.list(to.slice(0, to.lastIndexOf('/')))).some((e) => e.name === name) : await vault.exists(to)) {
       if (clash === 'replace') await move(vault, log, to, `${TRASH}/${now}/${to}`);
       else {
         let n = 2;
@@ -94,7 +101,11 @@ export async function moveNotes(vault: VaultAdapter, paths: string[], dest: stri
         to = withSuffix(to, n);
       }
     }
-    await move(vault, log, from, to);
+    if (caseOnly && to.toLowerCase() === from.toLowerCase()) {
+      const tmp = `${from}.${now}.mv`;
+      await move(vault, log, from, tmp);
+      await move(vault, log, tmp, to);
+    } else await move(vault, log, from, to);
     // materia/tema del frontmatter, solo si la nota ya los tenía (cambio perezoso)
     const m = noteMeta(to);
     const text = await readTextOr(vault, to, '');
@@ -102,10 +113,8 @@ export async function moveNotes(vault: VaultAdapter, paths: string[], dest: stri
     const depth = to.split('/').length - 1;
     if (doc.hasFrontmatter && depth <= 3 && m.materia !== DAILY && ('materia' in doc.data || 'tema' in doc.data)) {
       // Prompt 12: se escriben solo si tienen valor («Sin clasificar» o «Sin tema» los quitan)
-      const data = { ...doc.data };
-      if (m.structured && m.materia) data.materia = m.materia; else delete data.materia;
-      if (m.structured && m.tema) data.tema = m.tema; else delete data.tema;
-      await write(vault, log, to, stringifyFrontmatter(data, doc.body));
+      // solo esas dos líneas (setKeys): lo demás del frontmatter del usuario no se reescribe
+      await write(vault, log, to, setKeys(text, { materia: m.structured && m.materia ? m.materia : undefined, tema: m.structured && m.tema ? m.tema : undefined }));
     }
     for (const h of await walk(vault, `${HISTORY}/${from}`)) await move(vault, log, h.path, `${HISTORY}/${to}/${h.path.slice(`${HISTORY}/${from}/`.length)}`);
     moved.push([from, to]);
@@ -146,13 +155,13 @@ export async function moveNotes(vault: VaultAdapter, paths: string[], dest: stri
 }
 
 /** Un tema (o una subcarpeta) entero a otra materia o carpeta: `Cardiología/ECG` → `Urgencias`. */
-export async function moveNoteFolder(vault: VaultAdapter, folder: string, destParent: string, clash: NoteClash = 'rename'): Promise<{ undo: Undo; moved: [string, string][] }> {
+export async function moveNoteFolder(vault: VaultAdapter, folder: string, destParent: string, clash: NoteClash = 'rename', log: Undo = []): Promise<{ undo: Undo; moved: [string, string][] }> {
   const base = folder.split('/').pop()!;
   const parent = folder.includes('/') ? folder.slice(0, folder.lastIndexOf('/')) : '';
-  if (destParent === parent || destParent === folder || destParent.startsWith(folder + '/')) return { undo: [], moved: [] };
+  if (destParent === parent || destParent === folder || destParent.startsWith(folder + '/')) return { undo: log, moved: [] };
   const files = (await walk(vault, `notes/${folder}`)).filter((f) => f.path.endsWith('.md')).map((f) => f.path);
   const rel = new Map(files.map((p) => [p, p.slice(`notes/${folder}/`.length)]));
-  const r = await moveNotes(vault, files, destParent ? `${destParent}/${base}` : base, clash, rel);
+  const r = await moveNotes(vault, files, destParent ? `${destParent}/${base}` : base, clash, rel, log);
   if ((await vault.exists(`notes/${folder}`)) && !(await walk(vault, `notes/${folder}`)).length) await vault.remove(`notes/${folder}`);
   return r;
 }

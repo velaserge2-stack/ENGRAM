@@ -1,5 +1,5 @@
 /** Gráficas sin color: grosor, trazo (continuo/punteado) y trama; leyenda con forma. */
-export function Defs() {
+function Defs() {
   return (
     <defs>
       <pattern id="trama" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">

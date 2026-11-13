@@ -6,7 +6,7 @@ import { Popover } from './ui/overlay';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { loadCollection, type Collection } from './data/collection';
 import { createAutosave } from './lib/autosave';
-import { backupDue, serializeSettings, SETTINGS_PATH, type Settings, srsParams } from './lib/settings';
+import { backupDue, mergeSettings, serializeSettings, SETTINGS_PATH, type Settings, srsParams } from './lib/settings';
 import { TABS } from './nav';
 import { BackupSheet } from './screens/backup';
 import { ImportSheet } from './screens/import';
@@ -37,6 +37,7 @@ import { Headphones } from 'lucide-preact';
 import { Sheet } from './ui/kit';
 import { GlobalKeys, keymap, ShortcutSheet } from './ui/keys';
 import { setPhotoQuality } from './notes/images';
+import { onNoteSaveFailed } from './notes/store';
 
 const DAY = 86_400_000;
 
@@ -85,7 +86,6 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     return onSchemeChange(() => applyTheme(eff));
   }, [settings, preview]);
 
-  // colección (mazos + estado FSRS)
   const paramsKey = JSON.stringify(srsParams(settings));
   useEffect(() => {
     let alive = true;
@@ -93,7 +93,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       if (!alive) return;
       setCol(c);
       if (c.idsAdded) toast(t('app.se_anadieron_idsadded_ids_de_tarjeta', { idsAdded: c.idsAdded }));
-    }, (e) => console.error(e));
+      if (c.unreadable?.length) toast(t('app.mazos_ilegibles', { decks: c.unreadable.map((p) => p.slice('decks/'.length, -3)).join(', ') }));
+    }, (e) => (console.error(e), alive && toast(t('app.no_se_pudo_cargar_la_coleccion', { e: String((e as Error)?.message ?? e) }))));
     if (addonOn(settings, 'inbox')) walk(vault, 'inbox').then((f) => alive && setInbox(new Set(f.map((x) => x.path.split('/')[1])).size));
     else setInbox(0);
     return () => {
@@ -102,6 +103,17 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   }, [version, paramsKey, addonOn(settings, 'inbox')]);
 
   const recheckIntegrity = async () => setIntegrity(await checkIntegrity(vault));
+  // un fallo de disco que nadie atrapó (lectura estricta, cuota): avisar en vez de callar
+  useEffect(() => {
+    const onRejection = (ev: PromiseRejectionEvent) => {
+      const e = ev.reason as { name?: string; message?: string } | null;
+      if (e && (e.name === 'VaultError' || (e instanceof DOMException && e.name !== 'AbortError'))) toast(t('app.error_de_almacenamiento', { e: e.message ?? '' }));
+    };
+    addEventListener('unhandledrejection', onRejection);
+    // autoguardado de notas y mazos (también el del temporizador): aviso una vez por archivo hasta que vuelva a guardar
+    onNoteSaveFailed((path, e) => toast(t('app.no_se_guardo_nota', { name: path.split('/').pop()!.replace(/\.md$/, ''), e: String((e as Error)?.message ?? e) })));
+    return () => (removeEventListener('unhandledrejection', onRejection), onNoteSaveFailed(() => {}));
+  }, []);
   useEffect(() => {
     void recheckIntegrity();
     // papelera de mazos: vaciado automático a los N días (Ajustes → Mazos → Papelera)
@@ -115,7 +127,6 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     if (version > 0) (void recheckIntegrity(), setHasData(true));
   }, [version]);
 
-  // guardián de legibilidad
   const sample = useRef<ImageData | null>(null);
   const lastBg = useRef('');
   const toastedFor = useRef('');
@@ -174,7 +185,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     settings,
     update(patch, immediate) {
       setSettings((s) => {
-        const next = { ...s, ...patch };
+        const next = mergeSettings({ ...s, ...patch }); // acota números y zona horaria también al editar
         saver.schedule(next);
         if (immediate) void saver.flush();
         return next;

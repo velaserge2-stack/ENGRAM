@@ -4,7 +4,10 @@ import { t, tn } from '../i18n';
  * `reviews.jsonl` es la fuente de verdad: el estado de cada tarjeta se obtiene
  * REPRODUCIENDO el historial (`replay`). `state.json` es solo una caché.
  */
-import { type Card, createEmptyCard, fsrs, type FSRS, type Grade, State, forgetting_curve, computeDecayFactor, default_w } from 'ts-fsrs';
+import { type Card, createEmptyCard, fsrs, type FSRS, FSRSVersion, type Grade, State, computeDecayFactor, default_w } from 'ts-fsrs';
+
+/** Versión del motor (ts-fsrs + reglas de `replay`); entra en la clave de `state.json`. Subir el `+n` al cambiar `replay`. */
+export const ENGINE_VERSION = `${FSRSVersion}+1`;
 
 export type Rating = 1 | 2 | 3 | 4;
 export const RATING_LABEL: Record<Rating, string> = { get 1() { return t('design.otra_vez'); }, get 2() { return t('design.dificil'); }, get 3() { return t('design.bien'); }, get 4() { return t('design.facil'); } };
@@ -70,9 +73,15 @@ export function newState(now = 0): CardState {
   return { card: createEmptyCard(new Date(now)), suspended: false, buried: null, history: [] };
 }
 
-/** Aplica un repaso y devuelve la entrada de registro (no la escribe). */
-export function applyReview(f: FSRS, st: CardState, id: string, rating: Rating, ts: number, ms: number): LogEntry {
+/**
+ * Aplica un repaso y devuelve la entrada de registro (no la escribe). Si el reloj va atrás (ts anterior al
+ * último repaso, o al «olvidar» de una nueva) se usa ese instante + 1 ms: ts-fsrs no lanza y la entrada queda
+ * con el ts usado, así que `replay` (que ordena por ts) la aplica en el mismo orden y da el mismo estado.
+ */
+export function applyReview(f: FSRS, st: CardState, id: string, rating: Rating, at: number, ms: number): LogEntry {
   const before = st.card;
+  const floor = before.last_review?.getTime() ?? (before.state === State.New ? before.due.getTime() : -Infinity);
+  const ts = at < floor ? floor + 1 : at;
   const entry: LogEntry = {
     id, ts, rating, ms: Math.max(0, Math.round(ms)),
     due_before: before.due.getTime(), state: before.state, ivl: before.scheduled_days,
@@ -110,6 +119,10 @@ export function replay(entries: LogEntry[], params: SrsParams): Map<string, Card
   return out;
 }
 
+const OPS = new Set(['suspend', 'unsuspend', 'bury', 'forget', 'undo']);
+/** ts de 1970 a 2200 (finito y fecha válida; los históricos importados pueden ser antiguos). */
+const MAX_TS = Date.UTC(2200, 0, 1);
+
 export function parseLog(text: string): { entries: LogEntry[]; bad: number } {
   const entries: LogEntry[] = [];
   let bad = 0;
@@ -117,7 +130,10 @@ export function parseLog(text: string): { entries: LogEntry[]; bad: number } {
     if (!line.trim()) continue;
     try {
       const e = JSON.parse(line) as LogEntry;
-      if (typeof e.id === 'string' && typeof e.ts === 'number' && (e.rating === undefined || [1, 2, 3, 4].includes(e.rating))) entries.push(e);
+      // exactamente una de: calificación 1–4 u operación conocida
+      const ok = typeof e.id === 'string' && Number.isFinite(e.ts) && e.ts >= 0 && e.ts < MAX_TS
+        && (e.rating === undefined ? typeof e.op === 'string' && OPS.has(e.op) : [1, 2, 3, 4].includes(e.rating) && e.op === undefined);
+      if (ok) entries.push(e);
       else bad++;
     } catch {
       bad++;
@@ -165,12 +181,6 @@ export function workloadEstimate(states: Iterable<CardState>, retentions: number
   const S = [...states].filter((s) => s.card.state !== State.New && !s.suspended).map((s) => s.card.stability);
   for (const r of retentions) out[r] = S.reduce((n, s) => n + 1 / Math.max(1, intervalFor(s, r, w)), 0);
   return out;
-}
-
-export function rAt(card: Card, at: number, w: readonly number[] = default_w): number {
-  if (card.state === State.New || !card.last_review) return 0;
-  const days = Math.max(0, (at - card.last_review.getTime()) / 86_400_000);
-  return forgetting_curve(computeDecayFactor(w).decay, days, card.stability);
 }
 
 export { State };

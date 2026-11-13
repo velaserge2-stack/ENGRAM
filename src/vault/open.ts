@@ -36,7 +36,7 @@ type PermHandle = FileSystemDirectoryHandle & {
   requestPermission?(o: object): Promise<PermissionState>;
 };
 
-export async function storedFolder(): Promise<PermHandle | null> {
+async function storedFolder(): Promise<PermHandle | null> {
   if (!FSAccessBackend.isSupported() || typeof indexedDB === 'undefined') return null;
   try {
     return ((await idb('readonly', (s) => s.get(KEY))) as PermHandle | undefined) ?? null;

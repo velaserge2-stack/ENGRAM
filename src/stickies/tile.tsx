@@ -35,7 +35,7 @@ export function StickiesTile() {
     let alive = true;
     void walk(app.vault, STICKY_DIR).then(async (fs) => {
       const out: Sticky[] = [];
-      for (const f of fs) if (f.path.endsWith('.md')) out.push(parseSticky(f.path, noteStore.peek(f.path) ?? (await readTextOr(app.vault, f.path, ''))));
+      for (const f of fs) if (f.path.endsWith('.md')) { const txt = noteStore.peek(f.path) ?? (await readTextOr(app.vault, f.path, '').catch(() => null)); if (txt !== null) out.push(parseSticky(f.path, txt)); /* ilegible: no se muestra (así no se reescribe sin cuerpo) */ }
       if (alive) setItems(out);
     }, () => alive && setItems([]));
     return () => void (alive = false);

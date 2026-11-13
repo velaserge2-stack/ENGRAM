@@ -77,7 +77,7 @@ export function skip(s: PomoState, cfg: PomoConfig, now: number): { state: PomoS
 }
 
 function mkSession(s: PomoState, cfg: PomoConfig, end: number, completed: boolean): PomoSession {
-  const worked = completed ? cfg.work * 60_000 : duration(cfg, 'work') - remaining(s, end);
+  const worked = completed ? cfg.work * 60_000 : Math.max(0, duration(cfg, 'work') - remaining(s, end));
   return { ts: s.startedAt ?? end - worked, end, minutes: Math.round((worked / 60_000) * 10) / 10, label: s.label, completed };
 }
 

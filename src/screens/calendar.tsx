@@ -10,9 +10,10 @@ import { deleteOccurrence, editOccurrence, onDate, type Scope } from '../lib/cal
 import { type GridItem, KIND_ICON, kindLabel, TimeGrid } from './timegrid';
 import { srsParams } from '../lib/settings';
 import { activity, avgDaily, forecast, studyMs } from '../lib/stats';
-import { go, href, useApp, useAsync } from '../state';
+import { href, useApp, useAsync } from '../state';
 import { PageTitle, Segmented, Sheet, Switch } from '../ui/kit';
 import { readTextOr, walk } from '../vault/util';
+import { withSuffix } from '../vault/paths';
 import { loadAttempts } from './simulacros';
 import { LinkChips, LinkPicker, startBlock, useLinkIndex } from '../ui/links';
 import { type LinkIndex, resolveLink } from '../lib/links';
@@ -32,11 +33,11 @@ const localDay = (ms: number) => {
 async function loadBlocks(vault: ReturnType<typeof useApp>['vault']) {
   const own = fromICS(await readTextOr(vault, CAL, ''));
   const imported: StudyBlock[] = [];
-  for (const f of await walk(vault, 'calendar')) if (f.path !== CAL && f.path.endsWith('.ics')) imported.push(...fromICS(await readTextOr(vault, f.path, ''), f.name));
+  for (const f of await walk(vault, 'calendar')) if (f.path !== CAL && f.path.endsWith('.ics')) imported.push(...fromICS(await readTextOr(vault, f.path, '').catch(() => ''), f.name)); // solo lectura
   const tasks: { date: string; text: string; note: string }[] = [];
   for (const f of await walk(vault, 'notes')) {
     if (!f.path.endsWith('.md')) continue;
-    const t = await readTextOr(vault, f.path, '');
+    const t = await readTextOr(vault, f.path, '').catch(() => ''); // solo lectura
     for (const m of t.matchAll(/^\s*- \[ \] (.+?)\s+(?:📅|@)\s?(\d{4}-\d{2}-\d{2})/gm)) tasks.push({ date: m[2]!, text: m[1]!, note: f.path });
   }
   return { own, imported, tasks };
@@ -69,7 +70,6 @@ export function Calendar() {
     app.changed();
   };
 
-  // rango visible
   let days: string[];
   if (view === 'mes') {
     const first = anchor.slice(0, 8) + '01';
@@ -129,7 +129,7 @@ export function Calendar() {
             }}>{o.b.kind && KIND_ICON[o.b.kind]({ size: 11 })} {o.b.allDay ? '' : new Date(o.start).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })} {o.b.title}</span>
         ))}
         {x.imported.map((o) => <span class="ev" style={{ borderStyle: 'dotted' }}>{o.b.title}</span>)}
-        {x.sims.map((a) => <span class="ev">{tr('calendar.simulacro')}</span>)}
+        {x.sims.map(() => <span class="ev">{tr('calendar.simulacro')}</span>)}
         {x.tasks.map((t) => <span class="ev">☐ {t.text}</span>)}
         {layers.focus && x.focus > 0 && <span class="foot">{Math.round(x.focus / 60000)} min</span>}
       </button>
@@ -232,7 +232,7 @@ export function Calendar() {
           </div>
           <div class="row wrap" style={{ marginTop: '8px' }}>
             <button type="button" class="btn small" onClick={async () => { if (!data) return; await deliver(new File([toICS(data.own)], 'engrama-estudio.ics', { type: 'text/calendar' })); }}><Download size={16} />{' '}{tr('calendar.exportar_ics')}</button>
-            <label class="btn small"><Upload size={16} />{' '}{tr('calendar.importar_ics')}<input type="file" hidden accept=".ics,text/calendar" onChange={async (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (!f) return; const t = await f.text(); const n = fromICS(t, f.name).length; await app.vault.write(`calendar/${f.name.replace(/[^\w.-]+/g, '_')}`, t); app.changed(); app.toast(tr('calendar.eventos_importados', { n })); }} /></label>
+            <label class="btn small"><Upload size={16} />{' '}{tr('calendar.importar_ics')}<input type="file" hidden accept=".ics,text/calendar" onChange={async (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (!f) return; const t = await f.text(); const n = fromICS(t, f.name).length; let dest = `calendar/${f.name.replace(/[^\w.-]+/g, '_')}`; if (dest === 'calendar/estudio.ics') dest = 'calendar/estudio-importado.ics'; for (let k = 2; await app.vault.exists(dest); k++) dest = withSuffix(dest.replace(/ \(\d+\)(?=\.[^.]*$|$)/, ''), k); await app.vault.write(dest, t); app.changed(); app.toast(tr('calendar.eventos_importados', { n })); }} /></label>
           </div>
           <p class="foot">{tr('calendar.una_web_no_puede_escribir_en')}</p>
         </section>

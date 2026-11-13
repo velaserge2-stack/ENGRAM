@@ -48,7 +48,7 @@ function engine(): MD {
             : `<a class="wl" href="#/notas/${encodeURIComponent(name)}">${esc(name)}</a>`;
       }
     } else if ((m = /^\[\[([^\]|\n]+)(?:\|([^\]\n]+))?\]\]/.exec(src))) {
-      if (!silent) state.push('html_inline', '', 0).content = `<a class="wl" data-wl="${esc(m[1]!.trim())}" href="#/notas/${encodeURIComponent(m[1]!.trim())}">${esc((m[2] ?? m[1]!).trim())}</a>`;
+      if (!silent) state.push('html_inline', '', 0).content = `<a class="wl" data-wl="${esc(m[1]!.trim().split('#')[0]!)}" href="#/notas/${encodeURIComponent(m[1]!.trim().split('#')[0]!)}">${esc((m[2] ?? m[1]!).trim())}</a>`;
     } else if ((m = /^\[([^\]\n]+)\]\{((?:\.[a-z]+[ \t]*)+)\}/.exec(src)) && m[2]!.split(/\s+/).filter(Boolean).every((c) => COLORS.has(c.slice(1)) || SIZES.has(c.slice(1)))) {
       // [texto]{.color} y [texto]{.color .tamaño}; una clase desconocida deja todo literal
       const cls = m[2]!.split(/\s+/).filter(Boolean).map((c) => (COLORS.has(c.slice(1)) ? 'c-' : 't-') + c.slice(1));
@@ -189,7 +189,7 @@ export function renderInline(text: string): string {
 }
 
 /** Cloze: oculta el número `n` (con pista) y muestra el resto; `reveal` lo resalta. */
-export function clozeText(text: string, n: number, reveal: boolean): string {
+function clozeText(text: string, n: number, reveal: boolean): string {
   return text.replace(/\{\{c(\d+)::(.*?)(?:::(.*?))?\}\}/g, (_, num: string, ans: string, hint?: string) => {
     if (Number(num) !== n && n !== -1) return ans;
     return reveal ? `⟦c⟧${ans}⟦/c⟧` : `⟦h⟧${hint ? hint : '…'}⟦/h⟧`;
@@ -211,7 +211,11 @@ export function plainText(text: string): string {
     .replace(/\+\+(\S[^+\n]*?)\+\+/g, '$1')
     .replace(/\s*\{\.(centro|der|justificado)\}\s*$/gm, '')
     .replace(/!?\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g, '$1')
-    .replace(/[*_=`#>]/g, '')
+    .replace(/^[ \t]*(?:#{1,6}|>+|\*)[ \t]+/gm, '')
+    .replace(/(\*{1,3})(\S(?:[^*\n]*\S)?)\1/g, '$2')
+    .replace(/==(\S[^=\n]*?)==/g, '$1')
+    .replace(/(?<![\p{L}\p{N}_])_+(\S[^_\n]*?)_+(?![\p{L}\p{N}_])/gu, '$1')
+    .replace(/`/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }

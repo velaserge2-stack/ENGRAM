@@ -27,7 +27,7 @@ export function parseInk(text: string): InkDoc {
   try {
     const d = JSON.parse(text) as Partial<InkDoc>;
     if (!d || !Array.isArray(d.strokes)) return emptyInk();
-    return { v: 1, strokes: d.strokes.filter((s) => s && Array.isArray(s.pts) && s.pts.every((p) => Array.isArray(p) && p.every(Number.isFinite))) as Stroke[] };
+    return { v: 1, strokes: d.strokes.filter((s) => s && (s.tool === 'pen' || s.tool === 'highlighter') && Number.isFinite(s.size) && typeof s.color === 'string' && Array.isArray(s.pts) && s.pts.every((p) => Array.isArray(p) && p.every(Number.isFinite))) as Stroke[] };
   } catch {
     return emptyInk();
   }
@@ -82,7 +82,7 @@ export function eraseArea(doc: InkDoc, p: [number, number], r: number): InkDoc {
   return changed ? { ...doc, strokes: out } : doc;
 }
 
-export function pointInPolygon(p: [number, number], poly: [number, number][]): boolean {
+function pointInPolygon(p: [number, number], poly: [number, number][]): boolean {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
     const [xi, yi] = poly[i]!, [xj, yj] = poly[j]!;
