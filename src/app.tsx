@@ -6,7 +6,7 @@ import { Popover } from './ui/overlay';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { loadCollection, type Collection } from './data/collection';
 import { createAutosave } from './lib/autosave';
-import { backupDue, serializeSettings, SETTINGS_PATH, type Settings, srsParams } from './lib/settings';
+import { backupDue, mergeSettings, serializeSettings, SETTINGS_PATH, type Settings, srsParams } from './lib/settings';
 import { TABS } from './nav';
 import { BackupSheet } from './screens/backup';
 import { ImportSheet } from './screens/import';
@@ -182,7 +182,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     settings,
     update(patch, immediate) {
       setSettings((s) => {
-        const next = { ...s, ...patch };
+        const next = mergeSettings({ ...s, ...patch }); // acota números y zona horaria también al editar
         saver.schedule(next);
         if (immediate) void saver.flush();
         return next;

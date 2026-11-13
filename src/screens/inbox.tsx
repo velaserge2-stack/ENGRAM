@@ -1,6 +1,6 @@
 import { errMsg, t, tn } from '../i18n';
 import { Archive, Camera, Check, FileUp, Inbox as InboxIcon, Replace, Sparkles } from 'lucide-preact';
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { extractText } from '../io/extract';
 import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
 import { docxToMarkdown, pdfToMarkdown } from '../notes/io';
@@ -175,31 +175,38 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
   const finalPath = notePath(it.materia, it.tema, it.title);
   const doc = parseFrontmatter(it.draft);
   const sugg = glossarySuggestions(doc.body, app.settings.glossary);
+  const archiving = useRef(false);
   const archive = async () => {
-    let path = finalPath;
-    for (let i = 2; await app.vault.exists(path); i++) path = notePath(it.materia, it.tema, `${it.title} (${i})`);
-    let body = doc.body;
-    const attach: string[] = [];
-    for (const f of it.files) {
-      if (f.kind === 'doc') {
-        const dest = it.materia.trim() ? `docs/${it.materia}/${f.name}` : `docs/${f.name}`;
-        await app.vault.move(f.path, dest);
-        attach.push(`- [${f.name}](#/espacios/abrir/${encodeURIComponent(dest)})`);
-      } else if (f.kind === 'audio') {
-        const dest = `media/${f.name}`;
-        await app.vault.move(f.path, dest);
+    if (archiving.current) return; // doble toque: no crear «(2)»
+    archiving.current = true;
+    try {
+      let path = finalPath;
+      for (let i = 2; await app.vault.exists(path); i++) path = notePath(it.materia, it.tema, `${it.title} (${i})`);
+      let body = doc.body;
+      const attach: string[] = [];
+      for (const f of it.files) {
+        if (f.kind === 'doc') {
+          const dest = it.materia.trim() ? `docs/${it.materia}/${f.name}` : `docs/${f.name}`;
+          await app.vault.move(f.path, dest);
+          attach.push(`- [${f.name}](#/espacios/abrir/${encodeURIComponent(dest)})`);
+        } else if (f.kind === 'audio') {
+          const dest = `media/${f.name}`;
+          await app.vault.move(f.path, dest);
+        }
       }
+      if (attach.length) body = body.replace('## Fuente\n', () => `## Fuente\n${attach.join('\n')}\n`);
+      const data = { ...doc.data, materia: it.materia.trim(), tema: it.tema.trim() } as Record<string, unknown>;
+      if (!data.materia) delete data.materia;
+      if (!data.tema) delete data.tema;
+      await app.vault.write(path, stringifyFrontmatter(data as typeof doc.data, body));
+      await app.vault.remove(`inbox/${it.id}`);
+      app.changed();
+      app.toast(t('inbox.archivado_en_materia_tema_p_s', { materia: it.materia || t('notes.sin_clasificar'), tema: it.tema || '—', p: Math.round((Date.now() - started) / 1000) }));
+      p.onDone(true);
+      go('notas', ...path.split('/').slice(1));
+    } finally {
+      archiving.current = false;
     }
-    if (attach.length) body = body.replace('## Fuente\n', `## Fuente\n${attach.join('\n')}\n`);
-    const data = { ...doc.data, materia: it.materia.trim(), tema: it.tema.trim() } as Record<string, unknown>;
-    if (!data.materia) delete data.materia;
-    if (!data.tema) delete data.tema;
-    await app.vault.write(path, stringifyFrontmatter(data as typeof doc.data, body));
-    await app.vault.remove(`inbox/${it.id}`);
-    app.changed();
-    app.toast(t('inbox.archivado_en_materia_tema_p_s', { materia: it.materia || t('notes.sin_clasificar'), tema: it.tema || '—', p: Math.round((Date.now() - started) / 1000) }));
-    p.onDone(true);
-    go('notas', ...path.split('/').slice(1));
   };
   const materias = p.tree.map((m) => m.materia);
   const temas = p.tree.find((m) => m.materia === it.materia)?.temas.map((t) => t.tema) ?? [];
