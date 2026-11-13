@@ -138,23 +138,29 @@ const PURIFY = {
  * mitad del tiempo de renderizar una nota. Mismas reglas, mismo resultado.
  */
 let purify: ReturnType<typeof DOMPurify> | null = null;
+/** Markdown propio (markdown-it con `html: false`: solo nuestras reglas emiten clases). Sin ganchos: rápido. */
+function clean(html: string): string {
+  if (!purify) (purify = DOMPurify()).setConfig(PURIFY);
+  return purify.sanitize(html) as string;
+}
+/** HTML externo (docx…): además, solo clases de la lista cerrada (Prompt 17). Instancia aparte: un gancho
+ * en la de Markdown triplicaba el tiempo de renderizar. */
+let strict: ReturnType<typeof DOMPurify> | null = null;
 export function sanitize(html: string): string {
-  if (!purify) {
-    purify = DOMPurify();
-    purify.setConfig(PURIFY);
-    // solo clases de la lista cerrada (Prompt 17), en la misma instancia que sanea (Prompt 14)
-    purify.addHook('uponSanitizeAttribute', (_node, data) => {
+  if (!strict) {
+    (strict = DOMPurify()).setConfig(PURIFY);
+    strict.addHook('uponSanitizeAttribute', (_node, data) => {
       if (data.attrName !== 'class') return;
       const keep = data.attrValue.split(/\s+/).filter((c) => CLASS_OK.test(c));
       if (keep.length) data.attrValue = keep.join(' ');
       else data.keepAttr = false;
     });
   }
-  return purify.sanitize(html) as string;
+  return strict.sanitize(html) as string;
 }
 
 export function renderMarkdown(text: string): string {
-  return sanitize(engine().render(text));
+  return clean(engine().render(text));
 }
 
 /**
@@ -179,7 +185,7 @@ export function renderMarkdownCached(text: string): string {
 export const renderCacheSize = () => lru.size;
 
 export function renderInline(text: string): string {
-  return sanitize(engine().renderInline(text));
+  return clean(engine().renderInline(text));
 }
 
 /** Cloze: oculta el número `n` (con pista) y muestra el resto; `reveal` lo resalta. */
