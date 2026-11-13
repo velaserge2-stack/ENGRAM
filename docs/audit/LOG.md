@@ -60,3 +60,8 @@ Alta: `move(a, a)` borra el archivo y `HandleFS.move` borra recursivamente un de
 - Revisados efectos y manejadores asíncronos de `screens/` (notes, spaces, study, deck, pdf, pdfs, pomodoro, simulacros, inbox, backup, settings), `ui/md|background`, `app.tsx`, `state.tsx`. Informe en `docs/audit/02-ui.md`: 16 hallazgos (3 altos, 6 medios, 7 bajos).
 - Altos: el patrón `readTextOr(…, '')` + escritura vuelve en `simulacros.finish` (historial de intentos), `DeckEditor` (mazo; además sin `key`/`alive` al cambiar de ruta) y anotaciones de PDF; `study.answer` deja `busy` fijo si falla la escritura.
 - Pruebas: `tests/audit-ui.test.ts` con 2 `it.fails` (doble `decodeURIComponent` en `spaces.tsx:111`). Sin cambios en `src/`. Sección «para etapa 3» en el informe.
+
+## Etapa 3 · críticos (2026-11-13) · subagente Opus
+- Análisis profundo de determinismo FSRS, SafeVault/diario, NoteStore, mover, importadores hostiles, Workers y calendario. Informe en `docs/audit/03-criticos.md`: 34 problemas (3 altos, 24 medios, 7 bajos) y PLAN de 15 puntos por causa raíz.
+- Altos: un `apply` fallido de SafeVault deja el destino truncado y la siguiente escritura borra su diario; `noteStore.refresh` durante un guardado en vuelo revierte lo tecleado; `moveCards` quita la tarjeta del origen antes de escribir el destino.
+- Pruebas: `tests/audit-criticos.test.ts`, 17 `it.fails` + 3 controles (descartados: bomba zip con cabecera mentirosa, diario importado que se autoborra, tarjeta nueva en vivo = reproducida). Sin cambios en `src/`.
