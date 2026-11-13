@@ -1,6 +1,7 @@
 import { locale, t, tn } from '../i18n';
-import { BarChart3, BookOpen, CalendarRange, CheckCheck, Flame, GraduationCap, Layers, ListTodo, Share2, Timer } from 'lucide-preact';
-import { useState } from 'preact/hooks';
+import { BarChart3, BookOpen, CalendarRange, CheckCheck, CheckSquare, Flame, GraduationCap, Layers, ListTodo, Share2, Timer } from 'lucide-preact';
+import { useEffect, useState } from 'preact/hooks';
+import { addonOn } from './addons';
 import { Minimizable, Tray, type TrayItem, useHoyTray } from '../ui/tray';
 import { fmt, remaining } from '../lib/pomodoro';
 import { useExtra } from '../data/extra';
@@ -47,6 +48,11 @@ export function Today() {
   const rem = fmt(remaining(app.pomo.state, app.pomo.now));
   // «Compartir estadísticas» (Prompt 19): la hoja y el compositor se cargan al pulsar
   const [Share, setShare] = useState<null | typeof import('../share/sheet').ShareSheet>(null);
+ // add-on «Tareas» (Prompt 19 · 2): su código solo se carga si está activo
+  const tasksOn = addonOn(s, 'tasks');
+  const [Tasks, setTasks] = useState<null | typeof import('../tasks/tile')>(null);
+  const [nTasks, setNTasks] = useState(0);
+  useEffect(() => { if (tasksOn && !Tasks) void import('../tasks/tile').then(setTasks, () => {}); }, [tasksOn]);
   const openShare = () => void import('../share/sheet').then((m) => setShare(() => m.ShareSheet), () => app.toast(t('share.error')));
   const ITEMS: Record<string, TrayItem> = {
     pomodoro: { id: 'pomodoro', label: t('today.pomodoro'), icon: <Timer size={20} />, live: rem, liveLabel: t(app.pomo.state.running ? 'tray.restantes' : 'tray.restantes_pausa', { rem }) },
@@ -56,6 +62,7 @@ export function Today() {
     calor: { id: 'calor', label: t('today.mapa_de_adherencia'), icon: <CalendarRange size={20} /> },
     mazos: { id: 'mazos', label: t('decks.mazos'), icon: <Layers size={20} /> },
   };
+  if (tasksOn) ITEMS.tareas = { id: 'tareas', label: t('tasks.tareas'), icon: <CheckSquare size={20} />, live: String(nTasks), liveLabel: tn('tasks.n_pendientes', nTasks) };
   for (const e of data?.exams ?? []) ITEMS[`ex:${e.path}`] = { id: `ex:${e.path}`, label: e.name, icon: <GraduationCap size={20} /> };
   return (
     <>
@@ -75,6 +82,7 @@ export function Today() {
         <div class="side">
           <Minimizable id="pomodoro" label={t('today.pomodoro')} tray={tray}>{(b) => <>{b}<PomodoroPanel /></>}</Minimizable>
           {data?.exams.filter((e) => e.date >= today).map((e) => <Minimizable key={e.path} id={`ex:${e.path}`} label={e.name} tray={tray}>{(b) => <div class="mh">{b}<ExamCard exam={e} extra={data.extra} /></div>}</Minimizable>)}
+          {tasksOn && Tasks && <><Tasks.TasksCount onCount={setNTasks} /><Minimizable id="tareas" label={t('tasks.tareas')} tray={tray}>{(b) => <div class="mh">{b}<Tasks.TasksTile today={today} /></div>}</Minimizable></>}
           {/* sobre el fondo, siempre dentro de vidrio (el guardián de legibilidad lo cubre) */}
           <div class="row" style={{ justifyContent: 'center' }}>
             <div class="glass exam-add">

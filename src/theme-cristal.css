@@ -917,3 +917,23 @@ html.in-canvas .mini-amb.docked { bottom: calc(env(safe-area-inset-bottom) + 176
 .is-phone .share-grid { grid-template-columns: 1fr; } .is-phone .share-prev img { max-height: 46dvh; } .is-phone .share-grid > .stack-s:first-child { position: static; }
 @media (prefers-reduced-motion: reduce) { .share-prev img { transition: none; } }
 .is-phone .share-btn { padding: 0; width: 44px; } .is-phone .share-btn .lbl { display: none; }
+
+/* add-on «Tareas» (Prompt 19 · 2): sin color; tachado y atenuación al marcar */
+.task-add { margin-bottom: 8px; } .task-add .input:first-child { flex: 1 1 12rem; min-width: 0; } .task-add .input[type=date] { flex: 0 1 11rem; }
+.task-list { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow-y: auto; overscroll-behavior: contain; }
+.task { display: flex; align-items: center; gap: 4px; border-top: var(--hair) solid var(--line); }
+.task:first-child { border-top: 0; }
+.task.sub { padding-left: 28px; }
+.task .grip { touch-action: none; cursor: grab; color: var(--t3); flex: none; }
+.task.dragging { opacity: .5; } .task.drop { box-shadow: inset 0 2px 0 var(--t1); }
+.task-check { flex: 1; display: flex; align-items: center; gap: 12px; min-height: 44px; min-width: 0; cursor: pointer; }
+.task-check input { width: 22px; height: 22px; flex: none; accent-color: var(--inverse-bg); }
+.task-check .tx { min-width: 0; overflow-wrap: anywhere; text-decoration: line-through; text-decoration-color: transparent; transition: text-decoration-color .25s, opacity .25s; }
+.task.done .tx { text-decoration-color: currentColor; opacity: .55; }
+.task-check .tx-wrap { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 6px 0; }
+.task .due { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: var(--t-note); color: var(--t2); overflow-wrap: anywhere; }
+.task .due.late { color: var(--t1); font-weight: 600; }
+.task.editing { padding: 6px 0; } .task.editing .input:first-child { flex: 1 1 12rem; min-width: 0; }
+.task-sep { padding: 10px 0 4px; border-top: var(--hair) solid var(--line); }
+@media (prefers-reduced-motion: reduce) { .task-check .tx { transition: none; } }
+.task-add .input, .task.editing .input { min-height: 44px; }

@@ -190,6 +190,8 @@ Las superficies donde se **lee o escribe mucho** (tarjeta de estudio, editor de 
 
 **Compartir estadísticas (Prompt 19 · 1)**: botón en el encabezado de Hoy (dentro del vidrio del encabezado; en teléfono, solo icono). Abre una hoja con vista previa, formato (Historia 1080×1920 con ~250 px libres arriba y abajo, Vertical 1080×1350 por defecto, Cuadrada 1080×1080), periodo (Hoy · 7 días · 30 días · Este año · Todo, con el corte de día y la zona horaria de Ajustes) y qué mostrar (nombre, foto/emoji, carrera/lema, horas, flashcards, racha, días, retención, mini mapa, marca), recordado en `settings.json` → `share`. La imagen se compone en el dispositivo con Canvas 2D: el fondo activo con su encuadre, desenfoque y atenuación; un panel de vidrio del tema activo con opacidad suficiente para ≥ 4.5:1; abajo, el logo sin recuadro teñido con el color de texto y «Engrama». «Compartir» abre la hoja del sistema con el PNG (preparar → entregar); sin soporte, descarga. Nada se sube a ningún servidor; no hay publicación directa en Instagram (no existe API web).
 
+**Tareas (Prompt 19 · 2, add-on `tasks`, apagado por defecto)**: mosaico minimizable en Hoy (bandeja con contador de pendientes). Archivo `notes/Tareas.md` en Markdown estándar (`- [ ]`/`- [x]`, subtareas de un nivel, ` 📅 AAAA-MM-DD`). Permite añadir (Intro), tachar (con animación; sin ella si hay `prefers-reduced-motion`), editar texto y fecha, marcar vencidas con icono y texto, reordenar arrastrando el asa o con Alt + ↑/↓, borrar con deshacer, «Borrar completadas» con confirmación y filtrar (Todas · Pendientes · Hechas). Teclado: Espacio marca, Supr borra, ↑/↓ mueven el foco.
+
 ---
 
 ## 8. Estudio

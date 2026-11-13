@@ -817,3 +817,12 @@ Nota larga desplazada y asa en un panel del lienzo (dedo y Pencil); nota de ~1 M
 - **Privacidad.** Por defecto, nombre y foto solo si existen en el perfil; carrera y lema, apagados. Las opciones se guardan en `settings.json` → `share`: campo nuevo, opcional y normalizado (valores inválidos vuelven al defecto).
 - **Teléfono.** El botón queda solo con icono y la hoja en una columna, ambos bajo `html.is-phone`. En `e2e:phone` cambia solo el encabezado de Hoy (el botón nuevo), en iPad y web; es la diferencia esperada.
 
+## Prompt 19 · 2: add-on «Tareas»
+
+- **Archivo `notes/Tareas.md`** (en lugar de `tasks/tareas.md`): así aparece en Notas, se busca, se enlaza con `[[Tareas]]`, se exporta y se respalda como cualquier nota, sin un árbol aparte. El mosaico y el editor de Notas comparten el mismo documento de `noteStore`, así que lo que se escribe en uno aparece al instante en el otro, y se guarda con SafeVault.
+- **Formato Markdown estándar**: `- [ ]`/`- [x]` (también `*`/`+` y `[X]` al leer), subtareas con 2 a 4 espacios o un tabulador (un nivel) y fecha opcional ` 📅 AAAA-MM-DD` al final, la sintaxis prevista en Notas Pro. Notas Pro aún no tiene analizador de tareas, así que este (`src/tasks/parse.ts`) es el que debe reutilizar. Solo se reescriben las líneas de tarea que el usuario toca; títulos, texto libre y frontmatter quedan igual. Activar el add-on no crea el archivo: se crea con la primera tarea.
+- **Orden**: el archivo manda. En «Todas», las hechas de primer nivel se muestran en su propio bloque al final, sin moverlas en el archivo. Reordenar (asa con Pointer Events o Alt + ↑/↓) solo cambia hermanas del mismo bloque contiguo, con sus subtareas; nunca cruza texto libre.
+- **Borrar** se puede deshacer desde el aviso. «Borrar completadas» pide confirmación. Las vencidas llevan icono y el texto «Vencida», no solo un tono.
+- **Sin integración con Calendario ni con «Pendientes»** por ahora: no es barata sin tocar su modelo de datos. Queda para después.
+- **Apagado = cero costo**: `src/tasks/tile.tsx` se carga con `import()` solo si el add-on está activo; el contador de la bandeja sale del mismo fragmento (`TasksCount`).
+
