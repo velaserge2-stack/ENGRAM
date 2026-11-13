@@ -38,6 +38,25 @@ export function qid(text: string, opts: { text: string }[]): string {
   return (h >>> 0).toString(36);
 }
 
+/** Id anterior a la auditoría (`charCodeAt`: de un emoji solo contaba la primera mitad; sin sufijo «-2» en repetidas). Solo para casar intentos guardados. */
+export function legacyQid(q: Pick<Question, 'case' | 'text' | 'options'>): string {
+  let h = 0x811c9dc5;
+  for (const ch of q.case + q.text + '|' + q.options.map((o) => o.text).join('|')) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
+  return (h >>> 0).toString(36);
+}
+
+/** Por id de pregunta: true si alguna vez se falló, false si siempre se acertó (solo respondidas). */
+export function pastResults(attempts: { qs: { q: Question }[]; answers: Record<string, string[]> }[]): Map<string, boolean> {
+  const seen = new Map<string, boolean>();
+  for (const a of attempts) for (const x of a.qs) if (a.answers[x.q.id]?.length) seen.set(x.q.id, (seen.get(x.q.id) ?? false) || !isCorrect(x.q, a.answers[x.q.id]));
+  return seen;
+}
+
+/** Resultado previo de `q`: por su id y, si no, por el id antiguo (intentos guardados antes del cambio de `qid`). */
+export function pastResult(seen: Map<string, boolean>, q: Question): boolean | undefined {
+  return seen.get(q.id) ?? seen.get(legacyQid(q));
+}
+
 const Q_RE = /^\s{0,3}(\d{1,3})[.)]\s+(.*)$/;
 const OPT_RE = /^\s*(?:[-*]\s+)?([A-Fa-f])[.)]\s+(.*)$/;
 const ANS_RE = /^\s*(?:Respuesta|Resp\.?|Correcta|Answer)\s*:\s*(.+)$/i;

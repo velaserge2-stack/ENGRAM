@@ -67,3 +67,20 @@ describe('analizador de simulacros', () => {
     expect(timeLeft(10_000, 99_000)).toBe(0);
   });
 });
+
+describe('intentos guardados con el id antiguo (qid antes de codePointAt)', () => {
+  it('una pregunta con emoji casa con su intento viejo y conserva sus respuestas', async () => {
+    const { legacyQid, pastResult, pastResults } = await import('../src/sim/parse');
+    const [q] = parseText('1. ¿Qué indica 🫀?\nA) Corazón *\nB) Pulmón');
+    const old = legacyQid(q!);
+    expect(old).not.toBe(q!.id); // el id cambió con el emoji
+    const oldQ = { ...q!, id: old };
+    const attempt = { qs: [{ q: oldQ }], answers: { [old]: ['B'] } };
+    expect(score([oldQ], attempt.answers)).toMatchObject({ wrong: 1, blank: 0 }); // el intento muestra su respuesta (B), no en blanco
+    const seen = pastResults([attempt]);
+    expect(pastResult(seen, q!)).toBe(true); // «falladas» la sigue encontrando
+    const [plain] = parseText('1. Sin emoji\nA) a *\nB) b');
+    expect(legacyQid(plain!)).toBe(plain!.id);
+    expect(pastResult(seen, plain!)).toBeUndefined();
+  });
+});

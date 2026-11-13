@@ -10,7 +10,7 @@ import { listBankTrash, purgeBank, restoreBank, trashBank, type BankTrashEntry }
 import { ATTEMPTS, deleteAttempt, restoreAttempt } from '../data/extra';
 import { appendCard, safeName } from '../data/ops';
 import { extractText } from '../io/extract';
-import { type Bank, byTopic, finalize, isCorrect, parseBankCSV, parseBankJSON, parseBankMarkdown, parseText, type Question, score, serializeBank, summarize } from '../sim/parse';
+import { type Bank, byTopic, finalize, isCorrect, parseBankCSV, parseBankJSON, parseBankMarkdown, parseText, pastResult, pastResults, type Question, score, serializeBank, summarize } from '../sim/parse';
 import { go, useApp, useAsync } from '../state';
 import { Bar, Empty, PageTitle, Segmented, Sheet } from '../ui/kit';
 import { extname } from '../vault/paths';
@@ -257,11 +257,10 @@ function CreateSim(props: { banks: { path: string; bank: Bank }[]; attempts: Att
   const [shuf, setShuf] = useState(true);
   const [penalty, setPenalty] = useState(0);
   const [pass, setPass] = useState(60);
-  const seen = new Map<string, boolean>();
-  for (const a of props.attempts) for (const x of a.qs) if (a.answers[x.q.id]?.length) seen.set(x.q.id, (seen.get(x.q.id) ?? false) || !isCorrect(x.q, a.answers[x.q.id]));
+  const seen = pastResults(props.attempts);
   let chosen = pool.filter((x) => !tsel || tsel.includes(x.q.topic || tr('simulacros.sin_tema')));
-  if (filter === 'failed') chosen = chosen.filter((x) => seen.get(x.q.id) === true);
-  if (filter === 'unseen') chosen = chosen.filter((x) => !seen.has(x.q.id));
+  if (filter === 'failed') chosen = chosen.filter((x) => pastResult(seen, x.q) === true);
+  if (filter === 'unseen') chosen = chosen.filter((x) => pastResult(seen, x.q) === undefined);
   const start = async () => {
     const seed = String(Date.now());
     const picked = (shuf ? shuffle(chosen, seed) : chosen).slice(0, n);
