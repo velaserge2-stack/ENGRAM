@@ -72,6 +72,9 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): { data: T | 
   return state;
 }
 
+/** Ruta de archivo de `#/espacios/abrir/<ruta>`: `parseHash` ya decodificó cada segmento (no se decodifica otra vez). */
+export const routeFilePath = (route: string[]): string => route.slice(1).join('/');
+
 export function parseHash(): string[] {
   return (location.hash.replace(/^#\/?/, '').split('?')[0] || 'hoy').split('/').map((s) => {
     try {

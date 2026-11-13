@@ -4,20 +4,18 @@
  * auditoría: cambiar a it() al corregir.
  */
 import { describe, expect, it } from 'vitest';
-import { parseHash } from '../src/state';
+import { parseHash, routeFilePath } from '../src/state';
 
 describe('auditoría · rutas', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('abrir un archivo con «%» en el nombre: la ruta se decodifica dos veces (spaces.tsx:111)', () => {
+  // auditoría: corregido (menores)
+  it('abrir un archivo con «%» en el nombre: la ruta se decodifica dos veces (spaces.tsx:111)', () => {
     location.hash = `#/espacios/abrir/${encodeURIComponent('docs/50% de descuento.pdf')}`;
     const route = parseHash().slice(1); // lo que recibe <Spaces route=…>: ya decodificado por parseHash
-    // spaces.tsx:111 hace decodeURIComponent(route.slice(1).join('/')) otra vez
-    const reopened = () => decodeURIComponent(route.slice(1).join('/'));
-    expect(reopened()).toBe('docs/50% de descuento.pdf');
+    expect(routeFilePath(route)).toBe('docs/50% de descuento.pdf');
   });
-  it.fails('abrir un archivo con «%41» literal: la segunda decodificación lo cambia', () => {
+  it('abrir un archivo con «%41» literal: la segunda decodificación lo cambia', () => {
     location.hash = `#/espacios/abrir/${encodeURIComponent('docs/a%41b.pdf')}`;
     const route = parseHash().slice(1);
-    expect(decodeURIComponent(route.slice(1).join('/'))).toBe('docs/a%41b.pdf');
+    expect(routeFilePath(route)).toBe('docs/a%41b.pdf');
   });
 });

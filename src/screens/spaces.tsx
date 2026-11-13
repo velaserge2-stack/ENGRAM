@@ -19,7 +19,7 @@ import { docxToHtml } from '../io/extract';
 import { parseCSV } from '../io/csv';
 import { sanitize } from '../md/render';
 import { listNotes } from '../notes/model';
-import { go, href, useApp, useAsync } from '../state';
+import { go, href, routeFilePath, useApp, useAsync } from '../state';
 import { Html } from '../ui/md';
 import { Segmented, Sheet, usePhone } from '../ui/kit';
 import { acquireMediaUrl, releaseMediaUrl } from '../ui/background';
@@ -108,7 +108,7 @@ export function Spaces(props: { route: string[] }) {
   useEffect(() => {
     if (!spaces) return;
     if (props.route[0] === 'abrir' && props.route[1]) {
-      const [path, frag] = decodeURIComponent(props.route.slice(1).join('/')).split('#');
+      const [path, frag] = routeFilePath(props.route).split('#');
       const type: PType = /\.pdf$/i.test(path!) ? 'pdf' : /\.docx$/i.test(path!) ? 'docx' : /\.(csv|tsv)$/i.test(path!) ? 'hoja' : /\.(png|jpe?g|webp|gif)$/i.test(path!) ? 'imagen' : 'nota';
       const base = sp ?? spaces[0] ?? { id: 'general', name: 'General', emoji: '🗂️', mode: 'tiles' as const, panels: [], sizes: [], view: { x: 0, y: 0, k: 1 } };
       const at = base.mode === 'canvas' ? place(base, 640, 560, live.focus) : { x: 40, y: 40, w: 640, h: 560 };
