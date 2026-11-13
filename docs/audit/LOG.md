@@ -70,3 +70,7 @@ Alta: `move(a, a)` borra el archivo y `HandleFS.move` borra recursivamente un de
 - Alcance A+B aprobado: 10 imports/parámetros sin uso, 10 símbolos muertos borrados, 58 `export` quitados. `src/`: +69/−127 líneas. Informe en `docs/audit/04-reduccion.md`.
 - Verificación: typecheck, vitest (316 pass / 88 expected fail), build, `e2e`, `e2e:flows` y `e2e:phone` compare con 0 píxeles. Entrada JS 302 917 → 302 891 B; cobertura 72.49 → 72.51 %.
 - Se conservaron los `export` usados por `tests/audit-*.test.ts` (9 símbolos) y todo lo «revisar»; preguntas en el informe.
+
+## Etapa 4b · limpieza (2026-11-13) · subagente Sonnet
+- Skills code-simplifier y deslop no disponibles; criterios aplicados a mano. No había TODO/FIXME ni código comentado. Se quitaron 9 comentarios-rótulo redundantes (lib, srs/data, screens/app); 0 cambios de código. Informe en `docs/audit/04b-limpieza.md`.
+- Verificación: typecheck, vitest (316/88), build, e2e, e2e:flows y e2e:phone compare con 0 píxeles.
