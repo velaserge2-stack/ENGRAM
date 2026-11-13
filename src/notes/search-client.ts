@@ -32,7 +32,7 @@ function call<T>(op: Op, arg: unknown, f?: Filters): Promise<T> {
   return new Promise<T>((res) => { pending.set(id, res as (v: unknown) => void); worker!.postMessage({ id, op, arg, f }); });
 }
 
-export function toSearchDoc(path: string, text: string): SearchDoc {
+function toSearchDoc(path: string, text: string): SearchDoc {
   const m = noteMeta(path);
   const doc = parseFrontmatter(text);
   // los dibujos no se indexan (solo su referencia); su miniatura sale en los resultados

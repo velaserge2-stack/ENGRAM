@@ -13,13 +13,13 @@ import { perf } from '../lib/perf';
 
 export const THUMBS_DIR = '.app/thumbs';
 const SMALL = 1_000_000;
-export const HUGE = 25_000_000;
+const HUGE = 25_000_000;
 
 export type Shown = { url: string; w: number; h: number; heavy?: boolean; missing?: undefined } | { missing: true; name: string; url: string };
 
 const key = (path: string) => `${THUMBS_DIR}/${path.replace(/^media\//, '').replace(/\//g, '__')}.jpg`;
 const TYPE: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', heic: 'image/heic', heif: 'image/heif', avif: 'image/avif', bmp: 'image/bmp' };
-export const typeOf = (path: string) => TYPE[path.split('.').pop()!.toLowerCase()] ?? '';
+const typeOf = (path: string) => TYPE[path.split('.').pop()!.toLowerCase()] ?? '';
 
 /** Proporción conocida (para reservar el alto antes de cargar y que no salte el desplazamiento). */
 export const dimsOf = new Map<string, { w: number; h: number }>();

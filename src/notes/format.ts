@@ -27,7 +27,7 @@ function snap(text: string, s: number, e: number): [number, number] {
   return [s, e];
 }
 /** Sin selección: la palabra bajo el cursor (letras, números, guion bajo; Unicode). */
-export function wordAt(text: string, pos: number): [number, number] {
+function wordAt(text: string, pos: number): [number, number] {
   const isW = (c: string | undefined) => !!c && /[\p{L}\p{N}_'’-]/u.test(c);
   let s = pos, e = pos;
   while (s > 0 && isW(text[s - 1])) s--;
@@ -267,7 +267,7 @@ export function moveListItem(sel: Sel, dir: 1 | -1): Sel | null {
 
 // ───────── tablas (GFM) ─────────
 
-export type ColAlign = '' | 'l' | 'c' | 'r';
+type ColAlign = '' | 'l' | 'c' | 'r';
 export interface Table { a: number; b: number; rows: string[][]; align: ColAlign[]; row: number; col: number }
 const cells = (l: string) => l.trim().replace(/^\||\|$/g, '').split(/(?<!\\)\|/).map((c) => c.trim());
 
