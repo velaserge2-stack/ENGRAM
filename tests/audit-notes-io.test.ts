@@ -144,12 +144,12 @@ describe('auditoría · simulacros', () => {
 });
 
 describe('auditoría · io', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('parseCSV no cuenta las comas DENTRO de comillas al elegir el separador', () => {
+  // auditoría: corregido (menores)
+  it('parseCSV no cuenta las comas DENTRO de comillas al elegir el separador', () => {
     expect(parseCSV('"Dosis: 5, 10 y 20";"Respuesta"\n"a";"b"')[0]).toEqual(['Dosis: 5, 10 y 20', 'Respuesta']);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('placeLoose normaliza la extensión .MD (si no, la nota no aparece en listNotes)', () => {
+  // auditoría: corregido (menores)
+  it('placeLoose normaliza la extensión .MD (si no, la nota no aparece en listNotes)', () => {
     expect(placeLoose('Clase.MD', strToU8('hola')).endsWith('.md')).toBe(true);
   });
   // auditoría: corregido (plan 3)
@@ -201,21 +201,21 @@ describe('auditoría · apkg (mapeo)', () => {
 });
 
 describe('auditoría · tareas, stickies, tinta, pdf', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('parseTasks lee un archivo con saltos CRLF', () => {
+  // auditoría: corregido (menores)
+  it('parseTasks lee un archivo con saltos CRLF', () => {
     expect(parseTasks('- [ ] a\r\n- [x] b\r\n')).toHaveLength(2);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('stickyTitle conserva _ y + del texto (snake_case, C++)', () => {
+  // auditoría: corregido (menores)
+  it('stickyTitle conserva _ y + del texto (snake_case, C++)', () => {
     expect(stickyTitle('C++ y mi_variable', 'x')).toBe('C++ y mi_variable');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('stickyTitle no parte un emoji al recortar a 60', () => {
+  // auditoría: corregido (menores)
+  it('stickyTitle no parte un emoji al recortar a 60', () => {
     const t = stickyTitle('a'.repeat(59) + '😀😀', 'x');
     expect(/[\ud800-\udbff]$/.test(t)).toBe(false);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('parseInk descarta trazos sin size/tool (si no, el contorno sale con NaN)', () => {
+  // auditoría: corregido (menores)
+  it('parseInk descarta trazos sin size/tool (si no, el contorno sale con NaN)', () => {
     const d = parseInk('{"v":1,"strokes":[{"id":"a","pts":[[0,0,1],[0.5,0.5,1],[1,1,1]]}]}');
     const bad = d.strokes.some((s) => svgPath(outline(s, 600)).includes('NaN'));
     expect(bad).toBe(false);
