@@ -119,7 +119,7 @@ export function KeyFeedback(p: { last: { via: Via; action: string; at: number } 
   return <div class="key-feedback glass strong" role="status" aria-live="polite">{p.last.via.kind === 'pad' ? '🎮' : '⌨'} {p.last.via.label} → {actionLabel(p.last.action)}</div>;
 }
 
-const SCOPES: Scope[] = ['global', 'study', 'sim', 'ink'];
+const SCOPES: Scope[] = ['global', 'study', 'sim', 'ink', 'editor'];
 /** Hoja de atajos («?»). */
 export function ShortcutSheet(p: { onClose: () => void }) {
   const cfg = useKeymap();

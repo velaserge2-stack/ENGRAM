@@ -6,7 +6,7 @@ import { useApp } from '../state';
 import { actionLabel, keymap, useKeymap } from '../ui/keys';
 import { Group, Row, Switch } from '../ui/kit';
 
-const SCOPES: Scope[] = ['global', 'study', 'sim', 'ink'];
+const SCOPES: Scope[] = ['global', 'study', 'sim', 'ink', 'editor'];
 
 /**
  * Ajustes → Atajos (Prompt 5 · E): reasignar teclas (también las de un clicker o pedal, que

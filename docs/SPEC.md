@@ -93,6 +93,12 @@ IO: ![[ecg-bloqueo.png]] <!-- io: 10,20,30,12; 55,40,20,10 --> ^c03c
 - **Reconciliación por ID**: si el usuario edita el archivo a mano, la app compara por ID y conserva historial y programación. Texto cambiado = misma tarjeta; ID nuevo = tarjeta nueva; ID que desaparece = tarjeta archivada (no borrada) durante 30 días.
 - Markdown extendido: tablas, listas de tareas, `> [!note]` callouts, `[[wikilinks]]`, `![[embeds]]`, KaTeX, `==resaltado==` y color con `[texto]{.naranja}`. Colores: azul, verde, índigo, naranja, rosa, rojo, morado, turquesa, menta, amarillo.
 
+- **Marcas del editor de notas** (Prompt 17; todas legibles en cualquier editor y retrocompatibles):
+  - Subrayado `++texto++` (no se activa dentro de una palabra: `c++`, `i++`; ni en código).
+  - Tamaño relativo con la misma sintaxis de clase que el color: `[texto]{.pequeno}`, `{.grande}`, `{.muygrande}`; se combinan con el color en una sola marca: `[texto]{.rojo .grande}`. Una clase fuera de la lista deja todo literal.
+  - Alineación de un párrafo o título con una marca al final: `Texto {.centro}`, `## Título {.der}`, `{.justificado}` (izquierda = sin marca). En listas, tablas y código la marca queda literal.
+  - Imágenes: `![[foto.jpg|300|izq|alt Texto]]` (Notas-Pro · A3).
+
 ---
 
 ## 4b. Tipos de tarjeta (además de básica y cloze)

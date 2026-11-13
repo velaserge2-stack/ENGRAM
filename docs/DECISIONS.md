@@ -572,6 +572,112 @@ Abrir la app con `?perf` (p. ej. `https://…/engrama/?perf#/pdfs`) muestra en u
 - `ResizeObserver` existe desde Safari 13.1; el respaldo con `resize` no detecta Stage Manager.
 - Arrastrar con dedo y con Apple Pencil, con 6+ paneles, en vertical y horizontal (WebKit de Playwright no está instalado en el contenedor: las e2e corrieron en Chromium).
 
+## Notas-Pro — paquete 1 · Fase A: fotos (rama `notas-pro`, desde `main`)
+
+### Antes de empezar (verificado)
+- Ya existían y se reutilizan: `NoteStore` (`src/notes/store.ts`), historial de versiones, papelera, «Esquema», `expandQueries`, `pressdrag.tsx`, `?perf` (`src/lib/perf.ts`), `e2e:perf`, `SafeVault.writeStream`, `Popover`/`useLayer`/`Portal` (`src/ui/overlay.tsx`), `.app/cache/` como caché regenerable (excluida del zip y contada en Almacenamiento).
+- No había otro prompt pendiente que tocara esto: «solo título» (P12), «mover» (P6), `.apkg` (P10), rendimiento PDF/lienzo (P11) y minimapa (P15) ya están en `main`. No existe una caché de HTML por bloque ni `content-visibility` en notas.
+
+### Original + miniatura (A1)
+- `saveImage` guarda **el archivo tal cual** (cualquier formato, HEIC incluido), por `SafeVault.writeStream` (por trozos y con diario; nunca `writeBlob` del backend, que se salta el diario). No decodifica para guardar; solo lee los primeros 256 KB para anotar la proporción.
+- Ajuste **Calidad de las fotos**: `Original` (por defecto) / `Optimizada` (el comportamiento anterior: máx. 2000 px, JPEG 0.88). Solo afecta a las fotos nuevas.
+- **Una sola caché y una sola función**: `.app/thumbs/` y `mediaThumbUrl()` (`src/notes/thumbs.ts`). Se eligió `.app/thumbs/`, como pide el prompt, en lugar de `.app/cache/img/`; por eso `REGENERABLE` y la exportación de la bóveda la tratan igual que `.app/cache/`. Las miniaturas de PDF (`.app/cache/pdf-thumbs`) son otra cosa (páginas renderizadas con pdf.js) y no se tocaron.
+- Reglas de `mediaThumbUrl`: original ≤ 1 MB, GIF o SVG → se muestra tal cual (las fotos guardadas antes ya venían comprimidas, así que se ven igual que antes); mayor → miniatura JPEG 0.7 de lado ≤ 1200 px. Se generan **de una en una** (lectura incluida) en un Worker con `OffscreenCanvas`. Si no hay Worker u `OffscreenCanvas`, se hace en la ventana con `createImageBitmap(…, { resizeWidth })`, que mantiene la proporción. Si eso falla, se decodifica entera y se reduce por pasos de la mitad. Si nada funciona pero el navegador sabe mostrarla, se muestra el original (contorno discontinuo si pasa de 25 MB); si no sabe (HEIC fuera de Safari), aparece un marcador con el nombre y «abrir el original».
+- La orientación EXIF se lee del encabezado (`imageSize`) para calcular la proporción de fotos verticales.
+- Las URL se cuentan por uso (`mediaThumbUrl`/`releaseThumb`) y se revocan 20 s después del último uso (al reescribir un bloque se vuelve a pedir la misma enseguida). `Html` carga con `IntersectionObserver` (margen 800 px) y libera al desmontarse.
+- **Sin saltos al desplazarse**: la proporción se guarda en `.app/thumbs/dims.json` (también caché) desde el momento de guardar la foto. Una `<img>` sin `src` es texto en línea y no respeta `aspect-ratio`, así que las fotos pendientes se dibujan como un recuadro neutro de su tamaño.
+- Ajustes → Almacenamiento: tamaño de `media/`, tamaño de la caché con «Vaciar» (no borra ninguna foto) y aviso si se supera el 80 % de la cuota.
+
+### Sintaxis (A3)
+- `![[foto.jpg|300|izq|alt Texto]]`: tras el nombre, opciones con `|` en cualquier orden. Tamaño `N` (px, entero entre 40 y 4000) o `N%` (5–100); el primero válido manda. Alineación `izq|der|centro` (alias `left|right|center`).
+- **Regla del alt**: empieza por `alt ` y va siempre al final; todo lo que sigue, incluidos los `|`, es el texto. No puede contener `]` (se quita al guardar).
+- Lo desconocido o fuera de rango se ignora al mostrar y se conserva literal al guardar (detrás de tamaño y alineación). `parseEmbed`/`serializeEmbed`/`rewriteImageEmbed` en `src/md/embed.ts`.
+- `![[nota|alias]]` (no imagen) sigue mostrándose como antes («!» + enlace).
+- Render: `width` (como antes) + `data-w` + `data-align`. DOMPurify admite solo `data-media`, `data-wl`, `data-kind`, `data-w` y `data-align`, más los atributos estándar. Se añadieron `ALLOW_DATA_ATTR: false` y `FORBID_ATTR: ['style']`: antes cualquier `data-*` y `style` pasaban, también en el HTML de `.docx` importado.
+- **Nada existente cambia**: `flow-root`, limpiar flotados y el contenedor de paneles solo se activan con `:has(img[data-align])`; una nota sin la sintaxis nueva produce exactamente el mismo HTML y CSS (comprobado con `MODE=compare e2e:phone`).
+- En `html.is-phone`, en ventanas < 480 px y en paneles del lienzo < 480 px (container query), las flotadas pasan a ancho completo.
+- «Texto al lado» = el embed al inicio de un párrafo (mismo bloque de `splitBlocks`): el texto fluye junto a la imagen. Cada bloque es su propio `.md`, así que una imagen no flota sobre el bloque siguiente.
+
+### Barra de imagen (A4)
+- `src/notes/imagebar.tsx`: alineación, S/M/L (33/50/75 %) y ancho completo, «Texto al lado» y texto alternativo. El asa de la esquina (dedo o Pencil, `setPointerCapture`, `touch-action: none` solo en el asa, mín. 80 px, máx. el ancho de la nota) escribe px al soltar, o 100 % si llega al borde. Con el teclado: Intro sobre la imagen la selecciona; ←/→ cambian el tamaño ±10 %.
+- No usa `Popover` porque el asa debe quedar fija en la esquina de la imagen y un ancestro `.glass` (con `backdrop-filter`) la encerraría. Barra y asa son hermanas en el mismo `Portal`, con `useLayer` (Esc) y su propio «tocar fuera».
+- Cada acción es **una escritura** por `NoteStore`; ⌘Z (fuera de campos de texto) la deshace con una pila de 50 pasos por nota. No había deshacer en la vista de documento; dentro de un bloque en edición sigue el deshacer nativo del campo.
+- No se añadieron ⌘⇧L/E/R (eran opcionales).
+- Pegar fuera de un bloque, soltar archivos y «/imagen» guardan el original y abren la barra.
+
+### Exportar (A2)
+- `.md` + zip: ya leía de `media/`, así que lleva el original (no se tocó). La exportación de la bóveda excluye `.app/thumbs/`.
+- `.docx`: embeds en cualquier parte del párrafo, proporción real (`imageSize`) y `|ancho` (px hasta 600, o % de 600). Sin ancho: el natural hasta 420 px, como antes. `izq/der` flotan con texto alrededor (`wp:anchor`, cuadrado); `centro` centra el párrafo; el alt va al `.docx`.
+- HEIC/HEIF/AVIF → JPEG y WebP/SVG → PNG, **solo para el .docx**. La hoja de exportación lista las convertidas. Si el navegador no las decodifica, se omiten.
+- PDF/imprimir («PDF (imprimir)»): las miniaturas se cambian por los originales de uno en uno, esperando a que carguen; tras imprimir se restauran y se liberan, con `afterprint` y un respaldo de 2 min porque iOS no siempre lo avisa. Con ⌘P directo se imprimen las miniaturas de 1200 px.
+
+### Rendimiento medido (Chromium sin GPU en el contenedor; no es un iPad)
+- Paquete inicial: **288,0 → 293,9 KB gzip (+5,9 KB)**. El Worker de miniaturas va aparte (bajo demanda).
+- 30 fotos de 2,6 MB en una nota: al abrir solo cargan 2 de 30; el alto total no salta (12 695 → 12 885 px, +1,5 %). Al desplazar la nota entera: cuadros p50 34 ms, p95 50 ms, máx. 69 ms (con rasterizado por software). Ninguna se muestra con su original (máx. 1200 px). Cifras en `e2e/out/np-30fotos.json`.
+- Foto de 12 MP (9,8 MB): se ve la miniatura de 1200 px; el original solo se carga al imprimir.
+
+### Límites y pendientes de validar en iPad real
+- No hay WebKit en este contenedor: Safari no se probó aquí. Hay que confirmar si `createImageBitmap` con `resizeWidth` reduce en Safari antes de decodificar (si no, hay fallbacks) y si `OffscreenCanvas` funciona en el Worker (Safari 16.4+).
+- Memoria con fotos de 12 MP reales (HEIC de la cámara), Pencil en el asa y `afterprint` en iOS.
+- En las pruebas automáticas, si se teclea «/ima» + Intro sin pausa, el menú «/» a veces no recibe el Intro (fallo previo de `BlockInput`, no tocado; la prueba teclea a ritmo humano).
+
+## Prompt 17 — Barra de herramientas del editor de notas (rama `barra-editor`, desde `main`)
+
+### Antes de empezar (verificado)
+- Ya existían y se reutilizan: el editor por bloques (`BlockInput`, `splitBlocks`, `NoteStore`), la barra de formato que aparece al seleccionar texto, el menú «/» (`SLASH`), `insertAtCursor`, `[texto]{.color}`, `saveImage`, `overlay.tsx` y `keys.ts`.
+- **Notas-Pro · Fase A no estaba en `main`** (sigue en `notas-pro`, pendiente de prueba en iPad). Para no duplicar la sintaxis `![[foto|ancho|izq]]`, su barra de imagen ni su asa, `barra-editor` = `main` + ese commit. **Unir `barra-editor` a `main` trae también la Fase A.**
+
+### Sintaxis nueva
+- `++subrayado++`, `[texto]{.grande .rojo}` (varias clases de dos listas cerradas) y ` {.centro|der|justificado}` al final de un párrafo o título. Ver `docs/SPEC.md` §4.
+- Se extendió el mismo mecanismo que `==resaltado==` y `[texto]{.color}` (regla en línea de markdown-it). La alineación es una regla del núcleo que quita la marca del texto y pone la clase `al-*` en el `<p>`/`<hN>`. Se omite en los párrafos internos de las listas, así que en una lista la marca queda literal.
+- Sanitización: un gancho de DOMPurify deja en `class` solo una lista cerrada (`callout`, `callout-t`, `wl`, `cloze`, `hidden`, `c-*`, `t-*`, `al-*`, `language-*`); cualquier otra clase se descarta. Se probó con textos hostiles.
+- Exportar: el «.md compatible» convierte las marcas a HTML o las quita; el `.docx` lleva subrayado, tamaño (medios puntos 19/28/36) y alineación del párrafo.
+
+### Edición (puro, `src/notes/format.ts`)
+- Alternar marcas sin cortar `[[ ]]`, `![[ ]]` ni código en línea. Sin selección, actúa sobre la palabra bajo el cursor. No se envuelven los espacios de los bordes. Si la selección cruza líneas, se marca línea por línea, después de la viñeta, `>` o `#`.
+- Color y tamaño editan la misma marca `[…]{…}`; volver a elegir el mismo valor lo quita.
+- Estilo de párrafo: normal, H1–H3, cita, código o callout; conserva la alineación.
+- Listas, tareas y sangría; mover un elemento de lista con sus hijos.
+- Tablas GFM: insertar 1×1 a 6×6, filas, columnas, alineación de columna y «Ajustar columnas» (texto alineado). La fila de encabezado es obligatoria en GFM, así que no se ofrece quitarla.
+- Bloques: mover (también «sección completa» bajo un título, desde «Más»), duplicar, eliminar y combinar con el anterior.
+
+### Barra (`src/notes/editorbar.tsx`)
+- Es parte del editor: `position: sticky` arriba de la nota (bajo la barra superior; arriba del todo en pantalla completa, en iPhone y dentro de un panel de Espacios), con una sola superficie `.glass strong` y `--z-panel` (por debajo de hojas y modales).
+- Un renglón de alto constante con desplazamiento horizontal. «Más» (menú «/» y mover sección) y plegar siempre a la vista en el extremo.
+- Plegada = franja del mismo alto con deshacer, rehacer, negrita y desplegar, así que plegar no mueve el texto. El estado se guarda en `engrama.notesUI` (por dispositivo). Por defecto está plegada si la ventana mide menos de 560 px de alto o el panel de Espacios menos de 420 px.
+- Sin bloque en edición, los botones de texto quedan desactivados al 38 % (no se ocultan). Los de bloque actúan sobre el último bloque tocado. En la vista Markdown actúa sobre el párrafo del cursor.
+- Botones de 44×44, `aria-pressed` en los alternables, un solo tab-stop con flechas/Inicio/Fin. El tooltip toma el `aria-label`, que incluye el atajo configurado.
+- `visualViewport` desplaza la barra lo que la vista visible se haya movido (teclado del iPad/iPhone). No se puede probar aquí: hay que verlo en el dispositivo.
+- El estado (marcas activas, estilo, tabla bajo el cursor) se recalcula con una pausa de 60 ms tras `selectionchange`/teclas/clic, no en cada evento.
+- La barra flotante de selección (cloze/básica) se conserva y usa las mismas funciones (`toggleMark`, `setSpanClass`).
+
+### Historial (`src/notes/history.ts`)
+- Deshacer/rehacer por nota, en memoria: cada acción de la barra es un paso y lo tecleado seguido (< 1 s) se agrupa. ⌘Z/⌘⇧Z usan este historial también dentro del campo del bloque, porque el campo controlado pierde el deshacer nativo al reescribirse.
+- Sustituye la pila propia de la barra de imagen (Notas-Pro · A4).
+- El historial de versiones en disco no cambió.
+
+### Atajos (ámbito nuevo «Editor» en Ajustes → Atajos)
+- ⌘B, ⌘I, ⌘U, ⌘⇧X (tachado), ⌘⇧H (resaltar), **⌘⇧K enlace** (⌘K es la paleta), ⌘⌥1/2/3 (títulos), ⌘⌥↑/↓ (mover bloque), ⌘Z/⌘⇧Z y **⌘⌥B plegar la barra** (⌘⇧T lo reserva Safari).
+- Solo actúan en el editor activo (puede haber varios: pestaña y paneles del lienzo) y con el foco dentro de él.
+- `bindingOf` usa la tecla física con ⌥, porque en Mac ⌥1 escribe «¡». Ningún atajo existente usaba ⌥ con letras o números, así que no cambia nada.
+
+### Mover sin romper tarjetas ni enlaces
+- Mover copia el bloque tal cual: los `^id` de tarjetas y los `[[nota#sección]]` no cambian.
+- La **cobertura de párrafos** usa el número de párrafo (`<!-- src: nota.md#pN -->`). Tras cada acción de la barra (y al deshacer/rehacer) se empareja cada párrafo por contenido (`paraMap`) y se reescribe N en los mazos que lo citan, por SafeVault (`src/notes/sources.ts`). Lo tecleado no lo hace, igual que antes.
+
+### Fallos previos encontrados
+- **Corregido:** un `BlockInput` ya desmontado podía cerrar con su temporizador de «perder foco» la edición del bloque siguiente (y `onSelect` leía un campo ya desmontado). Pasaba al cambiar de bloque deprisa y con la barra se volvía frecuente. Se corrigió con una comprobación de `ref.current`.
+- **Sin tocar (fuera de este prompt):** en `main`, Intro al final de un bloque no añade la línea nueva, porque el `\n` final se pierde al volver a dividir el texto en bloques. Shift+Intro tampoco. Se escribe una línea nueva en medio del texto o en la vista Markdown.
+
+### Tamaño y pruebas
+- Paquete inicial (gzip): `main` 288,0 KB → con Notas-Pro · A 293,9 KB → con la barra **297,9 KB (+4,0 KB)**. La barra, el historial y las funciones de edición van en el fragmento de Notas, que se carga bajo demanda. Al paquete inicial solo entran el render (subrayado, tamaño, alineación y el filtro de clases) y los atajos nuevos.
+- Batería completa en verde (Chromium; no hay WebKit en el contenedor): `typecheck`, 262 pruebas unitarias, `e2e`, `flows`, `design`, `mejoras`, `mejoras2`, `phone`, `bloquec`, `p5`, `p6`, `p7`, `p10`, `p12`, `p15`, `perf`, `notaspro` y `barra` (72 comprobaciones). `MODE=compare e2e:phone` contra `main`: 0 píxeles en 36 capturas. Esas capturas no abren ninguna nota, así que la barra no aparece en ellas; no hay diferencia esperada.
+
+### No hecho o pendiente
+- Arrastrar bloques por un asa (era opcional).
+- Quitar la fila de encabezado de una tabla (GFM la exige).
+- Cambiar el tipo de tarjeta o de callout desde la barra (el callout entra como `[!note]`; el tipo se cambia en el texto).
+- No probado en WebKit ni en un iPad real: teclado virtual (`visualViewport`), Pencil, Stage Manager y gesto de selección de iOS.
 ## Mini prompt — Mini reproductor unificado y que suene (rama `fix-reproductor`)
 
 ### Causas (verificadas en el código; el oído solo en un dispositivo real)
@@ -683,3 +789,15 @@ El desplazamiento queda igual: Chromium headless no pasa de ~30 fps al desplazar
 
 ### Lista para iPad real
 Nota larga desplazada y asa en un panel del lienzo (dedo y Pencil); nota de ~1 MB en pestaña y en panel; foto de 12 MP y de 48 MP en un panel; paneo y zoom con 4 paneles; escribir con el teclado en pantalla.
+
+## Unión de Notas-Pro · A y Prompt 17 con Prompt 14 (rendimiento de notas e imágenes)
+- **Medios en notas (`src/ui/md.tsx`)**: estructura del Prompt 14 (un solo `IntersectionObserver` para toda la app, `hydrateAllMedia` antes de imprimir, préstamo de URL para el audio). Las imágenes usan la miniatura de la Fase A (`mediaThumbUrl`, caché `.app/thumbs/`), con el alto reservado (`dims.json`) y el marcador para formatos que el navegador no muestra.
+- **Bloques**: tramos con `content-visibility` y `ViewBlock` memorizado del Prompt 14. El bloque lleva además `data-block` y el toque sobre una imagen la selecciona (callback estable, para no romper el `memo`).
+- **Imprimir**: primero `hydrateAllMedia` (Prompt 14), después el cambio a originales de uno en uno (Fase A).
+- **Sanitización**: el Prompt 14 sanea con una instancia propia de DOMPurify (`DOMPurify()` con la configuración fijada una vez). El filtro de clases del Prompt 17 se registra en esa misma instancia: en la instancia por defecto no se aplicaba. Lo cubren las pruebas de sanitización.
+- **Dos cachés de imágenes, a propósito y por ahora**:
+  - `.app/thumbs/` (Fase A): miniatura de 1200 px para notas.
+  - `.app/cache/img/` (Prompt 14): versiones de 640/1280/2560 px según el ancho del panel del lienzo, con «Ver original».
+  - Las dos son regenerables y ninguna viaja en el respaldo.
+  - Unificarlas (una función con escalones, el `imageSize` con orientación EXIF de la Fase A y la conversión de HEIC) es una refactorización pendiente, que no se hizo dentro de una unión.
+  - Ya no es cierto que `saveImage` reduzca a 2000 px: ahora guarda el original salvo con «Calidad: Optimizada». Por eso la versión reducida del lienzo importa más.

@@ -63,6 +63,8 @@ export interface Settings {
   accent: { color: string | null; usos: AccentUse[] };
   /** idioma de la interfaz; '' = el del dispositivo (es, en o fr; si no, es) */
   lang: '' | 'es' | 'en' | 'fr' | 'xx';
+  /** fotos nuevas: original byte a byte (por defecto) u optimizada (máx. 2000 px); no cambia las ya guardadas */
+  photoQuality: 'original' | 'optimizada';
   /** secciones desplegadas en Ajustes (acordeón; por defecto todas plegadas) */
   settingsOpen: string[];
   /** días que un mazo borrado se queda en la papelera antes de vaciarse solo (0 = nunca) */
@@ -129,6 +131,7 @@ export function defaultSettings(): Settings {
     deckEmoji: {},
     accent: { color: null, usos: [] },
     lang: '',
+    photoQuality: 'original',
     settingsOpen: [],
   };
 }
@@ -157,6 +160,7 @@ export function mergeSettings(raw: unknown): Settings {
   if (!['auto', 'dark', 'light'].includes(s.glassMode)) s.glassMode = 'auto';
   s.theme = 'cristal';
   if (!['', 'es', 'en', 'fr', 'xx'].includes(s.lang)) s.lang = '';
+  if (s.photoQuality !== 'optimizada') s.photoQuality = 'original';
   // acento: valores antiguos (cadena de la fase 1) o inválidos = sin acento
   const a = s.accent as unknown as { color?: unknown; usos?: unknown };
   const color = typeof a?.color === 'string' && (/^#[0-9a-f]{6}$/i.test(a.color) || /^[a-z]+$/.test(a.color)) ? a.color : null;
