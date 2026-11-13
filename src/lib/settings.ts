@@ -73,6 +73,8 @@ export interface Settings {
   ambient: { levels: Record<string, number>; background: boolean; onlyFocus: boolean; duck: boolean; musicUrl: string; loop: boolean; shuffle: boolean };
   /** tinta (Prompt 5 · B): qué hace el dedo sobre una superficie de tinta */
   inkFinger: 'pencil' | 'scroll' | 'draw';
+  /** «Compartir estadísticas» (Prompt 19): última elección; `show` sin una clave = su valor por defecto */
+  share: { format: 'historia' | 'vertical' | 'cuadrada'; period: 'hoy' | '7' | '30' | 'anio' | 'todo'; show: Record<string, boolean>; neutral: boolean };
 }
 
 export const ACCENT_USES = ['nav', 'progreso', 'enlaces', 'seleccion', 'calor', 'boton', 'calendario'] as const;
@@ -133,6 +135,7 @@ export function defaultSettings(): Settings {
     lang: '',
     photoQuality: 'original',
     settingsOpen: [],
+    share: { format: 'vertical', period: '7', show: {}, neutral: false },
   };
 }
 
@@ -173,6 +176,10 @@ export function mergeSettings(raw: unknown): Settings {
   s.dayStartHour = Math.min(23, Math.max(0, Math.round(s.dayStartHour)));
   s.deckTrashDays = Math.min(365, Math.max(0, Math.round(s.deckTrashDays)));
   if (!['pencil', 'scroll', 'draw'].includes(s.inkFinger)) s.inkFinger = 'pencil';
+  if (!['historia', 'vertical', 'cuadrada'].includes(s.share.format)) s.share.format = 'vertical';
+  if (!['hoy', '7', '30', 'anio', 'todo'].includes(s.share.period)) s.share.period = '7';
+  if (!s.share.show || typeof s.share.show !== 'object' || Array.isArray(s.share.show)) s.share.show = {};
+  s.share.neutral = s.share.neutral === true;
   return s;
 }
 

@@ -48,6 +48,37 @@ const result = await page.evaluate(async (src) => {
     x.drawImage(img, box.x, box.y, box.w, box.h, (size - dw) / 2, (size - dh) / 2, dw, dh);
     return o.toDataURL('image/png');
   };
+  // Prompt 19: marca sin recuadro (solo para la imagen de «Compartir estadísticas»). El original es RGB
+  // opaco: el alfa sale de la diferencia de luminancia con el fondo muestreado (clave suave), y el color
+  // se des-premultiplica (C = (P − fondo·(1 − α)) / α) para que el borde no arrastre un halo oscuro.
+  const mark = () => {
+    const lum = (i) => 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+    const lb = 0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2];
+    const ls = [];
+    for (let y = box.y; y < box.y + box.h; y += 2) for (let x = box.x; x < box.x + box.w; x += 2) { const v = lum((y * W + x) * 4); if (v - lb > 60) ls.push(v); }
+    ls.sort((a, b) => a - b);
+    const lf = ls[Math.floor(ls.length * 0.9)]; // tono del símbolo (percentil 90: sin brillos sueltos)
+    const pad = Math.round(Math.max(box.w, box.h) * 0.04);
+    const cx = Math.max(0, box.x - pad), cy = Math.max(0, box.y - pad);
+    const cw = Math.min(W - cx, box.w + 2 * pad), ch = Math.min(H - cy, box.h + 2 * pad);
+    const k = 512 / Math.max(cw, ch);
+    const ow = Math.round(cw * k), oh = Math.round(ch * k);
+    // primero al tamaño final (suaviza), luego la clave: así no hay franjas a media escala
+    const s1 = Object.assign(document.createElement('canvas'), { width: ow, height: oh });
+    const x1 = s1.getContext('2d', { willReadFrequently: true });
+    x1.imageSmoothingQuality = 'high';
+    x1.drawImage(img, cx, cy, cw, ch, 0, 0, ow, oh);
+    const px = x1.getImageData(0, 0, ow, oh);
+    const q = px.data;
+    for (let i = 0; i < q.length; i += 4) {
+      const v = 0.2126 * q[i] + 0.7152 * q[i + 1] + 0.0722 * q[i + 2];
+      const a = Math.min(1, Math.max(0, (v - lb - 6) / (lf - lb - 6)));
+      for (let c = 0; c < 3; c++) q[i + c] = a ? Math.min(255, Math.max(0, Math.round((q[i + c] - bg[c] * (1 - a)) / a))) : 0;
+      q[i + 3] = Math.round(a * 255);
+    }
+    x1.putImageData(px, 0, 0);
+    return s1.toDataURL('image/png');
+  };
   return {
     bg: hex, box,
     files: {
@@ -59,6 +90,7 @@ const result = await page.evaluate(async (src) => {
       'public/icons/favicon-16.png': make(16, 0.86),
       'public/brand/logo-256.png': make(256, 0.62),
       'public/brand/logo-64.png': make(64, 0.7),
+      'public/brand/logo-mark.png': mark(),
     },
   };
 }, src);

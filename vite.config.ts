@@ -14,7 +14,7 @@ function serviceWorker(): Plugin {
     apply: 'build',
     generateBundle(_, bundle) {
       const files = Object.keys(bundle).filter((f) => !f.endsWith('.map'));
-      const publicFiles = ['manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png', 'icons/favicon-16.png', 'brand/logo-256.png', 'brand/logo-64.png'];
+      const publicFiles = ['manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png', 'icons/favicon-16.png', 'brand/logo-256.png', 'brand/logo-64.png', 'brand/logo-mark.png'];
       const assets = ['./', ...files, ...publicFiles].map((f) => (f === './' ? f : './' + f));
       const hash = createHash('sha256');
       for (const f of files) {

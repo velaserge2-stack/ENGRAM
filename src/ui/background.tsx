@@ -158,6 +158,85 @@ async function loadImage(url: string): Promise<HTMLImageElement> {
   return img;
 }
 
+/** ¿El canvas sabe aplicar `filter` (Safari antiguo no)? */
+let filterOk: boolean | null = null;
+function canFilter(ctx: CanvasRenderingContext2D): boolean {
+  if (filterOk === null) {
+    filterOk = 'filter' in ctx;
+    if (filterOk) {
+      const prev = ctx.filter;
+      ctx.filter = 'blur(2px)';
+      filterOk = ctx.filter === 'blur(2px)';
+      ctx.filter = prev;
+    }
+  }
+  return filterOk;
+}
+
+/**
+ * Desenfoque de `src` dibujado sobre `ctx` en (x, y, w, h). Con `ctx.filter` si existe; si no, reducir
+ * y volver a ampliar con suavizado (aproximación barata, igual en cualquier navegador).
+ */
+export function blurInto(ctx: CanvasRenderingContext2D, src: HTMLCanvasElement, px: number, x = 0, y = 0, w = src.width, h = src.height, scale = 1) {
+  const dx = x - (w * (scale - 1)) / 2, dy = y - (h * (scale - 1)) / 2, dw = w * scale, dh = h * scale;
+  if (px <= 0.5) return void ctx.drawImage(src, dx, dy, dw, dh);
+  if (canFilter(ctx)) {
+    ctx.save();
+    ctx.filter = `blur(${px}px)`;
+    ctx.drawImage(src, dx, dy, dw, dh);
+    ctx.restore();
+    return;
+  }
+  const k = Math.max(1, px / 2);
+  const t = document.createElement('canvas');
+  t.width = Math.max(1, Math.round(src.width / k));
+  t.height = Math.max(1, Math.round(src.height / k));
+  const c = t.getContext('2d')!;
+  c.imageSmoothingQuality = 'high';
+  c.drawImage(src, 0, 0, t.width, t.height);
+  ctx.save();
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(t, dx, dy, dw, dh);
+  ctx.restore();
+  t.width = t.height = 0;
+}
+
+/**
+ * Pinta el fondo activo en un canvas de `w×h`, con la misma cuenta que la capa de fondo: integrados
+ * dibujados a la resolución reducida de la capa (`builtinW`, los patrones dependen del tamaño), fotos
+ * con su encuadre (cover + posición + zoom), desenfoque (con el 1.08 de la capa) y velo de atenuación.
+ * Lo usan el guardián de legibilidad (muestra 64 px) y la imagen de «Compartir estadísticas».
+ */
+export function paintBackground(ctx: CanvasRenderingContext2D, bg: Background, img: (CanvasImageSource & { width: number; height: number }) | null, w: number, h: number, o: { framing?: Framing; dim: number; blur?: number; builtinW?: number }) {
+  const blur = o.blur ?? 0;
+  const layer = blur ? Object.assign(document.createElement('canvas'), { width: w, height: h }) : null;
+  const c = layer ? layer.getContext('2d')! : ctx;
+  if (bg.kind === 'solid') (c.fillStyle = bg.value), c.fillRect(0, 0, w, h);
+  else if (bg.kind === 'builtin') {
+    const big = document.createElement('canvas');
+    big.width = Math.round(o.builtinW ?? w / 2);
+    big.height = Math.round((big.width * h) / Math.max(1, w));
+    (BUILTINS.find((b) => b.id === bg.value) ?? BUILTINS[0]!).draw(big.getContext('2d')!, big.width, big.height);
+    c.drawImage(big, 0, 0, w, h);
+    big.width = big.height = 0;
+  } else if (img) {
+    const r = framedRect(img.width, img.height, w, h, o.framing);
+    c.drawImage(img, r.x, r.y, r.w, r.h);
+  }
+  if (layer) (blurInto(ctx, layer, blur, 0, 0, w, h, 1.08), (layer.width = layer.height = 0));
+  if (o.dim) {
+    ctx.fillStyle = o.dim < 0 ? `rgba(0,0,0,${-o.dim / 100})` : `rgba(255,255,255,${o.dim / 100})`;
+    ctx.fillRect(0, 0, w, h);
+  }
+}
+
+/** Imagen decodificada de un fondo propio (null si no es foto o no se pudo leer). */
+export async function backgroundImage(bg: Background, vault: VaultAdapter): Promise<HTMLImageElement | null> {
+  if (bg.kind !== 'image') return null;
+  const url = await mediaUrl(vault, bg.value);
+  return url ? loadImage(url).catch(() => null) : null;
+}
+
 /** Muestra 64×64 de lo que se ve detrás de la interfaz (con proporción de la ventana). */
 export async function sampleBackground(bg: Background, vault: VaultAdapter, dim: number, vw: number, vh: number, framing: Framing = DEFAULT_FRAMING): Promise<ImageData> {
   const W = 64;
@@ -166,26 +245,7 @@ export async function sampleBackground(bg: Background, vault: VaultAdapter, dim:
   c.width = W;
   c.height = H;
   const ctx = c.getContext('2d', { willReadFrequently: true })!;
-  if (bg.kind === 'solid') (ctx.fillStyle = bg.value), ctx.fillRect(0, 0, W, H);
-  else if (bg.kind === 'builtin') {
-    // dibujar a tamaño de pantalla reducido y escalar (los patrones dependen del tamaño)
-    const big = document.createElement('canvas');
-    big.width = 480;
-    big.height = Math.round((480 * vh) / Math.max(1, vw));
-    (BUILTINS.find((b) => b.id === bg.value) ?? BUILTINS[0]!).draw(big.getContext('2d')!, big.width, big.height);
-    ctx.drawImage(big, 0, 0, W, H);
-  } else {
-    const url = await mediaUrl(vault, bg.value);
-    if (url) {
-      const img = await loadImage(url);
-      const r = framedRect(img.width, img.height, W, H, framing);
-      ctx.drawImage(img, r.x, r.y, r.w, r.h);
-    }
-  }
-  if (dim) {
-    ctx.fillStyle = dim < 0 ? `rgba(0,0,0,${-dim / 100})` : `rgba(255,255,255,${dim / 100})`;
-    ctx.fillRect(0, 0, W, H);
-  }
+  paintBackground(ctx, bg, await backgroundImage(bg, vault), W, H, { framing, dim, builtinW: 480 });
   return ctx.getImageData(0, 0, W, H);
 }
 
@@ -289,6 +349,12 @@ const GLASS: Record<'dark' | 'light', { rgb: RGB; a: number; t1: [RGB, number]; 
 
 const hex = (c: RGB) => '#' + c.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
 const over = (top: RGB, a: number, under: RGB): RGB => [0, 1, 2].map((i) => top[i]! * a + under[i]! * (1 - a)) as RGB;
+
+/** Colores del vidrio y del texto de un modo (los mismos que usa el CSS): para dibujar fuera del DOM. */
+export function glassInk(mode: 'dark' | 'light') {
+  const g = GLASS[mode];
+  return { rgb: g.rgb, t1: g.t1, t2: g.t2 };
+}
 
 /** Alfa efectivo del velo según la intensidad del vidrio (igual que en el CSS). */
 export function glassAlpha(mode: 'dark' | 'light', k: number): number {
