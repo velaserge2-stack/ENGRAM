@@ -172,10 +172,20 @@ export class HandleFS {
       return this.forget('');
     }
     this.forget(parts.join('/'));
+    const name = this.codec.enc(parts[parts.length - 1]!);
+    const rm = async (useCache: boolean) => (await this.dir(parts.slice(0, -1), false, useCache)).removeEntry(name, { recursive: true });
     try {
-      await this.fresh(async () => (await this.dir(parts.slice(0, -1), false)).removeEntry(this.codec.enc(parts[parts.length - 1]!), { recursive: true }));
+      await rm(true);
     } catch (e) {
       if (!isNotFound(e)) throw e;
+      // «no existe» es lo normal al borrar algo que no está; solo si sin la caché sí se borra, estaba vieja
+      if (!this.dirs?.size) return;
+      try {
+        await rm(false);
+        this.dirs.clear();
+      } catch (e2) {
+        if (!isNotFound(e2)) throw e2;
+      }
     }
   }
 
@@ -258,13 +268,15 @@ export class HandleFS {
     if (h.kind === 'file') {
       const parts = splitPath(to);
       // un destino que es carpeta nunca se borra para dejar sitio a un archivo
-      if ((await this.resolve(to))?.kind === 'directory') throw new VaultError(`El destino es una carpeta: ${to}`, 'io', to);
+      const dest = await this.resolve(to);
+      if (dest?.kind === 'directory') throw new VaultError(`El destino es una carpeta: ${to}`, 'io', to);
       const fh = h as FileSystemFileHandle & { move?: (dir: FileSystemDirectoryHandle, name: string) => Promise<void> };
       if (typeof fh.move === 'function') {
         try {
-          await this.remove(to);
+          if (dest) await this.remove(to); // un destino que no existe no se borra (un viaje menos)
           await fh.move(await this.fresh(() => this.dir(parts.slice(0, -1), true)), this.codec.enc(parts[parts.length - 1]!));
-          if ((await this.resolve(to)) && !(await this.resolve(from))) return;
+          // comprobar con la caché basta: el origen se acaba de resolver por ella
+          if ((await this.resolve(to)) && !(await this.resolveOnce(from, true))) return;
         } catch { /* sin move fiable: se copia */ }
       }
       await this.writeBlob(to, await (h as FileSystemFileHandle).getFile(), onChunk);
