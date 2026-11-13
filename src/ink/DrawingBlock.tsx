@@ -20,7 +20,7 @@ export type Paper = 'liso' | 'rayado' | 'cuadricula' | 'puntos';
 export interface Drawing extends InkDoc { h: number; paper?: Paper; pages?: number }
 export const PAGE_H = Math.SQRT2; // proporción A4 (alto / ancho)
 const jsonPath = (id: string) => `media/${id}.ink.json`;
-export const pngPath = (id: string) => `media/${id}.png`;
+const pngPath = (id: string) => `media/${id}.png`;
 
 export function parseDrawing(text: string): Drawing {
   const ink = parseInk(text);
@@ -62,7 +62,7 @@ function paintPaper(ctx: CanvasRenderingContext2D, d: Drawing, W: number, H: num
 }
 
 /** PNG del dibujo (fondo blanco, papel y tinta) para vistas previas y exportar. */
-export async function renderPng(d: Drawing, W = 1000): Promise<Uint8Array> {
+async function renderPng(d: Drawing, W = 1000): Promise<Uint8Array> {
   const H = Math.max(40, Math.round(drawingHeight(d) * W));
   const c = document.createElement('canvas');
   c.width = W;
