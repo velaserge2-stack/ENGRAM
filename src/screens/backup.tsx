@@ -2,7 +2,7 @@ import { errMsg, t } from '../i18n';
 import { Archive, Share } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { deliver, stamp } from '../io/share';
-import { buildZip, collectVault, type Manifest, countFiles } from '../io/zip';
+import { type Manifest, zipVault } from '../io/zip';
 import { serializeSettings, SETTINGS_PATH } from '../lib/settings';
 import { formatBytes } from '../lib/storage';
 import { useApp } from '../state';
@@ -25,10 +25,9 @@ export function BackupSheet(props: { onClose: () => void }) {
     setBusy(true);
     try {
       await app.vault.write(SETTINGS_PATH, serializeSettings(app.settings)); // el respaldo lleva los ajustes al día
-      const files = await collectVault(app.vault);
-      const zip = await buildZip(files, APP_VERSION);
-      setCounts(countFiles(files.map((f) => ({ path: f.path, size: f.data.length }))));
-      setFile(new File([zip as BlobPart], t('backup.engrama_p_zip', { p: stamp() }), { type: 'application/zip' }));
+      const { blob, counts } = await zipVault(app.vault, APP_VERSION); // por partes: sin todo en memoria
+      setCounts(counts);
+      setFile(new File([blob], t('backup.engrama_p_zip', { p: stamp() }), { type: 'application/zip' }));
     } catch (e) {
       app.toast(t('backup.no_se_pudo_preparar', { e: errMsg(e) }));
     } finally {
