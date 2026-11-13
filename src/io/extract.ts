@@ -5,7 +5,7 @@ import { t as tr } from '../i18n';
  */
 import { extname } from '../vault/paths';
 
-export const MAX_DOC_BYTES = 60 * 1024 * 1024;
+const MAX_DOC_BYTES = 60 * 1024 * 1024;
 
 export async function pdfjs() {
   const lib = await import('pdfjs-dist');

@@ -10,9 +10,9 @@ import type { VaultAdapter } from '../vault/types';
 import { decodeText, walk } from '../vault/util';
 import { LIMITS, type Limits } from './limits';
 
-export const FORMAT = 'engrama-vault';
+const FORMAT = 'engrama-vault';
 export const FORMAT_VERSION = 1;
-export const MANIFEST = 'manifest.json';
+const MANIFEST = 'manifest.json';
 
 export interface Manifest {
   format: typeof FORMAT;

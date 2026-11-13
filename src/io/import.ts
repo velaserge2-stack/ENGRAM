@@ -166,7 +166,7 @@ export async function gather(incoming: IncomingFile[], opts: GatherOptions = {})
   return { files, warnings, fromVaultZip, log, failures, anki };
 }
 
-export type ItemStatus = 'new' | 'same' | 'conflict';
+type ItemStatus = 'new' | 'same' | 'conflict';
 export type Resolution = 'omit' | 'replace' | 'duplicate';
 
 export interface PlanItem extends VaultFile {
