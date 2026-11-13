@@ -8,6 +8,40 @@ import { readTextOr, walk } from '../vault/util';
 
 export const ATTEMPTS = '.app/exam-attempts.jsonl';
 
+/** Línea quitada de un `.jsonl` y su posición: con ella, deshacer deja el archivo idéntico. */
+export interface RemovedLine { raw: string; index: number; lines: number }
+
+/**
+ * Quita del `.jsonl` solo la línea cuyo `id` es `id`. Las demás (también las dañadas, que los
+ * lectores ignoran) quedan intactas, byte a byte. `null` si no está.
+ */
+export function removeLine(text: string, id: string): { text: string; removed: RemovedLine } | null {
+  const lines = text.split('\n');
+  const index = lines.findIndex((l) => { try { return (JSON.parse(l) as { id?: unknown }).id === id; } catch { return false; } });
+  if (index < 0) return null;
+  const [raw] = lines.splice(index, 1);
+  return { text: lines.join('\n'), removed: { raw: raw!, index, lines: lines.length + 1 } };
+}
+/** Devuelve la línea a su sitio (inverso exacto de `removeLine`). */
+export function insertLine(text: string, r: RemovedLine): string {
+  // un archivo de una sola línea sin salto queda vacío: '' es entonces cero líneas, no una vacía
+  const lines = text === '' && r.lines === 1 ? [] : text.split('\n');
+  lines.splice(Math.min(r.index, lines.length), 0, r.raw);
+  return lines.join('\n');
+}
+
+/** Borra un intento terminado de `.app/exam-attempts.jsonl` (por SafeVault). Si no existe, no escribe. */
+export async function deleteAttempt(vault: VaultAdapter, id: string): Promise<RemovedLine | null> {
+  const r = removeLine(await readTextOr(vault, ATTEMPTS, ''), id);
+  if (!r) return null;
+  await vault.write(ATTEMPTS, r.text);
+  return r.removed;
+}
+/** Deshacer: vuelve a poner la línea en su posición original. */
+export async function restoreAttempt(vault: VaultAdapter, r: RemovedLine): Promise<void> {
+  await vault.write(ATTEMPTS, insertLine(await readTextOr(vault, ATTEMPTS, ''), r));
+}
+
 export async function loadExtra(vault: VaultAdapter): Promise<Extra> {
   const pomodoro = parseSessions(await readTextOr(vault, '.app/pomodoro.jsonl', ''));
   const exams: Extra['exams'] = [];
