@@ -65,3 +65,8 @@ Alta: `move(a, a)` borra el archivo y `HandleFS.move` borra recursivamente un de
 - Análisis profundo de determinismo FSRS, SafeVault/diario, NoteStore, mover, importadores hostiles, Workers y calendario. Informe en `docs/audit/03-criticos.md`: 34 problemas (3 altos, 24 medios, 7 bajos) y PLAN de 15 puntos por causa raíz.
 - Altos: un `apply` fallido de SafeVault deja el destino truncado y la siguiente escritura borra su diario; `noteStore.refresh` durante un guardado en vuelo revierte lo tecleado; `moveCards` quita la tarjeta del origen antes de escribir el destino.
 - Pruebas: `tests/audit-criticos.test.ts`, 17 `it.fails` + 3 controles (descartados: bomba zip con cabecera mentirosa, diario importado que se autoborra, tarjeta nueva en vivo = reproducida). Sin cambios en `src/`.
+
+## Etapa 4 · reducción (2026-11-13) · subagente Sonnet
+- Alcance A+B aprobado: 10 imports/parámetros sin uso, 10 símbolos muertos borrados, 58 `export` quitados. `src/`: +69/−127 líneas. Informe en `docs/audit/04-reduccion.md`.
+- Verificación: typecheck, vitest (316 pass / 88 expected fail), build, `e2e`, `e2e:flows` y `e2e:phone` compare con 0 píxeles. Entrada JS 302 917 → 302 891 B; cobertura 72.49 → 72.51 %.
+- Se conservaron los `export` usados por `tests/audit-*.test.ts` (9 símbolos) y todo lo «revisar»; preguntas en el informe.
