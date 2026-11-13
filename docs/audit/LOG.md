@@ -55,3 +55,8 @@ Activas para la auditoría (≤ 6): ponytail, systematic-debugging, webapp-testi
 Informe en `docs/audit/02-vault.md`: 10 hallazgos (2 alta, 4 media, 4 baja); 8 `it.fails` en `tests/audit-vault.test.ts`.
 Raíz del patrón `readTextOr(…, '')`: `util.ts` atrapa todas las excepciones; corrección central: solo `VaultError` `not-found`.
 Alta: `move(a, a)` borra el archivo y `HandleFS.move` borra recursivamente un destino-carpeta. Código de error de cuota del Worker llega numérico.
+
+## Etapa 2.5 · screens/ui (2026-11-13) · subagente Sonnet
+- Revisados efectos y manejadores asíncronos de `screens/` (notes, spaces, study, deck, pdf, pdfs, pomodoro, simulacros, inbox, backup, settings), `ui/md|background`, `app.tsx`, `state.tsx`. Informe en `docs/audit/02-ui.md`: 16 hallazgos (3 altos, 6 medios, 7 bajos).
+- Altos: el patrón `readTextOr(…, '')` + escritura vuelve en `simulacros.finish` (historial de intentos), `DeckEditor` (mazo; además sin `key`/`alive` al cambiar de ruta) y anotaciones de PDF; `study.answer` deja `busy` fijo si falla la escritura.
+- Pruebas: `tests/audit-ui.test.ts` con 2 `it.fails` (doble `decodeURIComponent` en `spaces.tsx:111`). Sin cambios en `src/`. Sección «para etapa 3» en el informe.
