@@ -1136,6 +1136,42 @@ Resumen, archivos tocados y no tocados, decisión de ubicación y otros lugares 
 
 ---
 
+# PROMPT 14: Asa de redimensionar del panel de nota + rendimiento de notas e imágenes grandes
+Debug y optimización para Engrama (ya desplegada)
+
+## 0. Contexto y síntomas
+1. **Bug**: al abrir una **nota en un panel del lienzo** (Espacios), la zona para **agrandar el panel** (la esquina de redimensionar) **se queda atrás al bajar** por la nota: tras desplazarse, ya no se puede redimensionar el panel.
+2. **Rendimiento de notas**: con notas **muy pesadas** (muchos bloques, tablas, imágenes, dibujos) la edición, el desplazamiento y la apertura se **enlentecen**.
+3. **Rendimiento de imágenes en el lienzo**: abrir **imágenes grandes** en un panel del lienzo es lento (y el lienzo se ralentiza al paneo/zoom).
+
+Antes de escribir código:
+1. Lee `CLAUDE.md`, `docs/SPEC.md` (§10b, §10d, §11), `docs/DECISIONS.md`, `src/screens/spaces.tsx` (`Win`/`.win-resize`, `PanelBody`, `ImageView`), `src/theme-cristal.css` (`.win`, `.win-body`, `.win-resize`, `.canvas-plane`), `src/screens/notes.tsx` (editor por bloques, `BlockInput`, `FindBar`, guardado), `src/ui/md.tsx` (`Html`), `src/md/render.ts`, `src/notes/store.ts`, `src/notes/images.ts`, `src/ui/background.tsx` (`mediaUrl`) y `src/ink/DrawingBlock.tsx`.
+2. **Mide antes de optimizar** (punto 2.1) y responde con un **plan corto**: causa real de cada síntoma, archivos a tocar, riesgos y objetivos numéricos. Espera mi confirmación solo si algo contradice una regla no negociable.
+
+**Reglas estrictas**
+- Implementa **únicamente** lo descrito. No refactorices lo que funciona ni cambies formatos de archivo (`.md`, `.ink.json`, `media/`): **los archivos del usuario siguen siendo la fuente de verdad** y una nota se guarda **idéntica** byte a byte a como la dejaría hoy.
+- **No recortes** escritura segura (`SafeVault`, diario), integridad, sanitización (DOMPurify; todo HTML sigue pasando por ella, también lo que se guarde en caché), determinismo de FSRS ni accesibilidad (VoiceOver, teclado, foco, `aria-*`).
+- **iPad, iPhone y web no cambian** en aspecto ni comportamiento fuera de lo descrito (`MODE=compare npm run e2e:phone` con diferencia cero). El comportamiento de redimensionar y mover paneles sigue igual cuando no se ha desplazado el contenido.
+- Todo texto nuevo por `t()` (es/en/fr; la prueba de claves debe seguir pasando). Tema Cristal (sin color, objetivos ≥ 44 px donde ya aplique). Sin dependencias nuevas salvo justificación (MIT/Apache/BSD/ISC) y peso.
+- Rama `fix-lienzo-rendimiento`, un commit por punto. No hagas push ni unas a `main` sin mi confirmación. Actualiza `CLAUDE.md` y `docs/DECISIONS.md` (decisiones, medidas antes/después y límites de Safari) y guarda este prompt en `docs/PROMPTS.md`.
+- Skills sugeridas: ponytail (código mínimo), webapp-testing (WebKit), break-ui (notas enormes, imágenes enormes, listas vacías), superpowers (reproducir primero, luego corregir).
+
+## 1. Bug: el asa de redimensionar se queda atrás al desplazar la nota
+**Causa probable (verifícala y reporta lo que encuentres)**: en `spaces.tsx` el asa `<div class="win-resize">` está **dentro** de `.win-body`, y `.win-body` es el contenedor que **hace el scroll** (`overflow: auto; position: relative`). Un elemento con `position: absolute` dentro de un contenedor con scroll se coloca respecto a **su contenido**, no al área visible: al desplazar la nota, el asa **sube con el contenido** y sale de la vista. Lo mismo puede ocurrir con cualquier otro panel con scroll (PDF, documento, hoja, mazo, simulacro).
+
+**Corrección**: asa hija de `.win` (o de un envoltorio `.win-frame`), fija en la esquina inferior derecha visible, sobre el contenido (z-index con tokens), `touch-action: none` solo en el asa; relleno inferior/derecho para no tapar la última línea ni la barra; zona táctil ≥ 44×44 px (dibujo de 22 px) y bordes derecho/inferior y esquina redimensionables; mínimos actuales (nota 480×360, resto 260×200) y escala del lienzo; arrastrar el asa nunca desplaza la nota ni abre el teclado (`setPointerCapture`); un solo lugar para todos los paneles; en `is-phone` sigue oculta; en pausa no se muestra. **Pruebas (WebKit)**: nota de 200 bloques desplazada al final y a mitad, asa dentro del área visible antes y después, redimensionar en cada posición con escala 1, 0.5 y 2, con ratón, táctil y `pen`; repetir con PDF, documento y hoja. **Criterio**: con una nota larga desplazada hasta el final, el asa sigue en la esquina visible y permite agrandar y achicar el panel.
+
+## 2. Rendimiento de notas pesadas
+**2.1 Medir primero**: generador reproducible (N1 500 bloques ~100 KB, N2 3 000 ~600 KB, N3 10 000 ~2 MB, con párrafos, listas, tablas, callouts, wikilinks, 30 imágenes de 1–3 MP, 5 dibujos y bloques `query`); medir antes y después apertura, latencia al teclear, fps al desplazar, memoria (heap, nodos DOM, `blob:` vivas) y «Buscar en esta nota», en pestaña y en panel (también dos paneles de la misma nota). Objetivos iniciales: abrir N2 < 1 s; teclear < 50 ms en N2 y < 100 ms en N3; ≥ 50 fps al desplazar N2; memoria estable tras 5 min.
+**2.2 Causas probables a verificar**: `renderMarkdown(expandQueries(...))` de todos los bloques en cada render; `setBody` reconstruye el texto en cada tecla; `Html` rehidrata medios por bloque; `FindBar` con `dep={text + mode}`; `snapshot` e `notesIndex.upsert` con el texto completo en cada guardado.
+**2.3 Optimizaciones (solo las que la medición justifique)**: renderizar solo lo visible (`content-visibility` + `contain-intrinsic-size` o virtualización) sin romper Buscar, imprimir/exportar, buscador global, esquema ni VoiceOver; HTML por bloque en caché (LRU, ya saneado) y bloques memoizados; consultas `query` solo al cambiar sus datos; no reconstruir el documento en cada tecla (guardado idéntico); índice e historial diferidos; `FindBar` con debounce; imágenes perezosas con `decoding="async"`, sin saltos y revocando `blob:`; dibujos como miniatura hasta tocarlos; una sola copia por nota (pestaña + panel); modo «Ver Markdown» usable o aviso; aviso suave en notas gigantes (> 1.5 MB o > 5 000 bloques) con «Dividir en varias notas» opcional (puede quedar pendiente). **Criterio**: N2 fluida y rápida, N3 usable con aviso, todas las funciones intactas y archivo idéntico.
+
+## 3. Rendimiento de imágenes en paneles del lienzo
+**3.1 Causas a verificar**: `ImageView` pone el original completo en `<img>`; Safari lo decodifica entero; el lienzo escala con transformaciones; cada apertura puede crear una `blob:` nueva; límite de memoria de Safari (~16 MP).
+**3.2 Optimizaciones**: versión reducida al tamaño mostrado × `devicePixelRatio` (tope ≈ 2 y ≈ 2 560 px) en caché regenerable (`.app/cache/img/…`, nunca en `media/`), original solo al acercar mucho o «Ver original»; zoom y desplazamiento propios con Pointer Events; aviso y versión reducida obligatoria para imágenes enormes; decodificación asíncrona y marcador de carga; capa promovida solo durante el gesto y paneles fuera de pantalla o dormidos sin imagen decodificada (máximo 4 activos); `saveImage` ≤ 2 000 px sin tocar originales ya existentes; revocar `blob:` sin fugas (20 aperturas); pruebas con 2, 12, 24 y 48 MP en JPG y PNG y paneo/zoom con 1, 2 y 4 paneles. **Criterio**: 12 MP en < ~1 s sin congelar, paneo/zoom con 4 paneles ≥ 50 fps, memoria estable, original intacto.
+
+## 4. Pruebas y entrega
+Unitarias (caché de HTML, texto guardado idéntico, tamaño de la versión reducida, límites de Safari, revocación de URLs, posición del asa). WebKit: asa, benchmarks N1/N2/N3 e imágenes, buscar e imprimir una nota enorme, exportar `.md`/`.docx`/`.pdf`, misma nota en pestaña y panel, recargar; sin regresiones en `npm test`, `e2e`, `e2e:flows`, `e2e:mejoras`, `e2e:mejoras2`, `e2e:bloquec`, `e2e:p5` y `e2e:phone` (diferencia cero); idiomas y pseudoidioma. Lista manual para iPad real. Entrega: causas reales, cambios, archivos tocados y no tocados, tabla antes/después, optimizaciones descartadas y límites de Safari.
 # PROMPT 15: Arreglar el minimapa del lienzo (Espacios)
 Debug para Engrama (ya desplegada)
 

@@ -1,0 +1,74 @@
+{
+ "browser": "chromium",
+ "date": "2026-11-13T01:56:53.872Z",
+ "img": {
+  "img-2mp.jpg": {
+   "showMs": 144,
+   "heapMB": 526,
+   "dom": 229,
+   "blobs": 1,
+   "naturalPx": "640×480"
+  },
+  "img-12mp.jpg": {
+   "showMs": 125,
+   "heapMB": 527,
+   "dom": 229,
+   "blobs": 1,
+   "naturalPx": "640×480"
+  },
+  "img-24mp.jpg": {
+   "showMs": 187,
+   "heapMB": 527,
+   "dom": 229,
+   "blobs": 1,
+   "naturalPx": "640×480"
+  },
+  "img-48mp.jpg": {
+   "showMs": 314,
+   "heapMB": 545,
+   "dom": 229,
+   "blobs": 1,
+   "naturalPx": "640×480"
+  },
+  "img-12mp.png": {
+   "showMs": 286,
+   "heapMB": 539,
+   "dom": 229,
+   "blobs": 1,
+   "naturalPx": "640×480"
+  },
+  "img-48mp.png": {
+   "showMs": 683,
+   "heapMB": 585,
+   "dom": 229,
+   "blobs": 1,
+   "naturalPx": "640×480"
+  }
+ },
+ "pan_1img": {
+  "fps": 50,
+  "worstFrameMs": 33,
+  "heapMB": 564,
+  "dom": 230,
+  "blobs": 1
+ },
+ "pan_2img": {
+  "fps": 55,
+  "worstFrameMs": 33,
+  "heapMB": 586,
+  "dom": 267,
+  "blobs": 2
+ },
+ "pan_4img": {
+  "fps": 55,
+  "worstFrameMs": 33,
+  "heapMB": 566,
+  "dom": 312,
+  "blobs": 2
+ },
+ "blobLeak": {
+  "before": 0,
+  "after20": 0,
+  "reopenP50Ms": 33
+ }
+}

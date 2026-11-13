@@ -98,13 +98,41 @@ const PURIFY = {
   ADD_TAGS: ['details', 'summary'],
 };
 
+/**
+ * Prompt 14: instancia propia con la configuración fijada una vez. Pasar la configuración en cada
+ * llamada obligaba a DOMPurify a volver a procesarla (y clonar sus listas) en cada bloque: era la
+ * mitad del tiempo de renderizar una nota. Mismas reglas, mismo resultado.
+ */
+let purify: ReturnType<typeof DOMPurify> | null = null;
 export function sanitize(html: string): string {
-  return DOMPurify.sanitize(html, PURIFY) as string;
+  if (!purify) (purify = DOMPurify()).setConfig(PURIFY);
+  return purify.sanitize(html) as string;
 }
 
 export function renderMarkdown(text: string): string {
   return sanitize(engine().render(text));
 }
+
+/**
+ * HTML ya sanitizado por texto de bloque (LRU). Un bloque que no cambió no se vuelve a convertir
+ * ni a sanear: escribir en una nota de 3 000 bloques ya no rehace los otros 2 999. Guarda la salida
+ * de `renderMarkdown`, así que todo lo que sale de aquí pasó por DOMPurify.
+ */
+const LRU_MAX = 20000;
+const lru = new Map<string, string>();
+export function renderMarkdownCached(text: string): string {
+  const hit = lru.get(text);
+  if (hit !== undefined) {
+    lru.delete(text);
+    lru.set(text, hit);
+    return hit;
+  }
+  const html = renderMarkdown(text);
+  lru.set(text, html);
+  if (lru.size > LRU_MAX) lru.delete(lru.keys().next().value!);
+  return html;
+}
+export const renderCacheSize = () => lru.size;
 
 export function renderInline(text: string): string {
   return sanitize(engine().renderInline(text));

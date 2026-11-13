@@ -33,6 +33,26 @@ function rangesIn(root: HTMLElement, q: string): Range[] {
 }
 
 /**
+ * Lleva la coincidencia a la vista. Prompt 14: las notas grandes pintan por tramos
+ * (`content-visibility`), y el desplazamiento suave se calcula con alturas estimadas de lo que aún
+ * no se pintó; al llegar, si la coincidencia quedó fuera de su contenedor, se recoloca.
+ */
+function reveal(el: HTMLElement) {
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  let sc: HTMLElement | null = el.parentElement;
+  while (sc && !(sc.scrollHeight > sc.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+  // ~1 s vigilando: los tramos que se pintan al llegar pueden volver a mover la coincidencia
+  let frames = 0, moves = 0;
+  const fix = () => {
+    if (!el.isConnected || frames++ > 60) return;
+    const r = el.getBoundingClientRect(), box = sc?.getBoundingClientRect() ?? { top: 0, bottom: innerHeight };
+    if ((r.top < box.top || r.bottom > box.bottom) && moves++ < 6) el.scrollIntoView({ block: 'center' });
+    requestAnimationFrame(fix);
+  };
+  setTimeout(fix, 700);
+}
+
+/**
  * «Buscar en esta nota» (D11): siguiente/anterior y contador. Resalta con la CSS Custom
  * Highlight API (Safari 17.2+); si no existe, selecciona la coincidencia actual.
  */
@@ -57,7 +77,8 @@ export function FindBar(props: { root: () => HTMLElement | null; initial: string
       sel?.removeAllRanges();
       sel?.addRange(cur);
     }
-    (cur?.startContainer.parentElement)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const el = cur?.startContainer.parentElement;
+    if (el) reveal(el);
   }, [q, i, props.dep]);
   useEffect(() => () => { highlights()?.delete('engrama-find'); highlights()?.delete('engrama-find-cur'); }, []);
   const go = (d: number) => setI((x) => (n ? (((x + d) % n) + n) % n : 0));
