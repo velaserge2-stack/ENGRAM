@@ -82,13 +82,20 @@ try {
     writeFileSync(OUT + 'np-foto.jpg', photo);
     check(photo.length > 3_000_000, `foto de prueba de 12 MP (${(photo.length / 1e6).toFixed(1)} MB)`);
     await newNote(page, 'Fotos');
-    await page.getByRole('button', { name: /Escribe o usa/ }).click();
-    await page.waitForFunction(() => document.activeElement?.tagName === 'TEXTAREA');
-    await page.keyboard.type('/ima', { delay: 60 });
-    await page.locator('.slash').getByText('Imagen').waitFor();
-    const fc = page.waitForEvent('filechooser');
-    await page.keyboard.press('Enter');
-    await (await fc).setFiles({ name: 'foto.jpg', mimeType: 'image/jpeg', buffer: photo });
+    // «/imagen» + Intro: si el menú no recibe el Intro (fallo previo de BlockInput al teclear rápido), se reintenta
+    let chooser = null;
+    for (let t = 0; t < 3 && !chooser; t++) {
+      if (!(await page.locator('.doc textarea').count())) await page.getByRole('button', { name: /Escribe o usa/ }).click();
+      await page.waitForFunction(() => document.activeElement?.tagName === 'TEXTAREA');
+      await page.keyboard.type('/ima', { delay: 80 });
+      await page.locator('.slash').getByText('Imagen').waitFor();
+      const fc = page.waitForEvent('filechooser', { timeout: 5000 }).catch(() => null);
+      await page.keyboard.press('Enter');
+      chooser = await fc;
+      if (!chooser) (await page.keyboard.press('Escape'), await page.locator('.doc textarea').fill('').catch(() => {}));
+    }
+    check(!!chooser, '«/imagen» abre el selector de archivos');
+    await chooser.setFiles({ name: 'foto.jpg', mimeType: 'image/jpeg', buffer: photo });
     const bar = page.getByRole('toolbar', { name: 'Opciones de la imagen' });
     await bar.waitFor({ timeout: 15000 });
     check(true, 'tras insertar, la barra de la imagen aparece lista');
@@ -121,7 +128,7 @@ try {
     await page.mouse.up();
     const after = await markdown(page);
     const px = /\.jpg\|(\d+)\|izq/.exec(after)?.[1];
-    check(hb && px && Number(px) >= 80 && after !== before, `el asa reescribe el ancho en píxeles (${px} px)`);
+    check(hb && px && Number(px) >= 80 && after !== before, `el asa reescribe el ancho en píxeles (${px} px)` + (px ? '' : ' → ' + (/!\[\[[^\]]+\]\]/.exec(after)?.[0] ?? '') + ' hb=' + JSON.stringify(hb)));
     await page.locator('.doc h1, .doc .foot').first().click().catch(() => {});
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(200);
