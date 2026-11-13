@@ -101,10 +101,13 @@ body.focus .bg-veil { background: rgba(0, 0, 0, .35) !important; }
   box-shadow: var(--hilite), var(--shadow);
   border-radius: var(--r-panel); color: var(--t1);
 }
-.glass.strong { background: var(--glass-strong); -webkit-backdrop-filter: blur(40px) saturate(var(--sat)); backdrop-filter: blur(40px) saturate(var(--sat)); }
+.glass.strong { background: var(--glass-strong); -webkit-backdrop-filter: blur(calc(40px * min(1, var(--k) / .7))) saturate(var(--sat)); backdrop-filter: blur(calc(40px * min(1, var(--k) / .7))) saturate(var(--sat)); }
+/* ↑ vidrio: «Intensidad del vidrio» también gobierna las superficies fuertes (40 px al valor por defecto .7, 0 px al 0 %) */
 /* dentro de un vidrio: solo relleno translúcido (no anidar desenfoques) */
 .glass .glass, .inset { background: var(--fill-2); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; border: var(--hair) solid var(--line); }
 .light-mode .glass, .glass.flat { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--glass-flat); }
+/* modo ligero: también sin sombras grandes (una sombra corta; el borde y el relleno opaco ya separan) */
+.light-mode .glass { box-shadow: var(--hilite), 0 2px 8px rgba(0, 0, 0, .18); }
 @media (prefers-reduced-transparency: reduce) { .glass, .glass.strong { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--glass-flat); } }
 @media (prefers-contrast: more) { .glass { border-width: 1px; border-color: var(--border-strong); } [data-glass] { --t2: var(--t1); } }
 
@@ -136,6 +139,9 @@ button.pill, a.pill { border: var(--hair) solid var(--border); }
 .wrap > .btn, .wrap > label.btn { white-space: normal; text-align: center; } /* i18n: textos largos bajan de línea en vez de desbordar */
 .btn:active { transform: scale(.96); background: var(--fill-sel); }
 .btn.primary, .btn[aria-pressed="true"] { background: var(--inverse-bg); color: var(--inverse-fg); border-color: transparent; }
+/* «Añadir examen» en Hoy: una píldora de vidrio alrededor del botón (y su ayuda si no hay exámenes) */
+.exam-add { display: grid; justify-items: center; gap: 6px; padding: 6px; border-radius: 26px; max-width: 100%; text-align: center; }
+.exam-add .foot { padding: 0 12px 6px; max-width: 34ch; }
 .btn.ghost { background: transparent; }
 .btn.outline { background: transparent; border: 1px solid var(--border-strong); }
 .btn.small { min-height: 36px; padding: 0 14px; font-size: var(--t-note); }
@@ -366,6 +372,15 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 .minimap { position: absolute; right: 12px; bottom: 12px; width: 160px; height: 110px; border-radius: 14px; overflow: hidden; }
 .minimap i { position: absolute; background: var(--t3); border-radius: 2px; }
 .minimap b { position: absolute; border: 1.5px solid var(--t1); border-radius: 3px; }
+/* Prompt 15: el minimapa navega (encima de paneles y asas, debajo de las capas) */
+.minimap { z-index: var(--z-panel); touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.minimap:focus-visible { outline: 2px solid var(--t1); outline-offset: 2px; }
+.minimap i.on { background: var(--t2); }
+.minimap b { pointer-events: none; }
+.minimap.settle i, .minimap.settle b { transition: left .25s, top .25s, width .25s, height .25s; }
+@media (prefers-reduced-motion: reduce) { .minimap.settle i, .minimap.settle b { transition: none; } }
+.minimap-toggle { position: absolute; right: 180px; bottom: 12px; z-index: var(--z-panel); }
+.minimap-toggle.alone { right: 12px; }
 .pdf-page { margin: 10px auto; position: relative; box-shadow: var(--shadow); background: #fff; }
 .pdf-page canvas { display: block; width: 100%; height: 100%; }
 .pdf-text { position: absolute; inset: 0; line-height: 1; overflow: hidden; }
@@ -500,6 +515,8 @@ pre.preview { background: var(--fill-2); border: var(--hair) solid var(--line); 
 .mh .panel-h { padding-right: 44px; }
 .mh { position: relative; }
 .mh > .min-btn { position: absolute; top: 10px; right: 10px; z-index: 2; }
+/* el contenedor se ajusta al mapa de adherencia recortado: el botón queda en la esquina del panel, no de la fila */
+.mh:has(> .heat-panel.fit) { width: fit-content; max-width: 100%; }
 
 /* logo: siempre en su recuadro oscuro, también en modo claro (no se invierte ni se recolorea) */
 .brand-mark { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: #000006; box-shadow: var(--shadow); }
@@ -511,7 +528,7 @@ pre.preview { background: var(--fill-2); border: var(--hair) solid var(--line); 
    (max-width: 600px), (max-height: 500px) and (orientation: landscape)). Un iPad nunca la cumple:
    nada de lo que sigue cambia iPad ni web. */
 .is-phone { --blur: 14px; --tabbar-h: 60px; }
-.is-phone .glass.strong { -webkit-backdrop-filter: blur(22px) saturate(var(--sat)); backdrop-filter: blur(22px) saturate(var(--sat)); }
+.is-phone .glass.strong { -webkit-backdrop-filter: blur(calc(22px * min(1, var(--k) / .7))) saturate(var(--sat)); backdrop-filter: blur(calc(22px * min(1, var(--k) / .7))) saturate(var(--sat)); }
 .is-phone .app { padding: calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 12px) calc(env(safe-area-inset-bottom) + var(--tabbar-h) + 28px) calc(env(safe-area-inset-left) + 12px); }
 .is-phone.kb-open .app { padding-bottom: calc(var(--kb-inset) + 16px); }
 
@@ -774,19 +791,28 @@ body:has(.tray.floating) .dev-sign { bottom: calc(env(safe-area-inset-bottom) + 
 body.focus .dev-sign, body.notes-full .dev-sign { display: none; }
 @media print { .dev-sign { display: none; } }
 
-/* Prompt 6 · D — mini reproductor de sonido ambiente */
-.mini-amb { display: inline-flex; align-items: center; gap: 2px; height: 44px; padding: 0 2px 0 12px; border-radius: var(--r-pill); max-width: 230px; flex: none; }
+/* Mini reproductor unificado: UNA superficie de vidrio (un solo backdrop-filter); la píldora queda
+   abajo y el contenido crece hacia arriba dentro del mismo contenedor (sin saltos) */
+.mini-amb { display: flex; flex-direction: column-reverse; align-items: stretch; border-radius: 22px; max-width: 230px; }
+.mini-amb.open { width: min(300px, calc(100vw - 32px)); max-width: none; }
+.mini-amb-pill { display: flex; align-items: center; gap: 2px; height: 44px; padding: 0 2px 0 12px; justify-content: space-between; }
 .mini-amb-main { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 44px; padding: 0; border: 0; background: none; color: var(--t1); font: inherit; font-size: var(--t-note); font-weight: 500; }
 .mini-amb-t { max-width: 140px; }
+.mini-amb.open .mini-amb-t { max-width: 210px; }
 .mini-amb .bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 14px; flex: none; }
 .mini-amb .bars i { width: 3px; height: 100%; background: var(--t1); border-radius: 1px; transform-origin: bottom; transform: scaleY(.3); }
 .mini-amb.on .bars i { animation: mini-lvl .9s ease-in-out infinite alternate; }
 .mini-amb.on .bars i:nth-child(2) { animation-delay: -.3s; }
 .mini-amb.on .bars i:nth-child(3) { animation-delay: -.6s; }
 @keyframes mini-lvl { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
+.mini-amb.docked { position: fixed; z-index: var(--z-dock); right: calc(env(safe-area-inset-right) + 16px); bottom: calc(env(safe-area-inset-bottom) + 16px + var(--kb-inset, 0px)); }
+/* en el lienzo, la esquina inferior derecha es del minimapa y su botón: el mini sube por encima */
+html.in-canvas .mini-amb.docked { bottom: calc(env(safe-area-inset-bottom) + 176px); }
 .mini-amb.floating { position: fixed; z-index: var(--z-dock); right: calc(env(safe-area-inset-right) + 12px); bottom: calc(env(safe-area-inset-bottom) + var(--tabbar-h) + 18px); }
-.mini-amb-x { width: min(300px, calc(100vw - 16px)); padding: 12px; animation: mini-in .28s var(--spring); transform-origin: top center; }
-@keyframes mini-in { from { opacity: 0; transform: translateY(-6px) scale(.97); } }
+.mini-amb-x { padding: 12px 12px 4px; border-bottom: var(--hair) solid var(--line); animation: fade .2s; }
+.mini-amb-line { display: grid; gap: 2px; min-width: 0; }
+.mini-amb-prog { height: 4px; margin-top: 4px; border-radius: 2px; background: var(--fill-2); overflow: hidden; }
+.mini-amb-prog i { display: block; height: 100%; background: var(--t1); }
 .mini-amb-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: center; gap: 8px; min-height: 44px; font-size: var(--t-note); }
 @media (prefers-reduced-motion: reduce) { .mini-amb.on .bars i { animation: none; transform: scaleY(.7); } .mini-amb-x { animation: none; } }
 

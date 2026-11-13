@@ -1172,3 +1172,70 @@ Antes de escribir código:
 
 ## 4. Pruebas y entrega
 Unitarias (caché de HTML, texto guardado idéntico, tamaño de la versión reducida, límites de Safari, revocación de URLs, posición del asa). WebKit: asa, benchmarks N1/N2/N3 e imágenes, buscar e imprimir una nota enorme, exportar `.md`/`.docx`/`.pdf`, misma nota en pestaña y panel, recargar; sin regresiones en `npm test`, `e2e`, `e2e:flows`, `e2e:mejoras`, `e2e:mejoras2`, `e2e:bloquec`, `e2e:p5` y `e2e:phone` (diferencia cero); idiomas y pseudoidioma. Lista manual para iPad real. Entrega: causas reales, cambios, archivos tocados y no tocados, tabla antes/después, optimizaciones descartadas y límites de Safari.
+# PROMPT 15: Arreglar el minimapa del lienzo (Espacios)
+Debug para Engrama (ya desplegada)
+
+## 0. Contexto y síntoma
+En **Espacios** (lienzo infinito), el **minimapa** (mini navegador de la esquina inferior derecha) **no funciona**: no permite moverse por el lienzo.
+
+Antes de escribir código:
+1. Lee `CLAUDE.md`, `docs/SPEC.md` (§10d), `docs/DECISIONS.md`, `src/screens/spaces.tsx` (el lienzo: `canvas-wrap`, `canvas-plane`, estado de vista `v`/`setV`/`commit`, `fit`, `front`, `visible`, y el bloque `<div class="minimap …>`) y `src/theme-cristal.css` (`.minimap`, `.canvas-wrap`).
+2. Responde con un **plan corto**: causa real, archivos a tocar y riesgos. Espera mi confirmación solo si algo contradice una regla no negociable.
+
+**Reglas estrictas**
+- Implementa **únicamente** esto. No refactorices el lienzo ni cambies el paneo, el zoom, los paneles, "Ajustar al contenido" ni el formato de `.app/spaces/<nombre>.json` (cambios retrocompatibles y perezosos).
+- Todo texto nuevo por `t()` (es/en/fr; la prueba de claves debe seguir pasando). Tema Cristal: sin color (usa relleno, opacidad y grosor, no tono), objetivos táctiles ≥ 44 px donde aplique, z-index solo con los tokens `--z-*`.
+- iPad, iPhone y web no cambian fuera del minimapa (`MODE=compare npm run e2e:phone` con diferencia cero). En `is-phone` el minimapa no aplica (un solo panel a la vez).
+- Sin dependencias nuevas. Accesibilidad intacta (teclado, foco, VoiceOver).
+- Rama `fix-minimapa`, un commit por punto. No hagas push ni unas a `main` sin mi confirmación. Actualiza `CLAUDE.md` y `docs/DECISIONS.md`; guarda este prompt en `docs/PROMPTS.md`.
+- Skills sugeridas: ponytail, webapp-testing (WebKit), superpowers (reproducir primero, luego corregir).
+
+## 1. Causas probables (verifícalas y reporta lo que encuentres)
+- **Es solo decorativo**: `<div class="minimap glass" aria-hidden="true">` no tiene ningún manejador de puntero; tocar o arrastrar no navega.
+- **Sus eventos suben al lienzo**: el `onPointerDown` de `canvas-wrap` solo ignora lo que viene de `.win`, así que arrastrar sobre el minimapa **hace paneo del lienzo en sentido contrario**.
+- **Límites incompletos**: `minX/minY/maxX/maxY` solo cuentan los paneles. Si el usuario se desplaza o aleja más allá de ellos, el **rectángulo de vista (`<b>`) queda fuera** del minimapa (`overflow: hidden`) y desaparece.
+- **No reactivo al tamaño**: el rectángulo usa `wrap.current.clientWidth/Height` leídos en el render (no un estado), así que no se actualiza al rotar el iPad, redimensionar la ventana o cambiar Stage Manager.
+- **Incluye paneles minimizados**: usa `p.sp.panels` completo, mientras que el lienzo dibuja solo `visible(p.sp)`.
+- Posible solapamiento con "Ajustar al contenido" (abajo a la izquierda) o con el asa de redimensionar de un panel.
+
+## 2. Corrección (mínima, reutilizando el sistema de vista existente)
+- **Aislar los eventos**: el minimapa detiene `pointerdown/move/up` (o `closest('.minimap')` en el manejador del lienzo); `pointer-events: auto`, `touch-action: none`, `z-index` por encima de paneles y asa, por debajo de modales.
+- **Navegación**: tocar un punto centra la vista; arrastrar el rectángulo (o cualquier punto) desplaza el lienzo en el sentido correcto, con `setPointerCapture`, con dedo, ratón y Apple Pencil; el zoom no cambia; al soltar se guarda la vista como el paneo.
+- **Límites correctos**: unión de los paneles visibles y del rectángulo de vista con un pequeño margen; `mk` con esos límites; fijos durante el arrastre y suavizados al soltar.
+- **Reactividad**: tamaño del contenedor en un estado con `ResizeObserver` sobre `canvas-wrap`.
+- **Contenido**: solo paneles visibles; el enfocado con relleno más claro (sin color); tocar un panel lo trae al frente y lo centra (`front` + `commit`).
+- **Plegable**: botón para plegar/mostrar; estado por espacio en `.app/spaces/<nombre>.json` como campo opcional (si falta, se muestra). Con 0 o 1 panel no se muestra.
+- **Accesibilidad**: sin `aria-hidden`; rol y `aria-label` traducido ("Minimapa del lienzo"); flechas desplazan la vista e Intro centra el panel enfocado; tooltip y foco visible.
+- **Rendimiento**: DOM ligero (`<i>` y `<b>`), sin `canvas` global; cajas de paneles memoizadas por posición y tamaño.
+
+## 3. Pruebas
+- **Unitarias**: límites y escala (unión con la vista; 0, 1 y N paneles; panel enorme; coordenadas negativas) y conversión minimapa ↔ lienzo con zoom entre 0.2 y 3.
+- **WebKit (Playwright)** con 6 paneles y con dedo, ratón y `pointerType: 'pen'`: 1) tocar una esquina centra la vista; 2) arrastrar el rectángulo mueve el lienzo en el sentido correcto; 3) el rectángulo sigue visible tras desplazarse muy lejos y con el zoom al mínimo; 4) sin paneo inverso; 5) tocar un panel lo trae al frente y lo centra; 6) rotar o redimensionar actualiza el rectángulo; 7) los minimizados no aparecen; 8) pellizco, rueda y "Ajustar al contenido" siguen funcionando; 9) la vista y el plegado se conservan al recargar.
+- **Regresión**: `npm test`, `e2e`, `e2e:bloquec` y `e2e:phone` (diferencia cero); "sin color" y legibilidad; tres idiomas y pseudoidioma (+40 %).
+- **Verificación manual en iPad real**: dedo y Apple Pencil, 6+ paneles, vertical y horizontal.
+
+## 4. Entrega
+Resumen corto: causas reales, qué cambió, archivos tocados y no tocados, y límites de Safari.
+
+**Criterio de aceptación**: tocar o arrastrar el minimapa mueve la vista del lienzo de forma predecible, el rectángulo de vista nunca desaparece y no hay paneo inverso.
+
+---
+
+# MINI PROMPT: Mini reproductor unificado + que SÍ suene por los altavoces
+
+Lee `CLAUDE.md`. Rama `fix-reproductor`. Arregla **solo** esto: no cambies sonidos, mezcla, add-ons ni otras pantallas; sin dependencias nuevas. Texto nuevo por `t()` (es/en/fr). Tema Cristal sin color (la jerarquía con relleno/opacidad/tamaño), flotantes por `src/ui/overlay.tsx`, z-index con `--z-*`, objetivos ≥ 44 px, `aria-label` en botones solo-icono, teléfono solo bajo `html.is-phone`; `MODE=compare npm run e2e:phone` = 0 píxeles fuera del reproductor. Skills: ponytail, webapp-testing, superpowers (reproduce primero, luego corrige).
+
+## Problemas
+1. **No se escucha nada** (ni sonido ambiente ni música) por los altavoces.
+2. **El mini reproductor no se ve como UNO**: debe ser **un solo componente** (una píldora de vidrio que se expande al pasar el mouse/tocar), no piezas sueltas ni dos controles separados para «ambiente» y «música».
+
+## 1. Sonido: reproduce y diagnostica antes de tocar (`src/lib/ambient.ts`, `src/lib/noise.ts`, `src/screens/ambient.tsx`, el mini reproductor)
+Con Playwright (WebKit si existe) y `window.__ambient.state()`, comprueba si hay `AudioContext` en `running`, el nivel del `master` y si `play()` de los `<audio>` se rechaza. **Reporta la causa real**. Sospechas a verificar: falta `navigator.audioSession` (`type = 'playback'` dentro del gesto, con detección); `play()` fuera del gesto (el `await mediaUrl` antes de `player.play`, y nunca iniciar audio por hover: desbloquear `<audio>`/`AudioContext` sincrónicamente en el clic); errores tragados con `.catch(() => {})` (aviso traducido y estado «detenido»); silencio por estado (`muted`/`duckOn` pegados; `master.gain` y `bg.volume` en 1 al reproducir; `fadeOut` restaura); contexto suspendido/interrumpido (`ctx.resume()` en `visibilitychange`, `statechange`, al tocar Reproducir y en `devicechange`); volumen en 0 por defecto (nivel inicial razonable o mostrar el motivo); selector de salida con `setSinkId` solo con detección; botón «Probar sonido» (tono de ~0.4 s, dice por qué si el contexto no está `running`).
+
+## 2. Mini reproductor: que se vea y funcione como UNO
+Un solo componente con dos estados (píldora `.glass` con lo que suena, play/pausa y volumen; expandido en el mismo contenedor con pista o mezcla, anterior/siguiente, play/pausa, progreso, volumen y «Abrir panel completo»); una sola fuente de estado (ambiente y música como dos líneas del mismo mini); un solo `backdrop-filter`, sin color; expandir con hover/foco/toque (~150 ms) y cerrar al salir, `Esc` lo pliega, foco visible, `prefers-reduced-motion` solo con `opacity`; posición única y estable en una esquina inferior sin tapar barras ni botones (minimapa, «Ajustar», dock, teclado), sin saltar al expandirse, visible solo si algo suena o está en pausa con pista cargada; `role="group"` con `aria-label`, `aria-live="polite"` en el cambio de pista, Media Session coherente con ambos motores; en `html.is-phone` usa la barra existente.
+
+## 3. Pruebas y entrega
+Vitest (`target()` mute/duck, reanudación, `play()` rechazado → aviso y «detenido»); Playwright con salida falsa y política de autoplay: tras un clic, contexto `running` y `master` > 0, la música arranca en el mismo clic, el hover no inicia audio, el mini es un solo bloque (píldora y expandido, claro/oscuro), «sin color» y legibilidad. Verificación manual en dispositivo real (interruptor de silencio, altavoz, AirPods/Bluetooth, cambio de salida; Mac/Windows). Entrega: causas reales, cambios, archivos y qué no se pudo verificar sin audio real; `docs/DECISIONS.md` (gestos, `audioSession`) y este prompt en `docs/PROMPTS.md`.
+
+**Criterio**: tocar Reproducir hace que **suene por los altavoces** (también con el modo silencio en iOS), y el mini reproductor se ve y se comporta como **una sola pieza** de vidrio.

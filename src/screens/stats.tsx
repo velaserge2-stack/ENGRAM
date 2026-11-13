@@ -76,7 +76,8 @@ export function Stats() {
           {risk.length ? risk.map((r) => <a class="kv" href={href('explorar', `id:${r.cid}`)} style={{ textDecoration: 'none' }}><span class="k ellipsis">{col.byCid.get(r.cid)?.ref.note.front.slice(0, 70)}</span><span class="v">{r.reason}</span></a>) : <p class="t2">{t('stats.ninguna_por_ahora')}</p>}
         </section>
         <Heatmap act={act} today={today} byDeck={byDeckFn(app)} />
-        <div class="row"><h2 style={{ fontSize: 'var(--t-2)' }}>{t('calendar.examenes')}</h2><span class="grow" /><AddExamButton /></div>
+        {/* encabezado sobre el fondo: dentro de vidrio, como el resto de secciones (el guardián lo cubre) */}
+        <div class="row glass panel"><h2 style={{ fontSize: 'var(--t-2)' }}>{t('calendar.examenes')}</h2><span class="grow" /><AddExamButton /></div>
         {data?.exams.map((e) => <ExamCard exam={e} extra={data.extra} detailed />)}
       </div>
       {how && (

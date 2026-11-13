@@ -549,3 +549,86 @@ Abrir la app con `?perf` (p. ej. `https://…/engrama/?perf#/pdfs`) muestra en u
 - WebKit no expone `longtask` ni `performance.memory`: en iPad se usan los cuadros > 50 ms y los contadores propios.
 - `SyncAccessHandle` existe en Safari ≥ 15.2 solo dentro de un Worker (así se usa). `File.slice()` de un archivo elegido en Archivos puede invalidarse si iOS lo libera: el visor siempre abre la copia de la bóveda (OPFS), nunca el archivo original.
 - Safari limita la memoria de canvas por pestaña (≈ 384 MB en iPad): por eso el presupuesto de 40 MP y liberar a tamaño 0.
+
+## Prompt 15 — Minimapa del lienzo (rama `fix-minimapa`, desde `main`)
+
+### Causas reales (reproducidas con `e2e:p15` antes de corregir)
+- **Era decorativo**: `aria-hidden` y sin manejadores; tocarlo no hacía nada (la vista no se centraba).
+- **Sus punteros llegaban al lienzo**: `canvas-wrap` solo ignoraba `.win`, así que arrastrar sobre el minimapa hacía el paneo normal del lienzo, que en el minimapa se ve como sentido contrario.
+- **Límites solo de paneles** (y del origen): al alejarse o desplazarse lejos, el rectángulo de vista salía del recuadro (`overflow: hidden`) y desaparecía.
+- **Tamaño no reactivo**: el rectángulo leía `wrap.current.clientWidth/Height` en el render y el tamaño solo se actualizaba con `resize` de la ventana.
+- **Paneles minimizados** dibujados (usaba `sp.panels` y no `visible(sp)`): con uno minimizado salían 7 de 6.
+
+### Cambios
+- `src/lib/minimap.ts` (puro, `tests/minimap.test.ts`): límites = unión de paneles visibles y vista con 4 % de margen, escala centrada, conversión minimapa ↔ mundo y `centerOn` (no cambia el zoom).
+- `spaces.tsx`: el minimapa detiene sus punteros (y `canvas-wrap` ignora `.minimap`), con `setPointerCapture`. Tocar centra la vista en el punto; agarrar el rectángulo lo arrastra desde donde se tomó; tocar un panel lo trae al frente, le da el foco y lo centra (en un solo guardado). Usa el mismo `preview`/`end` del paneo: rAF durante el gesto y `save` al soltar. Los límites se congelan durante el arrastre y se recalculan al soltar con una transición de 0.25 s (sin ella con `prefers-reduced-motion`). Tamaño del lienzo con `ResizeObserver` (girar, Stage Manager); sin él, `resize`. Cajas de paneles memoizadas por posición y tamaño.
+- Interactivo y accesible: `role="group"`, `aria-label` «Minimapa del lienzo», `tabIndex`, foco visible, tooltip (`data-tip`); flechas desplazan la vista un 10 % y Intro centra el panel enfocado. El panel enfocado se marca con un relleno más marcado (sin color).
+- Plegable: botón de 44 px a su izquierda; `minimap: false` se guarda en `.app/spaces/<id>.json` solo al plegar (campo opcional; si falta, se muestra). Con 0 o 1 panel visible no se muestra. `z-index: var(--z-panel)`.
+
+### Fallo previo encontrado, sin tocar (fuera de este prompt)
+- **«Ajustar al contenido» no responde al ratón** (en Chromium): el `pointerdown` de `canvas-wrap` captura el puntero también sobre sus botones, y el `click` acaba en el lienzo, no en el botón. Con el dedo en iPad no se pudo verificar aquí. El arreglo sería ignorar `button` en ese `pointerdown` (igual que ya ignora `.win` y ahora `.minimap`); queda pendiente de confirmación.
+
+### Límites de Safari / a validar en iPad real
+- `ResizeObserver` existe desde Safari 13.1; el respaldo con `resize` no detecta Stage Manager.
+- Arrastrar con dedo y con Apple Pencil, con 6+ paneles, en vertical y horizontal (WebKit de Playwright no está instalado en el contenedor: las e2e corrieron en Chromium).
+
+## Mini prompt — Mini reproductor unificado y que suene (rama `fix-reproductor`)
+
+### Causas (verificadas en el código; el oído solo en un dispositivo real)
+- **Sin `navigator.audioSession`**: la mezcla en vivo usa Web Audio, que Safari en iPhone/iPad trata como «ambiente»: el **interruptor de silencio** la apaga y puede ir al auricular. Ahora, dentro del gesto de Reproducir, Reanudar, Probar sonido y de la música: `navigator.audioSession.type = 'playback'` (Safari 16.4+, con detección; en otros navegadores no existe).
+- **La música llamaba a `play()` después de leer todos los archivos** (`await mediaUrl` por pista): en Safari el gesto ya se había perdido y el `.catch(() => {})` lo escondía. Ahora `player.prime()` crea el `<audio>` y lo «desbloquea» con 50 ms de silencio (`blob:` WAV, permitido por la CSP `media-src blob:`) **en el mismo clic**; después se leen las pistas y se reproduce en ese elemento. En Chromium con `--autoplay-policy=user-gesture-required` el primer `play()` ocurre ~1 ms tras el clic; Chromium conserva la activación unos segundos, así que el fallo original solo se ve en Safari.
+- **Errores tragados**: un `play()` rechazado (`NotAllowedError`, `NotSupportedError`) ahora avisa con la causa (`onAudioError` → toast traducido) y deja el estado en «detenido»; `AbortError` (cambiar de pista) no es un error.
+- **Silencio pegado**: «Solo durante el enfoque» silenciaba si la fase del pomodoro no era «trabajo» aunque el pomodoro estuviera **detenido** (por ejemplo, parado en un descanso): ahora solo silencia con el pomodoro en marcha. `master` arranca en el volumen objetivo al reproducir.
+- **Contexto suspendido o «interrumpido»** (bloqueo, llamada, cambio de salida, AirPods): se reanuda en `visibilitychange`, `statechange` del `AudioContext` y `devicechange` de `navigator.mediaDevices`, solo si se estaba reproduciendo.
+- **«Probar sonido»** en el panel: un tono de 0.4 s a volumen bajo; si el contexto no queda en `running`, el aviso dice su estado.
+- **Media Session única** para ambiente y música (reproducir/pausar actúan sobre lo que sonaba; anterior/siguiente sobre la música).
+- **Descartado**: selector de salida (`setSinkId`): sin permiso de micrófono los dispositivos no tienen nombre, así que no se ofrece (no se piden permisos extra). Volumen por defecto: Reproducir sigue desactivado hasta subir un volumen y dice por qué; el mini solo aparece si algo suena o quedó en pausa.
+
+### Mini reproductor: una sola pieza
+- `MiniAmbient` es **una superficie `.glass`** (un solo `backdrop-filter`) que crece en el mismo contenedor (antes: píldora + `Popover` aparte). Píldora: barras, título y reproducir/pausar; expandido: una línea por motor (ambiente y música), anterior/siguiente, progreso de la pista, volumen general y de capas, «Abrir panel». Se expande con el cursor (150 ms), el foco del teclado o un toque; se pliega al salir (300 ms), con Esc o al tocar fuera. Nunca inicia audio al pasar el cursor.
+- Posición fija en la esquina inferior derecha (por `Portal`, `--z-dock`), por encima del teclado (`--kb-inset`); en el lienzo sube por encima del minimapa y su botón. Crece hacia arriba: la esquina no se mueve. En el teléfono sigue sobre la barra inferior.
+- Pruebas: `tests/ambient.test.ts` (silencio/atenuación, reanudación, rechazo → aviso y detenido, `audioSession`) y `npm run e2e:reproductor`.
+
+### Sin verificar sin audio real
+Que suene de verdad por el altavoz con el interruptor de silencio activado y desactivado, con AirPods/Bluetooth y al cambiar de salida en plena reproducción (iPad/iPhone), y en Mac/Windows. WebKit no está instalado en el contenedor: las e2e corrieron en Chromium.
+## Mini prompt — Minimizar del panel «Adherencia» (rama `fix-adherencia-minimizar`)
+En la versión recortada (`.heat-panel.fit`, ancho ajustado) el botón seguía anclado a `.mh`, que ocupa toda la fila, y quedaba fuera del vidrio; ahora `.mh:has(> .heat-panel.fit) { width: fit-content }` lo deja en la esquina del panel (solo CSS; `:has()` ya se usaba; Safari ≥ 15.4). Ningún otro panel de Hoy tiene un hijo de ancho ajustado dentro de `.mh`. `npm run e2e:adherencia`; en `e2e:phone`, Hoy solo cambia en la franja de 36 px del botón.
+## Mini prompt — Rendimiento del vidrio y botón «Añadir examen» (rama `fix-glass`, desde `main`)
+
+### Medición (`node e2e/glass-perf.mjs`, Chromium headless con GPU por software; WebKit no está instalado)
+| Escenario | Superficies con `backdrop-filter` visibles | fps | Sin ningún `backdrop-filter` (experimento) | Sin sombras (experimento) | Sin `saturate` (experimento) |
+|---|---|---|---|---|---|
+| Hoy, 6 mosaicos, foto de 2400 px, desplazando | 12 | 28 | 61 | 36 | 29 |
+| Espacios, 4 paneles, paneo y zoom | 10 (0 dentro del lienzo, también durante el gesto) | 59 | 61 | 61 | 60 |
+| Notas, nota larga (400 bloques), desplazando | 10 | 44 | 61 | 47 | 46 |
+
+El pintado en el hilo principal es casi nulo (1–4 ms); el costo es el desenfoque de las superficies que se mueven sobre el fondo fijo, que se rehace en cada fotograma (composición). En Espacios no hay costo: `.canvas-wrap` es `.glass.flat` y la regla `.glass .glass` ya quita el desenfoque de los paneles (desde antes), y `will-change` del plano ya solo existe durante el gesto (Prompt 11).
+
+### Aplicado
+- **«Intensidad del vidrio» gobierna también `.glass.strong`** (y su versión de iPhone): `blur(calc(40px * min(1, var(--k) / .7)))`. Al valor por defecto (70 %) es exactamente 40 px (0 píxeles de diferencia); al 0 % no hay desenfoque y el costo baja. Antes las superficies fuertes ignoraban el control.
+- **Modo ligero**: además de quitar todo `backdrop-filter` (comprobado en 7 pantallas), cambia la sombra grande por una corta.
+- **Aviso de modo ligero**: ya existía (`watchFrames`, 1 s y < 40 fotogramas). Ahora mide ~3 s con la **mediana** de los intervalos (sin falsos avisos si se deja de desplazar), escucha también el desplazamiento dentro de paneles y la nota trae la acción «Activar modo ligero» (nunca se activa solo; una vez por sesión).
+
+### Descartado (con motivo)
+- **Tope de ~4 superficies con desenfoque** y **bajar el radio de `.glass.strong`**: cambian el aspecto en reposo (las superficies planas o menos difuminadas se ven distintas) y la regla es 0 píxeles. Son las que más ahorrarían fuera del lienzo (Hoy 28 → 61 fps sin desenfoque); quedan como decisión de diseño pendiente.
+- **Vidrio «congelado» durante gestos (`is-gesturing`)**: en el lienzo los paneles ya no tienen desenfoque (medido: 0 durante el gesto), así que no aporta. Aplicarlo al desplazamiento de página haría parpadear el vidrio a plano al desplazar.
+- **Quitar `saturate`**: sin efecto medible (28 → 29 fps).
+- **Promover capas** (`translateZ(0)` en el fondo, `isolation` en barras): dentro del ruido (28 → 31, 44 → 41).
+- **Sombras más simples fuera del modo ligero**: +8 fps en Hoy, pero cambian el aspecto en reposo.
+- **iPhone (`is-phone`) con menos desenfoque**: cambia el aspecto en iPhone, que también debe quedar en 0 píxeles.
+- **`contain`/`content-visibility` en listas y paneles fuera de pantalla**: los paneles fuera de pantalla ya no montan contenido (Prompt 11); las notas largas lo tienen en la rama del Prompt 14 (aún no en `main`).
+
+### «Añadir examen» (causa verificada)
+Era un `.btn` suelto sobre el fondo (relleno de ~6 %, sin `.glass`): con los 5 fondos de prueba × 2 modos fallaban las 20 combinaciones (botón contra su alrededor 1–2:1; texto de 1:1 a 2:1 cuando el modo forzado no coincide con el fondo). El encabezado «Exámenes» de Estadísticas, a su lado, tenía el mismo problema.
+- `AddExamButton` → `btn primary` (relleno invertido, sin color) con `Plus`.
+- **Hoy**: dentro de una píldora `.glass` (`.exam-add`, la cubre el guardián) y, si no hay exámenes próximos, con una ayuda («Añade tu próximo examen…», es/en/fr).
+- **Estadísticas**: el encabezado «Exámenes» + botón pasa a `row glass panel`, como el resto de secciones. Tamaño normal (44 px), no `small` (36 px): las dos variantes pasan contraste, pero `small` incumple el objetivo táctil.
+- Prueba `e2e:glass`: las 20 combinaciones × 2 pantallas pasan (botón ≥ 3:1 con su alrededor, texto ≥ 4.5:1, medido en píxeles de la captura).
+- **Auditoría** de `.btn` fuera de `.glass` en 13 pantallas: solo «Añadir examen» (Hoy, Estadísticas) y los botones «Minimizar …» de los mosaicos de Hoy, que en el DOM están fuera del vidrio pero se dibujan sobre la esquina del mosaico (que sí es vidrio) y se leen bien. No se añade la regla global de respaldo `.btn:not(.glass .btn)`: cambiaría esos botones sin necesidad.
+
+### Píxeles (`MODE=compare npm run e2e:phone` contra `main`)
+27 de 36 capturas de iPad y web con 0 píxeles de diferencia. Cambian solo Hoy (+77 px de alto: la píldora con la ayuda), Estadísticas (+38 px: el encabezado de vidrio) y «bandeja» (sin el add-on muestra Hoy), por el arreglo del botón. La suite de iPhone pasa. Rendimiento con los ajustes por defecto: igual dentro del ruido (Hoy 28 → 27 fps, Espacios 59 → 55, Notas 44 → 40, en `docs/perf/vidrio-*.json`), porque las reducciones que ahorrarían cambian el aspecto; con el modo ligero, 61 fps en los tres.
+
+### Límites y lo que falta validar en iPad real
+- La medición definitiva es en el dispositivo: fotogramas al desplazar Hoy sobre una foto y al hacer paneo con 4 paneles. Chromium headless compone por software y exagera el costo del desenfoque.
+- El Chromium de las pruebas no aplica `prefers-reduced-transparency` aunque se emule: la regla CSS sigue igual que antes, sin verificar aquí.

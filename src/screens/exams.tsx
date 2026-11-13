@@ -143,7 +143,11 @@ export function ExamSheet(props: { path: string | null; onClose: () => void }) {
   );
 }
 
-export function AddExamButton() {
+/**
+ * Acción principal (pantalla vacía o encabezado): relleno invertido, que contrasta con cualquier
+ * fondo, sin color. Antes era un `.btn` suelto sobre el fondo (relleno de ~6 %) y se perdía.
+ */
+export function AddExamButton(p: { small?: boolean } = {}) {
   const app = useApp();
-  return <button type="button" class="btn" onClick={() => app.openSheet('exam')}><Plus size={18} />{' '}{tr('exams.anadir_examen')}</button>;
+  return <button type="button" class={`btn primary${p.small ? ' small' : ''}`} onClick={() => app.openSheet('exam')}><Plus size={18} />{' '}{tr('exams.anadir_examen')}</button>;
 }

@@ -1,0 +1,35 @@
+{
+ "browser": "chromium",
+ "date": "2026-11-12T22:13:32.579Z",
+ "hoy": {
+  "glass": 12,
+  "fps": 28,
+  "p95FrameMs": 67,
+  "worstFrameMs": 100,
+  "paintMs": 1,
+  "compositeMs": 1,
+  "rasterMs": 12,
+  "styleLayoutMs": 1
+ },
+ "espacios": {
+  "glass": 10,
+  "fps": 59,
+  "p95FrameMs": 17,
+  "worstFrameMs": 33,
+  "paintMs": 20,
+  "compositeMs": 44,
+  "rasterMs": 92,
+  "styleLayoutMs": 72,
+  "glassDuringGesture": 0
+ },
+ "notas": {
+  "glass": 10,
+  "fps": 44,
+  "p95FrameMs": 33,
+  "worstFrameMs": 33,
+  "paintMs": 4,
+  "compositeMs": 1,
+  "rasterMs": 24,
+  "styleLayoutMs": 0
+ }
+}
