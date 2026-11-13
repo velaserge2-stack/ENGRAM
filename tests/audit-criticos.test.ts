@@ -72,8 +72,8 @@ describe('auditoría · determinismo FSRS', () => {
     expect(JSON.stringify(r.states.get('b')!.card)).toBe(JSON.stringify(replay(r.log, P).get('b')!.card));
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('loadStates no reconstruye ni sobrescribe state.json desde un historial vacío si la lectura de reviews.jsonl falla', async () => {
+  // auditoría: corregido (plan 1)
+  it('loadStates no reconstruye ni sobrescribe state.json desde un historial vacío si la lectura de reviews.jsonl falla', async () => {
     const v = new Rig();
     await v.write(REVIEWS, `{"id":"a","ts":${T},"rating":3}\n`);
     await loadStates(v, P);

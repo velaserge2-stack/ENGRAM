@@ -3,6 +3,10 @@ import { type BlobWriteOptions, type FileStat, type VaultAdapter, VaultError } f
 import { toBytes } from './util';
 import type { WorkerRequest, WorkerResponse } from './opfs.worker';
 
+/** Nombre del error del Worker → código de VaultError (NotFound se distingue de un fallo real). */
+const codeOf = (c?: string): VaultError['code'] =>
+  c === 'not-found' || c === 'NotFoundError' || c === 'TypeMismatchError' ? 'not-found' : c === 'quota' || c === 'QuotaExceededError' ? 'quota' : c === 'invalid-path' ? 'invalid-path' : 'io';
+
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 
 /** Cliente de UI: habla con el Worker de OPFS por mensajes. */
@@ -23,7 +27,7 @@ export class OPFSBackend implements VaultAdapter {
       this.pending.delete(r.id);
       if (r.ok) p.resolve(r.value);
       else if (r.code === 'AbortError') p.reject(new DOMException(r.error, 'AbortError'));
-      else p.reject(new VaultError(r.error, r.code === 'not-found' || r.code === 'NotFoundError' ? 'not-found' : r.code === 'QuotaExceededError' ? 'quota' : 'io'));
+      else p.reject(new VaultError(r.error, codeOf(r.code)));
     };
     this.worker.onerror = (ev) => {
       for (const p of this.pending.values()) p.reject(new VaultError(ev.message || 'Error del Worker', 'io'));

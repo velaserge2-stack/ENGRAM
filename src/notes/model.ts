@@ -121,7 +121,7 @@ export async function linkIndex(vault: VaultAdapter, notes: NoteMeta[]): Promise
   const backlinks = new Map<string, string[]>();
   const texts = new Map<string, string>();
   for (const n of notes) {
-    const t = await readTextOr(vault, n.path, '');
+    const t = await readTextOr(vault, n.path, '').catch(() => ''); // solo lectura (lista, grafo, búsqueda)
     texts.set(n.path, t);
     for (const l of wikilinks(t)) {
       const target = titles.get(l.toLowerCase().replace(/\.md$/, ''));

@@ -92,7 +92,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       if (!alive) return;
       setCol(c);
       if (c.idsAdded) toast(t('app.se_anadieron_idsadded_ids_de_tarjeta', { idsAdded: c.idsAdded }));
-    }, (e) => console.error(e));
+    }, (e) => (console.error(e), alive && toast(t('app.no_se_pudo_cargar_la_coleccion', { e: String((e as Error)?.message ?? e) }))));
     if (addonOn(settings, 'inbox')) walk(vault, 'inbox').then((f) => alive && setInbox(new Set(f.map((x) => x.path.split('/')[1])).size));
     else setInbox(0);
     return () => {
@@ -101,6 +101,15 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   }, [version, paramsKey, addonOn(settings, 'inbox')]);
 
   const recheckIntegrity = async () => setIntegrity(await checkIntegrity(vault));
+  // un fallo de disco que nadie atrapó (lectura estricta, cuota): avisar en vez de callar
+  useEffect(() => {
+    const onRejection = (ev: PromiseRejectionEvent) => {
+      const e = ev.reason as { name?: string; message?: string } | null;
+      if (e && (e.name === 'VaultError' || (e instanceof DOMException && e.name !== 'AbortError'))) toast(t('app.error_de_almacenamiento', { e: e.message ?? '' }));
+    };
+    addEventListener('unhandledrejection', onRejection);
+    return () => removeEventListener('unhandledrejection', onRejection);
+  }, []);
   useEffect(() => {
     void recheckIntegrity();
     // papelera de mazos: vaciado automático a los N días (Ajustes → Mazos → Papelera)

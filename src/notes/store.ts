@@ -30,7 +30,8 @@ export const noteStore = {
   async load(vault: VaultAdapter, path: string): Promise<string> {
     const e = entry(vault, path);
     if (e.text !== null) return e.text;
-    e.loading ??= readTextOr(vault, path, '').then((t) => ((e.text ??= t), (e.loading = null), e.text));
+    // una lectura fallida no se cachea como "" (teclear sobre "" pisaría la nota): se propaga
+    e.loading ??= readTextOr(vault, path, '').then((t) => ((e.text ??= t), (e.loading = null), e.text), (err) => { e.loading = null; throw err; });
     return e.loading;
   },
   peek: (path: string) => docs.get(path)?.text ?? null,
@@ -54,8 +55,8 @@ export const noteStore = {
   async refresh(vault: VaultAdapter, path: string) {
     const e = docs.get(path);
     if (!e || e.saver.pending || e.text === null) return;
-    const t = await readTextOr(vault, path, '');
-    if (t !== e.text && !e.saver.pending) (e.text = t, e.listeners.forEach((l) => l(t)));
+    const t = await readTextOr(vault, path, '').catch(() => null); // solo lectura: sin cambios si falla
+    if (t !== null && t !== e.text && !e.saver.pending) (e.text = t, e.listeners.forEach((l) => l(t)));
   },
   /** La nota se movió o se borró: olvidar el documento (tras guardar lo pendiente). */
   async forget(path: string) {

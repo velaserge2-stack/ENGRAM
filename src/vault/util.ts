@@ -1,4 +1,4 @@
-import type { FileStat, VaultAdapter } from './types';
+import { type FileStat, type VaultAdapter, VaultError } from './types';
 
 export const enc = new TextEncoder();
 const dec = new TextDecoder('utf-8');
@@ -16,11 +16,23 @@ export async function readText(vault: VaultAdapter, path: string): Promise<strin
   return decodeText(await vault.read(path));
 }
 
+/** El archivo no existe (VaultError o DOMException de FS Access); cualquier otro fallo NO lo es. */
+export function isNotFound(e: unknown): boolean {
+  if (e instanceof VaultError) return e.code === 'not-found';
+  const name = (e as { name?: unknown } | null)?.name;
+  return e instanceof DOMException && (name === 'NotFoundError' || name === 'TypeMismatchError');
+}
+
+/**
+ * `fallback` SOLO si el archivo no existe. Un fallo de lectura (cuota, permiso, Worker) se propaga:
+ * leer «vacío» y luego escribir sustituiría el archivo del usuario.
+ */
 export async function readTextOr(vault: VaultAdapter, path: string, fallback: string): Promise<string> {
   try {
     return await readText(vault, path);
-  } catch {
-    return fallback;
+  } catch (e) {
+    if (isNotFound(e)) return fallback;
+    throw e;
   }
 }
 

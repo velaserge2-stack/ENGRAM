@@ -35,7 +35,7 @@ export function StickiesTile() {
     let alive = true;
     void walk(app.vault, STICKY_DIR).then(async (fs) => {
       const out: Sticky[] = [];
-      for (const f of fs) if (f.path.endsWith('.md')) out.push(parseSticky(f.path, noteStore.peek(f.path) ?? (await readTextOr(app.vault, f.path, ''))));
+      for (const f of fs) if (f.path.endsWith('.md')) out.push(parseSticky(f.path, noteStore.peek(f.path) ?? (await readTextOr(app.vault, f.path, '').catch(() => '')) /* solo lectura */));
       if (alive) setItems(out);
     }, () => alive && setItems([]));
     return () => void (alive = false);

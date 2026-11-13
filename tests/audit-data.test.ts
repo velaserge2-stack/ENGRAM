@@ -91,8 +91,8 @@ describe('auditoría · datos (lecturas fallidas y carreras)', () => {
     await Promise.all([appendLog(v, c, [rev('aaa', 1)], P), appendLog(v, c, [rev('bbb', 2)], P)]);
     expect((await readText(v, REVIEWS)).trim().split('\n')).toHaveLength(2);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('appendCard no reemplaza el mazo por una sola tarjeta si la lectura falla', async () => {
+  // auditoría: corregido (plan 1)
+  it('appendCard no reemplaza el mazo por una sola tarjeta si la lectura falla', async () => {
     const v = new Flaky();
     await v.write('decks/A.md', '---\ndeck: A\n---\nQ:: uno\nA:: dos ^aaa11\n');
     v.failRead = 'decks/A.md';
@@ -100,8 +100,8 @@ describe('auditoría · datos (lecturas fallidas y carreras)', () => {
     v.failRead = null;
     expect(await readText(v, 'decks/A.md')).toContain('aaa11');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('setDeckMeta no deja el mazo sin tarjetas si la lectura falla', async () => {
+  // auditoría: corregido (plan 1)
+  it('setDeckMeta no deja el mazo sin tarjetas si la lectura falla', async () => {
     const v = new Flaky();
     await v.write('decks/A.md', '---\ndeck: A\n---\nQ:: uno\nA:: dos ^aaa11\n');
     v.failRead = 'decks/A.md';
@@ -109,8 +109,8 @@ describe('auditoría · datos (lecturas fallidas y carreras)', () => {
     v.failRead = null;
     expect(await readText(v, 'decks/A.md')).toContain('aaa11');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('restoreAttempt (deshacer borrar intento) no sustituye el archivo si la lectura falla', async () => {
+  // auditoría: corregido (plan 1)
+  it('restoreAttempt (deshacer borrar intento) no sustituye el archivo si la lectura falla', async () => {
     const v = new Flaky();
     const a = (id: string) => JSON.stringify({ id, finishedAt: 1 });
     await v.write(ATTEMPTS, [a('1'), a('2'), a('3'), a('4')].join('\n') + '\n');

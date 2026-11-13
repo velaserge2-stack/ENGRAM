@@ -9,8 +9,8 @@ import { VaultError } from '../src/vault/types';
 import { blobChecksum, checksum, readText, readTextOr } from '../src/vault/util';
 
 describe('auditoría vault', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('readTextOr solo debe devolver el valor por defecto cuando el archivo NO existe (RAÍZ de «leer vacío y escribir»)', async () => {
+  // auditoría: corregido (plan 1)
+  it('readTextOr solo debe devolver el valor por defecto cuando el archivo NO existe (RAÍZ de «leer vacío y escribir»)', async () => {
     const m = new MemoryBackend();
     const broken = Object.assign(Object.create(m), {
       read: async () => {
@@ -80,8 +80,8 @@ describe('auditoría vault', () => {
     expect(sync).toBe(false);
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('el Worker de OPFS debe informar código de texto (QuotaExceededError), no el numérico de DOMException', async () => {
+  // auditoría: corregido (plan 1)
+  it('el Worker de OPFS debe informar código de texto (QuotaExceededError), no el numérico de DOMException', async () => {
     const posted: { id: number; ok?: boolean; code?: unknown }[] = [];
     const g = globalThis as Record<string, unknown>;
     const old = { self: g.self, postMessage: g.postMessage };

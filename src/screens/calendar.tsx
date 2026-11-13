@@ -32,11 +32,11 @@ const localDay = (ms: number) => {
 async function loadBlocks(vault: ReturnType<typeof useApp>['vault']) {
   const own = fromICS(await readTextOr(vault, CAL, ''));
   const imported: StudyBlock[] = [];
-  for (const f of await walk(vault, 'calendar')) if (f.path !== CAL && f.path.endsWith('.ics')) imported.push(...fromICS(await readTextOr(vault, f.path, ''), f.name));
+  for (const f of await walk(vault, 'calendar')) if (f.path !== CAL && f.path.endsWith('.ics')) imported.push(...fromICS(await readTextOr(vault, f.path, '').catch(() => ''), f.name)); // solo lectura
   const tasks: { date: string; text: string; note: string }[] = [];
   for (const f of await walk(vault, 'notes')) {
     if (!f.path.endsWith('.md')) continue;
-    const t = await readTextOr(vault, f.path, '');
+    const t = await readTextOr(vault, f.path, '').catch(() => ''); // solo lectura
     for (const m of t.matchAll(/^\s*- \[ \] (.+?)\s+(?:📅|@)\s?(\d{4}-\d{2}-\d{2})/gm)) tasks.push({ date: m[2]!, text: m[1]!, note: f.path });
   }
   return { own, imported, tasks };

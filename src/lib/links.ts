@@ -87,7 +87,7 @@ export async function buildLinkIndex(vault: VaultAdapter, decks: { path: string;
   const notes: LinkTarget[] = [];
   for (const f of await walk(vault, 'notes')) {
     if (!f.path.endsWith('.md')) continue;
-    const fm = parseFrontmatter(await readTextOr(vault, f.path, '')).data;
+    const fm = parseFrontmatter(await readTextOr(vault, f.path, '').catch(() => '')).data; // solo lectura
     notes.push({ kind: 'note', path: f.path, name: f.name.replace(/\.md$/, ''), ...(fm.id ? { id: String(fm.id) } : {}) });
   }
   const folders = new Set<string>();

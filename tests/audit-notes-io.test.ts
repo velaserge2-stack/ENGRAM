@@ -34,8 +34,8 @@ describe('auditoría · notas', () => {
   it.fails('mover una nota suelta no convierte [[Título]] en [[Materia/Título]] (el resolvedor solo conoce títulos)', () => {
     expect(rewriteNoteRefs('ver [[Nota]]', 'notes/Nota.md', 'notes/Cardio/Nota.md')).toBe('ver [[Nota]]');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('noteStore.load: una lectura fallida no se cachea como "" (si no, teclear pisa la nota)', async () => {
+  // auditoría: corregido (plan 1)
+  it('noteStore.load: una lectura fallida no se cachea como "" (si no, teclear pisa la nota)', async () => {
     const be = new Flaky();
     await be.write('notes/audit-store.md', 'contenido valioso');
     be.failRead = 'notes/audit-store.md';
@@ -220,8 +220,8 @@ describe('auditoría · tareas, stickies, tinta, pdf', () => {
     const bad = d.strokes.some((s) => svgPath(outline(s, 600)).includes('NaN'));
     expect(bad).toBe(false);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('updatePdfMeta con una lectura fallida no borra los metadatos de los demás PDF', async () => {
+  // auditoría: corregido (plan 1)
+  it('updatePdfMeta con una lectura fallida no borra los metadatos de los demás PDF', async () => {
     const be = new Flaky();
     await be.write(PDF_META, JSON.stringify({ 'docs/a.pdf': { tags: ['x'] }, 'docs/b.pdf': { tags: ['y'] } }));
     be.failRead = PDF_META;

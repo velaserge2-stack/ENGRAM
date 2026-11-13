@@ -124,12 +124,13 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
       }
       (self as unknown as Worker).postMessage({ id: req.id, ok: true, value } satisfies WorkerResponse, transfer);
     } catch (e) {
-      const err = e as { message?: string; code?: string; name?: string };
+      const err = e as { message?: string; code?: unknown; name?: string };
       (self as unknown as Worker).postMessage({
         id: req.id,
         ok: false,
         error: `${req.op} ${'path' in req ? req.path : 'from' in req ? `${req.from} → ${req.to}` : ''}: ${err?.message ?? String(e)}`,
-        code: err?.code ?? err?.name,
+        // VaultError trae `code` de texto; DOMException.code es numérico (22): entonces vale el nombre
+        code: typeof err?.code === 'string' ? err.code : err?.name,
       } satisfies WorkerResponse);
     }
   });

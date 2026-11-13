@@ -31,8 +31,8 @@ describe('auditoría · links', () => {
     const out = await readText(v, 'notes/a.md');
     expect(out).toContain('Texto largo');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('ensureFileId no sustituye la nota por un archivo vacío si la lectura falla', async () => {
+  // auditoría: corregido (plan 1)
+  it('ensureFileId no sustituye la nota por un archivo vacío si la lectura falla', async () => {
     class Flaky extends MemoryBackend {
       fail = false;
       override async read(p: string) { if (this.fail) throw new Error('lectura transitoria'); return super.read(p); }
