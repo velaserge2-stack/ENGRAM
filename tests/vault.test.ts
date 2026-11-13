@@ -283,3 +283,24 @@ describe('SafeVault: apply fallido con la app viva (auditoría plan 2)', () => {
     expect(await readText(raw, 'docs/x.pdf')).toBe('PDF');
   });
 });
+
+describe('SafeVault: diario validado (auditoría plan 3)', () => {
+  it('descarta entradas con op desconocida, ruta al diario o `from` fuera de lugar, y aplica la válida', async () => {
+    const raw = new MemoryBackend();
+    const ok = new TextEncoder().encode('bien');
+    await raw.write('.app/tmp/a-1', ok);
+    await raw.write('notes/keep.md', 'no tocar');
+    const base = { tmp: '.app/tmp/a-1', size: ok.length, hash: checksum(ok), ts: 0 };
+    await raw.write(JOURNAL_PATH, JSON.stringify({ v: 1, entries: [
+      { ...base, op: 'delete', path: 'notes/keep.md' },
+      { ...base, op: 'write', path: JOURNAL_PATH },
+      { ...base, op: 'move', path: 'notes/x.md', from: '.app/tmp' },
+      { ...base, op: 'write', path: 'notes/ok.md' },
+    ] }));
+    const r = await new SafeVault(raw).recover();
+    expect(r.recovered).toEqual(['notes/ok.md']);
+    expect(r.discarded).toHaveLength(3);
+    expect(await readText(raw, 'notes/ok.md')).toBe('bien');
+    expect(await readText(raw, 'notes/keep.md')).toBe('no tocar');
+  });
+});

@@ -151,6 +151,8 @@ export async function parseZip(bytes: Uint8Array, limits: Limits = LIMITS): Prom
     }
     files.splice(mi, 1);
   }
+  // diario, temporales y cachés nunca se importan (el arranque de SafeVault los ejecutaría)
+  for (let i = files.length - 1; i >= 0; i--) if (!isExportable(files[i]!.path)) files.splice(i, 1);
   if (manifest && manifest.counts.files !== files.length) {
     warnings.push(t('zip.el_manifiesto_indica_files_archivos_y', { files: manifest.counts.files, n: files.length }));
   }

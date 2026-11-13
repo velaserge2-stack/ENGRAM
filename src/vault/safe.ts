@@ -42,6 +42,26 @@ export interface RecoveryReport {
 
 let txSeq = 0;
 
+/** Ruta normalizada fuera de `.app/tmp` y distinta del diario (o null si no vale). */
+function safeTarget(p: unknown): string | null {
+  if (typeof p !== 'string') return null;
+  try {
+    const n = normalizePath(p);
+    return n && n !== JOURNAL_PATH && n !== TMP_DIR && !n.startsWith(`${TMP_DIR}/`) ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Un diario solo se ejecuta si tiene la forma que escribe `commit`/`writeStream` (uno ajeno o plantado se descarta). */
+function validEntry(e: Partial<JournalEntry> | null): e is JournalEntry {
+  if (!e || typeof e !== 'object' || (e.op !== 'write' && e.op !== 'move')) return false;
+  if (typeof e.tmp !== 'string' || !/^\.app\/tmp\/[A-Za-z0-9-]+$/.test(e.tmp)) return false;
+  if (typeof e.size !== 'number' || typeof e.hash !== 'string' || !safeTarget(e.path)) return false;
+  if (e.op === 'move' && (!safeTarget(e.from) || e.stream)) return false;
+  return e.op === 'move' || e.from === undefined;
+}
+
 export class SafeVault implements VaultAdapter {
   private queue: Promise<unknown> = Promise.resolve();
   /** Hay un diario sin aplicar (apply fallido con la app viva): recuperarlo antes de la siguiente operación. */
@@ -194,7 +214,15 @@ export class SafeVault implements VaultAdapter {
     }
     for (const e of entries) {
       let ok = false;
+      if (!validEntry(e)) {
+        report.discarded.push(String((e as Partial<JournalEntry> | null)?.path ?? '?'));
+        continue;
+      }
       try {
+        if (e.op === 'move' && (await this.raw.stat(normalizePath(e.from!)))?.kind === 'dir') {
+          report.discarded.push(e.path); // `from` debe ser un archivo: nunca borrar una carpeta desde el diario
+          continue;
+        }
         if (e.stream) {
           // escritura por trozos: el temporal verificado se mueve; si ya se movió, se comprueba el destino
           const dest = normalizePath(e.path);

@@ -152,8 +152,8 @@ describe('auditoría · io', () => {
   it.fails('placeLoose normaliza la extensión .MD (si no, la nota no aparece en listNotes)', () => {
     expect(placeLoose('Clase.MD', strToU8('hola')).endsWith('.md')).toBe(true);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('importar un zip no admite .app/journal.json ni .app/tmp/* (los repetiría el arranque de SafeVault)', async () => {
+  // auditoría: corregido (plan 3)
+  it('importar un zip no admite .app/journal.json ni .app/tmp/* (los repetiría el arranque de SafeVault)', async () => {
     const z = zipSync({ 'notes/a.md': strToU8('# a'), '.app/journal.json': strToU8('{"v":1,"entries":[]}'), '.app/tmp/x': strToU8('x') });
     const g = await gather([{ name: 'v.zip', bytes: async () => z }]);
     expect(g.files.map((f) => f.path).filter((p) => p.startsWith('.app/'))).toEqual([]);

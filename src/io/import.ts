@@ -11,7 +11,7 @@ import { LIMITS } from './limits';
 import type { ApkgResult } from './apkg';
 import type { LogEntry } from '../srs/engine';
 import { unzipSync } from 'fflate';
-import { parseZip, type VaultFile } from './zip';
+import { isExportable, parseZip, type VaultFile } from './zip';
 
 const VAULT_ROOTS = ['decks/', 'notes/', 'media/', 'templates/', 'exams-bank/', 'exams/', 'docs/', 'calendar/', '.app/'];
 const IMAGE_OR_AUDIO = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'svg', 'mp3', 'm4a', 'wav', 'ogg']);
@@ -163,7 +163,8 @@ export async function gather(incoming: IncomingFile[], opts: GatherOptions = {})
       warnings.push(t('import.rel_ruta_no_permitida_omitido', { rel: rel }));
     }
   }
-  return { files, warnings, fromVaultZip, log, failures, anki };
+  // también desde carpeta o archivos sueltos: diario, temporales y cachés no se importan
+  return { files: files.filter((f) => isExportable(f.path)), warnings, fromVaultZip, log, failures, anki };
 }
 
 type ItemStatus = 'new' | 'same' | 'conflict';

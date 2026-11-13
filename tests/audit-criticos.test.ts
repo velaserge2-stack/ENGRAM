@@ -123,8 +123,8 @@ describe('auditoría · SafeVault', () => {
     expect(['v1', 'v2']).toContain(await readText(raw, 'notes/a.md'));
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('recover no ejecuta un diario ajeno: tmp fuera de .app/tmp y `from` que es una carpeta', async () => {
+  // auditoría: corregido (plan 3)
+  it('recover no ejecuta un diario ajeno: tmp fuera de .app/tmp y `from` que es una carpeta', async () => {
     const raw = new MemoryBackend();
     await raw.write('decks/Cardio.md', 'Q:: a\nA:: b ^abcde\n');
     const payload = strToU8('x');
