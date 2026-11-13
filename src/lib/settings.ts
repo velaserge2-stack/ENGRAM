@@ -36,7 +36,6 @@ export interface Settings {
   lastExportAt: number | null;
   backupReminderSnoozedUntil: number | null;
   welcomeDone: boolean;
-  // estudio (FSRS)
   retention: number;
   learningSteps: string[];
   relearningSteps: string[];
@@ -47,7 +46,6 @@ export interface Settings {
   recoveryThreshold: number;
   leechThreshold: number;
   suggestByTime: boolean;
-  // pomodoro
   pomo: { work: number; short: number; long: number; every: number; sound: boolean };
   addons: Record<string, boolean>;
   /** etiquetas controladas (se crean aquí, no al vuelo) */
