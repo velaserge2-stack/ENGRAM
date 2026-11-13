@@ -24,7 +24,16 @@ export interface IntegrityReport {
 
 const DECK_DIR = 'decks/';
 
+/** Cede el paso mientras el usuario tenga operaciones en la cola del almacenamiento (tope total: pasada completa garantizada). */
+async function yieldToUser(vault: VaultAdapter, budget: { ms: number }) {
+  for (let n = 0; vault.queued?.() && n < 8 && budget.ms > 0; n++) {
+    await new Promise((r) => setTimeout(r, 25));
+    budget.ms -= 25;
+  }
+}
+
 export async function checkIntegrity(vault: VaultAdapter): Promise<IntegrityReport> {
+  const budget = { ms: 60_000 };
   // El diario y los temporales son transitorios: pueden desaparecer mientras se revisa
   const files = await walk(vault, '', (p) => p === TMP_DIR || p === JOURNAL_PATH);
   const report: IntegrityReport = { files: files.length, bytes: 0, byFolder: {}, problems: [], checkedAt: Date.now() };
@@ -34,6 +43,7 @@ export async function checkIntegrity(vault: VaultAdapter): Promise<IntegrityRepo
     report.byFolder[top] = (report.byFolder[top] ?? 0) + 1;
     const ext = extname(f.path);
     if (ext !== 'md' && ext !== 'json' && ext !== 'jsonl') continue;
+    await yieldToUser(vault, budget);
     let text: string;
     try {
       text = decodeText(await vault.read(f.path), true);

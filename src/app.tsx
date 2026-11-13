@@ -105,6 +105,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   }, [version, paramsKey, addonOn(settings, 'inbox')]);
 
   const recheckIntegrity = async () => setIntegrity(await checkIntegrity(vault));
+  // al arrancar y tras cada cambio la comprobación espera a que la app esté quieta (nunca se omite; solo llega más tarde)
+  const recheckLater = () => ('requestIdleCallback' in window ? requestIdleCallback(() => void recheckIntegrity(), { timeout: 3000 }) : setTimeout(() => void recheckIntegrity(), 1500));
   // un fallo de disco que nadie atrapó (lectura estricta, cuota): avisar en vez de callar
   useEffect(() => {
     const onRejection = (ev: PromiseRejectionEvent) => {
@@ -117,7 +119,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     return () => (removeEventListener('unhandledrejection', onRejection), onNoteSaveFailed(() => {}));
   }, []);
   useEffect(() => {
-    void recheckIntegrity();
+    recheckLater();
     // papelera de mazos: vaciado automático a los N días (Ajustes → Mazos → Papelera)
     autoPurge(vault, settings.deckTrashDays).then((n) => n && setVersion((v) => v + 1), () => {});
     autoPurgeBanks(vault, settings.deckTrashDays).then((n) => n && setVersion((v) => v + 1), () => {}); // bancos: mismos días
@@ -126,7 +128,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     watchFrames(() => !ctxRef.current.settings.lightMode && toast(t('app.el_vidrio_va_lento_en_este'), { label: t('app.activar_modo_ligero'), run: () => ctxRef.current.update({ lightMode: true }) }));
   }, []);
   useEffect(() => {
-    if (version > 0) (void recheckIntegrity(), setHasData(true));
+    if (version > 0) (recheckLater(), setHasData(true));
   }, [version]);
 
   const sample = useRef<ImageData | null>(null);

@@ -170,6 +170,9 @@ export class SafeVault implements VaultAdapter {
   async file(path: string) {
     return this.raw.file ? this.raw.file(normalizePath(path)) : this.raw.read(path).then((b) => new File([b as BlobPart], normalizePath(path).split('/').pop()!));
   }
+  queued() {
+    return this.raw.queued?.() ?? 0;
+  }
   async hash(path: string) {
     return this.sum(normalizePath(path));
   }
