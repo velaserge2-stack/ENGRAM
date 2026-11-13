@@ -6,7 +6,7 @@
  * teclas con nombre) y la tecla (`a`, `1`, `?`, `Space`, `Enter`, `ArrowLeft`, `PageDown`…).
  * Secuencias con espacio: `g h` (G y luego H). Mando: índices del «Standard Gamepad».
  */
-export type Scope = 'global' | 'study' | 'sim' | 'ink';
+export type Scope = 'global' | 'study' | 'sim' | 'ink' | 'editor';
 export interface ActionDef { id: string; scope: Scope; keys: string[]; pad?: number[] }
 
 export const ACTIONS: ActionDef[] = [
@@ -46,6 +46,21 @@ export const ACTIONS: ActionDef[] = [
   { id: 'ink.eraser', scope: 'ink', keys: ['e'] },
   { id: 'ink.undo', scope: 'ink', keys: ['mod+z'] },
   { id: 'ink.redo', scope: 'ink', keys: ['mod+shift+z'] },
+  // editor de notas (Prompt 17; ⌘K es la paleta y ⌘⇧T lo reserva Safari)
+  { id: 'editor.bold', scope: 'editor', keys: ['mod+b'] },
+  { id: 'editor.italic', scope: 'editor', keys: ['mod+i'] },
+  { id: 'editor.underline', scope: 'editor', keys: ['mod+u'] },
+  { id: 'editor.strike', scope: 'editor', keys: ['mod+shift+x'] },
+  { id: 'editor.highlight', scope: 'editor', keys: ['mod+shift+h'] },
+  { id: 'editor.link', scope: 'editor', keys: ['mod+shift+k'] },
+  { id: 'editor.h1', scope: 'editor', keys: ['mod+alt+1'] },
+  { id: 'editor.h2', scope: 'editor', keys: ['mod+alt+2'] },
+  { id: 'editor.h3', scope: 'editor', keys: ['mod+alt+3'] },
+  { id: 'editor.up', scope: 'editor', keys: ['mod+alt+ArrowUp'] },
+  { id: 'editor.down', scope: 'editor', keys: ['mod+alt+ArrowDown'] },
+  { id: 'editor.undo', scope: 'editor', keys: ['mod+z'] },
+  { id: 'editor.redo', scope: 'editor', keys: ['mod+shift+z'] },
+  { id: 'editor.fold', scope: 'editor', keys: ['mod+alt+b'] },
 ];
 
 /** Atajos del sistema y de Safari que nunca se asignan. */
@@ -79,8 +94,10 @@ export function padOf(cfg: KeyConfig, id: string): number[] {
 
 const NAMED: Record<string, string> = { ' ': 'Space', Spacebar: 'Space', Esc: 'Escape', Left: 'ArrowLeft', Right: 'ArrowRight', Up: 'ArrowUp', Down: 'ArrowDown' };
 /** Nombre normalizado de una pulsación (`mod+shift+n`, `Space`, `?`, `PageDown`…). */
-export function bindingOf(e: { key: string; metaKey?: boolean; ctrlKey?: boolean; altKey?: boolean; shiftKey?: boolean }): string {
+export function bindingOf(e: { key: string; code?: string; metaKey?: boolean; ctrlKey?: boolean; altKey?: boolean; shiftKey?: boolean }): string {
   let k = NAMED[e.key] ?? e.key;
+  // con ⌥ el Mac cambia la letra (⌥1 = «¡», ⌥B = «∫»): se usa la tecla física
+  if (e.altKey && e.code && /^(Digit|Key)[0-9A-Z]$/.test(e.code)) k = e.code.slice(-1);
   if (k.length === 1) k = k.toLowerCase();
   if (['Meta', 'Control', 'Alt', 'Shift'].includes(k)) return '';
   const shift = e.shiftKey && (k.length > 1 || /^[a-z]$/.test(k)) && k !== 'Space' ? 'shift+' : '';

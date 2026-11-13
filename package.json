@@ -26,7 +26,8 @@
     "e2e:p12": "node e2e/p12.mjs",
     "e2e:p15": "node e2e/p15.mjs",
     "e2e:perf": "node e2e/perf.mjs",
-    "e2e:notaspro": "node e2e/notaspro.mjs"
+    "e2e:notaspro": "node e2e/notaspro.mjs",
+    "e2e:barra": "node e2e/barra.mjs"
   },
   "dependencies": {
     "docx": "^9.15.3",

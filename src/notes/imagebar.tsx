@@ -1,5 +1,5 @@
 import { t } from '../i18n';
-import { AlignCenterHorizontal, MoveDiagonal2, TextAlignEnd, TextAlignStart, TextWrap } from 'lucide-preact';
+import { AlignCenterHorizontal, MoveDiagonal2, TextAlignEnd, TextAlignStart, TextWrap, Trash2 } from 'lucide-preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { Align, Embed } from '../md/embed';
 import { Portal, useLayer } from '../ui/overlay';
@@ -12,7 +12,7 @@ const MIN = 80;
  * flechas ±10 %, o el asa de la esquina con dedo o Pencil), «Texto al lado» y texto alternativo.
  * Cada acción reescribe el embed en el Markdown (un cambio; ⌘Z lo deshace).
  */
-export function ImageBar(p: { img: HTMLImageElement; embed: Embed; onApply: (fn: (e: Embed) => Embed) => void; onTextBeside: () => void; onClose: () => void }) {
+export function ImageBar(p: { img: HTMLImageElement; embed: Embed; onApply: (fn: (e: Embed) => Embed) => void; onTextBeside: () => void; onRemove?: () => void; onClose: () => void }) {
   const bar = useRef<HTMLDivElement>(null);
   const handle = useRef<HTMLButtonElement>(null);
   const [, setTick] = useState(0);
@@ -88,6 +88,7 @@ export function ImageBar(p: { img: HTMLImageElement; embed: Embed; onApply: (fn:
           {SIZES.map(([k, v]) => <button type="button" class="btn small ghost" aria-label={t(`imgbar.tam_${k}`)} aria-pressed={p.embed.w?.unit === '%' && p.embed.w.v === v} onClick={() => setW(v, '%')}>{k === 'full' ? '↔' : k}</button>)}
           <span class="imgbar-sep" aria-hidden="true" />
           <button type="button" class="btn icon small ghost" aria-label={t('imgbar.texto_al_lado')} disabled={a !== 'izq' && a !== 'der'} onClick={p.onTextBeside}><TextWrap size={18} /></button>
+          {p.onRemove && <button type="button" class="btn icon small ghost" aria-label={t('imgbar.quitar')} onClick={p.onRemove}><Trash2 size={18} /></button>}
         </div>
         <label class="field">{t('imgbar.alt')}
           <input class="input" value={alt} placeholder={p.embed.name} onInput={(e) => setAlt((e.target as HTMLInputElement).value)}

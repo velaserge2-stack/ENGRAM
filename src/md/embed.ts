@@ -89,3 +89,9 @@ export function textBeside(blocks: string[], b: number, n: number): { blocks: st
   else out.splice(at, 0, `${raw} `);
   return { blocks: out, edit: at };
 }
+
+/** Quita el n-ésimo embed de imagen (y el espacio que lo seguía); el archivo de media/ no se toca. */
+export function removeImageEmbed(text: string, n: number): string {
+  let k = -1;
+  return text.replace(/!\[\[([^\]\n]+)\]\][ \t]?/g, (all, inner: string) => (IMG_EXT.test(inner.split('|')[0]!.trim()) && ++k === n ? '' : all));
+}

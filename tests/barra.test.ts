@@ -165,3 +165,44 @@ describe('bloques: mover, duplicar, eliminar, combinar', () => {
     expect(mergeWithPrev(['a'], 0)).toBeNull();
   });
 });
+
+describe('historial de la nota', async () => {
+  const { createHistory } = await import('../src/notes/history');
+  it('una acción = un paso; el tecleo seguido se agrupa; rehacer se borra al cambiar', () => {
+    let t = 0;
+    const h = createHistory(100, () => t);
+    h.record('a', 'action'); // a → b
+    h.record('b', 'type'); t += 300; // b → bc
+    h.record('bc', 'type'); t += 300; // bc → bcd (mismo paso)
+    t += 2000;
+    h.record('bcd', 'type'); // bcd → bcde (paso nuevo)
+    expect(h.undo('bcde')).toBe('bcd');
+    expect(h.undo('bcd')).toBe('b');
+    expect(h.undo('b')).toBe('a');
+    expect(h.undo('a')).toBeNull();
+    expect(h.redo('a')).toBe('b');
+    h.record('b', 'action');
+    expect(h.canRedo).toBe(false);
+  });
+});
+
+describe('tarjetas con origen #pN al mover bloques', async () => {
+  const { paraMap } = await import('../src/notes/format');
+  const { remapSources } = await import('../src/notes/sources');
+  const { MemoryBackend } = await import('../src/vault/memory');
+  it('mover dos párrafos actualiza el número en el mazo', async () => {
+    const before = 'Título\n\nPrimer párrafo largo\n\nSegundo párrafo largo';
+    const after = 'Título\n\nSegundo párrafo largo\n\nPrimer párrafo largo';
+    expect([...paraMap(before, after)]).toEqual([[0, 0], [1, 2], [2, 1]]);
+    const v = new MemoryBackend();
+    await v.write('decks/a.md', 'Q:: uno\nA:: x <!-- src: notes/N.md#p1 -->\n\nQ:: dos\nA:: y <!-- src: notes/N.md#p2 -->\n\nQ:: otra\nA:: z <!-- src: notes/Otra.md#p1 -->');
+    expect(await remapSources(v, ['decks/a.md'], 'notes/N.md', before, after)).toBe(2);
+    const t = new TextDecoder().decode(await v.read('decks/a.md'));
+    expect(t).toContain('notes/N.md#p2 -->\n\nQ:: dos');
+    expect(t).toContain('dos\nA:: y <!-- src: notes/N.md#p1 -->');
+    expect(t).toContain('notes/Otra.md#p1'); // otra nota: intacta
+    // deshacer: el mapa inverso deja todo como estaba
+    await remapSources(v, ['decks/a.md'], 'notes/N.md', after, before);
+    expect(new TextDecoder().decode(await v.read('decks/a.md'))).toContain('uno\nA:: x <!-- src: notes/N.md#p1 -->');
+  });
+});

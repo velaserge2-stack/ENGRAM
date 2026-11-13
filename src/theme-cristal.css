@@ -309,6 +309,26 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 .md code { font-family: var(--mono); font-size: .9em; background: var(--fill); border-radius: 5px; padding: 1px 5px; }
 .md pre code { display: block; padding: 10px; overflow-x: auto; }
 .md a.wl { text-decoration: underline dotted; }
+/* Prompt 17 · barra del editor: fija arriba de la nota, un renglón de alto constante, una sola superficie de vidrio */
+.editorbar { position: sticky; top: calc(env(safe-area-inset-top) + 72px + var(--vv-top, 0px)); z-index: var(--z-panel); display: flex; align-items: center; gap: 4px; min-height: 52px; padding: 4px; border-radius: 18px; }
+body.notes-full .editorbar, .note-panel .editorbar { top: calc(env(safe-area-inset-top) + var(--vv-top, 0px)); }
+.note-panel .editorbar { top: 0; border-radius: 14px; }
+.editorbar .eb-scroll { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.editorbar .eb-scroll::-webkit-scrollbar { display: none; }
+.editorbar .eb-end { display: flex; gap: 2px; padding-left: 4px; border-left: var(--hair) solid var(--line); flex: none; }
+.editorbar .btn { flex: none; min-height: 44px; } .editorbar .btn.icon { width: 44px; }
+.editorbar .btn:disabled { opacity: .38; }
+.editorbar .btn[aria-pressed="true"] { background: var(--inverse-bg); color: var(--inverse-fg); }
+.editorbar .eb-sep { flex: none; width: var(--hair); align-self: stretch; margin: 8px 4px; background: var(--line); }
+.editorbar .eb-select { flex: none; width: auto; min-height: 40px; padding: 0 10px; font-size: 16px; }
+.editorbar .eb-txt { font-weight: 700; font-size: .875rem; }
+.editorbar.folded .eb-scroll { flex: 0 1 auto; }
+.eb-grid { display: grid; grid-template-columns: repeat(6, 28px); gap: 4px; padding: 6px; }
+.eb-grid button { width: 28px; height: 28px; border-radius: 6px; border: var(--hair) solid var(--border); background: var(--fill-2); padding: 0; }
+.eb-grid button.on { background: var(--inverse-bg); }
+.eb-grid-wrap { display: grid; justify-items: center; gap: 4px; padding-bottom: 6px; }
+@media (prefers-reduced-motion: no-preference) { .editorbar .eb-scroll > * { transition: opacity .15s; } }
+html.is-phone .editorbar { top: calc(env(safe-area-inset-top) + 4px + var(--vv-top, 0px)); border-radius: 14px; }
 /* Prompt 17: tamaños relativos (respetan el tamaño de texto del usuario) y alineación de párrafo */
 .md .t-pequeno { font-size: .85em; } .md .t-grande { font-size: 1.25em; } .md .t-muygrande { font-size: 1.6em; line-height: 1.25; }
 .md .al-centro { text-align: center; } .md .al-der { text-align: right; } .md .al-justificado { text-align: justify; hyphens: auto; -webkit-hyphens: auto; }

@@ -353,3 +353,27 @@ export function mergeWithPrev(blocks: string[], i: number): string[] | null {
   if (i <= 0) return null;
   return [...blocks.slice(0, i - 1), `${blocks[i - 1]}\n${blocks[i]}`, ...blocks.slice(i + 1)];
 }
+
+/** Tipo de lista de la línea en la posición (para el estado de la barra). */
+export function listAt(text: string, pos: number): ListKind | null {
+  const a = text.lastIndexOf('\n', pos - 1) + 1;
+  return kindOf(text.slice(a, text.indexOf('\n', pos) === -1 ? text.length : text.indexOf('\n', pos)));
+}
+
+/**
+ * Índices de párrafo (como en `paragraphs()`: trozos separados por líneas en blanco) antes → después
+ * de un cambio de bloques. Se emparejan por contenido idéntico, en orden; un párrafo que ya no
+ * existe (eliminado o combinado) no aparece. Sirve para que las tarjetas con origen `nota#pN`
+ * sigan apuntando a su párrafo tras mover, duplicar o eliminar bloques.
+ */
+export function paraMap(oldBody: string, newBody: string): Map<number, number> {
+  const a = oldBody.split(/\n\s*\n/).map((x) => x.trim());
+  const b = newBody.split(/\n\s*\n/).map((x) => x.trim());
+  const used = new Set<number>();
+  const out = new Map<number, number>();
+  a.forEach((t, i) => {
+    const j = b.findIndex((u, k) => u === t && !used.has(k));
+    if (j >= 0) (used.add(j), out.set(i, j));
+  });
+  return out;
+}
