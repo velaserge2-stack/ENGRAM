@@ -182,7 +182,8 @@ try {
     let k = 0;
     while (Date.now() - t0 < MIN * 60000) {
       const blocks = page.locator('.doc [aria-label="Editar bloque"]');
-      await blocks.nth((k * 397) % 2900).click();
+      // clic en el bloque (no en un enlace de dentro, que navegaría)
+      await blocks.nth((k * 397) % 2900).evaluate((e) => (e.scrollIntoView({ block: 'center' }), e.click()));
       await page.locator('.doc textarea').first().press('End');
       await page.keyboard.type(' abc', { delay: 20 });
       await page.keyboard.press('Escape');
@@ -228,8 +229,9 @@ try {
       await shown();
       await page.getByRole('button', { name: 'Ajustar al contenido' }).click();
       await page.waitForTimeout(800);
-      const wrap = await page.locator('.canvas-wrap').boundingBox();
-      await page.mouse.move(wrap.x + wrap.width / 2, wrap.y + wrap.height / 2);
+      // un punto vacío del lienzo (sobre una imagen, Ctrl+rueda acerca la imagen, no el lienzo)
+      const spot = await page.evaluate(() => { const w = document.querySelector('.canvas-wrap').getBoundingClientRect(); for (let y = w.top + 20; y < w.bottom - 140; y += 15) for (let x = w.left + 20; x < w.right - 200; x += 15) { const e = document.elementFromPoint(x, y); if (e && e.closest('.canvas-wrap') && !e.closest('.win, button, .minimap, .chip, .row')) return { x, y }; } return { x: w.left + 10, y: w.top + 10 }; });
+      await page.mouse.move(spot.x, spot.y);
       const fpsP = page.evaluate(() => new Promise((res) => { const t0 = performance.now(); let n = 0, last = t0, worst = 0; const f = (t) => { n++; worst = Math.max(worst, t - last); last = t; if (t - t0 < 2000) requestAnimationFrame(f); else res({ fps: Math.round((n / (t - t0)) * 1000), worstFrameMs: Math.round(worst) }); }; requestAnimationFrame(f); }));
       for (let i = 0; i < 30; i++) { await page.mouse.wheel(i % 2 ? 25 : -25, 15); if (i % 3 === 0) { await page.keyboard.down('Control'); await page.mouse.wheel(0, i % 6 ? -40 : 40); await page.keyboard.up('Control'); } }
       R[`pan_${k}img`] = { ...(await fpsP), ...(await mem(page)) };
