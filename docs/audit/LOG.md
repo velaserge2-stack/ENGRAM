@@ -88,3 +88,9 @@ No aplicado (pendiente de aprobación del usuario): las correcciones de errores 
 Omitido: etapa 1b (graphify no instalada; ver arriba). code-simplifier y deslop no estaban disponibles en la 4b.
 
 Nota: en la etapa 4, los commits que solo quitan `export` se verificaron en conjunto, no uno por uno; el último commit de la etapa pasó typecheck, pruebas, build y E2E.
+
+## Correcciones · plan 1–5 (2026-11-13) · subagente Opus
+
+Aplicados los puntos 1–5 del PLAN (un commit por punto, detalle en `05-correcciones.md`): lectura estricta, SafeVault tras un apply fallido, diario validado + importación sin `.app/journal`/`tmp`, un solo escritor (`navigator.locks` + cola por backend) y `appendLines`.
+`it.fails` → `it`: 15 (quedan 73); tres pruebas de auditoría se ajustaron sin cambiar lo que comprueban (ver 05). Verificación: typecheck, vitest (337 + 73 esperadas), build, `e2e`, `e2e:flows`, `e2e:mejoras`, `e2e:intentos`, `e2e:notaspro` en verde (Chromium).
+Pendiente: aviso «abierta en otra pestaña» sin `locks`; mazo ilegible hace fallar la carga entera (con aviso).
