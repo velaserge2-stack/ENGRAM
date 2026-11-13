@@ -32,3 +32,9 @@ Activas para la auditoría (≤ 6): ponytail, systematic-debugging, webapp-testi
 - Hallazgo de riesgo alto para la etapa 2: `appendLog` (`src/data/collection.ts:141`) usa `readTextOr(…, '')`, así que un error de lectura puede sustituir `reviews.jsonl` por la última línea. Sin confirmar aún.
 - Mapa: DeckStore y ExamStore no existen; la sincronización entre paneles es `noteStore` (`src/notes/store.ts`) más recarga por contador en `app.tsx`.
 - graphify / etapa 1b omitida: no se instaló (ver tabla de skills arriba); el grafo de dependencias se calculó con un script de lectura de `import`.
+
+## Etapa 2.1 · src/lib (2026-11-13) · subagente Sonnet
+
+- Revisados los 24 módulos de `src/lib/`. Informe en `docs/audit/02-lib.md`: 17 hallazgos (3 altos, 7 medios, 7 bajos).
+- Altos: `ensureFileId` reescribe el frontmatter perdiendo líneas que el parser no entiende y sobrescribe la nota con un archivo casi vacío si la lectura falla; la ida y vuelta de `frontmatter.ts` altera números (`1.0`→`1`), barras invertidas y vacíos.
+- Pruebas: `tests/audit-lib.test.ts` con 14 `it.fails` (todas reproducen el error); cambiarlas a `it()` al corregir. Sin cambios en `src/`.
