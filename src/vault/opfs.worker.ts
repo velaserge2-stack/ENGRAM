@@ -56,7 +56,7 @@ function getFS() {
     const proto = (self as unknown as { FileSystemFileHandle?: { prototype: object } }).FileSystemFileHandle?.prototype;
     const hasSync = !!proto && 'createSyncAccessHandle' in proto;
     const strategy = hasSync ? 'sync-access-handle' : 'writable';
-    return { fs: new HandleFS(root, hasSync ? writeWithSyncHandle : writeWithWritable, asciiCodec), strategy };
+    return { fs: new HandleFS(root, hasSync ? writeWithSyncHandle : writeWithWritable, asciiCodec, { cacheDirs: true }), strategy }; // OPFS es privado: caché de carpetas
   })();
   return fsPromise;
 }

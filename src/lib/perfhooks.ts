@@ -6,7 +6,7 @@
  */
 import { REVIEWS, STATE, loadCollection, loadStates, verifyDeterminism } from '../data/collection';
 import { moveDeck } from '../data/move';
-import { buildZip, collectVault } from '../io/zip';
+import { zipVault } from '../io/zip';
 import { notesIndex } from '../notes/search-client';
 import { moveNotes } from '../notes/move';
 import { parseLog, replay } from '../srs/engine';
@@ -72,17 +72,13 @@ export function install(vault: SafeVault) {
       const r = await notesIndex.query(q);
       return { hits: r.length, ms: now() - t };
     },
-    /** Respaldo como `BackupSheet.prepare`: leer todo + zip. El Blob queda en `__perf.backup`. */
+    /** Respaldo como `BackupSheet.prepare` (Prompt 21 · 3b: por partes, leer y comprimir van juntos: todo en `collectMs`). */
     async backup() {
       perf.reset();
-      let t = now();
-      const files = await collectVault(vault);
-      const collectMs = now() - t;
-      t = now();
-      const zip = await buildZip(files, 'perf');
-      const zipMs = now() - t;
-      (window as unknown as { __backup: Blob }).__backup = new Blob([zip as BlobPart], { type: 'application/zip' });
-      return { files: files.length, bytes: zip.length, collectMs, zipMs };
+      const t = now();
+      const { blob, counts } = await zipVault(vault, 'perf');
+      (window as unknown as { __backup: Blob }).__backup = blob;
+      return { files: counts.files, bytes: blob.size, collectMs: now() - t, zipMs: 0 };
     },
   };
   (perf as unknown as { api: typeof api }).api = api;

@@ -14,6 +14,7 @@ import { parseFrontmatter, setKeys } from '../lib/frontmatter';
 import { fromICS, toICS } from '../lib/ics';
 import { makeUri, parseUri } from '../lib/links';
 import { withSuffix } from '../vault/paths';
+import { batch } from '../vault/safe';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr, walk } from '../vault/util';
 import type { Collection, Deck } from './collection';
@@ -26,12 +27,14 @@ export type Clash = 'rename' | 'merge';
 const CAL = 'calendar/estudio.ics';
 
 /** Deshace en orden inverso. */
-export async function undoMove(vault: VaultAdapter, log: Undo): Promise<void> {
-  for (const op of [...log].reverse()) {
-    if (op.kind === 'move') await vault.move(op.to, op.from);
-    else if (op.before === null) await vault.remove(op.path);
-    else await vault.write(op.path, op.before);
-  }
+export function undoMove(vault: VaultAdapter, log: Undo): Promise<void> {
+  return batch(vault, async (tx) => {
+    for (const op of [...log].reverse()) {
+      if (op.kind === 'move') await tx.move(op.to, op.from);
+      else if (op.before === null) await tx.remove(op.path);
+      else await tx.write(op.path, op.before);
+    }
+  });
 }
 
 async function write(vault: VaultAdapter, log: Undo, path: string, text: string) {
@@ -150,7 +153,10 @@ function renameDeckText(text: string, name: string): string {
  * mismo nombre: `rename` lo deja como «Nombre (2)»; `merge` junta sus tarjetas en el existente
  * (y sus submazos en la carpeta de este).
  */
-export async function moveDeck(vault: VaultAdapter, col: Collection, d: Deck, folder: string, clash: Clash = 'rename', log: Undo = []): Promise<Undo> {
+export function moveDeck(vault: VaultAdapter, col: Collection, d: Deck, folder: string, clash: Clash = 'rename', log: Undo = []): Promise<Undo> {
+  return batch(vault, (tx) => moveDeckIn(tx, col, d, folder, clash, log)); // un solo diario para el mazo y sus submazos
+}
+async function moveDeckIn(vault: VaultAdapter, col: Collection, d: Deck, folder: string, clash: Clash, log: Undo): Promise<Undo> {
   if (!canMoveTo(d, folder) || folder === d.folder) return log;
   const subs = withSubdecks(col, d).slice(1);
   const oldSub = `${dirOf(d.folder)}/${d.name}`;
@@ -203,11 +209,13 @@ const spaceFix = (names: [string, string][], paths: [string, string][]) => (type
 };
 
 /** Mueve varios mazos; los que son descendientes de otro de la lista viajan con su padre. */
-export async function moveDecks(vault: VaultAdapter, col: Collection, decks: Deck[], folder: string, clash: Clash = 'rename'): Promise<Undo> {
+export function moveDecks(vault: VaultAdapter, col: Collection, decks: Deck[], folder: string, clash: Clash = 'rename'): Promise<Undo> {
   const top = decks.filter((d) => !decks.some((p) => p !== d && (d.folder === p.full || d.folder.startsWith(p.full + '/'))));
   const log: Undo = [];
-  for (const d of top) await moveDeck(vault, col, d, folder, clash, log);
-  return log;
+  return batch(vault, async (tx) => {
+    for (const d of top) await moveDeck(tx, col, d, folder, clash, log);
+    return log;
+  });
 }
 
 export type IdClash = 'skip' | 'duplicate';
@@ -218,7 +226,10 @@ export type IdClash = 'skip' | 'duplicate';
  * `skip` la deja donde está; `duplicate` copia la nota con un ID nuevo (sin historial) y
  * deja el original.
  */
-export async function moveCards(vault: VaultAdapter, col: Collection, cids: string[], target: Deck, onClash: IdClash = 'skip'): Promise<{ undo: Undo; moved: number; skipped: number; duplicated: number }> {
+export function moveCards(vault: VaultAdapter, col: Collection, cids: string[], target: Deck, onClash: IdClash = 'skip'): Promise<{ undo: Undo; moved: number; skipped: number; duplicated: number }> {
+  return batch(vault, (tx) => moveCardsIn(tx, col, cids, target, onClash)); // destino y orígenes en un solo diario: todo o nada
+}
+async function moveCardsIn(vault: VaultAdapter, col: Collection, cids: string[], target: Deck, onClash: IdClash): Promise<{ undo: Undo; moved: number; skipped: number; duplicated: number }> {
   const log: Undo = [];
   const ids = [...new Set(cids.map(noteIdOf))];
   let dest = await readTextOr(vault, target.path, '');
@@ -268,7 +279,10 @@ export async function moveCards(vault: VaultAdapter, col: Collection, cids: stri
  * Mueve una carpeta de mazos (un «tema» sin archivo propio, p. ej. `Cardiología/`) dentro de
  * `dest`. Si existe el mazo homónimo (`Cardiología.md`), se mueve con él como un mazo más.
  */
-export async function moveFolder(vault: VaultAdapter, col: Collection, folder: string, dest: string, clash: Clash = 'rename', log: Undo = []): Promise<Undo> {
+export function moveFolder(vault: VaultAdapter, col: Collection, folder: string, dest: string, clash: Clash = 'rename', log: Undo = []): Promise<Undo> {
+  return batch(vault, (tx) => moveFolderIn(tx, col, folder, dest, clash, log));
+}
+async function moveFolderIn(vault: VaultAdapter, col: Collection, folder: string, dest: string, clash: Clash, log: Undo): Promise<Undo> {
   const owner = col.decks.find((d) => d.full === folder);
   if (owner) return moveDeck(vault, col, owner, dest, clash, log);
   const base = folder.split('/').pop()!;

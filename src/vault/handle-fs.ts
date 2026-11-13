@@ -46,23 +46,79 @@ function isNotFound(e: unknown): boolean {
 }
 
 export class HandleFS {
+  /**
+   * Prompt 21 · 3a: manejadores de carpeta ya resueltos (clave = ruta). Resolver una ruta cuesta un
+   * `getDirectoryHandle` por nivel en CADA operación; con la caché, casi ninguno. Solo para OPFS (privado:
+   * solo la app escribe); en una carpeta del usuario otra app podría borrarla por fuera.
+   * Seguridad: borrar invalida la ruta y lo de dentro; y un manejador de una carpeta que ya no existe
+   * lanza NotFoundError (nunca escribe en una carpeta «fantasma»), así que ante NotFound con la caché
+   * se vacía y se reintenta sin ella (también cubre lo que haga otra pestaña).
+   */
+  private dirs: Map<string, FileSystemDirectoryHandle> | null;
+
   constructor(
     private root: FileSystemDirectoryHandle,
     private writeFile: WriteStrategy,
     private codec: NameCodec = identityCodec,
-  ) {}
+    opts: { cacheDirs?: boolean } = {},
+  ) {
+    this.dirs = opts.cacheDirs ? new Map() : null;
+  }
 
-  private async dir(parts: string[], create: boolean): Promise<FileSystemDirectoryHandle> {
-    let d = this.root;
-    for (const p of parts) d = await d.getDirectoryHandle(this.codec.enc(p), { create });
+  private async dir(parts: string[], create: boolean, useCache = true): Promise<FileSystemDirectoryHandle> {
+    const c = useCache ? this.dirs : null;
+    if (!c || !parts.length) {
+      let d = this.root;
+      for (const p of parts) d = await d.getDirectoryHandle(this.codec.enc(p), { create });
+      return d;
+    }
+    // el prefijo más largo ya resuelto y, desde ahí, nivel por nivel (cada nivel queda en la caché)
+    let i = parts.length;
+    let d: FileSystemDirectoryHandle | undefined;
+    for (; i > 0; i--) if ((d = c.get(parts.slice(0, i).join('/')))) break;
+    d ??= this.root;
+    for (; i < parts.length; i++) {
+      d = await d.getDirectoryHandle(this.codec.enc(parts[i]!), { create });
+      c.set(parts.slice(0, i + 1).join('/'), d);
+    }
     return d;
   }
 
+  /** Quita de la caché `path` y todo lo que hay debajo (al borrarla o moverla). */
+  private forget(path: string) {
+    const c = this.dirs;
+    if (!c) return;
+    if (!path) return c.clear();
+    for (const k of c.keys()) if (k === path || k.startsWith(path + '/')) c.delete(k);
+  }
+
+  /** Con la caché: ante NotFound (carpeta borrada o recreada por fuera) se vacía y se reintenta una vez sin ella. */
+  private async fresh<T>(op: () => Promise<T>): Promise<T> {
+    if (!this.dirs?.size) return op();
+    try {
+      return await op();
+    } catch (e) {
+      if (!isNotFound(e)) throw e;
+      this.dirs.clear();
+      return op();
+    }
+  }
+
   private async resolve(path: string): Promise<FileSystemHandle | null> {
+    const r = await this.resolveOnce(path, true);
+    // con la caché, «no existe» puede venir de un manejador viejo (otra pestaña borró la carpeta): se
+    // confirma sin ella; solo si así sí aparece, la caché estaba vieja y se vacía
+    if (r || !this.dirs?.size) return r;
+    const again = await this.resolveOnce(path, false);
+    if (again) this.dirs.clear();
+    return again;
+  }
+
+  private async resolveOnce(path: string, useCache: boolean): Promise<FileSystemHandle | null> {
     const parts = splitPath(path);
     if (parts.length === 0) return this.root;
     try {
-      const parent = await this.dir(parts.slice(0, -1), false);
+      const parent = await this.dir(parts.slice(0, -1), false, useCache);
       const name = this.codec.enc(parts[parts.length - 1]!);
       try {
         return await parent.getFileHandle(name);
@@ -105,8 +161,7 @@ export class HandleFS {
   async write(path: string, data: Uint8Array): Promise<void> {
     const parts = splitPath(path);
     if (!parts.length) throw new VaultError('Ruta vacía', 'invalid-path');
-    const parent = await this.dir(parts.slice(0, -1), true);
-    const fh = await parent.getFileHandle(this.codec.enc(parts[parts.length - 1]!), { create: true });
+    const fh = await this.fresh(async () => (await this.dir(parts.slice(0, -1), true)).getFileHandle(this.codec.enc(parts[parts.length - 1]!), { create: true }));
     await this.writeFile(fh, data);
   }
 
@@ -114,13 +169,23 @@ export class HandleFS {
     const parts = splitPath(path);
     if (!parts.length) {
       for (const e of await this.list('')) await this.remove(e.path);
-      return;
+      return this.forget('');
     }
+    this.forget(parts.join('/'));
+    const name = this.codec.enc(parts[parts.length - 1]!);
+    const rm = async (useCache: boolean) => (await this.dir(parts.slice(0, -1), false, useCache)).removeEntry(name, { recursive: true });
     try {
-      const parent = await this.dir(parts.slice(0, -1), false);
-      await parent.removeEntry(this.codec.enc(parts[parts.length - 1]!), { recursive: true });
+      await rm(true);
     } catch (e) {
       if (!isNotFound(e)) throw e;
+      // «no existe» es lo normal al borrar algo que no está; solo si sin la caché sí se borra, estaba vieja
+      if (!this.dirs?.size) return;
+      try {
+        await rm(false);
+        this.dirs.clear();
+      } catch (e2) {
+        if (!isNotFound(e2)) throw e2;
+      }
     }
   }
 
@@ -139,8 +204,7 @@ export class HandleFS {
   async writeBlob(path: string, blob: Blob, onChunk?: (written: number) => void, cancelled?: () => boolean): Promise<{ size: number; hash: string }> {
     const parts = splitPath(path);
     if (!parts.length) throw new VaultError('Ruta vacía', 'invalid-path');
-    const parent = await this.dir(parts.slice(0, -1), true);
-    const fh = await parent.getFileHandle(this.codec.enc(parts[parts.length - 1]!), { create: true });
+    const fh = await this.fresh(async () => (await this.dir(parts.slice(0, -1), true)).getFileHandle(this.codec.enc(parts[parts.length - 1]!), { create: true }));
     let h = FNV_INIT, at = 0;
     const next = async () => {
       if (cancelled?.()) throw new DOMException('Cancelado', 'AbortError');
@@ -204,13 +268,15 @@ export class HandleFS {
     if (h.kind === 'file') {
       const parts = splitPath(to);
       // un destino que es carpeta nunca se borra para dejar sitio a un archivo
-      if ((await this.resolve(to))?.kind === 'directory') throw new VaultError(`El destino es una carpeta: ${to}`, 'io', to);
+      const dest = await this.resolve(to);
+      if (dest?.kind === 'directory') throw new VaultError(`El destino es una carpeta: ${to}`, 'io', to);
       const fh = h as FileSystemFileHandle & { move?: (dir: FileSystemDirectoryHandle, name: string) => Promise<void> };
       if (typeof fh.move === 'function') {
         try {
-          await this.remove(to);
-          await fh.move(await this.dir(parts.slice(0, -1), true), this.codec.enc(parts[parts.length - 1]!));
-          if ((await this.resolve(to)) && !(await this.resolve(from))) return;
+          if (dest) await this.remove(to); // un destino que no existe no se borra (un viaje menos)
+          await fh.move(await this.fresh(() => this.dir(parts.slice(0, -1), true)), this.codec.enc(parts[parts.length - 1]!));
+          // comprobar con la caché basta: el origen se acaba de resolver por ella
+          if ((await this.resolve(to)) && !(await this.resolveOnce(from, true))) return;
         } catch { /* sin move fiable: se copia */ }
       }
       await this.writeBlob(to, await (h as FileSystemFileHandle).getFile(), onChunk);

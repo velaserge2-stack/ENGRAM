@@ -3,7 +3,7 @@ import { t } from '../i18n';
  * Exportar / importar la bóveda como .zip (SPEC §5) con `manifest.json`
  * (versión de formato, fecha, conteos) para validar al reimportar.
  */
-import { strToU8, unzip, type Unzipped, zip, type Zippable } from 'fflate';
+import { AsyncZipDeflate, strToU8, unzip, type Unzipped, zip, Zip, ZipDeflate, ZipPassThrough, type Zippable } from 'fflate';
 import { normalizePath } from '../vault/paths';
 import { JOURNAL_PATH, TMP_DIR } from '../vault/safe';
 import type { VaultAdapter } from '../vault/types';
@@ -66,6 +66,47 @@ export function buildZip(files: VaultFile[], appVersion: string, now = new Date(
   const z: Zippable = { [MANIFEST]: [strToU8(JSON.stringify(manifest, null, 2)), { level: 6 }] };
   for (const f of files) z[f.path] = [f.data, { level: ALREADY_COMPRESSED.test(f.path) ? 0 : 6 }];
   return new Promise((resolve, reject) => zip(z, (err, data) => (err ? reject(err) : resolve(data))));
+}
+
+/**
+ * Respaldo por partes (Prompt 21 · 3b, cuello #5): lee un archivo, lo pasa al zip y lo suelta. Lo grande
+ * se comprime en un Worker de fflate (`AsyncZipDeflate`, uno por archivo) mientras se lee lo siguiente;
+ * lo pequeño, aquí mismo (un Worker por nota costaría más que comprimirla); lo ya comprimido va tal cual. Las piezas de salida forman un Blob: nunca están a la vez todos los archivos leídos y el zip
+ * entero. Mismo contenido que `collectVault` + `buildZip` (manifiesto primero, mismas exclusiones).
+ */
+export async function zipVault(vault: VaultAdapter, appVersion: string, now = new Date(), onProgress?: (done: number, total: number) => void): Promise<{ blob: Blob; counts: Manifest['counts'] }> {
+  const stats = await walk(vault, '', (p) => !isExportable(p));
+  const counts = countFiles(stats);
+  const manifest: Manifest = { format: FORMAT, formatVersion: FORMAT_VERSION, app: appVersion, createdAt: now.toISOString(), counts };
+  const parts: Uint8Array[] = [];
+  let fail: Error | null = null;
+  let finish!: () => void;
+  const ended = new Promise<void>((res) => (finish = res));
+  const z = new Zip((err, chunk, final) => {
+    if (err) fail ??= err;
+    else parts.push(chunk);
+    if (err || final) finish();
+  });
+  const add = (path: string, data: Uint8Array, store: boolean) => {
+    const f = store ? new ZipPassThrough(path) : data.length > 256 * 1024 ? new AsyncZipDeflate(path, { level: 6 }) : new ZipDeflate(path, { level: 6 });
+    z.add(f);
+    f.push(data, true);
+  };
+  add(MANIFEST, strToU8(JSON.stringify(manifest, null, 2)), false);
+  // la lectura del siguiente archivo (en el Worker) se pide antes de comprimir el actual (aquí): se solapan
+  const read = (i: number) => (i < stats.length ? vault.read(stats[i]!.path) : null);
+  let next = read(0);
+  for (let i = 0; i < stats.length && !fail; i++) {
+    const data = await next!;
+    next = read(i + 1);
+    add(stats[i]!.path, data, ALREADY_COMPRESSED.test(stats[i]!.path));
+    onProgress?.(i + 1, stats.length);
+  }
+  await next?.catch(() => {}); // si se cortó por un error, la lectura pendiente no queda sin atender
+  z.end();
+  await ended;
+  if (fail) throw fail;
+  return { blob: new Blob(parts as BlobPart[], { type: 'application/zip' }), counts };
 }
 
 export interface ParsedZip {

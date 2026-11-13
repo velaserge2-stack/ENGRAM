@@ -15,6 +15,8 @@ export function ImportSheet(props: { onClose: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const dirRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<[number, number] | null>(null);
+  const abort = useRef<AbortController | null>(null);
   const [over, setOver] = useState(false);
   const [plan, setPlan] = useState<PlanItem[] | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -50,8 +52,12 @@ export function ImportSheet(props: { onClose: () => void }) {
   async function confirm() {
     if (!plan) return;
     setBusy(true);
+    const ac = new AbortController();
+    abort.current = ac;
+    // a lo sumo un render por fotograma (uno por archivo hacía restaurar L un 26 % más lento)
+    let last: [number, number] = [0, 0], frame = 0;
     try {
-      const res = await applyPlan(app.vault, plan, (i) => overrides[i.path] ?? policy);
+      const res = await applyPlan(app.vault, plan, (i) => overrides[i.path] ?? policy, { signal: ac.signal, onProgress: (d, n) => { last = [d, n]; frame ||= requestAnimationFrame(() => { frame = 0; setProgress(last); }); } });
       if (withLog && log.length) app.toast(t('import.p_repasos_de_historial_importados', { p: await mergeLog(app.vault, log) }));
       // Si llegaron ajustes (restaurar respaldo), adoptarlos en vez de sobrescribirlos con los de memoria
       if (res.written.includes(SETTINGS_PATH)) app.replaceSettings({ ...(await loadSettings(app.vault)), welcomeDone: true });
@@ -63,7 +69,13 @@ export function ImportSheet(props: { onClose: () => void }) {
         return;
       }
       setDone(res);
+    } catch (e) {
+      if ((e as Error)?.name !== 'AbortError') throw e;
+      app.toast(t('import.cancelada')); // el lote no llegó a escribir su diario: la bóveda no cambió
     } finally {
+      cancelAnimationFrame(frame);
+      abort.current = null;
+      setProgress(null);
       setBusy(false);
     }
   }
@@ -155,9 +167,11 @@ export function ImportSheet(props: { onClose: () => void }) {
           {plan.length > 500 && <p class="foot">{t('import.y_p_mas', { p: plan.length - 500 })}</p>}
           <div class="row wrap">
             <button type="button" class="btn primary" disabled={busy || counts!.new + counts!.conflict === 0} onClick={confirm}>
-              {busy ? <><LoaderCircle size={18} class="spin" aria-hidden="true" />{' '}{t('import.importando')}</> : t('decks.importar')}
+              {busy ? <><LoaderCircle size={18} class="spin" aria-hidden="true" />{' '}{progress && progress[1] > 1 ? t('import.importando_n', { d: progress[0], n: progress[1] }) : t('import.importando')}</> : t('decks.importar')}
             </button>
-            <button type="button" class="btn" onClick={() => setPlan(null)}>{t('import.elegir_otros')}</button>
+            {busy && abort.current
+              ? <button type="button" class="btn" onClick={() => abort.current?.abort()}>{t('settings.cancelar')}</button>
+              : <button type="button" class="btn" onClick={() => setPlan(null)}>{t('import.elegir_otros')}</button>}
           </div>
         </div>
       ) : (
