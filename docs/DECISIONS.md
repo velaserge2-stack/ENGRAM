@@ -571,3 +571,43 @@ Abrir la app con `?perf` (p. ej. `https://…/engrama/?perf#/pdfs`) muestra en u
 ### Límites de Safari / a validar en iPad real
 - `ResizeObserver` existe desde Safari 13.1; el respaldo con `resize` no detecta Stage Manager.
 - Arrastrar con dedo y con Apple Pencil, con 6+ paneles, en vertical y horizontal (WebKit de Playwright no está instalado en el contenedor: las e2e corrieron en Chromium).
+
+## Mini prompt — Rendimiento del vidrio y botón «Añadir examen» (rama `fix-glass`, desde `main`)
+
+### Medición (`node e2e/glass-perf.mjs`, Chromium headless con GPU por software; WebKit no está instalado)
+| Escenario | Superficies con `backdrop-filter` visibles | fps | Sin ningún `backdrop-filter` (experimento) | Sin sombras (experimento) | Sin `saturate` (experimento) |
+|---|---|---|---|---|---|
+| Hoy, 6 mosaicos, foto de 2400 px, desplazando | 12 | 28 | 61 | 36 | 29 |
+| Espacios, 4 paneles, paneo y zoom | 10 (0 dentro del lienzo, también durante el gesto) | 59 | 61 | 61 | 60 |
+| Notas, nota larga (400 bloques), desplazando | 10 | 44 | 61 | 47 | 46 |
+
+El pintado en el hilo principal es casi nulo (1–4 ms); el costo es el desenfoque de las superficies que se mueven sobre el fondo fijo, que se rehace en cada fotograma (composición). En Espacios no hay costo: `.canvas-wrap` es `.glass.flat` y la regla `.glass .glass` ya quita el desenfoque de los paneles (desde antes), y `will-change` del plano ya solo existe durante el gesto (Prompt 11).
+
+### Aplicado
+- **«Intensidad del vidrio» gobierna también `.glass.strong`** (y su versión de iPhone): `blur(calc(40px * min(1, var(--k) / .7)))`. Al valor por defecto (70 %) es exactamente 40 px (0 píxeles de diferencia); al 0 % no hay desenfoque y el costo baja. Antes las superficies fuertes ignoraban el control.
+- **Modo ligero**: además de quitar todo `backdrop-filter` (comprobado en 7 pantallas), cambia la sombra grande por una corta.
+- **Aviso de modo ligero**: ya existía (`watchFrames`, 1 s y < 40 fotogramas). Ahora mide ~3 s con la **mediana** de los intervalos (sin falsos avisos si se deja de desplazar), escucha también el desplazamiento dentro de paneles y la nota trae la acción «Activar modo ligero» (nunca se activa solo; una vez por sesión).
+
+### Descartado (con motivo)
+- **Tope de ~4 superficies con desenfoque** y **bajar el radio de `.glass.strong`**: cambian el aspecto en reposo (las superficies planas o menos difuminadas se ven distintas) y la regla es 0 píxeles. Son las que más ahorrarían fuera del lienzo (Hoy 28 → 61 fps sin desenfoque); quedan como decisión de diseño pendiente.
+- **Vidrio «congelado» durante gestos (`is-gesturing`)**: en el lienzo los paneles ya no tienen desenfoque (medido: 0 durante el gesto), así que no aporta. Aplicarlo al desplazamiento de página haría parpadear el vidrio a plano al desplazar.
+- **Quitar `saturate`**: sin efecto medible (28 → 29 fps).
+- **Promover capas** (`translateZ(0)` en el fondo, `isolation` en barras): dentro del ruido (28 → 31, 44 → 41).
+- **Sombras más simples fuera del modo ligero**: +8 fps en Hoy, pero cambian el aspecto en reposo.
+- **iPhone (`is-phone`) con menos desenfoque**: cambia el aspecto en iPhone, que también debe quedar en 0 píxeles.
+- **`contain`/`content-visibility` en listas y paneles fuera de pantalla**: los paneles fuera de pantalla ya no montan contenido (Prompt 11); las notas largas lo tienen en la rama del Prompt 14 (aún no en `main`).
+
+### «Añadir examen» (causa verificada)
+Era un `.btn` suelto sobre el fondo (relleno de ~6 %, sin `.glass`): con los 5 fondos de prueba × 2 modos fallaban las 20 combinaciones (botón contra su alrededor 1–2:1; texto de 1:1 a 2:1 cuando el modo forzado no coincide con el fondo). El encabezado «Exámenes» de Estadísticas, a su lado, tenía el mismo problema.
+- `AddExamButton` → `btn primary` (relleno invertido, sin color) con `Plus`.
+- **Hoy**: dentro de una píldora `.glass` (`.exam-add`, la cubre el guardián) y, si no hay exámenes próximos, con una ayuda («Añade tu próximo examen…», es/en/fr).
+- **Estadísticas**: el encabezado «Exámenes» + botón pasa a `row glass panel`, como el resto de secciones. Tamaño normal (44 px), no `small` (36 px): las dos variantes pasan contraste, pero `small` incumple el objetivo táctil.
+- Prueba `e2e:glass`: las 20 combinaciones × 2 pantallas pasan (botón ≥ 3:1 con su alrededor, texto ≥ 4.5:1, medido en píxeles de la captura).
+- **Auditoría** de `.btn` fuera de `.glass` en 13 pantallas: solo «Añadir examen» (Hoy, Estadísticas) y los botones «Minimizar …» de los mosaicos de Hoy, que en el DOM están fuera del vidrio pero se dibujan sobre la esquina del mosaico (que sí es vidrio) y se leen bien. No se añade la regla global de respaldo `.btn:not(.glass .btn)`: cambiaría esos botones sin necesidad.
+
+### Píxeles (`MODE=compare npm run e2e:phone` contra `main`)
+27 de 36 capturas de iPad y web con 0 píxeles de diferencia. Cambian solo Hoy (+77 px de alto: la píldora con la ayuda), Estadísticas (+38 px: el encabezado de vidrio) y «bandeja» (sin el add-on muestra Hoy), por el arreglo del botón. La suite de iPhone pasa. Rendimiento con los ajustes por defecto: igual dentro del ruido (Hoy 28 → 27 fps, Espacios 59 → 55, Notas 44 → 40, en `docs/perf/vidrio-*.json`), porque las reducciones que ahorrarían cambian el aspecto; con el modo ligero, 61 fps en los tres.
+
+### Límites y lo que falta validar en iPad real
+- La medición definitiva es en el dispositivo: fotogramas al desplazar Hoy sobre una foto y al hacer paneo con 4 paneles. Chromium headless compone por software y exagera el costo del desenfoque.
+- El Chromium de las pruebas no aplica `prefers-reduced-transparency` aunque se emule: la regla CSS sigue igual que antes, sin verificar aquí.
