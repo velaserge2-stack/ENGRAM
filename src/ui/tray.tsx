@@ -105,7 +105,7 @@ export function Tray(p: { items: TrayItem[]; onRestore: (id: string) => void; on
 }
 
 /** Estado de la bandeja del tablero Hoy, guardado como un espacio más (.app/spaces/_hoy.json). */
-export const HOY_STATE = '.app/spaces/_hoy.json';
+const HOY_STATE = '.app/spaces/_hoy.json';
 
 export function useHoyTray() {
   const app = useApp();

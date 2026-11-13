@@ -439,7 +439,7 @@ export function guard(sample: ImageData, rootMode: 'dark' | 'light', k: number, 
  * halo neutro del tono opuesto (tres sombras apiladas: alfa efectivo junto a las letras ≈ 0,85). Claro: opacidad 0,38; oscuro: 0,45 (con
  * 0,38 el negro sobre blanco queda en ≈ 2,7:1). Devuelve el contraste estimado (percentil 5).
  */
-export const SIGN_ALPHA = { light: 0.38, dark: 0.45 } as const;
+const SIGN_ALPHA = { light: 0.38, dark: 0.45 } as const;
 export function signContrast(cells: RGB[], tone: 'light' | 'dark'): number {
   const fg: RGB = tone === 'light' ? [255, 255, 255] : [0, 0, 0];
   const halo: RGB = tone === 'light' ? [0, 0, 0] : [255, 255, 255];
