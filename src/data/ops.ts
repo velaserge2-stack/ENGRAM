@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 /** Operaciones sobre mazos (escritura segura vía SafeVault). */
-import { newId, parseDeck } from '../cards/parse';
+import { newId, noteIdOf, parseDeck } from '../cards/parse';
 import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr } from '../vault/util';
@@ -23,7 +23,8 @@ export async function createDeck(vault: VaultAdapter, name: string, folder = '')
 /** Añade un bloque de tarjeta al final del mazo con ID nuevo. */
 export async function appendCard(vault: VaultAdapter, deckPath: string, block: string, col: Collection | null): Promise<string> {
   const text = await readTextOr(vault, deckPath, '');
-  const taken = new Set<string>(col ? [...col.byCid.keys()].map((c) => c.split(':')[0]!) : []);
+  // también los IDs del historial (tarjetas archivadas o en la papelera): un ID nuevo no hereda su FSRS
+  const taken = new Set<string>(col ? [...col.byCid.keys(), ...col.log.map((e) => e.id)].map(noteIdOf) : []);
   for (const n of parseDeck(text).notes) if (n.id) taken.add(n.id);
   const id = newId(taken);
   const body = text.replace(/\s*$/, '');

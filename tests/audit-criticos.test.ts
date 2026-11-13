@@ -117,8 +117,8 @@ describe('auditoría · determinismo FSRS', () => {
     expect(r.bad).toBe(4);
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('un ID nuevo no reutiliza el de una tarjeta archivada o en la papelera (heredaría su historial FSRS)', async () => {
+  // auditoría: corregido (plan 8)
+  it('un ID nuevo no reutiliza el de una tarjeta archivada o en la papelera (heredaría su historial FSRS)', async () => {
     const v = new MemoryBackend();
     await v.write(REVIEWS, `{"id":"aaaaa","ts":${T},"rating":3}\n{"id":"aaaaa","ts":${T + 3 * DAY},"rating":3}\n`);
     await v.write('decks/Nuevo.md', 'Q:: tarjeta recién escrita\nA:: sin historial\n');

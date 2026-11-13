@@ -92,6 +92,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       if (!alive) return;
       setCol(c);
       if (c.idsAdded) toast(t('app.se_anadieron_idsadded_ids_de_tarjeta', { idsAdded: c.idsAdded }));
+      if (c.unreadable?.length) toast(t('app.mazos_ilegibles', { decks: c.unreadable.map((p) => p.slice('decks/'.length, -3)).join(', ') }));
     }, (e) => (console.error(e), alive && toast(t('app.no_se_pudo_cargar_la_coleccion', { e: String((e as Error)?.message ?? e) }))));
     if (addonOn(settings, 'inbox')) walk(vault, 'inbox').then((f) => alive && setInbox(new Set(f.map((x) => x.path.split('/')[1])).size));
     else setInbox(0);

@@ -5,7 +5,8 @@ import { t } from '../i18n';
  * texto cambiado = misma tarjeta; ID nuevo = tarjeta nueva; ID que desaparece =
  * archivada 30 días (su historial nunca se borra).
  */
-import { type CardRef, cardsOf, ensureIds, type Note, parseDeck } from '../cards/parse';
+import { type CardRef, cardsOf, ensureIds, type Note, noteIdOf, parseDeck } from '../cards/parse';
+import { DECK_TRASH } from './decktrash';
 import type { Frontmatter } from '../lib/frontmatter';
 import { type CardState, ENGINE_VERSION, type LogEntry, parseLog, replay, type SrsParams } from '../srs/engine';
 import type { VaultAdapter } from '../vault/types';
@@ -39,6 +40,8 @@ export interface Collection {
   archived: { cid: string; since: number }[];
   /** IDs añadidos al cargar (archivos reescritos) */
   idsAdded: number;
+  /** mazos que no se pudieron leer (omitidos en esta sesión) */
+  unreadable?: string[];
 }
 
 export function paramsKey(p: SrsParams): string {
@@ -84,10 +87,17 @@ function serializeStates(states: Map<string, CardState>, key: string): string {
 export async function loadCollection(vault: VaultAdapter, params: SrsParams, now = Date.now()): Promise<Collection> {
   const files = (await walk(vault, 'decks')).filter((f) => f.path.endsWith('.md'));
   const decks: Deck[] = [];
-  const taken = new Set<string>();
+  // el historial primero: un ID nuevo nunca reutiliza el de una tarjeta archivada o en la papelera
+  const { states, log, bad } = await loadStates(vault, params);
+  const taken = new Set<string>(log.map((e) => noteIdOf(e.id)));
+  for (const t of await trashTexts(vault)) for (const n of parseDeck(t).notes) if (n.id) taken.add(n.id);
   let idsAdded = 0;
   const texts: [string, string][] = [];
-  for (const f of files) texts.push([f.path, await readTextOr(vault, f.path, '')]);
+  // un mazo ilegible se omite en esta sesión (sin archivar sus tarjetas ni reescribir nada); se avisa
+  const unreadable: string[] = [];
+  for (const f of files) {
+    try { texts.push([f.path, await readTextOr(vault, f.path, '')]); } catch { unreadable.push(f.path); }
+  }
   for (const [, t] of texts) for (const n of parseDeck(t).notes) if (n.id) taken.add(n.id);
   for (const [path, original] of texts) {
     let text = original;
@@ -112,9 +122,15 @@ export async function loadCollection(vault: VaultAdapter, params: SrsParams, now
   }
   decks.sort((a, b) => a.full.localeCompare(b.full, 'es'));
   const byCid = new Map<string, { ref: CardRef; deck: Deck }>();
-  for (const d of decks) for (const ref of d.cards) byCid.set(ref.cid, { ref, deck: d });
-
-  const { states, log, bad } = await loadStates(vault, params);
+  for (const d of decks) {
+    // un ID repetido (entre mazos o en el mismo): cuenta solo la primera copia y se avisa en el de la segunda
+    d.cards = d.cards.filter((ref) => {
+      const first = byCid.get(ref.cid);
+      if (!first) return byCid.set(ref.cid, { ref, deck: d }), true;
+      d.errors.push(t('collection.id_repetido', { id: noteIdOf(ref.cid), deck: first.deck.full }));
+      return false;
+    });
+  }
 
   // Archivo: IDs con historial que ya no están en ningún mazo
   let archive: Record<string, number> = {};
@@ -124,7 +140,7 @@ export async function loadCollection(vault: VaultAdapter, params: SrsParams, now
     archive = {};
   }
   let changed = false;
-  for (const cid of states.keys()) {
+  if (!unreadable.length) for (const cid of states.keys()) {
     if (byCid.has(cid)) {
       if (cid in archive) (delete archive[cid], (changed = true));
     } else if (!(cid in archive)) {
@@ -137,7 +153,13 @@ export async function loadCollection(vault: VaultAdapter, params: SrsParams, now
     .filter(([, since]) => now - since < 30 * DAY)
     .map(([cid, since]) => ({ cid, since }));
 
-  return { decks, byCid, states, log, badLines: bad, archived, idsAdded };
+  return { decks, byCid, states, log, badLines: bad, archived, idsAdded, unreadable };
+}
+
+/** Textos de los mazos en la papelera (solo para reservar sus IDs; si no se pueden leer, se omiten). */
+async function trashTexts(vault: VaultAdapter): Promise<string[]> {
+  const files = (await walk(vault, DECK_TRASH).catch(() => [])).filter((f) => f.path.endsWith('.md'));
+  return Promise.all(files.map((f) => readTextOr(vault, f.path, '').catch(() => '')));
 }
 
 /** Agrega entradas al historial y actualiza la caché. */

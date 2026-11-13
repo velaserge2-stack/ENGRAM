@@ -62,14 +62,25 @@ describe('auditoría · cola', () => {
     const log = lines(rev('aaa', NOW - 1000, 2), { id: 'aaa', ts: NOW - 500, op: 'undo', ref: NOW - 1000 });
     expect(reviewsToday(col(log), NOW, LIM)).toBe(0);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('un ID repetido en dos mazos no mete la misma tarjeta dos veces en la cola', async () => {
+  // auditoría: corregido (plan 8)
+  it('un ID repetido en dos mazos no mete la misma tarjeta dos veces en la cola', async () => {
     const v = new MemoryBackend();
     await v.write('decks/A.md', '---\ndeck: A\n---\nQ:: p\nA:: r ^dup01\n');
     await v.write('decks/B.md', '---\ndeck: B\n---\nQ:: p\nA:: r ^dup01\n');
     const c = await loadCollection(v, P, NOW);
     const q = buildQueue(c, null, NOW, LIM, P);
     expect(q.fresh).toHaveLength(1);
+    expect(c.decks.find((d) => d.name === 'B')!.errors.join(' ')).toContain('dup01'); // se avisa
+  });
+  it('plan 8: appendCard no reutiliza un ID del historial (tarjeta archivada)', async () => {
+    const v = new MemoryBackend();
+    await v.write(REVIEWS, JSON.stringify(rev('aaaaa', 1)) + '\n');
+    await v.write('decks/A.md', 'Q:: x\nA:: y ^bbbbb\n');
+    const c = await loadCollection(v, P, NOW);
+    const r = Math.random;
+    let first = true;
+    Math.random = () => (first ? ((first = false), (17_276_050 + 0.5) / 36 ** 5) : r()); // «aaaaa»
+    try { expect(await appendCard(v, 'decks/A.md', 'Q:: z\nA:: w', c)).not.toBe('aaaaa'); } finally { Math.random = r; }
   });
 });
 
@@ -123,15 +134,21 @@ describe('auditoría · datos (lecturas fallidas y carreras)', () => {
     v.failRead = null;
     expect((await readText(v, ATTEMPTS)).split('\n').filter(Boolean).length).toBeGreaterThanOrEqual(3);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('un mazo ilegible al cargar no archiva sus tarjetas con historial', async () => {
+  // auditoría: corregido (plan 8)
+  it('un mazo ilegible al cargar no archiva sus tarjetas con historial', async () => {
     const v = new Flaky();
     await v.write('decks/A.md', '---\ndeck: A\n---\nQ:: uno\nA:: dos ^aaa11\n');
+    await v.write('decks/B.md', '---\ndeck: B\n---\nQ:: tres\nA:: cuatro ^bbb22\n');
     await v.write(REVIEWS, JSON.stringify(rev('aaa11', 1)) + '\n');
     v.failRead = 'decks/A.md';
-    await loadCollection(v, P, NOW);
+    const c = await loadCollection(v, P, NOW);
     v.failRead = null;
     expect(JSON.parse(await readText(v, ARCHIVE).catch(() => '{}'))).toEqual({});
+    // el resto se carga, el ilegible se avisa y conserva su estado
+    expect(c.decks.map((d) => d.name)).toEqual(['B']);
+    expect(c.unreadable).toEqual(['decks/A.md']);
+    expect(c.states.has('aaa11')).toBe(true);
+    expect(await readText(v, 'decks/A.md')).toBe('---\ndeck: A\n---\nQ:: uno\nA:: dos ^aaa11\n');
   });
   // auditoría: cambiar a it() al corregir
   it.fails('stateOp no deja el estado en memoria cambiado si falla la escritura del historial', async () => {

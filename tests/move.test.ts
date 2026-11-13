@@ -112,7 +112,11 @@ describe('mover tarjetas', () => {
     const d = await moveCards(v, c2, ['e1'], target, 'duplicate');
     expect(d).toMatchObject({ moved: 0, duplicated: 1 });
     const c3 = await loadCollection(v, DEFAULT_PARAMS, t);
-    expect(c3.decks.find((x) => x.full === 'Urgencias')!.cards.length).toBe(3);
+    // plan 8: la copia con ^e1 repetido sigue en el archivo pero no entra al estudio (se avisa); la duplicada sí
+    const urg3 = c3.decks.find((x) => x.full === 'Urgencias')!;
+    expect(urg3.notes.length).toBe(3);
+    expect(urg3.cards.length).toBe(2);
+    expect(urg3.errors.join(' ')).toContain('e1');
   });
 });
 
