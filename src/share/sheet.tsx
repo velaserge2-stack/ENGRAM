@@ -6,7 +6,7 @@
  * directo en Instagram).
  */
 import { locale, t } from '../i18n';
-import { Download, RefreshCw, Share2 } from 'lucide-preact';
+import { Download, MapPin, RefreshCw, Share2 } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useApp } from '../state';
 import { Group, Row, Segmented, Sheet, Switch } from '../ui/kit';
@@ -17,7 +17,7 @@ import { resolvedMode } from '../theme';
 import { initial, type Profile } from '../lib/profile';
 import type { DayAct } from '../lib/stats';
 import { compose, encode, rangeLabel } from './card';
-import { defaultShow, fileName, fmtDuration, FORMATS, PERIODS, SHOW_KEYS, summarize, type Format, type Period, type ShowKey } from './period';
+import { addPlace, clipPlace, defaultShow, fileName, fmtDuration, FORMATS, PERIODS, SHOW_KEYS, summarize, type Format, type Period, type ShowKey } from './period';
 
 type Img = HTMLImageElement;
 const loadImg = (src: string) => new Promise<Img>((res, rej) => {
@@ -48,6 +48,11 @@ export function ShareSheet(props: { act: Map<string, DayAct>; today: string; pro
   const set = (patch: Partial<typeof sh>) => app.update({ share: { ...sh, ...patch } });
   const sum = useMemo(() => summarize(props.act, app.col?.log ?? [], sh.period, props.today, s.timeZone, s.dayStartHour, s.streakMin), [props.act, sh.period, props.today]);
   const empty = !sum.cards && !sum.ms;
+  // lugar: texto libre; se limpia al cerrar salvo «Recordar el último lugar» (apagado por defecto)
+  const [place, setPlace] = useState(sh.rememberPlace ? sh.lastPlace : '');
+  const shown = clipPlace(place);
+  /** al usar la imagen: el lugar entra en los recientes (y se recuerda solo si así se pidió) */
+  const usePlace = () => shown && set({ places: addPlace(sh.places, place), lastPlace: sh.rememberPlace ? place.trim() : '' });
 
   // imágenes: se decodifican una sola vez mientras la hoja está abierta y se sueltan al cerrar
   const imgs = useRef<{ bg: Img | null; avatar: Img | null; mark: Img | null; framing?: ReturnType<typeof normFraming> } | null>(null);
@@ -66,7 +71,7 @@ export function ShareSheet(props: { act: Map<string, DayAct>; today: string; pro
   useEffect(() => () => void (url && URL.revokeObjectURL(url)), [url]);
 
   const line = [p.program, p.institution].filter((x) => x.trim()).join(' · ') || p.motto.trim();
-  const key = JSON.stringify([sh, s.bg, s.bgDim, s.bgBlur, s.glass, s.glassMode, sum.from, sum.to, sum.cards, sum.ms, p, tick]);
+  const key = JSON.stringify([sh.format, sh.period, sh.show, sh.neutral, shown, s.bg, s.bgDim, s.bgBlur, s.glass, s.glassMode, sum.from, sum.to, sum.cards, sum.ms, p, tick]);
   useEffect(() => {
     const id = ++job.current; // un solo trabajo a la vez: el más reciente gana
     setBusy(true);
@@ -91,9 +96,9 @@ export function ShareSheet(props: { act: Map<string, DayAct>; today: string; pro
           format: sh.format, period: sh.period, mode: resolvedMode(s), k: s.glass / 100, bg: s.bg, neutral: sh.neutral,
           framing: i.framing, dim: s.bgDim, blur: s.bgBlur, viewportW: innerWidth, bgImg: i.bg, avatar: i.avatar, mark: i.mark,
           profile: { name: p.name, username: p.username, emoji: p.emoji, initial: initial(p), line },
-          show, sum, font: `${font.getPropertyValue('--font').trim() || 'sans-serif'}, ${font.getPropertyValue('--emoji').trim() || 'sans-serif'}`,
+          show, place: shown, sum, font: `${font.getPropertyValue('--font').trim() || 'sans-serif'}, ${font.getPropertyValue('--emoji').trim() || 'sans-serif'}`,
         });
-        (window as unknown as { __share: unknown }).__share = { w: r.canvas.width, h: r.canvas.height, alpha: r.alpha, contrast: r.contrast, empty: r.empty, head: r.head };
+        (window as unknown as { __share: unknown }).__share = { w: r.canvas.width, h: r.canvas.height, alpha: r.alpha, contrast: r.contrast, empty: r.empty, head: r.head, lines: r.lines };
         const { blob, ext } = await encode(r.canvas);
         if (id !== job.current) return;
         setFile(new File([blob], fileName(props.today, ext), { type: blob.type }));
@@ -110,6 +115,7 @@ export function ShareSheet(props: { act: Map<string, DayAct>; today: string; pro
   const canShareFiles = !!file && 'share' in navigator && 'canShare' in navigator && navigator.canShare({ files: [file] });
   const onShare = () => {
     if (!file || empty) return;
+    usePlace();
     if (!canShareFiles) {
       download(file);
       return app.toast(t('share.descargada'));
@@ -126,6 +132,7 @@ export function ShareSheet(props: { act: Map<string, DayAct>; today: string; pro
   const alt = [
     show.name && p.name.trim(),
     show.user && p.username && `@${p.username}`,
+    shown,
     empty ? t('share.vacio') : [show.hours && `${t('share.horas_estudiadas')}: ${fmtDuration(sum.ms, locale())}`, show.cards && `${t('share.flashcards_estudiadas')}: ${nf.format(sum.cards)}`, show.streak && `${t('share.racha_dias')}: ${sum.streak}`].filter(Boolean).join(', '),
     rangeLabel(sum),
   ].filter(Boolean).join('. ');
@@ -149,13 +156,29 @@ export function ShareSheet(props: { act: Map<string, DayAct>; today: string; pro
         </div>
         <div class="row wrap">
           <button type="button" class="btn primary" disabled={!file || busy || empty} onClick={onShare}><Share2 size={18} /> {t('share.compartir')}</button>
-          <button type="button" class="btn" disabled={!file || busy} onClick={() => file && download(file)}><Download size={18} /> {t('share.guardar')}</button>
+          <button type="button" class="btn" disabled={!file || busy} onClick={() => { if (!file) return; usePlace(); download(file); }}><Download size={18} /> {t('share.guardar')}</button>
         </div>
         <p class="foot">{t('share.nota_instagram')}</p>
         </div>
         <div class="stack-s">
           <Segmented label={t('share.formato')} value={sh.format} onChange={(v) => set({ format: v })} options={FORMATS.map((f) => [f, FMT[f]])} />
           <Segmented label={t('share.periodo')} value={sh.period} onChange={(v) => set({ period: v })} options={PERIODS.map((x) => [x, PER[x]])} />
+          <Group title={t('share.donde_estudias')} footer={t('share.lugar_aviso')}>
+            <label class="field" style={{ padding: '6px 18px' }}>
+              <span class="at-input">
+                <MapPin size={18} aria-hidden="true" />
+                <input class="input wide" value={place} maxLength={80} placeholder={t('share.lugar_ejemplo')} aria-label={t('share.donde_estudias')} enterkeyhint="done"
+                  onInput={(e) => setPlace((e.target as HTMLInputElement).value)} data-user-content />
+              </span>
+            </label>
+            {sh.places.length > 0 && (
+              <div class="row wrap" style={{ padding: '4px 18px 10px' }} role="group" aria-label={t('share.lugares_recientes')}>
+                {sh.places.map((x) => <button type="button" class="btn" aria-pressed={x === place.trim()} onClick={() => setPlace(x)} data-user-content>{x}</button>)}
+                <button type="button" class="btn ghost" onClick={() => set({ places: [], lastPlace: '' })}>{t('share.olvidar_lugares')}</button>
+              </div>
+            )}
+            <Row k={t('share.recordar_lugar')}><Switch label={t('share.recordar_lugar')} checked={sh.rememberPlace} onChange={(v) => set({ rememberPlace: v, lastPlace: v ? place.trim() : '' })} /></Row>
+          </Group>
           <Group title={t('share.que_mostrar')}>
             {SHOW_KEYS.filter((k) => k !== 'retention' || sum.retention !== null).map((k) => {
               // sin @usuario en el perfil: interruptor apagado y un enlace a Perfil para definirlo

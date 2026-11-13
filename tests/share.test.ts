@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { activity } from '../src/lib/stats';
-import { defaultShow, ellipsize, fileName, fmtDuration, periodRange, safeZone, SIZE, summarize } from '../src/share/period';
+import { addPlace, clipPlace, defaultShow, ellipsize, fileName, fmtDuration, periodRange, safeZone, SIZE, summarize } from '../src/share/period';
 import { mergeSettings } from '../src/lib/settings';
 import type { LogEntry } from '../src/srs/engine';
 
@@ -75,9 +75,33 @@ describe('Compartir estadísticas · cuentas (Prompt 19)', () => {
 
   it('nombre de archivo y ajustes retrocompatibles', () => {
     expect(fileName('2026-11-13', 'png')).toBe('engrama-estadisticas-2026-11-13.png');
-    expect(mergeSettings({}).share).toEqual({ format: 'vertical', period: '7', show: {}, neutral: false });
-    expect(mergeSettings({ share: { format: 'otro', period: 'x', show: [], neutral: 'si' } }).share).toEqual({ format: 'vertical', period: '7', show: {}, neutral: false });
+    expect(mergeSettings({}).share).toEqual({ format: 'vertical', period: '7', show: {}, neutral: false, places: [], rememberPlace: false, lastPlace: '' });
+    expect(mergeSettings({ share: { format: 'otro', period: 'x', show: [], neutral: 'si', places: 'x', rememberPlace: 'si', lastPlace: 'Casa' } }).share).toEqual({ format: 'vertical', period: '7', show: {}, neutral: false, places: [], rememberPlace: false, lastPlace: '' });
     const s = mergeSettings({ share: { format: 'historia', period: 'todo', show: { name: false }, neutral: true } });
     expect(mergeSettings(JSON.parse(JSON.stringify(s))).share).toEqual(s.share); // idempotente
+  });
+  it('lugar: recorte a 40 grafemas con «…», espacios colapsados, vacío = nada', () => {
+    expect(clipPlace('  Café   Punta del Cielo ')).toBe('Café Punta del Cielo');
+    expect(clipPlace('')).toBe('');
+    expect(clipPlace('   ')).toBe('');
+    const largo = 'Biblioteca central de la Facultad de Medicina, piso 3';
+    expect([...clipPlace(largo)].length).toBe(40);
+    expect(clipPlace(largo).endsWith('…')).toBe(true);
+    expect(clipPlace('x'.repeat(40))).toBe('x'.repeat(40));
+    expect(clipPlace('☕'.repeat(45)).endsWith('☕…')).toBe(true);
+  });
+  it('lugares recientes: al frente, sin repetidos, máximo 5', () => {
+    let l: string[] = [];
+    for (const p of ['A', 'B', 'C', 'D', 'E', 'F']) l = addPlace(l, p);
+    expect(l).toEqual(['F', 'E', 'D', 'C', 'B']);
+    expect(addPlace(l, ' c ')).toEqual(['c', 'F', 'E', 'D', 'B']);
+    expect(addPlace(l, '  ')).toBe(l);
+    const s = mergeSettings({ share: { places: ['a', 'b', 'c', 'd', 'e', 'f', 3, ''], rememberPlace: true, lastPlace: 'Casa' } }).share;
+    expect(s.places).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(s.lastPlace).toBe('Casa');
+  });
+  it('@usuario: activado por defecto solo si existe en el perfil', () => {
+    expect(defaultShow({ name: 'Ana', username: 'SergeV', photo: '', emoji: '' }).user).toBe(true);
+    expect(defaultShow({ name: 'Ana', username: '', photo: '', emoji: '' }).user).toBe(false);
   });
 });

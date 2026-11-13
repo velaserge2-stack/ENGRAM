@@ -99,5 +99,18 @@ export function defaultShow(profile: { name: string; username?: string; photo: s
   return { name: !!profile.name.trim(), user: !!profile.username?.trim(), photo: !!(profile.photo || profile.emoji), line: false, hours: true, cards: true, streak: true, retention: true, days: true, heat: true, brand: true };
 }
 
+/** Lugar escrito por el usuario para la imagen: espacios colapsados y como mucho `max` grafemas con «…». */
+export function clipPlace(text: string, max = 40): string {
+  const t = text.replace(/\s+/g, ' ').trim();
+  const seg = 'Segmenter' in Intl ? [...new Intl.Segmenter().segment(t)].map((s) => s.segment) : [...t];
+  return seg.length <= max ? t : seg.slice(0, max - 1).join('').trimEnd() + '…';
+}
+/** Últimos lugares: el nuevo al frente, sin repetidos (sin distinguir mayúsculas), máximo 5. */
+export function addPlace(list: string[], place: string): string[] {
+  const p = place.replace(/\s+/g, ' ').trim();
+  if (!p) return list;
+  return [p, ...list.filter((x) => x.toLocaleLowerCase() !== p.toLocaleLowerCase())].slice(0, 5);
+}
+
 /** Nombre de archivo con la fecha local del día de estudio. */
 export const fileName = (today: string, ext: 'png' | 'jpg') => `engrama-estadisticas-${today}.${ext}`;

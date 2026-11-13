@@ -32,6 +32,8 @@ export interface CardInput {
   avatar: Img | null;
   mark: Img | null;
   profile: { name: string; username: string; emoji: string; initial: string; line: string };
+  /** «¿Dónde estás estudiando?»: texto libre del usuario (vacío = sin línea); nunca GPS */
+  place?: string;
   show: Record<ShowKey, boolean>;
   sum: Summary;
   font: string;
@@ -45,6 +47,25 @@ export interface CardResult {
   empty: boolean;
   /** ¿lleva encabezado (foto/emoji/nombre/línea)? */
   head: boolean;
+  /** textos del encabezado en orden (nombre, @usuario, carrera/lema, lugar) */
+  lines: string[];
+}
+
+/** Trazos de Lucide (ISC) en su caja de 24 px; se dibujan con Path2D para verse igual en todo dispositivo. */
+export const ICON = {
+  pin: ['M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0', 'M15 10a3 3 0 1 1-6 0a3 3 0 1 1 6 0'],
+  flame: ['M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4'],
+};
+/** Icono de trazo de `size` px con su esquina en (x, y); grosor 2 en la caja de 24, como en la app. */
+function strokeIcon(ctx: CanvasRenderingContext2D, d: string[], x: number, y: number, size: number, color: string) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(size / 24, size / 24);
+  ctx.lineWidth = 2;
+  ctx.lineCap = ctx.lineJoin = 'round';
+  ctx.strokeStyle = color;
+  for (const p of d) ctx.stroke(new Path2D(p));
+  ctx.restore();
 }
 
 const rgba = (c: RGB, a: number) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
@@ -121,11 +142,12 @@ export function compose(i: CardInput): CardResult {
   const blocks: Block[] = [];
 
   // encabezado: avatar + líneas de texto (nombre, @usuario, carrera/lema), centradas en el avatar
-  type HLine = { text: string; size: number; weight: number; color: string; lh: number };
+  type HLine = { text: string; size: number; weight: number; color: string; lh: number; pin?: boolean };
   const hl: HLine[] = [];
   if (sh.name && i.profile.name.trim()) hl.push({ text: i.profile.name.trim(), size: 56, weight: 700, color: t1, lh: 66 });
   if (sh.user && i.profile.username) hl.push({ text: `@${i.profile.username}`, size: 34, weight: 500, color: t2, lh: 44 });
   if (sh.line && i.profile.line) hl.push({ text: i.profile.line, size: 32, weight: 400, color: t2, lh: 42 });
+  if (i.place?.trim()) hl.push({ text: i.place.trim(), size: 32, weight: 500, color: t2, lh: 46, pin: true });
   const avatarOn = !!(sh.photo && (i.avatar || i.profile.emoji || i.profile.initial));
   const textH = hl.reduce((n, l) => n + l.lh, 0);
   const head = avatarOn || hl.length > 0;
@@ -163,7 +185,11 @@ export function compose(i: CardInput): CardResult {
       for (const l of hl) {
         ctx.font = font(l.weight, l.size * s);
         ctx.fillStyle = l.color;
-        ctx.fillText(ellipsize(l.text, maxW, (q) => ctx.measureText(q).width), x, ty + (l.lh * 0.5 + l.size * 0.36) * s);
+        const base = ty + (l.lh * 0.5 + l.size * 0.36) * s;
+        // el lugar lleva un pin a la izquierda, a la altura de la línea
+        const ic = l.pin ? l.size * 0.95 * s : 0, icGap = l.pin ? 10 * s : 0;
+        if (l.pin) strokeIcon(ctx, ICON.pin, x, ty + (l.lh * s - ic) / 2, ic, l.color);
+        ctx.fillText(ellipsize(l.text, maxW - ic - icGap, (q) => ctx.measureText(q).width), x + ic + icGap, base);
         ty += l.lh * s;
       }
     },
@@ -316,7 +342,7 @@ export function compose(i: CardInput): CardResult {
   let y = midTop + Math.max(0, (free - gap * (blocks.length - 1)) / 2);
   for (const b of blocks) (b.draw(y, s), (y += b.h * s + gap));
 
-  return { canvas, alpha, contrast: c, empty, head: !!head };
+  return { canvas, alpha, contrast: c, empty, head: !!head, lines: hl.map((l) => l.text) };
 }
 
 /** PNG (texto nítido); si pasa de 8 MB, JPEG de alta calidad. Suelta el canvas al terminar. */

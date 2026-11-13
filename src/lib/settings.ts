@@ -74,7 +74,8 @@ export interface Settings {
   /** tinta (Prompt 5 · B): qué hace el dedo sobre una superficie de tinta */
   inkFinger: 'pencil' | 'scroll' | 'draw';
   /** «Compartir estadísticas» (Prompt 19): última elección; `show` sin una clave = su valor por defecto */
-  share: { format: 'historia' | 'vertical' | 'cuadrada'; period: 'hoy' | '7' | '30' | 'anio' | 'todo'; show: Record<string, boolean>; neutral: boolean };
+  /** places: últimos 5 lugares escritos (solo en el dispositivo); lastPlace solo se guarda con rememberPlace */
+  share: { format: 'historia' | 'vertical' | 'cuadrada'; period: 'hoy' | '7' | '30' | 'anio' | 'todo'; show: Record<string, boolean>; neutral: boolean; places: string[]; rememberPlace: boolean; lastPlace: string };
 }
 
 export const ACCENT_USES = ['nav', 'progreso', 'enlaces', 'seleccion', 'calor', 'boton', 'calendario'] as const;
@@ -135,7 +136,7 @@ export function defaultSettings(): Settings {
     lang: '',
     photoQuality: 'original',
     settingsOpen: [],
-    share: { format: 'vertical', period: '7', show: {}, neutral: false },
+    share: { format: 'vertical', period: '7', show: {}, neutral: false, places: [], rememberPlace: false, lastPlace: '' },
   };
 }
 
@@ -180,6 +181,9 @@ export function mergeSettings(raw: unknown): Settings {
   if (!['hoy', '7', '30', 'anio', 'todo'].includes(s.share.period)) s.share.period = '7';
   if (!s.share.show || typeof s.share.show !== 'object' || Array.isArray(s.share.show)) s.share.show = {};
   s.share.neutral = s.share.neutral === true;
+  s.share.places = Array.isArray(s.share.places) ? s.share.places.filter((x): x is string => typeof x === 'string' && !!x.trim()).slice(0, 5) : [];
+  s.share.rememberPlace = s.share.rememberPlace === true;
+  s.share.lastPlace = s.share.rememberPlace && typeof s.share.lastPlace === 'string' ? s.share.lastPlace : '';
   return s;
 }
 
