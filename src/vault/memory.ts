@@ -41,6 +41,19 @@ export class MemoryBackend implements VaultAdapter {
     return f.data.slice();
   }
 
+  async appendAt(path: string, data: Uint8Array, at: number, sep = false): Promise<boolean> {
+    const p = normalizePath(path);
+    const prev = this.files.get(p)?.data ?? new Uint8Array();
+    if (at > prev.length) throw new VaultError(`Desplazamiento fuera del archivo: ${path}`, 'io', path);
+    const add = sep && at > 0 && prev[at - 1] !== 10;
+    const out = new Uint8Array(at + (add ? 1 : 0) + data.length);
+    out.set(prev.subarray(0, at));
+    if (add) out[at] = 10;
+    out.set(data, at + (add ? 1 : 0));
+    this.files.set(p, { data: out, mtime: Date.now() });
+    return add;
+  }
+
   async write(path: string, data: Uint8Array | string): Promise<void> {
     const p = normalizePath(path);
     if (!p) throw new VaultError('Ruta vacía', 'invalid-path');

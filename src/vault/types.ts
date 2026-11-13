@@ -35,6 +35,12 @@ export interface VaultAdapter {
   queued?(): number;
   /** Opcional: el archivo como `File` (lectura por rangos con `slice`, sin cargarlo entero). */
   file?(path: string): Promise<File>;
+  /**
+   * Opcional (Prompt 21 · 4): deja el archivo con sus primeros `at` bytes y escribe `data` desde ahí, sin
+   * leer ni reescribir lo anterior. Con `sep`, antepone «\n» si el byte `at - 1` no lo es. Volver a
+   * aplicarlo da el mismo resultado (la recuperación lo repite). Devuelve si añadió el separador.
+   */
+  appendAt?(path: string, data: Uint8Array, at: number, sep?: boolean): Promise<boolean>;
 }
 
 export interface BlobWriteOptions {
