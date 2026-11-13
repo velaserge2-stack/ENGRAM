@@ -12,6 +12,15 @@ class FakeWorker {
   postMessage(m: Msg) {
     if (m.op === 'init') return void queueMicrotask(() => this.onmessage?.({ data: { id: m.id, ok: true, value: { strategy: 'x' } } }));
     if (FakeWorker.hang) return; // nunca responde
+    if (m.op === 'hash') { // operación larga que avanza: señales de vida cada 50 ms durante 600 ms
+      let n = 0;
+      const t = setInterval(() => {
+        if (++n < 12) return this.onmessage?.({ data: { id: m.id, alive: true } });
+        clearInterval(t);
+        this.onmessage?.({ data: { id: m.id, ok: true, value: { size: 1, hash: 'h' } } });
+      }, 50);
+      return;
+    }
     queueMicrotask(() => this.onmessage?.({ data: { id: m.id, ok: true, value: m.op === 'exists' ? true : [] } }));
   }
   terminate() { this.terminated = true; }
@@ -31,6 +40,14 @@ describe('plan 14: OPFSBackend con tiempo de espera', () => {
     expect(FakeWorker.all).toHaveLength(2);
     FakeWorker.hang = false;
     expect(await b.exists('notes/a.md')).toBe(true);
+  });
+  it('una operación larga que da señales de vida no se corta aunque dure más que TIMEOUT', async () => {
+    vi.stubGlobal('Worker', FakeWorker);
+    const { OPFSBackend } = await import('../src/vault/opfs');
+    OPFSBackend.TIMEOUT = 200;
+    const b = await OPFSBackend.open();
+    expect(await b.hash('pdfs/grande.pdf')).toEqual({ size: 1, hash: 'h' });
+    expect(FakeWorker.all).toHaveLength(1); // no se reinició
   });
 });
 

@@ -33,6 +33,7 @@ export class OPFSBackend implements VaultAdapter {
       const r = ev.data;
       const p = this.pending.get(r.id);
       if (!p) return;
+      if ('alive' in r) return; // solo reinicia el vigilante
       if ('progress' in r) return p.progress?.(r.progress);
       this.pending.delete(r.id);
       if (r.ok) p.resolve(r.value);

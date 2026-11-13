@@ -76,7 +76,7 @@ export class HandleFS {
     }
   }
 
-  async list(path: string): Promise<FileStat[]> {
+  async list(path: string, onEntry?: () => void): Promise<FileStat[]> {
     const h = await this.resolve(path);
     if (!h || h.kind !== 'directory') return [];
     const prefix = splitPath(path).join('/');
@@ -90,6 +90,7 @@ export class HandleFS {
       } else {
         out.push({ path: p, name, kind: 'dir', size: 0, mtime: 0 });
       }
+      onEntry?.();
     }
     return out;
   }
@@ -184,10 +185,10 @@ export class HandleFS {
   }
 
   /** Suma y tamaño leyendo por trozos (verificar un temporal sin cargarlo entero). */
-  async hash(path: string): Promise<{ size: number; hash: string }> {
+  async hash(path: string, onChunk?: (read: number) => void): Promise<{ size: number; hash: string }> {
     const f = await this.file(path);
     let h = FNV_INIT;
-    for (let at = 0; at < f.size; at += CHUNK) h = fnvUpdate(h, new Uint8Array(await f.slice(at, at + CHUNK).arrayBuffer()));
+    for (let at = 0; at < f.size; at += CHUNK) (h = fnvUpdate(h, new Uint8Array(await f.slice(at, at + CHUNK).arrayBuffer()))), onChunk?.(at);
     return { size: f.size, hash: fnvHex(h) };
   }
 
@@ -195,7 +196,8 @@ export class HandleFS {
    * Mover. Archivo: `move()` nativo si existe (renombrar sin copiar); si falla o no existe,
    * copia por trozos y borra. Nunca carga el archivo entero. Directorio: recursivo.
    */
-  async move(from: string, to: string): Promise<void> {
+  /** `onChunk`: progreso de la copia por trozos (el Worker lo usa como señal de vida). */
+  async move(from: string, to: string, onChunk?: () => void): Promise<void> {
     const h = await this.resolve(from);
     if (!h) throw new VaultError(`No existe: ${from}`, 'not-found', from);
     if (splitPath(from).join('/') === splitPath(to).join('/')) return; // mover sobre sí mismo: nada (si no, `remove(to)` lo borra)
@@ -211,9 +213,9 @@ export class HandleFS {
           if ((await this.resolve(to)) && !(await this.resolve(from))) return;
         } catch { /* sin move fiable: se copia */ }
       }
-      await this.writeBlob(to, await (h as FileSystemFileHandle).getFile());
+      await this.writeBlob(to, await (h as FileSystemFileHandle).getFile(), onChunk);
     } else {
-      for (const e of await this.list(from)) await this.move(e.path, `${splitPath(to).join('/')}/${e.name}`);
+      for (const e of await this.list(from, onChunk)) await this.move(e.path, `${splitPath(to).join('/')}/${e.name}`, onChunk);
     }
     await this.remove(from);
   }

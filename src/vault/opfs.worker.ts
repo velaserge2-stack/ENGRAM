@@ -43,6 +43,8 @@ export type WorkerRequest =
 
 export type WorkerResponse =
   | { id: number; progress: number }
+  /** señal de vida de una operación larga que avanza (copia, suma, listado): reinicia el vigilante del cliente */
+  | { id: number; alive: true }
   | { id: number; ok: true; value: unknown }
   | { id: number; ok: false; error: string; code?: string };
 
@@ -64,6 +66,15 @@ let chain: Promise<unknown> = Promise.resolve();
 
 const cancelled = new Set<number>();
 
+/** Avisa que la operación `id` avanza (como mucho una vez por segundo). Solo se llama desde el trabajo real: un await colgado no la emite. */
+function aliveFor(id: number) {
+  let t = 0;
+  return () => {
+    const now = Date.now();
+    if (now - t >= 1000) ((t = now), (self as unknown as Worker).postMessage({ id, alive: true } satisfies WorkerResponse));
+  };
+}
+
 self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
   const req = ev.data;
   // cancelar no espera en la cola: marca la escritura en curso para que se detenga
@@ -78,7 +89,7 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
           value = { strategy };
           break;
         case 'list':
-          value = await fs.list(req.path);
+          value = await fs.list(req.path, aliveFor(req.id));
           break;
         case 'read': {
           const bytes = await fs.read(req.path);
@@ -93,7 +104,7 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
           await fs.remove(req.path);
           break;
         case 'move':
-          await fs.move(req.from, req.to);
+          await fs.move(req.from, req.to, aliveFor(req.id));
           break;
         case 'writeBlob': {
           let last = 0;
@@ -110,7 +121,7 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
           break;
         }
         case 'hash':
-          value = await fs.hash(req.path);
+          value = await fs.hash(req.path, aliveFor(req.id));
           break;
         case 'file':
           value = await fs.file(req.path);
