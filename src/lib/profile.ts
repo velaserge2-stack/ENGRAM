@@ -10,6 +10,8 @@ export const PHOTO_DIR = 'media/.app/perfil';
 
 export interface Profile {
   name: string;
+  /** @usuario: solo una etiqueta local para las imágenes compartidas; se guarda sin «@» */
+  username: string;
   emoji: string;
   photo: string;
   bio: string;
@@ -20,9 +22,9 @@ export interface Profile {
 }
 
 /** Claves del archivo (en español, como el resto de formatos de Engrama; no se traducen). */
-const KEYS: Record<Exclude<keyof Profile, 'bio'>, string> = { name: 'nombre', emoji: 'emoji', photo: 'foto', program: 'carrera', institution: 'institucion', year: 'anio', motto: 'lema' };
+const KEYS: Record<Exclude<keyof Profile, 'bio'>, string> = { name: 'nombre', username: 'usuario', emoji: 'emoji', photo: 'foto', program: 'carrera', institution: 'institucion', year: 'anio', motto: 'lema' };
 
-export const EMPTY_PROFILE: Profile = { name: '', emoji: '', photo: '', bio: '', program: '', institution: '', year: '', motto: '' };
+export const EMPTY_PROFILE: Profile = { name: '', username: '', emoji: '', photo: '', bio: '', program: '', institution: '', year: '', motto: '' };
 
 export function parseProfile(text: string): Profile {
   const doc = parseFrontmatter(text);
@@ -44,4 +46,20 @@ export function serializeProfile(p: Profile): string {
 /** Letra del avatar cuando no hay foto ni emoji. */
 export function initial(p: Pick<Profile, 'name'>): string {
   return [...p.name.trim()][0]?.toUpperCase() ?? '';
+}
+
+/** Lo que el usuario teclea → como se guarda: sin espacios en los extremos ni «@» al inicio. */
+export const normUsername = (v: string) => v.trim().replace(/^@+/, '');
+
+/**
+ * `null` si es válido (o vacío). 3–30 caracteres: letras (con acentos), números, «_» y «.»; sin
+ * espacios, sin «..» ni punto al inicio o al final. Mayúsculas y minúsculas se conservan.
+ */
+export function usernameError(v: string): 'largo' | 'caracteres' | 'puntos' | null {
+  if (!v) return null;
+  const n = [...v].length;
+  if (n < 3 || n > 30) return 'largo';
+  if (!/^[\p{L}\p{M}\p{N}_.]+$/u.test(v)) return 'caracteres';
+  if (v.startsWith('.') || v.endsWith('.') || v.includes('..')) return 'puntos';
+  return null;
 }
