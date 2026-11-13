@@ -42,7 +42,7 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 ## Comandos
 - `npm run dev` · `npm run build` · `npm run preview`
 - `npm test` (Vitest) · `npm run typecheck`
-- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras && npm run e2e:mejoras2 && npm run e2e:phone && npm run e2e:bloquec && npm run e2e:p5 && npm run e2e:p6 && npm run e2e:p7 && npm run e2e:p10 && npm run e2e:p12 && npm run e2e:p15 && npm run e2e:glass && npm run e2e:adherencia && npm run e2e:p14 && npm run e2e:reproductor && npm run e2e:pdf` y `npm run e2e:perf` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
+- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras && npm run e2e:mejoras2 && npm run e2e:phone && npm run e2e:bloquec && npm run e2e:p5 && npm run e2e:p6 && npm run e2e:p7 && npm run e2e:p10 && npm run e2e:p12 && npm run e2e:p15 && npm run e2e:glass && npm run e2e:adherencia && npm run e2e:p14 && npm run e2e:reproductor && npm run e2e:pdf && npm run e2e:share && npm run e2e:tasks && npm run e2e:stickies` y `npm run e2e:perf` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
 - `node scripts/icons.mjs` regenera íconos desde `scripts/icon.svg`
 
 ## Fase actual
