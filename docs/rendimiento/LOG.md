@@ -12,3 +12,4 @@ Rama `rendimiento` desde `main` 5141ff6 (incluye la auditoría y sus correccione
 | Tarea | Dificultad | Modelo | Tokens aprox. | Resultado |
 |---|---|---|---|---|
 | Fase 0 · línea base | media | sonnet | ~250k | Generador de bóvedas S/M/L, banco `npm run perf`, `baseline.json` y `baseline.md` con 10 objetivos con evidencia; contadores solo con `?perf` |
+| Fase 1 · cuellos de botella | media | opus | ~350k | `e2e/rendimiento-perfil.mjs` (perfil CPU + operaciones al Worker por escenario), `01-cuellos.md` (10 cuellos con evidencia, hipótesis y plan por fase) y `01-perfiles.json`; trazas crudas fuera de git en `tests/fixtures/rendimiento/perfiles/` |
