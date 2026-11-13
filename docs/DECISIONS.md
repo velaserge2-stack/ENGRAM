@@ -818,3 +818,28 @@ Nota larga desplazada y asa en un panel del lienzo (dedo y Pencil); nota de ~1 M
 - **Privacidad.** Por defecto, nombre y foto solo si existen en el perfil; carrera y lema, apagados. Las opciones se guardan en `settings.json` → `share`: campo nuevo, opcional y normalizado (valores inválidos vuelven al defecto).
 - **Teléfono.** El botón queda solo con icono y la hoja en una columna, ambos bajo `html.is-phone`. En `e2e:phone` cambia solo el encabezado de Hoy (el botón nuevo), en iPad y web; es la diferencia esperada.
 
+## Prompt 19 · 2: add-on «Tareas»
+
+- **Archivo `notes/Tareas.md`** (en lugar de `tasks/tareas.md`): así aparece en Notas, se busca, se enlaza con `[[Tareas]]`, se exporta y se respalda como cualquier nota, sin un árbol aparte. El mosaico y el editor de Notas comparten el mismo documento de `noteStore`, así que lo que se escribe en uno aparece al instante en el otro, y se guarda con SafeVault.
+- **Formato Markdown estándar**: `- [ ]`/`- [x]` (también `*`/`+` y `[X]` al leer), subtareas con 2 a 4 espacios o un tabulador (un nivel) y fecha opcional ` 📅 AAAA-MM-DD` al final, la sintaxis prevista en Notas Pro. Notas Pro aún no tiene analizador de tareas, así que este (`src/tasks/parse.ts`) es el que debe reutilizar. Solo se reescriben las líneas de tarea que el usuario toca; títulos, texto libre y frontmatter quedan igual. Activar el add-on no crea el archivo: se crea con la primera tarea.
+- **Orden**: el archivo manda. En «Todas», las hechas de primer nivel se muestran en su propio bloque al final, sin moverlas en el archivo. Reordenar (asa con Pointer Events o Alt + ↑/↓) solo cambia hermanas del mismo bloque contiguo, con sus subtareas; nunca cruza texto libre.
+- **Borrar** se puede deshacer desde el aviso. «Borrar completadas» pide confirmación. Las vencidas llevan icono y el texto «Vencida», no solo un tono.
+- **Sin integración con Calendario ni con «Pendientes»** por ahora: no es barata sin tocar su modelo de datos. Queda para después.
+- **Apagado = cero costo**: `src/tasks/tile.tsx` se carga con `import()` solo si el add-on está activo; el contador de la bandeja sale del mismo fragmento (`TasksCount`).
+
+## Prompt 19 · 3: add-on «Sticky notes»
+
+- **Cada sticky es una nota**: `notes/Stickies/<id>.md` (id = instante en base 36), con frontmatter `sticky: true`, `orden`, y opcionalmente `color`, `fijada` y `archivada`; las claves desconocidas se conservan. El explorador de Notas la muestra en la carpeta «Stickies» como cualquier otra (sin árbol duplicado), así que se busca, se enlaza, se exporta, se respalda y se abre en el editor completo. Se escribe por `noteStore` (el mismo documento que en Notas, guardado con SafeVault).
+- **Eliminar** la manda a la papelera de notas (`trash`) y «Deshacer» la restaura. **Convertir en nota** la mueve a `notes/<primera línea>.md` (`safeSegment`, con sufijo si ya existe) y quita solo las claves de sticky. Los enlaces `[[…]]` que apuntaban a la sticky no se reescriben (son raros); queda anotado. **Archivar** la oculta del mosaico, con un botón «n archivadas» para verlas.
+- **Color = contenido del usuario**: se elige por sticky entre la paleta de Notas (`COLORS`); por defecto, neutra. El color pinta solo el «papel» (`data-user-content`), como pastel opaco con texto `#111` (≥ 12:1, sin depender del fondo, porque no lo deja ver). El asa y el menú quedan neutros y sin color de interfaz.
+- **Un solo `backdrop-filter`** (el del mosaico): las stickies no llevan desenfoque propio. Sin rotación (la opción de rotarlas queda fuera, porque no aporta y complica el arrastre).
+- **Reordenar**: arrastrando el asa (Pointer Events con captura) o con Alt + flechas; se renumera `orden` de 10 en 10 y solo se escriben las que cambiaron. Las fijadas van siempre primero y no se mezclan con las demás.
+- **Límite**: se muestran 50 y «Mostrar n más»; dentro de cada sticky, tope de alto con desplazamiento.
+- **Fuera por ahora**: soltar una sticky en el lienzo de Espacios. El panel de nota existente ya puede abrirla desde «Abrir en Notas», pero arrastrar entre Hoy y el lienzo no es barato.
+- **Apagado = cero costo**: `src/stickies/tile.tsx` se carga con `import()` solo si el add-on está activo.
+- **Tamaño** (gzip, contra `main` con la función 1 ya unida). La entrada de JS pasa de 91.7 KB a 96.2 KB.
+  - Las claves nuevas de es/en/fr explican ~2.3 KB; los tres idiomas van en la entrada.
+  - Otros ~2 KB son módulos ya existentes (atajos `lib/keys` y `ui/keys`, `io/csv` y unos iconos) que el empaquetador sacó de un fragmento compartido y metió en la entrada: se mueven, no se duplican. Ocurre en cuanto el mosaico de stickies usa el render de Markdown (`ui/md`). Ni importarlo de forma diferida ni un archivo de vista aparte lo cambió, y usar solo `md/render` subía markdown-it entero (+11 KB), así que se dejó el import directo.
+  - El CSS pasa de 14.0 a 14.7 KB.
+  - Los fragmentos de Tareas y Sticky notes pesan ~3.2 y ~3.4 KB y solo se descargan con su add-on activo (`e2e:tasks` y `e2e:stickies` comprueban que, apagados, no se piden).
+
