@@ -36,7 +36,7 @@ export function onSchemeChange(fn: () => void): () => void {
  * Teléfono (Mejoras 2 · bloque B): una sola regla, que un iPad nunca cumple. Todo el CSS de móvil
  * cuelga de `html.is-phone` y todo el JS de `isPhone()`; iPad y web no cambian.
  */
-export const PHONE_QUERY = '(max-width: 600px), (max-height: 500px) and (orientation: landscape)';
+const PHONE_QUERY = '(max-width: 600px), (max-height: 500px) and (orientation: landscape)';
 const phoneMQ = typeof matchMedia === 'function' ? matchMedia(PHONE_QUERY) : null;
 export const isPhone = (): boolean => !!phoneMQ?.matches;
 
