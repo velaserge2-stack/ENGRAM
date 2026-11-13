@@ -25,3 +25,10 @@ Activas para la auditoría (≤ 6): ponytail, systematic-debugging, webapp-testi
 - madge: 0 ciclos. jscpd: 0 clones. tsc: 10 imports/parámetros sin uso, todos seguro de eliminar.
 - Cobertura: 72.49 % de líneas en src/. Una prueba (`p14`, LRU) supera los 5 s bajo cobertura; pasa con `--testTimeout=60000` (310/310). Build correcto con un aviso de import dinámico ineficaz en `profile.tsx`.
 - Fallos de herramientas: ninguno, salvo el timeout de `p14` descrito arriba.
+
+## Etapa 1 · mapa (2026-11-13) · subagente Haiku
+
+- Mapeado `src/` por carpeta (dependencias calculadas desde los `import`), flujos clave con `archivo:línea`, zonas críticas y los 15 archivos más largos y con más imports. Detalle en `docs/audit/MAPA.md` (276 líneas).
+- Hallazgo de riesgo alto para la etapa 2: `appendLog` (`src/data/collection.ts:141`) usa `readTextOr(…, '')`, así que un error de lectura puede sustituir `reviews.jsonl` por la última línea. Sin confirmar aún.
+- Mapa: DeckStore y ExamStore no existen; la sincronización entre paneles es `noteStore` (`src/notes/store.ts`) más recarga por contador en `app.tsx`.
+- graphify / etapa 1b omitida: no se instaló (ver tabla de skills arriba); el grafo de dependencias se calculó con un script de lectura de `import`.
