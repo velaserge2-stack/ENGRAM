@@ -50,4 +50,38 @@ Cada operación resolvía la ruta con un `getDirectoryHandle` **por nivel** (el 
 - **security-review** de lo que cambió en importadores: rutas siguen pasando por `normalizePath` (rechaza `\0`, `..`, absolutas, barra invertida normalizada, nombres demasiado largos) y la recuperación v2 por `safeTarget`; `LIMITS` (archivos, tamaño total y por archivo, razón de compresión, profundidad) sin cambios.
 
 ## Medición
-(se completa abajo)
+`npm run perf` con `ONLY=importar,mover,respaldo`, `SIZES=M,L`, 5 corridas (mediana), Chromium en el contenedor. Cada commit se midió en su propio worktree, uno tras otro (sin nada más corriendo). La línea base se repitió en esta máquina sobre `main` 974174a (las cifras de `baseline.md` son de otra sesión).
+
+### Antes/después (estado final de la fase 3 contra `main`)
+| Métrica | `main` | Fase 3 | Cambio | Objetivo (`01-cuellos.md`) |
+|---|---|---|---|---|
+| Mover 100 notas · M | 5.6 s · 200 diarios | 2.6 s · 1 diario | **−53 %** | < 1 s · ≤ 2 diarios: diarios sí, tiempo no |
+| Mover 100 notas · L | 11.3 s · 200 diarios | 5.8 s · 1 diario | **−49 %** | < 2 s: no |
+| Mover un mazo de 5 000 · M / L | 0.31 / 0.61 s · 1 diario | 0.20–0.31 / 0.61 s | = | (ya era 1 diario) |
+| Importar zip de 500 | 6.1 s · 500 diarios | 3.9 s · 1 diario | **−35 %** | < 2 s: no |
+| Restaurar el respaldo de L | 35.1 s · 2 606 diarios | 18.0 s · 1 diario | **−49 %** | < 10 s: no |
+| Crear el respaldo de L | 8.5 s · pico 204 MB | 6.7–8.2 s · pico 100–120 MB | −4 a −21 % · **−45 % de memoria** | −4 s y −130 MB: memoria casi, tiempo no |
+
+### Por optimización (cada fila contra el estado anterior)
+| Commit | Cambio medido | Veredicto |
+|---|---|---|
+| Lote (3a, `026649e`+`0fad4c7`) | mover M −22 %, L −8 %; zip 500 −17 %; restaurar −18 %; diarios 200/500/2 606 → 1 | se queda |
+| Caché de carpetas (`bb0c5c1`) | mover M −9 %, L −9 %; restaurar −18 %; crear respaldo −25 %; zip 500 +7 % (luego corregido) | se queda |
+| Referencias en una pasada (#8, `5e32e55`) | mover M −33 %, L −27 % | se queda |
+| Respaldo por partes (#5, `ac20bd9`) | pico −42 % pero **+37 % de tiempo** (comprimía entre lecturas, en serie) | se corrige con `c5b411f` |
+| Progreso y Cancelar (`2c39bbf`) | restaurar **+26 %** (un render por archivo) | se corrige con `6ebee05` |
+| Caché sin vaciados por «no existe» (`75a8563`) | restaurar −32 %; mover L −16 % | se queda |
+| `buildPlan` con un listado por raíz (`ca89fcf`) | zip 500 −18 %; restaurar −9 % | se queda |
+| Respaldo con lectura solapada (`c5b411f`) | crear respaldo −21 % | se queda |
+| Progreso a un render por fotograma (`6ebee05`) | zip 500 −14 %; restaurar −9 % (= sin la regresión) | se queda |
+
+Crear el respaldo varía mucho entre corridas con el mismo código (6.7–8.2 s, pico 93–120 MB): el tiempo lo dominan 2 607 lecturas en serie al Worker.
+
+### Lo que no llegó al objetivo, y por qué
+- **Mover 100 notas** sigue leyendo **todas** las notas y mazos (≈ 2 000 lecturas) para reescribir referencias. Saber qué notas enlazan a las movidas sin leerlas necesita el índice persistido de la fase 5; entonces bajará solo.
+- **Restaurar e importar** son 2 operaciones por archivo nuevo (temporal + renombrar) más la lectura del zip. Quitar el renombrado de los archivos nuevos (escribirlos directo con un diario de «deshacer» que los borra si no se confirmó) ahorraría ~1/3, pero cambia la recuperación: queda propuesto, no hecho.
+- **Crear el respaldo** está limitado por las lecturas en serie: una operación `readMany` dentro del Worker (una petición para muchos archivos) es el siguiente paso.
+
+## Descartado
+- Paralelizar lecturas o escrituras (máx. 4): el Worker de OPFS ejecuta una operación a la vez (fase 1); pedir en paralelo solo encola. No se implementó.
+- Caché de listados en esta fase: ver 3b.

@@ -27,3 +27,5 @@ Rama `rendimiento-2` desde `main` 974174a con el WIP `04d6abe` (cherry-pick). **
 | F3b · #5 respaldo por partes | media | opus (en línea) | ~25k | `zipVault`; equivalencia de contenido con el respaldo anterior |
 | F3b · importar con progreso y Cancelar | media | opus (en línea) | ~20k | `BatchOptions` en el lote; Cancelar antes del diario no cambia nada |
 | F3b · caché de listados | media | — | — | Pasa a la fase 6 (ver `03a-lotes.md`) |
+| F3 · ajustes tras medir | media | opus (en línea) | ~30k | Caché sin vaciados por «no existe», `buildPlan` con un listado por raíz, respaldo con lectura solapada, progreso a un render por fotograma |
+| F3 · mediciones (11 estados × M/L × 5) | fácil | — (script en segundo plano) | ~15k | Tablas en `03a-lotes.md`: mover 100 notas −53 %/−49 %, zip 500 −35 %, restaurar L −49 %, respaldo −45 % de memoria; diarios 200/500/2 606 → 1 |

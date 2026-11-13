@@ -11,7 +11,10 @@ Estado al detenerlo (2026-11-13): hechas y verificadas las fases 0, 1 y 2 (en `m
   - Pantallas con `import()`: paquete inicial 313.5 → 225.8 KB gzip (−28 %).
   - Verificación: 0 píxeles en el teléfono; `e2e`, `flows`, `design` y `mejoras` en verde.
 
-## Interrumpido
+## Fase 3 (Prompt 21-B, rama `rendimiento-2`)
+Hecha y medida: ver `03a-lotes.md`. **En pausa obligatoria** hasta la prueba en el iPad (mover 100 notas, importar el zip grande, cerrar la app a mitad, poca memoria).
+
+## Interrumpido (resuelto en la fase 3)
 - **Fase 3a · diario por lotes en SafeVault** (cuello #1). Trabajo a medias, **sin medición ni E2E**, guardado en la rama `rendimiento-3a-wip` (commit 04d6abe). **No unir así.** Toca `src/vault/safe.ts`, `src/vault/batch.ts` (nuevo), `src/notes/move.ts`, `src/data/move.ts`, `src/io/import.ts`, `src/screens/move.tsx`, `src/screens/notemove.tsx` y `tests/batch.test.ts`. Retomarla con Opus: revisar el diff, completar las pruebas de recuperación con fallos inyectados en cada paso (todo o nada, diario v1 compatible), medir y correr la batería.
 
 ## Falta (en orden)
