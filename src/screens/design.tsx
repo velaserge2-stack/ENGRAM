@@ -10,7 +10,7 @@ import { InkSurface } from '../ink/InkSurface';
 import { emptyInk } from '../ink/model';
 
 /** Fondos de prueba del tema Cristal (§11): blanco, negro, rayas, degradado vivo y foto. */
-export const TEST_BGS: [string, Background][] = [
+const TEST_BGS: [string, Background][] = [
   ['blanco', { kind: 'solid', value: '#ffffff' }],
   ['negro', { kind: 'solid', value: '#000000' }],
   ['rayas', { kind: 'builtin', value: 'rayas' }],

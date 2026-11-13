@@ -62,7 +62,7 @@ async function renderThumb(vault: ReturnType<typeof useApp>['vault'], path: stri
   }
 }
 /** En cola (una a la vez). Al importar se llama con el File que ya está a mano. */
-export function thumbFromFile(vault: ReturnType<typeof useApp>['vault'], path: string, file: Blob): Promise<Blob | null> {
+function thumbFromFile(vault: ReturnType<typeof useApp>['vault'], path: string, file: Blob): Promise<Blob | null> {
   const job = thumbQ.then(() => renderThumb(vault, path, file)).catch(() => null);
   thumbQ = job;
   return job;

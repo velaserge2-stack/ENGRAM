@@ -21,7 +21,7 @@ import { deckEmoji } from './decks';
 
 const ICON: Record<Rating, preact.JSX.Element> = { 1: <RotateCcw size={18} />, 2: <HelpCircle size={18} />, 3: <Check size={18} />, 4: <Zap size={18} /> };
 
-export function speak(text: string, lang: string) {
+function speak(text: string, lang: string) {
   if (!('speechSynthesis' in window)) return;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);

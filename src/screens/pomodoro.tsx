@@ -10,7 +10,7 @@ import type { VaultAdapter } from '../vault/types';
 import { readTextOr } from '../vault/util';
 
 const STATE_PATH = '.app/pomodoro-state.json';
-export const POMO_LOG = '.app/pomodoro.jsonl';
+const POMO_LOG = '.app/pomodoro.jsonl';
 
 let audio: AudioContext | null = null;
 function unlockAudio() {

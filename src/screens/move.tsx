@@ -15,7 +15,7 @@ export interface MoveItems { decks: Deck[]; folders: string[] }
 const label = (folder: string) => folder.split('/').pop()!;
 
 /** Destinos posibles: «Nivel superior» y cada mazo o carpeta existente (sin el propio ni sus descendientes). */
-export function destinations(col: Collection, items: MoveItems): string[] {
+function destinations(col: Collection, items: MoveItems): string[] {
   const all = new Set<string>();
   for (const d of col.decks) {
     all.add(d.full);
@@ -27,13 +27,13 @@ export function destinations(col: Collection, items: MoveItems): string[] {
 }
 
 /** ¿Algo choca por nombre en el destino? */
-export function hasClash(col: Collection, items: MoveItems, dest: string): boolean {
+function hasClash(col: Collection, items: MoveItems, dest: string): boolean {
   return items.decks.some((d) => clashOf(col, d, dest)) ||
     items.folders.some((f) => { const to = dest ? `${dest}/${label(f)}` : label(f); return to !== f && col.decks.some((d) => d.full === to || d.folder === to || d.folder.startsWith(to + '/')); });
 }
 
 /** Ejecuta el movimiento (los descendientes de otro elemento viajan con su padre). */
-export async function runMove(app: ReturnType<typeof useApp>, items: MoveItems, dest: string, clash: Clash): Promise<void> {
+async function runMove(app: ReturnType<typeof useApp>, items: MoveItems, dest: string, clash: Clash): Promise<void> {
   const col = app.col!;
   const roots = [...items.decks.map((d) => d.full), ...items.folders];
   const inside = (full: string) => roots.some((r) => r !== full && full.startsWith(r + '/'));
@@ -47,7 +47,7 @@ export async function runMove(app: ReturnType<typeof useApp>, items: MoveItems, 
 }
 
 /** Renombrar / Fusionar / Cancelar cuando el destino ya tiene un mazo con ese nombre. */
-export function ClashSheet(p: { onPick: (c: Clash | null) => void; names: string }) {
+function ClashSheet(p: { onPick: (c: Clash | null) => void; names: string }) {
   return (
     <Sheet title={t('move.nombre_repetido')} onClose={() => p.onPick(null)}>
       <div class="stack">

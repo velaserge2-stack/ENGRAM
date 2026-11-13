@@ -36,7 +36,7 @@ const TYPES = (): [NoteType, string][] => ([
 const one = (s: string) => s.replace(/\r?\n\s*\r?\n/g, '\n').trim();
 
 /** Construye la sintaxis del bloque desde el formulario visual (sin que el usuario la escriba). */
-export function buildBlock(t: NoteType, f: { front: string; back: string; lines: string; image: string; rects: Rect[] }): string {
+function buildBlock(t: NoteType, f: { front: string; back: string; lines: string; image: string; rects: Rect[] }): string {
   const items = f.lines.split('\n').map((x) => x.trim()).filter(Boolean);
   switch (t) {
     case 'basic': return `Q:: ${one(f.front)}\nA:: ${one(f.back)}`;

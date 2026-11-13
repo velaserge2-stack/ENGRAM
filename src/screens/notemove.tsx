@@ -18,7 +18,7 @@ const depth = (f: string) => f.split('/').length;
 const parentOf = (f: string) => (f.includes('/') ? f.slice(0, f.lastIndexOf('/')) : '');
 
 /** Destinos: para notas, temas y subcarpetas existentes (y carpetas que ya tienen notas sueltas); para un tema, las materias. */
-export function noteDestinations(all: string[], items: NoteItems): string[] {
+function noteDestinations(all: string[], items: NoteItems): string[] {
   const folders = noteFolders(all);
   const direct = new Set(all.map((p) => parentOf(p.slice('notes/'.length))).filter(Boolean));
   return folders.filter((f) =>
