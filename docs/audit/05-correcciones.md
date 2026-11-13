@@ -181,3 +181,31 @@ Pruebas a `it()` (4): lib «ensureFileId no pierde líneas», «barra invertida�
 Pendiente: inbox, stickies, exams y profile siguen con parse + stringify (archivos de Engrama).
 
 Verificación de la tanda 11–15: typecheck, vitest (385 + 45 esperadas), build; `e2e`, `e2e:flows`, `e2e:mejoras`, `e2e:mejoras2`, `e2e:p6`, `e2e:p10`, `e2e:p12`, `e2e:notaspro` en verde con `BROWSER=chromium` a la primera.
+
+## Menores · lib/data/vault/ui
+
+`it.fails` → `it`: 22 de 22 (lib 6, data 10, vault 4, ui 2). Ninguno resultó «no era error».
+- lib · etiqueta `engrama://tag/ecg`: corregido (`resolveLink` compara también `path` sin `tag:`).
+- lib · zona horaria inválida: corregido (`mergeSettings` cae a la del dispositivo).
+- lib · `pomo` y números de Ajustes: corregido (`mergeSettings` acota `pomo`, `newPerDay`, `reviewLimit`, `maxInterval`, `streakMin`, umbrales, `backupReminderDays`; `app.update` pasa por `mergeSettings`, así que la UI también queda acotada al confirmar el campo). Formato de `settings.json` sin cambios. Prueba nueva.
+- lib · `pace` con fecha inválida y `fmtDate`: corregido (ritmo «calculando»; `fmtDate` devuelve el texto tal cual). Textos «días tarde»/«a tiempo» ahora con `t()` (`exams.dias_tarde`, `exams.a_tiempo`, es/en/fr).
+- lib · pomodoro con minutos negativos al acortar el trabajo: corregido (`Math.max(0, …)`).
+- data · ` ^10` como ID: corregido (un ID de solo dígitos no cuenta; `newId` siempre pone letra).
+- data · CRLF en `ensureIds`/`replaceBlock`: corregido (conserva el fin de línea del cuerpo).
+- data · oclusión `10,20,,40`: corregido (campo vacío invalida el rectángulo).
+- data · `checkTyped`: corregido («casi correcto» solo con ≥ 4 caracteres; respuesta solo de símbolos idéntica es correcta).
+- data · deshacer y cupos: corregido (`newIntroducedToday`/`reviewsToday` descuentan `op:'undo'`).
+- data · `stateOp` con fallo de escritura: corregido (restaura el estado en memoria).
+- data · `loadExtra` con tiempos negativos o no numéricos: corregido (0).
+- data · `withSubdecks`: corregido (usa la ruta del archivo, no el `deck:` del frontmatter).
+- vault · rutas inválidas síncronas: corregido (métodos `async` en SafeVault, OPFS y FSAccess).
+- vault · `MemoryBackend.write` sobre carpeta: corregido (falla como HandleFS).
+- vault · nombre > 255 al codificar para OPFS: corregido en `normalizePath` (mide el nombre codificado; un segmento largo con muchas tildes se rechaza con `invalid-path`). Prueba reescrita para afirmar ese invariante.
+- vault · `readText` con UTF-8 inválido: corregido sin lanzar (lee estricto y, si falla, como windows-1252: Latin-1 queda legible y se guarda como UTF-8). Limitación: un archivo UTF-8 con un solo byte dañado se lee todo como windows-1252.
+- ui · `#/espacios/abrir/…` decodificada dos veces: corregido (`routeFilePath`).
+- ui · `study.answer` con `busy` fijo: ya corregido en el plan 8 (try/finally).
+- ui · Wake Lock del pomodoro: corregido (libera si ya no corre; lo pide de nuevo al volver a primer plano). Sin prueba (necesita navegador).
+- ui · `inbox.archive` doble toque: corregido (guarda con `useRef`); `body.replace` con función (`$&` en nombres). Sin prueba (pantalla).
+- ui · campos numéricos de Ajustes: corregido (ver arriba). Simulacros (`numero`, `minutos`, `penalización`, `aprobado`): pendiente, es UI con estado local y no hay validación pura que probar.
+- ui · textos fijos sin `t()`: corregido título de Media Session de `ambient.ts` (`addons.n_ambient`).
+- pendiente · `inbox.archive` atómico (mover archivos antes de escribir la nota), `deck.tsx` `createObjectURL`, miniaturas de `pdf.tsx`/`pdfs.tsx`, `backup.tsx` sin `catch`, `spaces.tsx` `saveT` único: no son pequeños o necesitan navegador.

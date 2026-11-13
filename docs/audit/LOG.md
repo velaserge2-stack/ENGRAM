@@ -110,3 +110,7 @@ Pendiente: RRULE original completo y EXDATE en UTC con DST; parse+stringify en i
 ## Verificación final de las correcciones (2026-11-13) · coordinador
 
 Sobre 7e1d039: typecheck limpio, vitest 385 pasan y 45 `it.fails` (quedan 45 errores documentados sin corregir; de 88 originales se corrigieron 43), build OK. Batería E2E completa en Chromium (no hay WebKit en el contenedor): 25 suites en verde a la primera (e2e, flows, design, mejoras, mejoras2, phone, bloquec, p5, p6, p7, p10, p12, p15, glass, adherencia, p14, reproductor, pdf, share, tasks, stickies, intentos, bancos, barra, notaspro). `MODE=compare e2e:phone` contra `origin/main`: 0 píxeles de diferencia en 36 capturas. Tokens de las tres tandas de corrección (Opus): ≈ 199 k + 198 k + 242 k.
+
+## Menores · lib/data/vault/ui (2026-11-13)
+
+`it.fails` → `it`: 22 (lib 6, data 10, vault 4, ui 2); 0 «no era error»; ninguno queda abierto. Además: Ajustes acotados también al editar (`app.update` → `mergeSettings`), Wake Lock del pomodoro, Archivar sin doble toque, `t()` en «días tarde»/«a tiempo»/Media Session. Pendientes y motivos en `05-correcciones.md`. Verificación: typecheck, vitest, build, `e2e`, `e2e:flows`, `e2e:mejoras`, `e2e:mejoras2`, `e2e:p6`, `e2e:intentos`, `e2e:bancos` en Chromium; `e2e:bancos` falló una comprobación una vez y pasó al repetir (intermitente).
