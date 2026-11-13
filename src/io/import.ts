@@ -5,6 +5,7 @@ import { errMsg, t } from '../i18n';
  */
 import { parseFrontmatter } from '../lib/frontmatter';
 import { basename, extname, normalizePath, withSuffix } from '../vault/paths';
+import { batch } from '../vault/safe';
 import type { VaultAdapter } from '../vault/types';
 import { appendLines, blobChecksum, bytesEqual, decodeText } from '../vault/util';
 import { LIMITS } from './limits';
@@ -202,11 +203,14 @@ export interface ApplyResult {
   previous: Map<string, Uint8Array | null>;
 }
 
-export async function applyPlan(
+export function applyPlan(
   vault: VaultAdapter,
   plan: PlanItem[],
   resolve: (item: PlanItem) => Resolution,
 ): Promise<ApplyResult> {
+  return batch(vault, (tx) => applyPlanIn(tx, plan, resolve)); // toda la importación en un solo diario
+}
+async function applyPlanIn(vault: VaultAdapter, plan: PlanItem[], resolve: (item: PlanItem) => Resolution): Promise<ApplyResult> {
   const res: ApplyResult = { written: [], skipped: [], previous: new Map() };
   for (const item of plan) {
     if (item.status === 'same') {
@@ -226,7 +230,8 @@ export async function applyPlan(
         target = withSuffix(item.path, n);
       }
     }
-    res.previous.set(target, (await vault.exists(target)) ? await vault.read(target) : null);
+    // `new` = no existía al planear (buildPlan ya lo comprobó): sin otra consulta al disco
+    res.previous.set(target, target === item.path && item.status === 'new' ? null : (await vault.exists(target)) ? await vault.read(target) : null);
     const sv = vault as VaultAdapter & { writeStream?: (p: string, b: Blob) => Promise<void> };
     if (item.blob && sv.writeStream) await sv.writeStream(target, item.blob);
     else await vault.write(target, item.blob ? new Uint8Array(await item.blob.arrayBuffer()) : item.data);
@@ -236,11 +241,13 @@ export async function applyPlan(
 }
 
 /** Deshace toda una importación: borra lo nuevo y restaura lo reemplazado. */
-export async function undoImport(vault: VaultAdapter, res: ApplyResult): Promise<void> {
-  for (const [path, prev] of res.previous) {
-    if (prev === null) await vault.remove(path);
-    else await vault.write(path, prev);
-  }
+export function undoImport(vault: VaultAdapter, res: ApplyResult): Promise<void> {
+  return batch(vault, async (tx) => {
+    for (const [path, prev] of res.previous) {
+      if (prev === null) await tx.remove(path);
+      else await tx.write(path, prev);
+    }
+  });
 }
 
 /** Combina un historial importado con reviews.jsonl sin duplicar (id + ts). */

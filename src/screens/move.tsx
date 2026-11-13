@@ -39,8 +39,10 @@ async function runMove(app: ReturnType<typeof useApp>, items: MoveItems, dest: s
   const inside = (full: string) => roots.some((r) => r !== full && full.startsWith(r + '/'));
   const log: Undo = [];
   try {
-    for (const d of items.decks) if (!inside(d.full) && canMoveTo(d, dest)) await moveDeck(app.vault, col, d, dest, clash, log);
-    for (const f of items.folders) if (!inside(f)) await moveFolder(app.vault, col, f, dest, clash, log);
+    await app.vault.batch(async (tx) => { // todo el movimiento en un solo diario
+      for (const d of items.decks) if (!inside(d.full) && canMoveTo(d, dest)) await moveDeck(tx, col, d, dest, clash, log);
+      for (const f of items.folders) if (!inside(f)) await moveFolder(tx, col, f, dest, clash, log);
+    });
   } catch (e) {
     // a medias: se deshace lo que alcanzó a moverse (el registro sí está completo hasta el fallo)
     await undoMove(app.vault, log).catch(() => {});

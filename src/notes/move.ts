@@ -15,6 +15,7 @@ import { fromICS, toICS } from '../lib/ics';
 import { makeUri, parseUri } from '../lib/links';
 import { rewriteSpaces, type Undo } from '../data/move';
 import { withSuffix } from '../vault/paths';
+import { batch } from '../vault/safe';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr, walk } from '../vault/util';
 import { DAILY, noteMeta } from './model';
@@ -83,7 +84,10 @@ export async function noteClashes(vault: VaultAdapter, paths: string[], dest: st
  * `rename` → «Nota (2).md»; `replace` → la existente va a la papelera (se puede restaurar).
  * `rel` conserva subcarpetas al mover un tema entero (ruta relativa por nota).
  */
-export async function moveNotes(vault: VaultAdapter, paths: string[], dest: string, clash: NoteClash = 'rename', rel?: Map<string, string>, log: Undo = []): Promise<{ undo: Undo; moved: [string, string][] }> {
+export function moveNotes(vault: VaultAdapter, paths: string[], dest: string, clash: NoteClash = 'rename', rel?: Map<string, string>, log: Undo = []): Promise<{ undo: Undo; moved: [string, string][] }> {
+  return batch(vault, (tx) => moveNotesIn(tx, paths, dest, clash, rel, log)); // un solo diario para todo el movimiento
+}
+async function moveNotesIn(vault: VaultAdapter, paths: string[], dest: string, clash: NoteClash, rel: Map<string, string> | undefined, log: Undo): Promise<{ undo: Undo; moved: [string, string][] }> {
   const moved: [string, string][] = [];
   const now = Date.now();
   for (const from of paths) {
@@ -155,7 +159,10 @@ export async function moveNotes(vault: VaultAdapter, paths: string[], dest: stri
 }
 
 /** Un tema (o una subcarpeta) entero a otra materia o carpeta: `Cardiología/ECG` → `Urgencias`. */
-export async function moveNoteFolder(vault: VaultAdapter, folder: string, destParent: string, clash: NoteClash = 'rename', log: Undo = []): Promise<{ undo: Undo; moved: [string, string][] }> {
+export function moveNoteFolder(vault: VaultAdapter, folder: string, destParent: string, clash: NoteClash = 'rename', log: Undo = []): Promise<{ undo: Undo; moved: [string, string][] }> {
+  return batch(vault, (tx) => moveNoteFolderIn(tx, folder, destParent, clash, log));
+}
+async function moveNoteFolderIn(vault: VaultAdapter, folder: string, destParent: string, clash: NoteClash, log: Undo): Promise<{ undo: Undo; moved: [string, string][] }> {
   const base = folder.split('/').pop()!;
   const parent = folder.includes('/') ? folder.slice(0, folder.lastIndexOf('/')) : '';
   if (destParent === parent || destParent === folder || destParent.startsWith(folder + '/')) return { undo: log, moved: [] };
