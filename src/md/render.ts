@@ -189,7 +189,7 @@ export function renderInline(text: string): string {
 }
 
 /** Cloze: oculta el número `n` (con pista) y muestra el resto; `reveal` lo resalta. */
-export function clozeText(text: string, n: number, reveal: boolean): string {
+function clozeText(text: string, n: number, reveal: boolean): string {
   return text.replace(/\{\{c(\d+)::(.*?)(?:::(.*?))?\}\}/g, (_, num: string, ans: string, hint?: string) => {
     if (Number(num) !== n && n !== -1) return ans;
     return reveal ? `⟦c⟧${ans}⟦/c⟧` : `⟦h⟧${hint ? hint : '…'}⟦/h⟧`;
