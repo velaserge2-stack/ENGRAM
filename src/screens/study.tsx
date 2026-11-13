@@ -18,7 +18,6 @@ import { Empty, PageTitle, Sheet } from '../ui/kit';
 import { readTextOr } from '../vault/util';
 import { CardView, isInteractive } from './cardview';
 import { deckEmoji } from './decks';
-import { modalOpen } from '../ui/overlay';
 
 const ICON: Record<Rating, preact.JSX.Element> = { 1: <RotateCcw size={18} />, 2: <HelpCircle size={18} />, 3: <Check size={18} />, 4: <Zap size={18} /> };
 

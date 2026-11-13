@@ -5,7 +5,7 @@ import { t } from '../i18n';
  * malla, ruido, patrones). El fondo vive en una capa fija propia.
  */
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { Background, Settings } from '../lib/settings';
+import type { Background } from '../lib/settings';
 import { DEFAULT_FRAMING, framedRect, framingStyle, isDefault, type Framing } from '../lib/framing';
 import type { VaultAdapter } from '../vault/types';
 import { contrast } from '../lib/palette';

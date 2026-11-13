@@ -1,6 +1,6 @@
 import { locale, t, t as tr2 } from '../i18n'; // tr2: dentro de .map((t) => …) `t` es el destino
 /** Vínculos del calendario: selector, chips, datos vivos e «Iniciar bloque» (Mejora 1 · §2). */
-import { BookOpen, FileText, Folder, Hash, Link2, Unlink } from 'lucide-preact';
+import { BookOpen, FileText, Folder, Hash, Unlink } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { normalizeAnswer } from '../cards/parse';
 import { buildLinkIndex, ensureFileId, type LinkIndex, type LinkKind, type LinkTarget, makeUri, type Resolved, resolveLink, studyFilter } from '../lib/links';

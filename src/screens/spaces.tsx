@@ -17,7 +17,7 @@ import { Explorar } from './explorar';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { docxToHtml } from '../io/extract';
 import { parseCSV } from '../io/csv';
-import { renderMarkdown, sanitize } from '../md/render';
+import { sanitize } from '../md/render';
 import { listNotes } from '../notes/model';
 import { go, href, useApp, useAsync } from '../state';
 import { Html } from '../ui/md';

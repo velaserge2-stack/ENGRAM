@@ -1,4 +1,4 @@
-import { errMsg, locale, t, tn } from '../i18n';
+import { errMsg, t, tn } from '../i18n';
 import { Archive, Camera, Check, FileUp, Inbox as InboxIcon, Replace, Sparkles } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { extractText } from '../io/extract';

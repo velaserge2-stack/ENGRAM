@@ -8,7 +8,7 @@ import { Pencil, Plus, RotateCcw, Trash2 } from 'lucide-preact';
 import type { ComponentChildren } from 'preact';
 import { listBankTrash, purgeBank, restoreBank, trashBank, type BankTrashEntry } from '../sim/banktrash';
 import { ATTEMPTS, deleteAttempt, restoreAttempt } from '../data/extra';
-import { appendCard, createDeck, safeName } from '../data/ops';
+import { appendCard, safeName } from '../data/ops';
 import { extractText } from '../io/extract';
 import { type Bank, byTopic, finalize, isCorrect, parseBankCSV, parseBankJSON, parseBankMarkdown, parseText, type Question, score, serializeBank, summarize } from '../sim/parse';
 import { go, useApp, useAsync } from '../state';

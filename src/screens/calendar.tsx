@@ -10,7 +10,7 @@ import { deleteOccurrence, editOccurrence, onDate, type Scope } from '../lib/cal
 import { type GridItem, KIND_ICON, kindLabel, TimeGrid } from './timegrid';
 import { srsParams } from '../lib/settings';
 import { activity, avgDaily, forecast, studyMs } from '../lib/stats';
-import { go, href, useApp, useAsync } from '../state';
+import { href, useApp, useAsync } from '../state';
 import { PageTitle, Segmented, Sheet, Switch } from '../ui/kit';
 import { readTextOr, walk } from '../vault/util';
 import { loadAttempts } from './simulacros';
@@ -129,7 +129,7 @@ export function Calendar() {
             }}>{o.b.kind && KIND_ICON[o.b.kind]({ size: 11 })} {o.b.allDay ? '' : new Date(o.start).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })} {o.b.title}</span>
         ))}
         {x.imported.map((o) => <span class="ev" style={{ borderStyle: 'dotted' }}>{o.b.title}</span>)}
-        {x.sims.map((a) => <span class="ev">{tr('calendar.simulacro')}</span>)}
+        {x.sims.map(() => <span class="ev">{tr('calendar.simulacro')}</span>)}
         {x.tasks.map((t) => <span class="ev">☐ {t.text}</span>)}
         {layers.focus && x.focus > 0 && <span class="foot">{Math.round(x.focus / 60000)} min</span>}
       </button>

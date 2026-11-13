@@ -1,4 +1,4 @@
-import { locale, t as tr, tn } from '../i18n';
+import { t as tr, tn } from '../i18n';
 import { CircleCheck, CircleDashed, TriangleAlert, CircleHelp, Flag, Plus } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { setDeckMeta, safeName } from '../data/ops';

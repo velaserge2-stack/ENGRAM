@@ -1,5 +1,5 @@
 import { locale, t as tr } from '../i18n';
-import { Search, Maximize2, Minimize2, PanelLeft, PanelRight, Bookmark, ClipboardCopy, ClipboardPaste, Code, FilePlus2, FileText, Folder, FolderOutput, History, Import, Link2, ListChecks, ListTree, MoveRight, Network, Share, Sparkles, Star, Trash2 } from 'lucide-preact';
+import { Search, Maximize2, Minimize2, PanelLeft, PanelRight, Bookmark, ClipboardCopy, ClipboardPaste, Code, FilePlus2, FileText, Folder, FolderOutput, History, Import, Link2, ListChecks, ListTree, MoveRight, Share, Sparkles, Star, Trash2 } from 'lucide-preact';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { normalizeAnswer, parseDeck } from '../cards/parse';
 import { appendCard } from '../data/ops';
