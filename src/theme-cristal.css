@@ -172,6 +172,7 @@ button.pill, a.pill { border: var(--hair) solid var(--border); }
 .kv + .kv { border-top: var(--hair) solid var(--line); }
 .kv .k { color: var(--t2); }
 .kv.attempt-row { align-items: center; } /* fila de intento: enlace + botón Borrar al lado */
+.kv.bank-row { align-items: center; gap: 4px; } .kv.bank-row > .k { flex: 1; min-width: 0; } .kv.bank-row > .v { margin-right: 8px; } /* banco: nombre, cifras, editar y borrar; un nombre largo se parte */
 .kv .v { font-variant-numeric: tabular-nums; font-weight: 600; }
 .kv .v.zero { color: var(--t3); font-weight: 400; }
 .big { font-size: clamp(2.5rem, 6vw, 3.5rem); font-weight: 700; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }

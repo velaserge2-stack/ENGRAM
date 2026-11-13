@@ -28,6 +28,7 @@
     "e2e:p15": "node e2e/p15.mjs",
     "e2e:pdf": "node e2e/pdf.mjs",
     "e2e:intentos": "node e2e/intentos.mjs",
+    "e2e:bancos": "node e2e/bancos.mjs",
     "e2e:reproductor": "node e2e/reproductor.mjs",
     "e2e:adherencia": "node e2e/adherencia.mjs",
     "e2e:glass": "node e2e/glass.mjs",

@@ -1,10 +1,12 @@
-import { errMsg, locale, t as tr } from '../i18n';
-import { Bookmark, ChevronLeft, ChevronRight, ClipboardCheck, FileUp, Flag, Play, Repeat, Sparkles } from 'lucide-preact';
+import { errMsg, locale, t as tr, tn } from '../i18n';
+import { Bookmark, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, FileUp, Flag, Play, Repeat, Sparkles } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { createContext } from 'preact';
 import { useContext } from 'preact/hooks';
 import { ExamEditor } from './examedit';
-import { Pencil, Plus, Trash2 } from 'lucide-preact';
+import { Pencil, Plus, RotateCcw, Trash2 } from 'lucide-preact';
+import type { ComponentChildren } from 'preact';
+import { listBankTrash, purgeBank, restoreBank, trashBank, type BankTrashEntry } from '../sim/banktrash';
 import { ATTEMPTS, deleteAttempt, restoreAttempt } from '../data/extra';
 import { appendCard, createDeck, safeName } from '../data/ops';
 import { extractText } from '../io/extract';
@@ -94,11 +96,11 @@ export function Simulacros(props: { route: string[] }) {
 }
 
 /** Confirmación pequeña (hoja por overlay) con Cancelar / acción. */
-function ConfirmSheet(p: { title: string; body: string; ok: string; onOk: () => void; onClose: () => void }) {
+function ConfirmSheet(p: { title: string; body: ComponentChildren; ok: string; onOk: () => void; onClose: () => void }) {
   return (
     <Sheet title={p.title} onClose={p.onClose}>
       <div class="stack">
-        <p>{p.body}</p>
+        {typeof p.body === 'string' ? <p>{p.body}</p> : p.body}
         <div class="row wrap" style={{ justifyContent: 'flex-end' }}>
           <button type="button" class="btn" onClick={p.onClose}>{tr('settings.cancelar')}</button>
           <button type="button" class="btn danger" onClick={p.onOk}><Trash2 size={16} />{' '}{p.ok}</button>
@@ -127,6 +129,59 @@ function useDeleteAttempt(after?: () => void) {
   return { ask: setAsk, sheet };
 }
 
+/**
+ * Borrar un banco (mismo patrón que los intentos: confirmación y «Deshacer»): el archivo va a la
+ * papelera de bancos. Los intentos que lo usaron guardan copia de sus preguntas y no se tocan.
+ */
+type BankRef = { path: string; bank: Bank };
+function useDeleteBank(attempts: Attempt[]) {
+  const app = useApp();
+  const [ask, setAsk] = useState<BankRef | null>(null);
+  const run = async (b: BankRef) => {
+    setAsk(null);
+    const e = await trashBank(app.vault, { path: b.path, name: b.bank.name, questions: b.bank.questions.length });
+    app.changed();
+    app.toast(tr('simulacros.banco_borrado'), { label: tr('move.deshacer'), run: async () => { await restoreBank(app.vault, e); app.changed(); } });
+  };
+  const uses = ask ? attempts.filter((a) => a.finishedAt && a.banks.includes(ask.path)).length : 0;
+  const sheet = ask && (
+    <ConfirmSheet title={tr('simulacros.borrar_banco')} ok={tr('simulacros.mover_a_papelera')} onOk={() => void run(ask)} onClose={() => setAsk(null)}
+      body={<>
+        <p>{tn('simulacros.confirm_borrar_banco', ask.bank.questions.length, { name: ask.bank.name })}</p>
+        {uses > 0 && <p class="foot">{tn('simulacros.banco_intentos', uses)}</p>}
+      </>} />
+  );
+  return { ask: setAsk, sheet };
+}
+
+/** Papelera de bancos, plegada al final de Simulacros; solo aparece si tiene algo. */
+function BankTrash() {
+  const app = useApp();
+  const { data: items } = useAsync(() => listBankTrash(app.vault), [app.version]);
+  const [open, setOpen] = useState(false);
+  const [purge, setPurge] = useState<BankTrashEntry | null>(null);
+  if (!items?.length) return null;
+  const days = app.settings.deckTrashDays;
+  return (
+    <section class="glass panel stack-s bank-trash">
+      <button type="button" class="btn ghost" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}{' '}{tr('simulacros.papelera_bancos', { n: items.length })}</button>
+      {open && <>
+        {items.map((e) => (
+          <div class="kv bank-row">
+            <span class="k"><b data-user-content>{e.name}</b> · {tn('plural.questions', e.questions)} · {new Date(e.deletedAt).toLocaleDateString(locale())}</span>
+            <span class="row">
+              <button type="button" class="btn small" onClick={async () => { const to = await restoreBank(app.vault, e); app.changed(); if (to) app.toast(tr('simulacros.banco_restaurado', { name: to.split('/').pop()! })); }}><RotateCcw size={14} />{' '}{tr('decks.restaurar')}</button>
+              <button type="button" class="btn small danger" onClick={() => setPurge(e)}><Trash2 size={14} />{' '}{tr('simulacros.eliminar_banco')}</button>
+            </span>
+          </div>
+        ))}
+        {days > 0 && <p class="foot">{tr('simulacros.papelera_bancos_nota', { days })}</p>}
+      </>}
+      {purge && <ConfirmSheet title={tr('simulacros.eliminar_banco')} body={tr('simulacros.confirm_eliminar_banco', { name: purge.name })} ok={tr('simulacros.eliminar_banco')} onOk={async () => { const e = purge; setPurge(null); await purgeBank(app.vault, e); app.changed(); }} onClose={() => setPurge(null)} />}
+    </section>
+  );
+}
+
 function SimHome() {
   const app = useApp();
   const { data } = useAsync(async () => ({ banks: await loadBanks(app.vault), attempts: await loadAttempts(app.vault), current: JSON.parse((await readTextOr(app.vault, CURRENT, 'null')) || 'null') as Attempt | null }), [app.version]);
@@ -134,6 +189,7 @@ function SimHome() {
   const [all, setAll] = useState(false);
   const [discard, setDiscard] = useState(false);
   const del = useDeleteAttempt();
+  const delBank = useDeleteBank(data?.attempts ?? []);
   return (
     <>
       <PageTitle title={tr('calendar.simulacros')} sub={tr('simulacros.examenes_de_practica_con_cronometro_no')}>
@@ -152,7 +208,14 @@ function SimHome() {
             <h2 style={{ fontSize: 'var(--t-3)', marginBottom: '8px' }}>{tr('simulacros.bancos')}</h2>
             {data.banks.map((b) => {
               const ok = b.bank.questions.filter((q) => !q.problems.length).length;
-              return <div class="kv"><span class="k">{b.bank.name}</span><span class="v">{tr('examedit.n_listas', { n: ok })}{b.bank.questions.length - ok ? tr('simulacros.p_borrador', { p: b.bank.questions.length - ok }) : ''}{' '}<a class="btn icon small ghost" href={`#/simulacros/editar/${b.path.split('/').map(encodeURIComponent).join('/')}`} aria-label={tr('examedit.editar_x', { name: b.bank.name })}><Pencil size={14} /></a></span></div>;
+              return (
+                <div class="kv bank-row">
+                  <span class="k" data-user-content>{b.bank.name}</span>
+                  <span class="v">{tr('examedit.n_listas', { n: ok })}{b.bank.questions.length - ok ? tr('simulacros.p_borrador', { p: b.bank.questions.length - ok }) : ''}</span>
+                  <a class="btn icon ghost" href={`#/simulacros/editar/${b.path.split('/').map(encodeURIComponent).join('/')}`} aria-label={tr('examedit.editar_x', { name: b.bank.name })}><Pencil size={16} /></a>
+                  <button type="button" class="btn icon ghost" aria-label={tr('simulacros.borrar_banco_x', { name: b.bank.name })} onClick={() => delBank.ask(b)}><Trash2 size={16} /></button>
+                </div>
+              );
             })}
           </section>
           <section class="glass panel">
@@ -172,7 +235,9 @@ function SimHome() {
         </div>
       )}
       {create && data && <CreateSim banks={data.banks} attempts={data.attempts} onClose={() => setCreate(false)} />}
+      <BankTrash />
       {del.sheet}
+      {delBank.sheet}
       {discard && <ConfirmSheet title={tr('simulacros.descartar_simulacro')} body={tr('simulacros.confirm_descartar')} ok={tr('simulacros.descartar')} onOk={async () => { setDiscard(false); await app.vault.remove(CURRENT); app.changed(); }} onClose={() => setDiscard(false)} />}
     </>
   );
@@ -201,7 +266,7 @@ function CreateSim(props: { banks: { path: string; bank: Bank }[]; attempts: Att
     const seed = String(Date.now());
     const picked = (shuf ? shuffle(chosen, seed) : chosen).slice(0, n);
     const at: Attempt = {
-      id: Date.now().toString(36), title: props.banks.filter((b) => sel.includes(b.path)).map((b) => b.bank.name).join(' + '), banks: sel, mode,
+      id: Date.now().toString(36), title: props.banks.filter((b) => sel.includes(b.path)).map((b) => b.bank.name).join(' + '), banks: sel.filter((p) => props.banks.some((b) => b.path === p)), mode,
       qs: picked.map((x) => ({ ...x, order: shuf ? shuffle(x.q.options.map((o) => o.key), seed + x.q.id) : x.q.options.map((o) => o.key) })),
       answers: {}, checked: [], marked: [], startedAt: Date.now(), endAt: mode === 'sim' ? Date.now() + minutes * 60_000 : null, perQ: {}, cur: 0, penalty, pass: pass / 100,
     };

@@ -843,3 +843,7 @@ Nota larga desplazada y asa en un panel del lienzo (dedo y Pencil); nota de ~1 M
   - El CSS pasa de 14.0 a 14.7 KB.
   - Los fragmentos de Tareas y Sticky notes pesan ~3.2 y ~3.4 KB y solo se descargan con su add-on activo (`e2e:tasks` y `e2e:stickies` comprueban que, apagados, no se piden).
 
+
+## Simulacros: borrar bancos
+
+- **Borrar bancos de preguntas** (`fix-borrar-banco`): papelera propia `.app/papelera-bancos/<id>/` (`src/sim/banktrash.ts`) con el patrón de la de mazos: `meta.json` primero y luego `vault.move` (SafeVault escribe el destino y después quita el original), vaciado automático con los mismos `deckTrashDays`, restaurar sin sobrescribir («Nombre (restaurado).md»). No hay papelera general en Ajustes/Almacenamiento, así que va plegada al final de Simulacros y solo aparece si tiene algo. Viaja en el respaldo (todo `.app/` salvo cachés) e integridad solo la lee. Intentos, «Reintentar errores» y el simulacro en curso usan su copia de las preguntas: no dependen del archivo. Lápiz y papelera a 44 px (no `small`: la regla de objetivos táctiles manda).
