@@ -174,6 +174,21 @@ export function mergeSettings(raw: unknown): Settings {
   s.retention = Math.min(0.99, Math.max(0.7, s.retention));
   s.dayStartHour = Math.min(23, Math.max(0, Math.round(s.dayStartHour)));
   s.deckTrashDays = Math.min(365, Math.max(0, Math.round(s.deckTrashDays)));
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: s.timeZone });
+  } catch {
+    s.timeZone = deviceTimeZone();
+  }
+  const dp = defaultSettings().pomo;
+  const num = (v: unknown, lo: number, hi: number, dv: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : dv);
+  s.pomo = { work: num(s.pomo.work, 1, 180, dp.work), short: num(s.pomo.short, 1, 60, dp.short), long: num(s.pomo.long, 1, 120, dp.long), every: num(s.pomo.every, 1, 12, dp.every), sound: s.pomo.sound !== false };
+  s.newPerDay = num(s.newPerDay, 0, 9999, 20);
+  s.reviewLimit = num(s.reviewLimit, 0, 99999, 200);
+  s.maxInterval = num(s.maxInterval, 1, 36500, 36500);
+  s.streakMin = num(s.streakMin, 1, 999, 1);
+  s.leechThreshold = num(s.leechThreshold, 1, 99, 8);
+  s.recoveryThreshold = num(s.recoveryThreshold, 0, 99999, 200);
+  s.backupReminderDays = num(s.backupReminderDays, 1, 365, 7);
   if (!['pencil', 'scroll', 'draw'].includes(s.inkFinger)) s.inkFinger = 'pencil';
   if (!['historia', 'vertical', 'cuadrada'].includes(s.share.format)) s.share.format = 'vertical';
   if (!['hoy', '7', '30', 'anio', 'todo'].includes(s.share.period)) s.share.period = '7';

@@ -61,6 +61,7 @@ export function resolveLink(uri: string, idx: LinkIndex): Resolved {
     list.find((x) => x.id && x.id === p.key) ??
     list.find((x) => norm(x.path) === k) ??
     list.find((x) => norm(x.name) === k) ??
+    list.find((x) => p.kind === 'tag' && norm(x.path.replace(/^tag:/, '')) === k) ??
     list.find((x) => norm(x.path.split('/').pop() ?? '') === k) ??
     null;
   return { uri, kind: p.kind, target: t, label: t?.name ?? p.key };

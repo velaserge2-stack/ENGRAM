@@ -556,6 +556,8 @@
  "exams.aplicar_a_los_mazos": "Aplicar a los mazos",
  "exams.atrasado": "Atrasado",
  "exams.aun_calculando": "Aún calculando",
+ "exams.dias_tarde": "{n} días tarde",
+ "exams.a_tiempo": "a tiempo",
  "exams.aun_calculando_necesitas_needed_nuevas_dia": "Aún calculando: necesitas {needed} nuevas/día.",
  "exams.cardiologia_parcial_1": "Cardiología, parcial 1",
  "exams.carga_futura_maxima": "Carga futura máxima",

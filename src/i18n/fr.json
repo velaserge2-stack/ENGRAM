@@ -556,6 +556,8 @@
  "exams.aplicar_a_los_mazos": "Appliquer aux paquets",
  "exams.atrasado": "En retard",
  "exams.aun_calculando": "Calcul en cours",
+ "exams.dias_tarde": "{n} jours de retard",
+ "exams.a_tiempo": "dans les temps",
  "exams.aun_calculando_necesitas_needed_nuevas_dia": "Calcul en cours : il vous faut {needed} nouvelles/jour.",
  "exams.cardiologia_parcial_1": "Cardiologie, partiel 1",
  "exams.carga_futura_maxima": "Charge future maximale",

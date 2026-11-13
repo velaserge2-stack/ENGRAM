@@ -114,6 +114,9 @@ export interface Pace {
  */
 export function pace(input: { today: string; examDate: string; created: string; finalDays: number; newLeft: number; newPerDay: Map<string, number>; firstActivity: string | null; minPerDay?: number | null }): Pace {
   const { today, examDate, finalDays, newLeft } = input;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(examDate) || Number.isNaN(Date.parse(examDate + 'T00:00:00Z'))) {
+    return { daysLeft: 0, studyDays: 0, newLeft, needed: 0, actual: 0, dataDays: 0, status: 'calculando', message: t('exams.aun_calculando'), finishDate: null, elapsed: 0 };
+  }
   const daysLeft = daysBetween(today, examDate);
   const created = input.created || today;
   const span = Math.max(1, daysBetween(created, examDate));
@@ -139,12 +142,13 @@ export function pace(input: { today: string; examDate: string; created: string; 
     const diff = daysBetween(addDays(examDate, -finalDays), finishDate);
     message = status === 'en-ritmo'
       ? t('exams.necesitas_needed_nuevas_dia_y_llevas', { needed: needed, actual: actual, p: fmtDate(finishDate) })
-      : t('exams.necesitas_needed_nuevas_dia_y_llevas_2', { needed: needed, actual: actual, p: Math.ceil(needed - actual), p2: fmtDate(finishDate), p3: diff > 0 ? `${diff} días tarde` : 'a tiempo' });
+      : t('exams.necesitas_needed_nuevas_dia_y_llevas_2', { needed: needed, actual: actual, p: Math.ceil(needed - actual), p2: fmtDate(finishDate), p3: diff > 0 ? t('exams.dias_tarde', { n: diff }) : t('exams.a_tiempo') });
   } else message = t('exams.necesitas_needed_nuevas_dia_y_esta', { needed: needed });
   return { ...base, studyDays, needed, actual, dataDays, status, message, finishDate };
 }
 
 export function fmtDate(key: string): string {
+  if (Number.isNaN(Date.parse(key + 'T12:00:00Z'))) return key;
   return new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(key + 'T12:00:00Z'));
 }
 

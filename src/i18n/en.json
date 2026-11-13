@@ -556,6 +556,8 @@
  "exams.aplicar_a_los_mazos": "Apply to decks",
  "exams.atrasado": "Behind",
  "exams.aun_calculando": "Still calculating",
+ "exams.dias_tarde": "{n} days late",
+ "exams.a_tiempo": "on time",
  "exams.aun_calculando_necesitas_needed_nuevas_dia": "Still calculating: you need {needed} new/day.",
  "exams.cardiologia_parcial_1": "Cardiology, midterm 1",
  "exams.carga_futura_maxima": "Peak future load",
