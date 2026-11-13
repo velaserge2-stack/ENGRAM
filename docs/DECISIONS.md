@@ -669,6 +669,10 @@ Abrir la app con `?perf` (p. ej. `https://…/engrama/?perf#/pdfs`) muestra en u
 - **Corregido:** un `BlockInput` ya desmontado podía cerrar con su temporizador de «perder foco» la edición del bloque siguiente (y `onSelect` leía un campo ya desmontado). Pasaba al cambiar de bloque deprisa y con la barra se volvía frecuente. Se corrigió con una comprobación de `ref.current`.
 - **Sin tocar (fuera de este prompt):** en `main`, Intro al final de un bloque no añade la línea nueva, porque el `\n` final se pierde al volver a dividir el texto en bloques. Shift+Intro tampoco. Se escribe una línea nueva en medio del texto o en la vista Markdown.
 
+### Tamaño y pruebas
+- Paquete inicial (gzip): `main` 288,0 KB → con Notas-Pro · A 293,9 KB → con la barra **297,9 KB (+4,0 KB)**. La barra, el historial y las funciones de edición van en el fragmento de Notas, que se carga bajo demanda. Al paquete inicial solo entran el render (subrayado, tamaño, alineación y el filtro de clases) y los atajos nuevos.
+- Batería completa en verde (Chromium; no hay WebKit en el contenedor): `typecheck`, 262 pruebas unitarias, `e2e`, `flows`, `design`, `mejoras`, `mejoras2`, `phone`, `bloquec`, `p5`, `p6`, `p7`, `p10`, `p12`, `p15`, `perf`, `notaspro` y `barra` (72 comprobaciones). `MODE=compare e2e:phone` contra `main`: 0 píxeles en 36 capturas. Esas capturas no abren ninguna nota, así que la barra no aparece en ellas; no hay diferencia esperada.
+
 ### No hecho o pendiente
 - Arrastrar bloques por un asa (era opcional).
 - Quitar la fila de encabezado de una tabla (GFM la exige).
