@@ -11,7 +11,7 @@ import { noteStore } from '../notes/store';
 import type { Frontmatter } from '../lib/frontmatter';
 import { type CardState, ENGINE_VERSION, type LogEntry, parseLog, replay, type SrsParams } from '../srs/engine';
 import type { VaultAdapter } from '../vault/types';
-import { appendLines, checksum, enc, readTextOr, walk } from '../vault/util';
+import { appendLinesAt, decodeText, FNV_INIT, fnvHex, fnvUpdate, isNotFound, readTextOr, walk } from '../vault/util';
 
 export const REVIEWS = '.app/reviews.jsonl';
 export const STATE = '.app/state.json';
@@ -43,20 +43,21 @@ export interface Collection {
   idsAdded: number;
   /** mazos que no se pudieron leer (omitidos en esta sesión) */
   unreadable?: string[];
+  /**
+   * Punto de control (Prompt 21 · 4): bytes de `reviews.jsonl` que reflejan `states` y su suma FNV en curso.
+   * `logAt` = -1 si se perdió la pista (otra pestaña añadió entre medias): entonces no se guardan más
+   * puntos de control en esta sesión y el viejo sigue valiendo.
+   */
+  logAt?: number;
+  logFnv?: number;
 }
 
 export function paramsKey(p: SrsParams): string {
   return JSON.stringify([p.retention, p.learningSteps, p.relearningSteps, p.maxInterval, p.w, p.fuzz]);
 }
 
-/**
- * Clave de `state.json`: suma de TODAS las entradas que reproduce `replay` (no solo la última) + versión del
- * motor + parámetros. Se calcula sobre las entradas leídas, no sobre los bytes: así `appendLog` no relee el
- * archivo y la caché queda ligada al historial con el que se calculó (si otra pestaña añadió líneas, no casa).
- */
-function logKey(log: LogEntry[], p: SrsParams): string {
-  return `${log.length}:${checksum(enc.encode(log.map((e) => JSON.stringify(e)).join('\n')))}:${ENGINE_VERSION}:${paramsKey(p)}`;
-}
+/** Clave de `state.json`: versión del motor + parámetros (el historial lo ata el punto de control). */
+const stateKey = (p: SrsParams) => `${ENGINE_VERSION}:${paramsKey(p)}`;
 
 type SerializedState = Omit<CardState, 'card'> & { card: Record<string, unknown> };
 
@@ -65,31 +66,69 @@ function revive(s: SerializedState): CardState {
   return { ...s, card: { ...(c as object), due: new Date(c.due as string), last_review: c.last_review ? new Date(c.last_review as string) : undefined } as CardState['card'] };
 }
 
-export async function loadStates(vault: VaultAdapter, params: SrsParams): Promise<{ states: Map<string, CardState>; log: LogEntry[]; bad: number; rebuilt: boolean }> {
-  const { entries, bad } = parseLog(await readTextOr(vault, REVIEWS, ''));
-  const key = logKey(entries, params);
+/**
+ * Reconstruye solo las tarjetas `ids` con TODAS sus entradas. El estado de una tarjeta depende solo de sus
+ * propias entradas (orden por `ts`, `undo` por id y `ts`, azar de ts-fsrs ligado a la tarjeta), así que es
+ * idéntico a su estado en la repetición completa, aunque lo nuevo venga fuera de orden o deshaga algo.
+ */
+function rebuildCards(states: Map<string, CardState>, entries: LogEntry[], ids: Set<string>, params: SrsParams) {
+  const mine = entries.filter((e) => ids.has(e.id));
+  const fresh = replay(mine, params);
+  for (const id of ids) {
+    const st = fresh.get(id);
+    if (st) states.set(id, st);
+    else states.delete(id);
+  }
+}
+
+/**
+ * Estado FSRS desde `reviews.jsonl` (la verdad) con la caché `state.json` como punto de control
+ * (Prompt 21 · 4): `at` = bytes del historial que refleja y `head` = su suma. Si el principio del archivo
+ * casa con la suma, solo se reconstruyen las tarjetas que aparecen después de `at`; si no (archivo editado,
+ * truncado, otra versión del motor u otros parámetros, caché v1 o dañada) → reconstrucción completa.
+ * `at` siempre cae en un fin de línea: así las entradas de antes y de después son exactamente las del archivo.
+ */
+export async function loadStates(vault: VaultAdapter, params: SrsParams): Promise<{ states: Map<string, CardState>; log: LogEntry[]; bad: number; rebuilt: boolean; at: number; fnv: number }> {
+  let bytes: Uint8Array;
   try {
-    const cache = JSON.parse(await readTextOr(vault, STATE, '{}')) as { key?: string; cards?: Record<string, SerializedState> };
-    if (cache.key === key && cache.cards) {
-      return { states: new Map(Object.entries(cache.cards).map(([k, v]) => [k, revive(v)])), log: entries, bad, rebuilt: false };
+    bytes = await vault.read(REVIEWS);
+  } catch (e) {
+    if (!isNotFound(e)) throw e;
+    bytes = new Uint8Array();
+  }
+  const { entries, bad } = parseLog(decodeText(bytes));
+  const key = stateKey(params);
+  try {
+    const cache = JSON.parse(await readTextOr(vault, STATE, '{}')) as { v?: number; key?: string; at?: number; head?: string; cards?: Record<string, SerializedState> };
+    const at = cache.at;
+    if (cache.v === 2 && cache.key === key && cache.cards && Number.isInteger(at) && at! >= 0 && at! <= bytes.length && (at === 0 || bytes[at! - 1] === 10)) {
+      const head = fnvUpdate(FNV_INIT, bytes.subarray(0, at));
+      if (fnvHex(head) === cache.head) {
+        const states = new Map(Object.entries(cache.cards).map(([k, v]) => [k, revive(v)]));
+        const tail = parseLog(decodeText(bytes.subarray(at))).entries;
+        if (tail.length) rebuildCards(states, entries, new Set(tail.map((e) => e.id)), params);
+        return { states, log: entries, bad, rebuilt: false, at: bytes.length, fnv: fnvUpdate(head, bytes.subarray(at)) };
+      }
     }
   } catch {
     /* caché dañada: se reconstruye */
   }
   const states = replay(entries, params);
-  await vault.write(STATE, serializeStates(states, key));
-  return { states, log: entries, bad, rebuilt: true };
+  const fnv = fnvUpdate(FNV_INIT, bytes);
+  const ok = !bytes.length || bytes[bytes.length - 1] === 10;
+  if (ok) await vault.write(STATE, serializeStates(states, key, bytes.length, fnv));
+  return { states, log: entries, bad, rebuilt: true, at: ok ? bytes.length : -1, fnv };
 }
 
-function serializeStates(states: Map<string, CardState>, key: string): string {
-  return JSON.stringify({ v: 1, key, cards: Object.fromEntries(states) });
+function serializeStates(states: Map<string, CardState>, key: string, at: number, fnv: number): string {
+  return JSON.stringify({ v: 2, key, at, head: fnvHex(fnv), cards: Object.fromEntries(states) });
 }
 
 export async function loadCollection(vault: VaultAdapter, params: SrsParams, now = Date.now()): Promise<Collection> {
   const files = (await walk(vault, 'decks')).filter((f) => f.path.endsWith('.md'));
   const decks: Deck[] = [];
   // el historial primero: un ID nuevo nunca reutiliza el de una tarjeta archivada o en la papelera
-  const { states, log, bad } = await loadStates(vault, params);
+  const { states, log, bad, at: logAt, fnv: logFnv } = await loadStates(vault, params);
   const taken = new Set<string>(log.map((e) => noteIdOf(e.id)));
   for (const t of await trashTexts(vault)) for (const n of parseDeck(t).notes) if (n.id) taken.add(n.id);
   let idsAdded = 0;
@@ -158,7 +197,7 @@ export async function loadCollection(vault: VaultAdapter, params: SrsParams, now
     .filter(([, since]) => now - since < 30 * DAY)
     .map(([cid, since]) => ({ cid, since }));
 
-  return { decks, byCid, states, log, badLines: bad, archived, idsAdded, unreadable };
+  return { decks, byCid, states, log, badLines: bad, archived, idsAdded, unreadable, logAt, logFnv };
 }
 
 /** Textos de los mazos en la papelera (solo para reservar sus IDs; si no se pueden leer, se omiten). */
@@ -167,11 +206,66 @@ async function trashTexts(vault: VaultAdapter): Promise<string[]> {
   return Promise.all(files.map((f) => readTextOr(vault, f.path, '').catch(() => '')));
 }
 
-/** Agrega entradas al historial y actualiza la caché. */
+/**
+ * Agrega entradas al historial (Prompt 21 · 4: solo se añaden, sin leer ni reescribir el archivo) y deja
+ * pendiente guardar `state.json`. Quien llama ya cambió `col.states` justo antes, sin esperas en medio.
+ */
 export async function appendLog(vault: VaultAdapter, col: Collection, entries: LogEntry[], params: SrsParams): Promise<void> {
-  await appendLines(vault, REVIEWS, entries.map((e) => JSON.stringify(e)));
-  col.log.push(...entries);
-  await vault.write(STATE, serializeStates(col.states, logKey(col.log, params)));
+  inFlight++;
+  try {
+    const r = await appendLinesAt(vault, REVIEWS, entries.map((e) => JSON.stringify(e)));
+    col.log.push(...entries);
+    // la suma sigue al archivo solo si lo añadido empezó donde lo dejamos (si no, otra pestaña escribió)
+    if (r.written && col.logAt !== undefined && col.logAt >= 0 && r.at === col.logAt) {
+      col.logFnv = fnvUpdate(col.logFnv ?? FNV_INIT, r.written);
+      col.logAt += r.written.length;
+    } else col.logAt = -1;
+  } finally {
+    inFlight--;
+  }
+  scheduleState(vault, col, params);
+}
+
+/*
+ * `state.json` diferido (Prompt 21 · 4, cuello #6: serializar 20 000 estados costaba ~80 ms en cada
+ * respuesta). Se guarda tras un rato sin respuestas, al ocultar la página y al salir (`pagehide`; sin
+ * `beforeunload`). Si no llega a guardarse no se pierde nada: el punto de control anterior sigue siendo
+ * válido y lo que falte se reconstruye por tarjeta al cargar. Nunca con una respuesta en vuelo: el estado
+ * en memoria ya la incluye y el archivo aún no (y si falla, quien llama lo revierte).
+ */
+let inFlight = 0;
+let pending: { vault: VaultAdapter; col: Collection; params: SrsParams } | null = null;
+let timer: ReturnType<typeof setTimeout> | undefined;
+const QUIET_MS = 15_000;
+
+function scheduleState(vault: VaultAdapter, col: Collection, params: SrsParams) {
+  if (col.logAt === undefined || col.logAt < 0) return;
+  pending = { vault, col, params };
+  clearTimeout(timer);
+  timer = setTimeout(() => void flushState(), QUIET_MS);
+}
+
+/** Guarda ya el `state.json` pendiente (si lo hay y no hay respuestas en vuelo). */
+export async function flushState(): Promise<void> {
+  const p = pending;
+  if (!p) return;
+  if (inFlight) {
+    clearTimeout(timer);
+    timer = setTimeout(() => void flushState(), 300);
+    return;
+  }
+  pending = null;
+  clearTimeout(timer);
+  const { col } = p;
+  if (col.logAt === undefined || col.logAt < 0) return;
+  // se arma de una vez, sin esperas: `states`, `logAt` y `logFnv` quedan fijos y casan entre sí
+  const text = serializeStates(col.states, stateKey(p.params), col.logAt, col.logFnv ?? FNV_INIT);
+  await p.vault.write(STATE, text).catch(() => {}); // es una caché: si falla, el punto de control anterior sigue valiendo
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && void flushState());
+  addEventListener('pagehide', () => void flushState());
 }
 
 /** Comprobación de la fase 2: reconstruir desde el historial == caché. */
