@@ -106,3 +106,7 @@ Pendiente: IDs de `ensureIds` con el editor del mazo con cambios sin guardar; av
 Aplicados los puntos 11–15 (un commit por punto, detalle en `05-correcciones.md`): mover sin pérdida (destino primero, deshacer parcial, move(a,a), [[Título]] intacto), .apkg hostil (rutas, marcas del parser, medios, límites), calendario (desde `from`, INTERVAL/COUNT/YEARLY, RECURRENCE-ID, TRIGGER, TZID), Workers con salida (vigilante OPFS, búsqueda, DocxView) y `setKeys` para el frontmatter.
 `it.fails` → `it`: 19 (43 en total; quedan 45). Verificación: typecheck, vitest, build, `e2e`, `e2e:flows`, `e2e:mejoras`, `e2e:mejoras2`, `e2e:p6`, `e2e:p10`, `e2e:p12`, `e2e:notaspro` en verde (Chromium).
 Pendiente: RRULE original completo y EXDATE en UTC con DST; parse+stringify en inbox/stickies/exams/profile.
+
+## Verificación final de las correcciones (2026-11-13) · coordinador
+
+Sobre 7e1d039: typecheck limpio, vitest 385 pasan y 45 `it.fails` (quedan 45 errores documentados sin corregir; de 88 originales se corrigieron 43), build OK. Batería E2E completa en Chromium (no hay WebKit en el contenedor): 25 suites en verde a la primera (e2e, flows, design, mejoras, mejoras2, phone, bloquec, p5, p6, p7, p10, p12, p15, glass, adherencia, p14, reproductor, pdf, share, tasks, stickies, intentos, bancos, barra, notaspro). `MODE=compare e2e:phone` contra `origin/main`: 0 píxeles de diferencia en 36 capturas. Tokens de las tres tandas de corrección (Opus): ≈ 199 k + 198 k + 242 k.
