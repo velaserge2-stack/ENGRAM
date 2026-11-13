@@ -7,7 +7,7 @@ import type { Settings } from '../lib/settings';
 import { type PomoCtl, useApp } from '../state';
 import { Ring } from '../ui/kit';
 import type { VaultAdapter } from '../vault/types';
-import { readTextOr } from '../vault/util';
+import { appendLines, readTextOr } from '../vault/util';
 
 const STATE_PATH = '.app/pomodoro-state.json';
 const POMO_LOG = '.app/pomodoro.jsonl';
@@ -72,8 +72,7 @@ export function usePomodoro(vault: VaultAdapter, s: Settings, toast: (m: string)
 
   const log = async (session: { ts: number; end: number; minutes: number; label: string; completed: boolean } | null) => {
     if (!session || session.minutes < 0.5) return;
-    const prev = await readTextOr(vault, POMO_LOG, '');
-    await vault.write(POMO_LOG, prev + JSON.stringify(session) + '\n');
+    await appendLines(vault, POMO_LOG, [JSON.stringify(session)]);
     void countToday();
     onSession();
   };

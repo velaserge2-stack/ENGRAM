@@ -36,6 +36,33 @@ export async function readTextOr(vault: VaultAdapter, path: string, fallback: st
   }
 }
 
+/** Colas por bóveda y ruta: leer-modificar-escribir de un mismo archivo nunca se intercala. */
+const fileQueues = new WeakMap<VaultAdapter, Map<string, Promise<unknown>>>();
+export function serialFile<T>(vault: VaultAdapter, path: string, fn: () => Promise<T>): Promise<T> {
+  let m = fileQueues.get(vault);
+  if (!m) fileQueues.set(vault, (m = new Map()));
+  const run = (m.get(path) ?? Promise.resolve()).then(fn, fn);
+  const tail = run.catch(() => undefined);
+  m.set(path, tail);
+  void tail.then(() => m.get(path) === tail && m.delete(path));
+  return run;
+}
+
+/**
+ * Añade líneas al final de un `.jsonl` (historial, intentos, pomodoro) en cola por ruta y con lectura
+ * estricta: si leer falla, no se escribe nada. `lines` puede decidir según lo que ya hay (p. ej. sin
+ * duplicados). Devuelve cuántas líneas añadió.
+ */
+export function appendLines(vault: VaultAdapter, path: string, lines: string[] | ((prev: string) => string[])): Promise<number> {
+  return serialFile(vault, path, async () => {
+    const prev = await readTextOr(vault, path, '');
+    const add = typeof lines === 'function' ? lines(prev) : lines;
+    if (!add.length) return 0;
+    await vault.write(path, `${prev && !prev.endsWith('\n') ? `${prev}\n` : prev}${add.join('\n')}\n`);
+    return add.length;
+  });
+}
+
 /** Recorre recursivamente y devuelve solo archivos. */
 export async function walk(
   vault: VaultAdapter,

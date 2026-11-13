@@ -6,7 +6,7 @@ import { errMsg, t } from '../i18n';
 import { parseFrontmatter } from '../lib/frontmatter';
 import { basename, extname, normalizePath, withSuffix } from '../vault/paths';
 import type { VaultAdapter } from '../vault/types';
-import { blobChecksum, bytesEqual, decodeText } from '../vault/util';
+import { appendLines, blobChecksum, bytesEqual, decodeText } from '../vault/util';
 import { LIMITS } from './limits';
 import type { ApkgResult } from './apkg';
 import type { LogEntry } from '../srs/engine';
@@ -246,20 +246,18 @@ export async function undoImport(vault: VaultAdapter, res: ApplyResult): Promise
 /** Combina un historial importado con reviews.jsonl sin duplicar (id + ts). */
 export async function mergeLog(vault: VaultAdapter, entries: LogEntry[]): Promise<number> {
   if (!entries.length) return 0;
-  const path = '.app/reviews.jsonl';
-  const prev = (await vault.exists(path)) ? decodeText(await vault.read(path)) : '';
-  const seen = new Set<string>();
-  for (const l of prev.split('\n')) {
-    try {
-      const e = JSON.parse(l) as LogEntry;
-      seen.add(`${e.id}@${e.ts}`);
-    } catch {
-      /* línea vacía */
+  return appendLines(vault, '.app/reviews.jsonl', (prev) => {
+    const seen = new Set<string>();
+    for (const l of prev.split('\n')) {
+      try {
+        const e = JSON.parse(l) as LogEntry;
+        seen.add(`${e.id}@${e.ts}`);
+      } catch {
+        /* línea vacía */
+      }
     }
-  }
-  const add = entries.filter((e) => !seen.has(`${e.id}@${e.ts}`));
-  if (add.length) await vault.write(path, (prev && !prev.endsWith('\n') ? prev + '\n' : prev) + add.map((e) => JSON.stringify(e)).join('\n') + '\n');
-  return add.length;
+    return entries.filter((e) => !seen.has(`${e.id}@${e.ts}`)).map((e) => JSON.stringify(e));
+  });
 }
 
 export function runApkgWorker(bytes: Uint8Array, history = true, name = ''): Promise<ApkgResult> {

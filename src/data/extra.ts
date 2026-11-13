@@ -4,7 +4,7 @@ import { parseSessions } from '../lib/pomodoro';
 import type { Extra } from '../lib/stats';
 import { useApp, useAsync } from '../state';
 import type { VaultAdapter } from '../vault/types';
-import { readTextOr, walk } from '../vault/util';
+import { readTextOr, serialFile, walk } from '../vault/util';
 
 export const ATTEMPTS = '.app/exam-attempts.jsonl';
 
@@ -31,15 +31,17 @@ export function insertLine(text: string, r: RemovedLine): string {
 }
 
 /** Borra un intento terminado de `.app/exam-attempts.jsonl` (por SafeVault). Si no existe, no escribe. */
-export async function deleteAttempt(vault: VaultAdapter, id: string): Promise<RemovedLine | null> {
-  const r = removeLine(await readTextOr(vault, ATTEMPTS, ''), id);
-  if (!r) return null;
-  await vault.write(ATTEMPTS, r.text);
-  return r.removed;
+export function deleteAttempt(vault: VaultAdapter, id: string): Promise<RemovedLine | null> {
+  return serialFile(vault, ATTEMPTS, async () => {
+    const r = removeLine(await readTextOr(vault, ATTEMPTS, ''), id);
+    if (!r) return null;
+    await vault.write(ATTEMPTS, r.text);
+    return r.removed;
+  });
 }
 /** Deshacer: vuelve a poner la línea en su posición original. */
-export async function restoreAttempt(vault: VaultAdapter, r: RemovedLine): Promise<void> {
-  await vault.write(ATTEMPTS, insertLine(await readTextOr(vault, ATTEMPTS, ''), r));
+export function restoreAttempt(vault: VaultAdapter, r: RemovedLine): Promise<void> {
+  return serialFile(vault, ATTEMPTS, async () => vault.write(ATTEMPTS, insertLine(await readTextOr(vault, ATTEMPTS, ''), r)));
 }
 
 export async function loadExtra(vault: VaultAdapter): Promise<Extra> {

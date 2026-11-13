@@ -14,7 +14,7 @@ import { type Bank, byTopic, finalize, isCorrect, parseBankCSV, parseBankJSON, p
 import { go, useApp, useAsync } from '../state';
 import { Bar, Empty, PageTitle, Segmented, Sheet } from '../ui/kit';
 import { extname } from '../vault/paths';
-import { readTextOr, walk } from '../vault/util';
+import { appendLines, readTextOr, walk } from '../vault/util';
 import { shuffle } from './cardview';
 import { useKeyScope } from '../ui/keys';
 
@@ -326,8 +326,7 @@ function Runner() {
   };
   const finish = async (a: Attempt) => {
     const done: Attempt = { ...a, finishedAt: Date.now(), elapsedMs: Math.min(Date.now(), a.endAt ?? Date.now()) - a.startedAt };
-    const prev = await readTextOr(app.vault, ATTEMPTS, '');
-    await app.vault.write(ATTEMPTS, prev + JSON.stringify(done) + '\n');
+    await appendLines(app.vault, ATTEMPTS, [JSON.stringify(done)]);
     await app.vault.remove(CURRENT);
     app.changed();
     simGo('resultado', done.id);

@@ -9,7 +9,7 @@ import { type CardRef, cardsOf, ensureIds, type Note, parseDeck } from '../cards
 import type { Frontmatter } from '../lib/frontmatter';
 import { type CardState, type LogEntry, parseLog, replay, type SrsParams } from '../srs/engine';
 import type { VaultAdapter } from '../vault/types';
-import { readTextOr, walk } from '../vault/util';
+import { appendLines, readTextOr, walk } from '../vault/util';
 
 export const REVIEWS = '.app/reviews.jsonl';
 export const STATE = '.app/state.json';
@@ -138,9 +138,7 @@ export async function loadCollection(vault: VaultAdapter, params: SrsParams, now
 
 /** Agrega entradas al historial y actualiza la caché. */
 export async function appendLog(vault: VaultAdapter, col: Collection, entries: LogEntry[], params: SrsParams): Promise<void> {
-  const prev = await readTextOr(vault, REVIEWS, '');
-  const add = entries.map((e) => JSON.stringify(e)).join('\n');
-  await vault.write(REVIEWS, prev && !prev.endsWith('\n') ? `${prev}\n${add}\n` : `${prev}${add}\n`);
+  await appendLines(vault, REVIEWS, entries.map((e) => JSON.stringify(e)));
   col.log.push(...entries);
   await vault.write(STATE, serializeStates(col.states, logKey(col.log, params)));
 }

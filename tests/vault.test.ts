@@ -320,3 +320,17 @@ describe('SafeVault: un solo escritor (auditoría plan 4)', () => {
     }
   });
 });
+
+describe('appendLines (auditoría plan 5)', () => {
+  it('serializa por ruta, filtra según lo que hay y no escribe si la lectura falla', async () => {
+    const { appendLines } = await import('../src/vault/util');
+    const v = new MemoryBackend();
+    await v.write('.app/x.jsonl', '1'); // sin salto final
+    await Promise.all(['2', '3', '4'].map((n) => appendLines(v, '.app/x.jsonl', [n])));
+    expect(await readText(v, '.app/x.jsonl')).toBe('1\n2\n3\n4\n');
+    expect(await appendLines(v, '.app/x.jsonl', (prev) => ['4', '5'].filter((n) => !prev.split('\n').includes(n)))).toBe(1);
+    const broken = Object.assign(Object.create(v), { read: async () => { throw new Error('E/S'); } }) as MemoryBackend;
+    await expect(appendLines(broken, '.app/x.jsonl', ['6'])).rejects.toThrow('E/S');
+    expect(await readText(v, '.app/x.jsonl')).toBe('1\n2\n3\n4\n5\n');
+  });
+});

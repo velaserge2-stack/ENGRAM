@@ -74,18 +74,21 @@ describe('auditoría · cola', () => {
 });
 
 describe('auditoría · datos (lecturas fallidas y carreras)', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('appendLog no sustituye reviews.jsonl si la lectura falla', async () => {
+  // auditoría: corregido (plan 1 y 5). Con lectura estricta appendLog rechaza y no escribe: el archivo conserva
+  // sus 2 líneas (antes quedaba solo «ccc»). La aserción original (3 líneas) exigía añadir sin poder leer.
+  it('appendLog no sustituye reviews.jsonl si la lectura falla', async () => {
     const v = new Flaky();
     const c = await loadCollection(v, P, NOW);
     await v.write(REVIEWS, `${JSON.stringify(rev('aaa', 1))}\n${JSON.stringify(rev('bbb', 2))}\n`);
     v.failRead = REVIEWS;
-    await appendLog(v, c, [rev('ccc', 3)], P).catch(() => undefined);
+    await expect(appendLog(v, c, [rev('ccc', 3)], P)).rejects.toThrow('lectura transitoria');
     v.failRead = null;
+    expect((await readText(v, REVIEWS)).trim().split('\n').map((l) => (JSON.parse(l) as LogEntry).id)).toEqual(['aaa', 'bbb']);
+    await appendLog(v, c, [rev('ccc', 3)], P); // al reintentar, se añade sin perder nada
     expect((await readText(v, REVIEWS)).trim().split('\n')).toHaveLength(3);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('dos appendLog simultáneos no pierden entradas (leer-modificar-escribir sin cola)', async () => {
+  // auditoría: corregido (plan 5)
+  it('dos appendLog simultáneos no pierden entradas (leer-modificar-escribir sin cola)', async () => {
     const v = new MemoryBackend();
     const c = await loadCollection(v, P, NOW);
     await Promise.all([appendLog(v, c, [rev('aaa', 1)], P), appendLog(v, c, [rev('bbb', 2)], P)]);
