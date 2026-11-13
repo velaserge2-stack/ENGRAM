@@ -15,3 +15,15 @@ Rama `rendimiento` desde `main` 5141ff6 (incluye la auditoría y sus correccione
 | Fase 1 · cuellos de botella | media | opus | ~350k | `e2e/rendimiento-perfil.mjs` (perfil CPU + operaciones al Worker por escenario), `01-cuellos.md` (10 cuellos con evidencia, hipótesis y plan por fase) y `01-perfiles.json`; trazas crudas fuera de git en `tests/fixtures/rendimiento/perfiles/` |
 | Fase 2 · arranque y paquete | media | opus | ~400k | 4 commits: integridad en reposo (Notas tras Hoy -39 %), `dayKey` cacheado (Hoy -78 %, Estadísticas -53 %), perfil fuera de la entrada (-0.6 %), pantallas y hojas con `import()` (paquete inicial -28 % gzip, 315 → 226 KB); ninguna descartada; `02-arranque.md`; e2e y `e2e:phone` 0 píxeles |
 | Detenido a petición del usuario | — | coordinador | — | Fases 0–2 a main; 3a a medias en `rendimiento-3a-wip`; ver PENDIENTE.md |
+
+## Prompt 21-B (continuación, fases 3+)
+Rama `rendimiento-2` desde `main` 974174a con el WIP `04d6abe` (cherry-pick). **Coordinador: Opus** (la sesión estaba configurada así, no en Sonnet); la fase 3 se hizo en línea, sin subagentes: lo difícil (lote y recuperación) es nivel opus, pero 3b (referencias, respaldo, progreso) habría podido ir a sonnet más barato. Mediciones en segundo plano con `npm run perf` (sin modelo).
+
+| Tarea | Dificultad | Modelo | Tokens aprox. | Resultado |
+|---|---|---|---|---|
+| F3a · revisión del WIP y pruebas | difícil | opus | ~120k | Diseño correcto; corregido el deshacer tras un lote fallido (move.tsx, notemove.tsx); prueba nueva de muerte durante la recuperación |
+| F3a · caché de carpetas (OPFS) | difícil | opus | ~40k | `HandleFS` con caché invalidada al borrar y reintento ante NotFound; `tests/dircache.test.ts` |
+| F3b · #8 referencias en una pasada | media | opus (en línea) | ~20k | `refsRewriter`; equivalencia con 300 casos aleatorios |
+| F3b · #5 respaldo por partes | media | opus (en línea) | ~25k | `zipVault`; equivalencia de contenido con el respaldo anterior |
+| F3b · importar con progreso y Cancelar | media | opus (en línea) | ~20k | `BatchOptions` en el lote; Cancelar antes del diario no cambia nada |
+| F3b · caché de listados | media | — | — | Pasa a la fase 6 (ver `03a-lotes.md`) |
