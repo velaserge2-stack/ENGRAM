@@ -70,7 +70,13 @@ export function Today() {
         <div class="side">
           <Minimizable id="pomodoro" label={t('today.pomodoro')} tray={tray}>{(b) => <>{b}<PomodoroPanel /></>}</Minimizable>
           {data?.exams.filter((e) => e.date >= today).map((e) => <Minimizable key={e.path} id={`ex:${e.path}`} label={e.name} tray={tray}>{(b) => <div class="mh">{b}<ExamCard exam={e} extra={data.extra} /></div>}</Minimizable>)}
-          <div class="row" style={{ justifyContent: 'center' }}><AddExamButton /></div>
+          {/* sobre el fondo, siempre dentro de vidrio (el guardián de legibilidad lo cubre) */}
+          <div class="row" style={{ justifyContent: 'center' }}>
+            <div class="glass exam-add">
+              <AddExamButton />
+              {!data?.exams.some((e) => e.date >= today) && <p class="foot">{t('exams.vacio_ayuda')}</p>}
+            </div>
+          </div>
         </div>
         <div class="grid cards3 span-all">
           <Minimizable id="progreso" label={t('today.progreso_de_hoy')} tray={tray}>{(b) => <>{b}<section class="glass panel statcard" aria-label={t('today.progreso_de_hoy')}>
