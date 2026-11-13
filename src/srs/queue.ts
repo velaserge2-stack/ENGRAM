@@ -27,7 +27,6 @@ export function dayEnd(now: number, tz: string, dayStartHour: number): number {
   // buscar el primer instante (en pasos de 15 min) que pertenece a otro día de estudio
   let t = now;
   while (dayKey(t, tz, dayStartHour) === today) t += 15 * 60_000;
-  // refinar al minuto
   let lo = t - 15 * 60_000;
   while (t - lo > 60_000) {
     const mid = Math.floor((lo + t) / 2);

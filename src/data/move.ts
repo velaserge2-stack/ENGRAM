@@ -75,7 +75,6 @@ function renamePrefix(s: string, from: string, to: string): string {
 async function rewriteDeckRefs(vault: VaultAdapter, log: Undo, names: [string, string][], paths: [string, string][]): Promise<void> {
   if (!names.length && !paths.length) return;
   const ren = (s: string) => names.reduce((acc, [a, b]) => renamePrefix(acc, a, b), s);
-  // calendario
   const ics = await readTextOr(vault, CAL, '');
   if (ics) {
     const blocks = fromICS(ics);
@@ -95,7 +94,6 @@ async function rewriteDeckRefs(vault: VaultAdapter, log: Undo, names: [string, s
     }
     if (touched) await write(vault, log, CAL, toICS(blocks));
   }
-  // exámenes
   for (const f of await walk(vault, 'exams')) {
     if (!f.path.endsWith('.md')) continue;
     const text = await readTextOr(vault, f.path, '');
