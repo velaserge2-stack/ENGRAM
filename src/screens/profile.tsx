@@ -59,7 +59,7 @@ export function ProfileScreen() {
   const set = (k: keyof Profile, v: string) => setDraft({ ...p, [k]: v });
   const uerr = usernameError(normUsername(p.username));
   const write = async (next: Profile) => {
-    await app.vault.write(PROFILE_PATH, serializeProfile({ ...next, username: normUsername(next.username) }));
+    await app.vault.write(PROFILE_PATH, serializeProfile({ ...next, username: normUsername(next.username) }, await readTextOr(app.vault, PROFILE_PATH, '')));
     setDraft(null);
     app.changed();
   };

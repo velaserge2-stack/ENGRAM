@@ -115,6 +115,20 @@ export function stringifyFrontmatter(data: Frontmatter, body: string): string {
   return `---\n${keys.map((k) => `${k}: ${fmt(data[k]!)}`.trimEnd()).join('\n')}\n---\n${body}`;
 }
 
+/** El frontmatter de `text` tal cual (con BOM y la línea `---` de cierre), o null si no tiene uno cerrado. */
+export function headOf(text: string): string | null {
+  const doc = parseFrontmatter(text);
+  return doc.body.length < text.replace(/^\uFEFF/, '').length ? text.slice(0, text.length - doc.body.length) : null;
+}
+
+/**
+ * Reescribe un archivo de Engrama que pudo editarse a mano: cuerpo nuevo y solo las claves de `patch`;
+ * el resto del frontmatter de `prev` (bloques, mapas, comentarios, claves ajenas) queda byte a byte.
+ */
+export function rewriteDoc(prev: string, body: string, patch: Record<string, FMValue | undefined> = {}): string {
+  return setKeys((headOf(prev) ?? '') + body, patch);
+}
+
 /**
  * Cambia solo las claves de `patch` (undefined = quitarla) y deja intactas las demás líneas del
  * frontmatter, también las que el parser no entiende (escalares de bloque, mapas anidados,

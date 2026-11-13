@@ -113,7 +113,7 @@ export function ExamSheet(props: { path: string | null; onClose: () => void }) {
       <form class="stack" onSubmit={async (ev) => {
         ev.preventDefault();
         const path = props.path ?? `exams/${safeName(e.name)}.md`;
-        await app.vault.write(path, serializeExam({ ...e, path }));
+        await app.vault.write(path, serializeExam({ ...e, path }, props.path ? await readTextOr(app.vault, props.path, '') : ''));
         app.changed();
         props.onClose();
       }}>

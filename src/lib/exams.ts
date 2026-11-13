@@ -15,7 +15,7 @@ import { fsrs, State } from 'ts-fsrs';
 import type { Collection, Deck } from '../data/collection';
 import { type SrsParams, scheduler } from '../srs/engine';
 import { addDays, dayKey, daysBetween } from './days';
-import { parseFrontmatter, stringifyFrontmatter } from './frontmatter';
+import { headOf, parseFrontmatter, rewriteDoc, stringifyFrontmatter } from './frontmatter';
 
 export interface Exam {
   path: string;
@@ -46,11 +46,11 @@ export function parseExam(path: string, text: string): Exam {
   };
 }
 
-export function serializeExam(e: Exam): string {
-  return stringifyFrontmatter(
-    { examen: e.name, fecha: e.date, temas: e.topics, meta_retencion: e.goal, dias_repaso_final: e.finalDays, ...(e.minPerDay ? { tarjetas_minimas_por_dia: e.minPerDay } : {}), creado: e.created },
-    e.notes || '',
-  );
+/** `prev`: el archivo actual; sus líneas ajenas del frontmatter se conservan. */
+export function serializeExam(e: Exam, prev = ''): string {
+  const data = { examen: e.name, fecha: e.date, temas: e.topics, meta_retencion: e.goal, dias_repaso_final: e.finalDays, ...(e.minPerDay ? { tarjetas_minimas_por_dia: e.minPerDay } : {}), creado: e.created };
+  if (headOf(prev) !== null) return rewriteDoc(prev, e.notes || '', { ...data, tarjetas_minimas_por_dia: e.minPerDay || undefined });
+  return stringifyFrontmatter(data, e.notes || '');
 }
 
 export function decksForTopic(col: Collection, topic: string): Deck[] {

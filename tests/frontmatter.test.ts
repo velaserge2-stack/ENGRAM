@@ -64,3 +64,40 @@ describe('plan 15: setKeys', () => {
     expect(setKeys('---\nab: 1\n---\n', { a: 2 })).toBe('---\nab: 1\na: 2\n---\n');
   });
 });
+
+describe('pendientes: exámenes, perfil, stickies y bandeja conservan el frontmatter ajeno', () => {
+  const AJENO = 'notas_extra: |\n  bloque\n  de texto\nmapa:\n  a: 1\n# comentario\n';
+  it('serializeExam con el archivo previo', async () => {
+    const { parseExam, serializeExam } = await import('../src/lib/exams');
+    const prev = `---\nexamen: Cardio\n${AJENO}fecha: 2026-12-01\n---\nNotas\n`;
+    const e = parseExam('exams/c.md', prev);
+    const out = serializeExam({ ...e, date: '2026-12-15' }, prev);
+    expect(out).toContain(AJENO);
+    expect(parseExam('exams/c.md', out)).toMatchObject({ name: 'Cardio', date: '2026-12-15', notes: 'Notas\n' });
+    expect(serializeExam(e)).toBe(serializeExam(e, '')); // archivo nuevo: el formato de siempre
+  });
+  it('serializeProfile con el archivo previo', async () => {
+    const { parseProfile, serializeProfile, EMPTY_PROFILE } = await import('../src/lib/profile');
+    const prev = `---\nnombre: Ana\n${AJENO}---\nBio\n`;
+    const out = serializeProfile({ ...parseProfile(prev), name: 'Ana López' }, prev);
+    expect(out).toContain(AJENO);
+    expect(parseProfile(out)).toMatchObject({ name: 'Ana López', bio: 'Bio' });
+    expect(serializeProfile(EMPTY_PROFILE, '---\nnombre: Ana\n---\n')).toBe(serializeProfile(EMPTY_PROFILE)); // vacío: válido, como antes
+  });
+  it('sticky: reescribir y convertir en nota', async () => {
+    const { asNote, parseSticky, serializeSticky } = await import('../src/stickies/model');
+    const prev = `---\nsticky: true\norden: 10\n${AJENO}---\nHola\n`;
+    const s = parseSticky('notes/Stickies/a.md', prev);
+    const out = serializeSticky({ ...s, order: 20, pinned: true, body: 'Hola 2' });
+    expect(out).toContain(AJENO);
+    expect(parseSticky('x', out)).toMatchObject({ order: 20, pinned: true, body: 'Hola 2\n' });
+    expect(serializeSticky(s)).toBe(prev); // sin cambios: byte a byte
+    const note = asNote(s);
+    expect(note).toBe(`---\n${AJENO}---\nHola\n`);
+  });
+  it('rewriteDoc (bandeja): cuerpo nuevo, materia/tema y el resto intacto', async () => {
+    const { rewriteDoc } = await import('../src/lib/frontmatter');
+    expect(rewriteDoc(`---\nmateria: \n${AJENO}---\ncuerpo`, 'nuevo', { materia: 'Cardio', tema: undefined })).toBe(`---\nmateria: Cardio\n${AJENO}---\nnuevo`);
+    expect(rewriteDoc('sin frontmatter', 'nuevo', { materia: 'X' })).toBe('---\nmateria: X\n---\nnuevo');
+  });
+});

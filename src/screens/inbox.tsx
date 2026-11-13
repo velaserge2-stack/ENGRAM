@@ -2,7 +2,7 @@ import { errMsg, t, tn } from '../i18n';
 import { Archive, Camera, Check, FileUp, Inbox as InboxIcon, Replace, Sparkles } from 'lucide-preact';
 import { useRef, useState } from 'preact/hooks';
 import { extractText } from '../io/extract';
-import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
+import { parseFrontmatter, rewriteDoc, stringifyFrontmatter } from '../lib/frontmatter';
 import { docxToMarkdown, pdfToMarkdown } from '../notes/io';
 import { saveImage } from '../notes/images';
 import { STREAM_FROM } from '../io/import';
@@ -195,10 +195,8 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
         }
       }
       if (attach.length) body = body.replace('## Fuente\n', () => `## Fuente\n${attach.join('\n')}\n`);
-      const data = { ...doc.data, materia: it.materia.trim(), tema: it.tema.trim() } as Record<string, unknown>;
-      if (!data.materia) delete data.materia;
-      if (!data.tema) delete data.tema;
-      await app.vault.write(path, stringifyFrontmatter(data as typeof doc.data, body));
+      // solo materia y tema cambian: el resto del frontmatter del borrador queda tal cual
+      await app.vault.write(path, rewriteDoc(it.draft, body, { materia: it.materia.trim() || undefined, tema: it.tema.trim() || undefined }));
       await app.vault.remove(`inbox/${it.id}`);
       app.changed();
       app.toast(t('inbox.archivado_en_materia_tema_p_s', { materia: it.materia || t('notes.sin_clasificar'), tema: it.tema || '—', p: Math.round((Date.now() - started) / 1000) }));
@@ -231,13 +229,13 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
           {sugg.length > 0 && (
             <div class="inset stack-s" style={{ padding: '10px', borderRadius: 'var(--r-row)' }}>
               <b class="note">{t('inbox.glosario_posibles_errores_de_transcripcion')}</b>
-              {sugg.slice(0, 10).map((s) => <div class="row"><span class="grow">{s.wrong} → <b>{s.right}</b> <span class="foot">×{s.count}</span></span><button type="button" class="btn small" onClick={() => save({ ...it, draft: stringifyFrontmatter(doc.data, replaceAll(doc.body, s.wrong, s.right).text) })}>{t('inbox.corregir')}</button></div>)}
+              {sugg.slice(0, 10).map((s) => <div class="row"><span class="grow">{s.wrong} → <b>{s.right}</b> <span class="foot">×{s.count}</span></span><button type="button" class="btn small" onClick={() => save({ ...it, draft: rewriteDoc(it.draft, replaceAll(doc.body, s.wrong, s.right).text) })}>{t('inbox.corregir')}</button></div>)}
             </div>
           )}
           <div class="row wrap">
             <input class="input" placeholder={t('inbox.buscar')} value={from} onInput={(e) => setFrom((e.target as HTMLInputElement).value)} aria-label={t('inbox.buscar')} />
             <input class="input" placeholder={t('inbox.reemplazar_por')} value={to} onInput={(e) => setTo((e.target as HTMLInputElement).value)} aria-label={t('inbox.reemplazar_por')} />
-            <button type="button" class="btn" disabled={!from} onClick={() => { const r = replaceAll(doc.body, from, to); void save({ ...it, draft: stringifyFrontmatter(doc.data, r.text) }); app.toast(t('inbox.n_reemplazos', { n: r.n })); }}><Replace size={16} />{' '}{t('inbox.reemplazar_en_toda_la_clase')}</button>
+            <button type="button" class="btn" disabled={!from} onClick={() => { const r = replaceAll(doc.body, from, to); void save({ ...it, draft: rewriteDoc(it.draft, r.text) }); app.toast(t('inbox.n_reemplazos', { n: r.n })); }}><Replace size={16} />{' '}{t('inbox.reemplazar_en_toda_la_clase')}</button>
           </div>
           <textarea class="input code" style={{ minHeight: '45dvh' }} value={it.draft} onInput={(e) => { const v = (e.target as HTMLTextAreaElement).value; setIt((x) => ({ ...x, draft: v })); }} onBlur={() => save(it)} aria-label={t('inbox.borrador_de_la_nota')} />
           <p class="foot">{t('inbox.quita_relleno_y_corrige_terminos_anade')}</p>
