@@ -571,3 +571,23 @@ Abrir la app con `?perf` (p. ej. `https://…/engrama/?perf#/pdfs`) muestra en u
 ### Límites de Safari / a validar en iPad real
 - `ResizeObserver` existe desde Safari 13.1; el respaldo con `resize` no detecta Stage Manager.
 - Arrastrar con dedo y con Apple Pencil, con 6+ paneles, en vertical y horizontal (WebKit de Playwright no está instalado en el contenedor: las e2e corrieron en Chromium).
+
+## Mini prompt — Mini reproductor unificado y que suene (rama `fix-reproductor`)
+
+### Causas (verificadas en el código; el oído solo en un dispositivo real)
+- **Sin `navigator.audioSession`**: la mezcla en vivo usa Web Audio, que Safari en iPhone/iPad trata como «ambiente»: el **interruptor de silencio** la apaga y puede ir al auricular. Ahora, dentro del gesto de Reproducir, Reanudar, Probar sonido y de la música: `navigator.audioSession.type = 'playback'` (Safari 16.4+, con detección; en otros navegadores no existe).
+- **La música llamaba a `play()` después de leer todos los archivos** (`await mediaUrl` por pista): en Safari el gesto ya se había perdido y el `.catch(() => {})` lo escondía. Ahora `player.prime()` crea el `<audio>` y lo «desbloquea» con 50 ms de silencio (`blob:` WAV, permitido por la CSP `media-src blob:`) **en el mismo clic**; después se leen las pistas y se reproduce en ese elemento. En Chromium con `--autoplay-policy=user-gesture-required` el primer `play()` ocurre ~1 ms tras el clic; Chromium conserva la activación unos segundos, así que el fallo original solo se ve en Safari.
+- **Errores tragados**: un `play()` rechazado (`NotAllowedError`, `NotSupportedError`) ahora avisa con la causa (`onAudioError` → toast traducido) y deja el estado en «detenido»; `AbortError` (cambiar de pista) no es un error.
+- **Silencio pegado**: «Solo durante el enfoque» silenciaba si la fase del pomodoro no era «trabajo» aunque el pomodoro estuviera **detenido** (por ejemplo, parado en un descanso): ahora solo silencia con el pomodoro en marcha. `master` arranca en el volumen objetivo al reproducir.
+- **Contexto suspendido o «interrumpido»** (bloqueo, llamada, cambio de salida, AirPods): se reanuda en `visibilitychange`, `statechange` del `AudioContext` y `devicechange` de `navigator.mediaDevices`, solo si se estaba reproduciendo.
+- **«Probar sonido»** en el panel: un tono de 0.4 s a volumen bajo; si el contexto no queda en `running`, el aviso dice su estado.
+- **Media Session única** para ambiente y música (reproducir/pausar actúan sobre lo que sonaba; anterior/siguiente sobre la música).
+- **Descartado**: selector de salida (`setSinkId`): sin permiso de micrófono los dispositivos no tienen nombre, así que no se ofrece (no se piden permisos extra). Volumen por defecto: Reproducir sigue desactivado hasta subir un volumen y dice por qué; el mini solo aparece si algo suena o quedó en pausa.
+
+### Mini reproductor: una sola pieza
+- `MiniAmbient` es **una superficie `.glass`** (un solo `backdrop-filter`) que crece en el mismo contenedor (antes: píldora + `Popover` aparte). Píldora: barras, título y reproducir/pausar; expandido: una línea por motor (ambiente y música), anterior/siguiente, progreso de la pista, volumen general y de capas, «Abrir panel». Se expande con el cursor (150 ms), el foco del teclado o un toque; se pliega al salir (300 ms), con Esc o al tocar fuera. Nunca inicia audio al pasar el cursor.
+- Posición fija en la esquina inferior derecha (por `Portal`, `--z-dock`), por encima del teclado (`--kb-inset`); en el lienzo sube por encima del minimapa y su botón. Crece hacia arriba: la esquina no se mueve. En el teléfono sigue sobre la barra inferior.
+- Pruebas: `tests/ambient.test.ts` (silencio/atenuación, reanudación, rechazo → aviso y detenido, `audioSession`) y `npm run e2e:reproductor`.
+
+### Sin verificar sin audio real
+Que suene de verdad por el altavoz con el interruptor de silencio activado y desactivado, con AirPods/Bluetooth y al cambiar de salida en plena reproducción (iPad/iPhone), y en Mac/Windows. WebKit no está instalado en el contenedor: las e2e corrieron en Chromium.
