@@ -21,7 +21,7 @@ export function bankToDraft(b: Bank): Draft {
   };
 }
 
-export function draftQuestion(q: DraftQ, n: number): Question {
+function draftQuestion(q: DraftQ, n: number): Question {
   const options = q.options.filter((o) => o.text.trim());
   return finalize({
     n, case: q.case.trim(), text: q.text.trim(), explanation: q.explanation.trim(), topic: q.topic.trim(),
