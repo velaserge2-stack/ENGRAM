@@ -74,3 +74,17 @@ Alta: `move(a, a)` borra el archivo y `HandleFS.move` borra recursivamente un de
 ## Etapa 4b · limpieza (2026-11-13) · subagente Sonnet
 - Skills code-simplifier y deslop no disponibles; criterios aplicados a mano. No había TODO/FIXME ni código comentado. Se quitaron 9 comentarios-rótulo redundantes (lib, srs/data, screens/app); 0 cambios de código. Informe en `docs/audit/04b-limpieza.md`.
 - Verificación: typecheck, vitest (316/88), build, e2e, e2e:flows y e2e:phone compare con 0 píxeles.
+
+## Cierre (2026-11-13) · coordinador
+
+Tokens aproximados de cada subagente (según el propio arnés): etapa 0 Haiku 112 k · 1 Haiku 147 k · 2.1 Sonnet 183 k · 2.2 Sonnet 134 k · 2.3 Sonnet 242 k · 2.4 Sonnet 114 k · 2.5 Sonnet 147 k · 3 Opus 271 k · 4 Sonnet 105 k · 4b Sonnet 94 k. **Total ≈ 1.55 M**, sin contar al coordinador.
+
+Hallazgos: etapa 2 = 83 (2.1: 17 · 2.2: 14 · 2.3: 26 · 2.4: 10 · 2.5: 16); etapa 3 = 34 (3 altos). En `tests/audit-*.test.ts` hay 88 pruebas `it.fails` que reproducen errores: la suite queda en verde, y cada una pasa a `it()` al corregir.
+
+Aplicado: solo reducción y limpieza (etapas 4 y 4b). `git diff --shortstat 4d08965..HEAD -- src` = 58 archivos, +69 / −136. Comportamiento sin cambios: `e2e` y `e2e:flows` en verde y `e2e:phone` compare con 0 píxeles.
+
+No aplicado (pendiente de aprobación del usuario): las correcciones de errores de las etapas 2–3. Ver el PLAN de 15 puntos al final de `03-criticos.md`. La causa raíz más repetida es `readTextOr`, que convierte cualquier fallo de lectura en el valor por defecto.
+
+Omitido: etapa 1b (graphify no instalada; ver arriba). code-simplifier y deslop no estaban disponibles en la 4b.
+
+Nota: en la etapa 4, los commits que solo quitan `export` se verificaron en conjunto, no uno por uno; el último commit de la etapa pasó typecheck, pruebas, build y E2E.
