@@ -16,8 +16,11 @@ const EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', '
 
 export async function saveImage(vault: VaultAdapter, file: Blob, name = 'imagen', max = 2000): Promise<string> {
   const safe = name.replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '_').slice(0, 40) || 'imagen';
-  const id = `${Date.now().toString(36)}-${safe}`;
+  let id = `${Date.now().toString(36)}-${safe}`;
   const ext = EXT[file.type] ?? (/\.([a-z0-9]{2,5})$/i.exec((file as File).name ?? name)?.[1]?.toLowerCase() || 'bin');
+  // mismo nombre en el mismo ms: no pisar la foto anterior
+  const base = id;
+  for (let i = 2; (await vault.exists(`media/${id}.${ext}`)) || (await vault.exists(`media/${id}.jpg`)); i++) id = `${base}-${i}`;
   if (quality === 'optimizada') {
     try {
       const bmp = await createImageBitmap(file);

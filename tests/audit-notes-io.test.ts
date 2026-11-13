@@ -42,26 +42,26 @@ describe('auditoría · notas', () => {
     const first = await noteStore.load(be, 'notes/audit-store.md').catch(() => null);
     expect(first).not.toBe('');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('clearFormat no borra «==» ni «++» que no son marcas (a == b, C++)', () => {
+  // auditoría: corregido (menores)
+  it('clearFormat no borra «==» ni «++» que no son marcas (a == b, C++)', () => {
     const t = 'a == b y C++ ok';
     expect(clearFormat({ text: t, s: 0, e: t.length }).text).toBe(t);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('compatibleMarkdown convierte también ![[foto.jpg|300|izq]] (embed con opciones)', () => {
+  // auditoría: corregido (menores)
+  it('compatibleMarkdown convierte también ![[foto.jpg|300|izq]] (embed con opciones)', () => {
     const out = compatibleMarkdown('![[foto.jpg|300|izq]]', { links: true, colors: 'keep' });
     expect(out).not.toContain('![[');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('compatibleMarkdown convierte [[Nota#Sección]] y [[Nota#Sec|alias]]', () => {
+  // auditoría: corregido (menores)
+  it('compatibleMarkdown convierte [[Nota#Sección]] y [[Nota#Sec|alias]]', () => {
     expect(compatibleMarkdown('[[Nota#Sec]] [[Nota#Sec|alias]]', { links: true, colors: 'keep' })).not.toContain('[[');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('suggestPlace: un tema vacío («Sin tema») no suma puntos a cualquier nombre', () => {
+  // auditoría: corregido (menores)
+  it('suggestPlace: un tema vacío («Sin tema») no suma puntos a cualquier nombre', () => {
     expect(suggestPlace('Pediatría clase 3', [{ materia: 'Cardio', temas: [{ tema: '', notes: [] }] }])).toBeNull();
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('classNoteFromPlaud usa la fecha LOCAL (no UTC) para el campo fecha', () => {
+  // auditoría: corregido (menores)
+  it('classNoteFromPlaud usa la fecha LOCAL (no UTC) para el campo fecha', () => {
     const prev = process.env.TZ;
     process.env.TZ = 'America/Mexico_City';
     vi.useFakeTimers();
@@ -73,16 +73,16 @@ describe('auditoría · notas', () => {
       if (prev === undefined) delete process.env.TZ; else process.env.TZ = prev;
     }
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('srtToText conserva una línea de transcripción que es solo un número', () => {
+  // auditoría: corregido (menores)
+  it('srtToText conserva una línea de transcripción que es solo un número', () => {
     expect(srtToText('1\n00:00:01,000 --> 00:00:02,000\n120\n')).toBe('120');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('plaudGroupKey no corta palabras que contienen «audio»/«notes»', () => {
+  // auditoría: corregido (menores)
+  it('plaudGroupKey no corta palabras que contienen «audio»/«notes»', () => {
     expect(plaudGroupKey('Audiología.mp3')).toBe('audiología');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('saveImage: dos imágenes con el mismo nombre en el mismo instante no comparten ruta', async () => {
+  // auditoría: corregido (menores)
+  it('saveImage: dos imágenes con el mismo nombre en el mismo instante no comparten ruta', async () => {
     const be = new MemoryBackend();
     const spy = vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
     try {
@@ -94,12 +94,12 @@ describe('auditoría · notas', () => {
 });
 
 describe('auditoría · md', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('[[Nota#Sección]] enlaza a «Nota» (la ruta del enlace no incluye el ancla)', () => {
+  // auditoría: corregido (menores)
+  it('[[Nota#Sección]] enlaza a «Nota» (la ruta del enlace no incluye el ancla)', () => {
     expect(renderMarkdown('[[Nota#Sec]]')).toContain('data-wl="Nota"');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('plainText no borra _ = > de texto normal (snake_case, x = 5)', () => {
+  // auditoría: corregido (menores)
+  it('plainText no borra _ = > de texto normal (snake_case, x = 5)', () => {
     expect(plainText('snake_case x = 5')).toBe('snake_case x = 5');
   });
 });

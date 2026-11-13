@@ -271,14 +271,17 @@ export function plaudGroupKey(name: string): string {
   return name
     .toLowerCase()
     .replace(/\.[a-z0-9]+$/, '')
-    .replace(/[\s_-]*[([]?(summary|resumen|transcript(ion)?|transcripci[oó]n|mind ?map|mapa ?mental|notes?|audio)[)\]]?[\s_-]*/g, ' ')
+    .replace(/[\s_-]*[([]?(?<![\p{L}\p{N}])(summary|resumen|transcript(ion)?|transcripci[oó]n|mind ?map|mapa ?mental|notes?|audio)(?![\p{L}\p{N}])[)\]]?[\s_-]*/gu, ' ')
     .replace(/[\s_-]+/g, ' ')
     .trim();
 }
 
 export function srtToText(srt: string): string {
-  return srt.replace(/\r/g, '').split(/\n\s*\n/).map((b) => b.split('\n').filter((l) => !/^\d+$/.test(l.trim()) && !/-->/.test(l)).join(' ')).filter(Boolean).join('\n');
+  return srt.replace(/\r/g, '').split(/\n\s*\n/).map((b) => { const ls = b.split('\n'); return ls.filter((l, i) => !(/^\d+$/.test(l.trim()) && /-->/.test(ls[i + 1] ?? '')) && !/-->/.test(l) && l.trim()).join(' '); }).filter(Boolean).join('\n');
 }
+
+/** Fecha local AAAA-MM-DD (no UTC). */
+const localDate = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 export function classNoteFromPlaud(title: string, parts: { kind: PlaudKind; name: string; text?: string; media?: string }[], materia = '', tema = ''): string {
   const resumen = parts.filter((p) => p.kind === 'resumen').map((p) => parseFrontmatter(p.text ?? '').body.trim()).join('\n\n');
@@ -307,7 +310,7 @@ export function classNoteFromPlaud(title: string, parts: { kind: PlaudKind; name
     '',
     ...(trans ? ['> [!quote]- Transcripción', ...trans.split('\n').map((l) => `> ${l}`)] : []),
   ].join('\n');
-  return stringifyFrontmatter({ materia, tema, fecha: new Date().toISOString().slice(0, 10), fuente: 'plaud', tags: [] }, body + '\n');
+  return stringifyFrontmatter({ materia, tema, fecha: localDate(), fuente: 'plaud', tags: [] }, body + '\n');
 }
 
 /** Sugerencias del glosario: palabras parecidas a un término correcto (posibles errores de transcripción). */
@@ -345,6 +348,7 @@ export function suggestPlace(name: string, tree: Tree[]): { materia: string; tem
   for (const m of tree) {
     const mScore = nn.includes(normalizeAnswer(m.materia)) ? 2 : 0;
     for (const t of m.temas) {
+      if (!t.tema) continue; // «Sin tema» no puntúa
       const s = mScore + (nn.includes(normalizeAnswer(t.tema)) ? 3 : 0);
       if (s > (best?.score ?? 0)) best = { materia: m.materia, tema: t.tema, score: s };
     }

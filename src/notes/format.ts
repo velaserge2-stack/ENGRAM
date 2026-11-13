@@ -126,7 +126,7 @@ export function clearFormat(sel: Sel): Sel {
   const seg = text.slice(s, e);
   const keep: string[] = [];
   const masked = seg.replace(/!?\[\[[^\]\n]*\]\]|`[^`\n]*`/g, (x) => `\u0000${keep.push(x) - 1}\u0000`);
-  const clean = masked.replace(/\[([^\]\n]+)\]\{(?:\.[a-z]+\s*)+\}/g, '$1').replace(/\*\*|\+\+|~~|==|(?<![\w*])\*(?!\s)|(?<=\S)\*(?![\w*])/g, '').replace(/\u0000(\d+)\u0000/g, (_m, i: string) => keep[Number(i)]!);
+  const clean = masked.replace(/\[([^\]\n]+)\]\{(?:\.[a-z]+\s*)+\}/g, '$1').replace(/(\+\+|==)(\S[^\n]*?)\1/g, '$2').replace(/\*\*|~~|(?<![\w*])\*(?!\s)|(?<=\S)\*(?![\w*])/g, '').replace(/\u0000(\d+)\u0000/g, (_m, i: string) => keep[Number(i)]!);
   return { text: text.slice(0, s) + clean + text.slice(e), s, e: s + clean.length };
 }
 
