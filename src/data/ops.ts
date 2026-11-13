@@ -47,6 +47,7 @@ export async function setDeckMeta(vault: VaultAdapter, deckPath: string, patch: 
 export async function stateOp(vault: VaultAdapter, col: Collection, cids: string[], op: 'suspend' | 'unsuspend' | 'forget' | 'bury', params: SrsParams, ref?: string): Promise<void> {
   const ts = Date.now();
   const entries: LogEntry[] = cids.map((id, i) => ({ id, ts: ts + i, op, ...(ref ? { ref } : {}) }));
+  const snap = new Map(entries.map((e) => [e.id, col.states.has(e.id) ? structuredClone(col.states.get(e.id)!) : undefined] as const));
   for (const e of entries) {
     const st = col.states.get(e.id) ?? newState(e.ts);
     if (op === 'suspend') st.suspended = true;
@@ -55,7 +56,16 @@ export async function stateOp(vault: VaultAdapter, col: Collection, cids: string
     if (op === 'forget') Object.assign(st, newState(e.ts), { history: st.history });
     col.states.set(e.id, st);
   }
-  await appendLog(vault, col, entries, params);
+  try {
+    await appendLog(vault, col, entries, params);
+  } catch (err) {
+    // la memoria no debe quedar distinta del disco si el historial no se escribió
+    for (const [id, st] of snap) {
+      if (st) col.states.set(id, st);
+      else col.states.delete(id);
+    }
+    throw err;
+  }
 }
 
 /** Medios referenciados con ![[...]] en un texto. */

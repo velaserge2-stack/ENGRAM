@@ -55,7 +55,8 @@ export interface ParsedDeck {
 }
 
 const START = /^(QR|Q|T|LO|L|MC|MATCH|ORD)::\s?(.*)$|^(Cloze|IO):\s?(.*)$/;
-const ID_RE = /\s\^([A-Za-z0-9_-]{2,40})\s*$/;
+// un ID lleva al menos una letra o guion (newId siempre pone letra): « ^10» (potencia) no es un ID
+const ID_RE = /\s\^(?![0-9]+\s*$)([A-Za-z0-9_-]{2,40})\s*$/;
 const META_RE = /<!--\s*(origen|src):\s*([^>]*?)\s*-->/g;
 
 const TYPE_OF: Record<string, NoteType> = {
@@ -147,8 +148,9 @@ function parseBlock(b: Block): Note {
       const io = /<!--\s*io(-all)?:\s*([^>]*?)\s*-->/.exec(all);
       note.ioAll = !!io?.[1];
       for (const r of (io?.[2] ?? '').split(';')) {
-        const n = r.split(',').map((x) => Number(x.trim()));
-        if (n.length === 4 && n.every((v) => Number.isFinite(v))) note.rects.push({ x: n[0]!, y: n[1]!, w: n[2]!, h: n[3]! });
+        const parts = r.split(',').map((x) => x.trim());
+        const n = parts.map(Number);
+        if (n.length === 4 && parts.every((x) => x !== '') && n.every((v) => Number.isFinite(v))) note.rects.push({ x: n[0]!, y: n[1]!, w: n[2]!, h: n[3]! });
       }
       note.front = all.replace(/<!--[\s\S]*?-->/g, '').trim();
       if (!note.image) note.errors.push(t('parse.oclusion_sin_imagen'));
@@ -249,8 +251,10 @@ export function ensureIds(text: string, taken = new Set<string>(), rnd?: () => n
     lines[b.end] = `${last.replace(/\s+$/, '')} ^${id}`;
     added.push(id);
   }
-  return { text: added.length ? head + lines.join('\n') : text, added };
+  return { text: added.length ? head + lines.join(eolOf(doc.body)) : text, added };
 }
+
+const eolOf = (body: string) => (body.includes('\r\n') ? '\r\n' : '\n');
 
 /** Sustituye el bloque de una nota (editar durante el repaso). */
 export function replaceBlock(text: string, noteId: string, newRaw: string): string {
@@ -261,7 +265,7 @@ export function replaceBlock(text: string, noteId: string, newRaw: string): stri
   if (!n) return text;
   const raw = ID_RE.test(newRaw.split('\n').pop()!) ? newRaw : `${newRaw.replace(/\s+$/, '')} ^${noteId}`;
   lines.splice(n.line, n.endLine - n.line + 1, ...raw.split('\n'));
-  return head + lines.join('\n');
+  return head + lines.join(eolOf(doc.body));
 }
 
 /** Normaliza para comparar respuestas escritas: sin mayúsculas, acentos ni puntuación. */
@@ -294,9 +298,10 @@ export function checkTyped(given: string, expected: string): TypedVerdict {
   const plain = (s: string) => normalizeAnswer(s.replace(/\[([^\]]*)\]\{\.[^}]+\}/g, '$1').replace(/[*_=`]/g, ''));
   const a = plain(given);
   const b = plain(expected);
-  if (!a) return 'wrong';
+  if (!a || !b) return given.trim() && given.trim() === expected.trim() ? 'correct' : 'wrong';
   if (a === b) return 'correct';
-  return levenshtein(a, b) <= Math.max(1, Math.floor(b.length * 0.15)) ? 'almost' : 'wrong';
+  // respuestas cortas (< 4 caracteres): exactas; «casi correcto» es para erratas (SPEC §4b)
+  return b.length >= 4 && levenshtein(a, b) <= Math.max(1, Math.floor(b.length * 0.15)) ? 'almost' : 'wrong';
 }
 
 /** Calificación automática de tarjetas interactivas (SPEC §4b). */

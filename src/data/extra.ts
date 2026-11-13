@@ -50,7 +50,7 @@ export async function loadExtra(vault: VaultAdapter): Promise<Extra> {
   for (const l of (await readTextOr(vault, ATTEMPTS, '')).split('\n')) {
     try {
       const a = JSON.parse(l) as { finishedAt?: number; startedAt?: number; elapsedMs?: number };
-      if (a.finishedAt) exams.push({ ts: a.finishedAt, ms: Math.min(a.elapsedMs ?? 0, 6 * 3600_000) });
+      if (a.finishedAt) exams.push({ ts: a.finishedAt, ms: typeof a.elapsedMs === 'number' && a.elapsedMs > 0 ? Math.min(a.elapsedMs, 6 * 3600_000) : 0 });
     } catch {
       /* línea vacía */
     }

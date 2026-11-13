@@ -25,26 +25,26 @@ const P = DEFAULT_PARAMS;
 const rev = (id: string, ts: number, state = 0): LogEntry => ({ id, ts, rating: 3, ms: 1000, state });
 
 describe('auditoría · parser', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('un texto que acaba en « ^10» (potencia) no se toma por ID de tarjeta', () => {
+  // auditoría: corregido (menores)
+  it('un texto que acaba en « ^10» (potencia) no se toma por ID de tarjeta', () => {
     expect(parseDeck('Q:: x\nA:: 2 ^10\n').notes[0]!.id).toBe('');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('ensureIds conserva los saltos CRLF del archivo del usuario', () => {
+  // auditoría: corregido (menores)
+  it('ensureIds conserva los saltos CRLF del archivo del usuario', () => {
     const r = ensureIds('---\r\ndeck: X\r\n---\r\nQ:: a\r\nA:: b\r\n\r\nQ:: c\r\nA:: d ^zz9\r\n');
     expect(r.text).not.toMatch(/(^|[^\r])\n/);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('oclusión: un rectángulo con campo vacío (10,20,,40) no se acepta como w=0', () => {
+  // auditoría: corregido (menores)
+  it('oclusión: un rectángulo con campo vacío (10,20,,40) no se acepta como w=0', () => {
     const n = parseDeck('IO: ![[a.png]] <!-- io: 10,20,,40 --> ^abcd\n').notes[0]!;
     expect(n.rects).toHaveLength(0);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('escribir respuesta: « 2» frente a «1» no es «casi correcto»', () => {
+  // auditoría: corregido (menores)
+  it('escribir respuesta: « 2» frente a «1» no es «casi correcto»', () => {
     expect(checkTyped('2', '1')).toBe('wrong');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('escribir respuesta: una respuesta solo de símbolos («+») idéntica es correcta', () => {
+  // auditoría: corregido (menores)
+  it('escribir respuesta: una respuesta solo de símbolos («+») idéntica es correcta', () => {
     expect(checkTyped('+', '+')).toBe('correct');
   });
 });
@@ -52,13 +52,13 @@ describe('auditoría · parser', () => {
 describe('auditoría · cola', () => {
   const lines = (...e: LogEntry[]) => e;
   const col = (log: LogEntry[]) => ({ log, byCid: new Map([['aaa', { deck: { path: 'decks/A.md' } }]]) }) as never;
-  // auditoría: cambiar a it() al corregir
-  it.fails('deshacer la primera respuesta de una tarjeta nueva devuelve el cupo de nuevas del día', () => {
+  // auditoría: corregido (menores)
+  it('deshacer la primera respuesta de una tarjeta nueva devuelve el cupo de nuevas del día', () => {
     const log = lines(rev('aaa', NOW - 1000, 0), { id: 'aaa', ts: NOW - 500, op: 'undo', ref: NOW - 1000 });
     expect(newIntroducedToday(col(log), NOW, LIM).get('decks/A.md') ?? 0).toBe(0);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('deshacer un repaso lo quita del contador de repasos de hoy', () => {
+  // auditoría: corregido (menores)
+  it('deshacer un repaso lo quita del contador de repasos de hoy', () => {
     const log = lines(rev('aaa', NOW - 1000, 2), { id: 'aaa', ts: NOW - 500, op: 'undo', ref: NOW - 1000 });
     expect(reviewsToday(col(log), NOW, LIM)).toBe(0);
   });
@@ -150,8 +150,8 @@ describe('auditoría · datos (lecturas fallidas y carreras)', () => {
     expect(c.states.has('aaa11')).toBe(true);
     expect(await readText(v, 'decks/A.md')).toBe('---\ndeck: A\n---\nQ:: uno\nA:: dos ^aaa11\n');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('stateOp no deja el estado en memoria cambiado si falla la escritura del historial', async () => {
+  // auditoría: corregido (menores)
+  it('stateOp no deja el estado en memoria cambiado si falla la escritura del historial', async () => {
     const v = new Flaky();
     await v.write('decks/A.md', '---\ndeck: A\n---\nQ:: uno\nA:: dos ^aaa11\n');
     const c = await loadCollection(v, P, NOW);
@@ -159,8 +159,8 @@ describe('auditoría · datos (lecturas fallidas y carreras)', () => {
     await stateOp(v, c, ['aaa11'], 'suspend', P).catch(() => undefined);
     expect(c.states.get('aaa11')?.suspended ?? false).toBe(false);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('loadExtra ignora tiempos de examen negativos o no numéricos', async () => {
+  // auditoría: corregido (menores)
+  it('loadExtra ignora tiempos de examen negativos o no numéricos', async () => {
     const v = new MemoryBackend();
     await v.write(ATTEMPTS, `${JSON.stringify({ id: 'a', finishedAt: 5, elapsedMs: -9000 })}\n${JSON.stringify({ id: 'b', finishedAt: 6, elapsedMs: 'x' })}\n`);
     const { exams } = await loadExtra(v);
@@ -169,8 +169,8 @@ describe('auditoría · datos (lecturas fallidas y carreras)', () => {
 });
 
 describe('auditoría · papelera', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('withSubdecks encuentra los submazos de un mazo cuyo nombre (deck:) difiere del archivo', async () => {
+  // auditoría: corregido (menores)
+  it('withSubdecks encuentra los submazos de un mazo cuyo nombre (deck:) difiere del archivo', async () => {
     const v = new MemoryBackend();
     await v.write('decks/Anatomía tórax.md', '---\ndeck: "Anatomía: tórax"\n---\nQ:: a\nA:: b ^aaa11\n');
     await v.write('decks/Anatomía tórax/Pleura.md', '---\ndeck: Pleura\n---\nQ:: c\nA:: d ^bbb22\n');
