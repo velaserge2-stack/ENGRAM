@@ -50,3 +50,8 @@ Activas para la auditoría (≤ 6): ponytail, systematic-debugging, webapp-testi
 - Revisados `notes/*`, `sim/*`, `io/*` y la lógica pura de `md`, `share/period`, `tasks`, `stickies`, `ink`, `pdf`. Informe en `docs/audit/02-notes-io.md`: 26 hallazgos (3 altos, 13 medios, 10 bajos).
 - Altos: `noteStore.load/refresh` cachea `''` ante una lectura fallida y el autosave pisa la nota; `rewriteNoteRefs` convierte `[[Título]]` en `[[Materia/Título]]` al mover una nota suelta (enlaces rotos); la importación admite `.app/journal.json` y `.app/tmp/*`.
 - Pruebas: `tests/audit-notes-io.test.ts` con 30 `it.fails` (cambiar a `it()` al corregir). Sin cambios en `src/`. Sección «para etapa 3» en el informe (zip con cabeceras mentirosas, `.apkg`, sanitización, NoteStore, memoria en Safari).
+
+## Etapa 2.4 · vault (2026-11-13) · subagente Sonnet
+Informe en `docs/audit/02-vault.md`: 10 hallazgos (2 alta, 4 media, 4 baja); 8 `it.fails` en `tests/audit-vault.test.ts`.
+Raíz del patrón `readTextOr(…, '')`: `util.ts` atrapa todas las excepciones; corrección central: solo `VaultError` `not-found`.
+Alta: `move(a, a)` borra el archivo y `HandleFS.move` borra recursivamente un destino-carpeta. Código de error de cuota del Worker llega numérico.
