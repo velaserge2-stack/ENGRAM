@@ -34,8 +34,10 @@ export async function runNoteMove(app: ReturnType<typeof useApp>, items: NoteIte
   const undo: Undo = [], moved: [string, string][] = [];
   try {
     // el registro se comparte: si algo lanza a mitad, tiene todo lo hecho hasta ahí
-    if (items.notes.length) moved.push(...(await moveNotes(app.vault, items.notes, dest, clash, new Map(items.notes.map((n) => [n, fileName(items, n)])), undo)).moved);
-    for (const f of items.folders) moved.push(...(await moveNoteFolder(app.vault, f, dest, clash, undo)).moved);
+    await app.vault.batch(async (tx) => { // notas y carpetas en un solo diario
+      if (items.notes.length) moved.push(...(await moveNotes(tx, items.notes, dest, clash, new Map(items.notes.map((n) => [n, fileName(items, n)])), undo)).moved);
+      for (const f of items.folders) moved.push(...(await moveNoteFolder(tx, f, dest, clash, undo)).moved);
+    });
   } catch (e) {
     await undoMove(app.vault, undo).catch(() => {});
     app.changed();
