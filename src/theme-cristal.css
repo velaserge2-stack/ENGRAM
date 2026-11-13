@@ -381,7 +381,25 @@ html.is-phone .md img[data-align] { float: none; display: block; width: 100% !im
 .win-bar { height: 44px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 16px; border-bottom: var(--hair) solid var(--line); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .win-bar .t { font-weight: 600; font-size: .9375rem; }
 .win-body { flex: 1; overflow: auto; position: relative; min-height: 0; }
-.win-resize { position: absolute; right: 2px; bottom: 2px; width: 22px; height: 22px; cursor: nwse-resize; touch-action: none; border-right: 2px solid var(--t3); border-bottom: 2px solid var(--t3); border-radius: 0 0 8px 0; }
+/* Prompt 14 · 1: las asas son hijas de .win (que no se desplaza), encima del contenido; el dibujo
+   de 22 px no cambia y la zona táctil crece a 44 px con puntero grueso (dedo, Pencil) */
+/* solo en notas (el texto largo que el asa podría tapar): en el resto, el relleno volvía desplazables
+   paneles que no lo eran (imágenes) y cada área desplazable es otra capa que redibujar al hacer paneo */
+.canvas-plane > .win > .win-body:has(.doc) { padding-bottom: 22px; }
+/* Prompt 14 · 3: panel de imagen (versión reducida, zoom propio y marcador de carga) */
+.img-view { position: relative; overflow: hidden; }
+.img-skeleton { min-height: 200px; display: grid; place-items: center; }
+.img-bar { position: sticky; bottom: 0; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 8px; }
+.win-resize, .win-edge { position: absolute; z-index: var(--z-panel); touch-action: none; }
+.win-resize { right: 0; bottom: 0; width: 24px; height: 24px; cursor: nwse-resize; }
+.win-resize::after { content: ''; position: absolute; right: 2px; bottom: 2px; width: 22px; height: 22px; border-right: 2px solid var(--t3); border-bottom: 2px solid var(--t3); border-radius: 0 0 8px 0; pointer-events: none; }
+.win-edge.right { top: 44px; right: 0; bottom: 24px; width: 6px; cursor: ew-resize; }
+.win-edge.bottom { left: 0; right: 24px; bottom: 0; height: 6px; cursor: ns-resize; }
+@media (pointer: coarse) {
+  .win-resize { width: 44px; height: 44px; }
+  .win-edge.right { width: 12px; bottom: 44px; }
+  .win-edge.bottom { height: 12px; right: 44px; }
+}
 .divider { width: 10px; cursor: col-resize; touch-action: none; display: grid; place-items: center; }
 .divider::after { content: ""; width: 4px; height: 40px; border-radius: 2px; background: var(--t3); }
 .dock { position: sticky; bottom: calc(env(safe-area-inset-bottom) + 12px); display: flex; max-width: 100%; overflow-x: auto; align-items: center; justify-content: center; gap: 10px; margin-top: 14px; z-index: var(--z-dock); flex-wrap: wrap; }
@@ -458,6 +476,11 @@ body.notes-full .app { padding-top: calc(env(safe-area-inset-top) + 64px); }
 .tree a[aria-current="page"] { background: var(--inverse-bg); color: var(--inverse-fg); }
 .tree .lvl1 { padding-left: 22px; } .tree .lvl2 { padding-left: 38px; }
 .doc { padding: 26px 30px; min-height: 70dvh; }
+/* Prompt 14: en notas largas (> 80 bloques), los tramos fuera de pantalla no se maquetan ni se pintan (siguen en el DOM: buscar,
+   imprimir y VoiceOver los ven); `auto` recuerda la altura medida para que la barra no salte */
+.doc-chunk { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr); }
+.doc-cv > .doc-chunk { content-visibility: auto; contain-intrinsic-size: auto 2400px; }
+@media print { .doc-cv > .doc-chunk { content-visibility: visible; } }
 .slash { min-width: 220px; padding: 6px; }
 .slash button { display: flex; width: 100%; gap: 8px; align-items: center; padding: 8px 10px; border: 0; background: none; border-radius: 10px; text-align: left; }
 .slash button.on { background: var(--fill-sel); }
@@ -627,7 +650,7 @@ pre.preview { background: var(--fill-2); border: var(--hair) solid var(--line); 
 .is-phone .rail button { flex: none; width: 44px; height: 44px; }
 .is-phone .tiles { grid-template-columns: minmax(0, 1fr) !important; height: auto !important; min-height: 0; }
 .is-phone .tiles > .win { height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--tabbar-h) - 250px); min-height: 300px; }
-.is-phone .win-resize { display: none; }
+.is-phone .win-resize, .is-phone .win-edge { display: none; }
 
 /* ───────── perfil (Mejoras 2 · C7) ───────── */
 .avatar { display: inline-grid; place-items: center; flex: none; border-radius: 50%; overflow: hidden; background: var(--fill); color: var(--t1); border: var(--hair) solid var(--border); line-height: 1; }

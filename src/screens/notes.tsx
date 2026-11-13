@@ -1,13 +1,14 @@
 import { locale, t as tr } from '../i18n';
 import { Search, Maximize2, Minimize2, PanelLeft, PanelRight, Bookmark, ClipboardCopy, ClipboardPaste, Code, FilePlus2, FileText, Folder, FolderOutput, History, Import, Link2, ListChecks, ListTree, MoveRight, Network, Share, Sparkles, Star, Trash2 } from 'lucide-preact';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { normalizeAnswer, parseDeck } from '../cards/parse';
 import { appendCard } from '../data/ops';
 import { deliver } from '../io/share';
 import { buildZip } from '../io/zip';
 import { addDays, dayKey } from '../lib/days';
 import { type Frontmatter, parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
-import { renderMarkdown } from '../md/render';
+import { renderMarkdown, renderMarkdownCached } from '../md/render';
+import { memo } from 'preact/compat';
 import { compatibleMarkdown, htmlToMarkdown, markdownToDocx } from '../notes/io';
 import { saveImage } from '../notes/images';
 import { ImageBar } from '../notes/imagebar';
@@ -22,7 +23,7 @@ import { nthImageEmbed, rewriteImageEmbed, textBeside } from '../md/embed';
 import { buildPrompt, buildTree, coverage, DAILY, linkIndex, listNotes, newNoteText, type NoteMeta, noteMeta, notePath, outline, paragraphs, parseAiResponse, readVersion, restore, snapshot, TEMPLATES, trash, trashList, unlinkedMentions, versions, withOrigin } from '../notes/model';
 import { go, href, useApp, useAsync } from '../state';
 import { Empty, PageTitle, Segmented, Sheet } from '../ui/kit';
-import { Html } from '../ui/md';
+import { Html, hydrateAllMedia } from '../ui/md';
 import { readTextOr } from '../vault/util';
 import { mediaRefs, resolveMedia } from '../data/ops';
 import { NotePreview } from './deck';
@@ -40,7 +41,13 @@ import { MoveNotesSheet, type NoteItems, useNoteMover } from './notemove';
 import { addonOn } from './addons';
 
 // tras cada guardado (venga de la pestaña o de un panel): historial de versiones e índice de búsqueda
-onNoteSaved(async (vault, path, text) => { await snapshot(vault, path, text); void notesIndex.upsert(path, text); });
+// Prompt 14: el índice se actualiza al quedar quieto (~1 s tras la última tecla: 500 ms del guardado + 500 ms)
+const idxT = new Map<string, ReturnType<typeof setTimeout>>();
+onNoteSaved(async (vault, path, text) => {
+  await snapshot(vault, path, text);
+  clearTimeout(idxT.get(path));
+  idxT.set(path, setTimeout(() => (idxT.delete(path), void notesIndex.upsert(path, text)), 500));
+});
 import type { Filters, Result } from '../notes/search-core';
 
 const BOOKMARKS = '.app/bookmarks.json';
@@ -394,9 +401,13 @@ function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { ma
   const [tema, setTema] = useState(props.initial?.tema ?? '');
   const [title, setTitle] = useState(props.initial?.title ?? '');
   const [tpl, setTpl] = useState('Clase');
-  // el título lleva el foco al abrir (después de que la hoja enfoque su contenedor)
+  // el título lleva el foco al abrir (después de que la hoja enfoque su contenedor), salvo que ya se
+  // esté escribiendo en otro campo: robarle el foco a mitad de escribir mandaba el texto al título
   const titleRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { const r = requestAnimationFrame(() => titleRef.current?.focus()); return () => cancelAnimationFrame(r); }, []);
+  useEffect(() => {
+    const r = requestAnimationFrame(() => { const a = document.activeElement; if (!(a instanceof HTMLInputElement || a instanceof HTMLTextAreaElement || a instanceof HTMLSelectElement)) titleRef.current?.focus(); });
+    return () => cancelAnimationFrame(r);
+  }, []);
   const temas = tree.find((m) => m.materia === materia)?.temas.map((t) => t.tema) ?? [];
   return (
     <Sheet title={tr('notes.nueva_nota')} onClose={props.onClose}>
@@ -449,6 +460,41 @@ function expandQueries(body: string, data: NonNullable<NotesData>, col: ReturnTy
   });
 }
 
+/**
+ * Prompt 14: las consultas `query` se recalculan solo cuando cambian sus datos (notas y mazos:
+ * `data` y `col` son objetos nuevos en cada cambio de la bóveda), no con cada tecla.
+ */
+const queryCache = new WeakMap<object, { col: unknown; m: Map<string, string> }>();
+function expandBlock(b: string, data: NotesData, col: ReturnType<typeof useApp>['col']): string {
+  if (!data || !b.includes('```query')) return b;
+  let e = queryCache.get(data);
+  if (!e || e.col !== col) queryCache.set(data, (e = { col, m: new Map() }));
+  let out = e.m.get(b);
+  if (out === undefined) e.m.set(b, (out = expandQueries(b, data, col)));
+  return out;
+}
+
+/** Un bloque en vista de documento. `memo`: escribir en otro bloque no lo vuelve a pintar. */
+const ViewBlock = memo(function ViewBlock(p: { html: string; i: number; onEdit: (i: number, img?: Element) => void }) {
+  // tocar (o Intro sobre) una imagen la selecciona para su barra (Notas-Pro · A4); el resto abre el bloque
+  return (
+    <div class="doc-block" data-block={p.i} role="button" tabIndex={0} onClick={(e) => { const im = (e.target as HTMLElement).closest('img[data-media]'); if (im) return p.onEdit(p.i, im); if ((e.target as HTMLElement).closest('a, summary, audio, input')) return; p.onEdit(p.i); }} onKeyDown={(e) => { if (e.key !== 'Enter') return; const im = (e.target as HTMLElement).closest('img[data-media]'); if (im) e.preventDefault(); p.onEdit(p.i, im ?? undefined); }} style={{ cursor: 'text', borderRadius: '10px' }} aria-label={tr('notes.editar_bloque')}>
+      <Html html={p.html} />
+    </div>
+  );
+});
+
+/**
+ * Prompt 14: los bloques van en tramos de 40; en notas de más de 80 bloques, con
+ * `content-visibility: auto` (ver CSS): el navegador se salta la maquetación de los tramos fuera de
+ * pantalla. Las notas cortas se pintan como siempre. Un tramo y no cada bloque: con 10 000
+ * elementos así, el navegador revisaba todos en cada fotograma al desplazarse.
+ */
+const CHUNK = 40;
+/** Aviso suave de nota gigante (> ~1.5 MB o > 5 000 bloques). */
+const BIG_CHARS = 1_500_000, BIG_BLOCKS = 5000;
+const chunks = (items: preact.JSX.Element[]) => Array.from({ length: Math.ceil(items.length / CHUNK) }, (_, k) => <div key={`c${k}`} class="doc-chunk">{items.slice(k * CHUNK, (k + 1) * CHUNK)}</div>);
+
 /** Bloques del cuerpo (párrafos), respetando bloques de código. */
 function splitBlocks(body: string): string[] {
   const out: string[] = [];
@@ -473,6 +519,19 @@ const SLASH = (): [string, string, string][] => ([
 
 /** Editor que recibe los atajos (el último tocado o enfocado). */
 let activeEditor: symbol | null = null;
+/**
+ * Prompt 14: el texto «asentado» (igual al vigente tras `ms` sin cambios) para lo que no necesita
+ * recalcularse en cada tecla (cobertura de tarjetas, esquema). Al cambiar de nota se toma al instante.
+ */
+function useSettled(v: string | null, key: string, ms = 400): string | null {
+  const [s, setS] = useState({ v, key });
+  useEffect(() => {
+    if (s.key !== key || s.v === null) return setS({ v, key });
+    const id = setTimeout(() => setS({ v, key }), ms);
+    return () => clearTimeout(id);
+  }, [v, key]);
+  return s.key === key && s.v !== null ? s.v : v;
+}
 
 function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: (p: Partial<NotesUI>) => void; overlay: boolean; embedded?: boolean }) {
   const app = useApp();
@@ -501,6 +560,9 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
   const refresh = () => { clearTimeout(tickT.current); tickT.current = setTimeout(() => setTick((n) => n + 1), 60); };
   useEffect(() => { setImgSel(null); lastBlock.current = null; }, [props.path]);
   const edId = useMemo(() => Symbol(props.path), []);
+  const pickRef = useRef<(i: number, im: Element) => void>(() => {});
+  /** Estable (no rompe el `memo` de los bloques): editar el bloque o, si se tocó una imagen, seleccionarla. */
+  const onEditBlock = useCallback((i: number, im?: Element) => (im ? pickRef.current(i, im) : setEditing(i)), []);
   const runRef = useRef<(a: Action) => void>(() => {});
   const [said, setSaid] = useState('');
   // atajos del editor: solo en el editor activo (puede haber varios: pestaña y paneles de Espacios)
@@ -534,6 +596,13 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
     if (el !== imgEl) setImgEl(el);
     if (imgSel && !el && Date.now() - imgSel.at > 2000) setImgSel(null);
   });
+  const settled = useSettled(text, props.path);
+  const settledBody = useMemo(() => (settled === null ? '' : parseFrontmatter(settled).body), [settled]);
+  const cov = useMemo(() => {
+    const cards = app.col ? [...app.col.byCid.values()].map((x) => ({ front: x.ref.note.front, back: x.ref.note.back, src: x.ref.note.src })) : [];
+    return coverage(settledBody, cards, props.path);
+  }, [settledBody, app.col, props.path]);
+  const heads = useMemo(() => outline(settledBody), [settledBody]);
   useEffect(() => {
     // ⌘F / Ctrl+F dentro de una nota: buscar en esta nota
     const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f' && !modalOpen()) (e.preventDefault(), setMode('doc'), setEditing(null), setFind((f) => f ?? '')); };
@@ -694,6 +763,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
     }
   };
   runRef.current = (a) => void run(a);
+  pickRef.current = (i, im) => pickImage(i, im);
   async function insertDrawing(i: number, notebook: boolean) {
     const id = await createDrawing(app.vault, notebook ? 'rayado' : undefined);
     // texto vigente (el «/dibujo» ya se quitó)
@@ -701,8 +771,6 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
     setBody([...all.slice(0, i + 1), `![[${id}.png]]`, ...all.slice(i + 1)].join('\n\n'));
     setEditing(null);
   }
-  const cards = app.col ? [...app.col.byCid.values()].map((x) => ({ front: x.ref.note.front, back: x.ref.note.back, src: x.ref.note.src })) : [];
-  const cov = coverage(doc.body, cards, props.path);
   const bookmarked = props.data?.bookmarks.includes(props.path);
   const insp = props.ui.inspector;
   const [full, setFull] = useState(() => document.body.classList.contains('notes-full'));
@@ -723,6 +791,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
             <div class="foot">{meta.materia || tr('notes.sin_clasificar')}{meta.tema ? ` › ${meta.tema}` : meta.structured && meta.materia !== DAILY ? ` › ${tr('notes.sin_tema')}` : ''}</div>
             <h1 style={{ fontSize: 'var(--t-1)', fontWeight: 700 }}>{meta.title}</h1>
             <div class="foot">{tr('calendar.cards_tarjetas', { cards: cov.cards })}{' '}{cov.total ? tr('notes.p_de_parrafos_cubiertos', { p: Math.round((cov.covered.length / cov.total) * 100) }) : tr('notes.sin_parrafos')}</div>
+            {(text.length > BIG_CHARS || blocks.length > BIG_BLOCKS) && <p class="foot" role="note">{tr('notes.nota_muy_grande')}</p>}
           </div>
           <div class="row wrap">
             {!props.embedded && <button type="button" class="btn icon" {...keep} aria-label={props.ui.explorer ? tr('notes.ocultar_explorador') : tr('notes.mostrar_explorador')} aria-pressed={props.ui.explorer} onClick={() => props.setUi({ explorer: !props.ui.explorer })}><PanelLeft size={18} /></button>}
@@ -742,16 +811,16 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
         <EditorBar s={barState()} folded={!!props.ui.barFolded} onFold={(v) => props.setUi({ barFolded: v })} run={run} notes={props.data?.notes ?? []}
           slash={SLASH().filter(([k]) => k !== 'img').map(([k, l]) => [k, l])} />
         <span class="sr-only" aria-live="polite">{said}</span>
-        {find !== null && <FindBar root={() => docRef.current} initial={find} dep={text + mode} onClose={() => setFind(null)} />}
+        {find !== null && <FindBar root={() => docRef.current} initial={find} dep={mode === 'doc' ? settled : mode} onClose={() => setFind(null)} />}
         <article class="glass strong doc" ref={docRef} onPaste={(e) => void onPaste(e as ClipboardEvent)} onDragOver={(e) => e.dataTransfer?.types.includes('Files') && e.preventDefault()} onDrop={(e) => void onDrop(e as DragEvent)}>
           <div class="print-only"><h1>{meta.title}</h1></div>
           <div class="doc-inner" style={{ maxWidth: LINE[props.ui.width] }}>
           {mode === 'md' ? (
             <textarea class="input code" style={{ minHeight: '70dvh', width: '100%', border: 0, background: 'transparent' }} value={text} onInput={(e) => set((e.target as HTMLTextAreaElement).value, 'type')} aria-label={tr('notes.markdown_de_la_nota')} spellcheck />
           ) : (
-            <div class="stack-s">
+            <div class={`stack-s${blocks.length > 2 * CHUNK ? ' doc-cv' : ''}`}>
               {/* «＋ Escribe…» abre un bloque vacío al final (en la misma lista, para no perder el foco) */}
-              {(editing === blocks.length ? [...blocks, ''] : blocks).map((b, i) => (editing === i ? (
+              {chunks((editing === blocks.length ? [...blocks, ''] : blocks).map((b, i) => (editing === i ? (
                 <BlockInput key={i} onMount={() => (lastBlock.current = i)} caretEnd={caretEnd} value={b} notes={props.data?.notes ?? []} onChange={(v) => setBody([...blocks.slice(0, i), v, ...blocks.slice(i + 1)].join('\n\n'), 'type')}
                   onDone={() => setEditing(null)} onSplit={(a, rest) => { setBody([...blocks.slice(0, i), a, rest, ...blocks.slice(i + 1)].join('\n\n')); setEditing(i + 1); }}
                   onCard={(sel, kind) => { setCardSeed({ text: sel, kind, para: i }); setSheet('card'); }}
@@ -761,10 +830,8 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
               ) : DRAW_RE.test(b.trim()) ? (
                 <DrawingBlock key={`d${i}`} id={DRAW_RE.exec(b.trim())![1]!} />
               ) : (
-                <div key={i} data-block={i} role="button" tabIndex={0} onClick={(e) => { const im = (e.target as HTMLElement).closest('img[data-media]'); if (im) return pickImage(i, im); if ((e.target as HTMLElement).closest('a, summary, audio, input')) return; setEditing(i); }} onKeyDown={(e) => { if (e.key !== 'Enter') return; const im = (e.target as HTMLElement).closest('img[data-media]'); if (im) (e.preventDefault(), pickImage(i, im)); else setEditing(i); }} style={{ cursor: 'text', borderRadius: '10px' }} aria-label={tr('notes.editar_bloque')}>
-                  <Html html={renderMarkdown(props.data ? expandQueries(b, props.data, app.col) : b)} />
-                </div>
-              )))}
+                <ViewBlock key={i} i={i} onEdit={onEditBlock} html={renderMarkdownCached(expandBlock(b, props.data, app.col))} />
+              ))))}
               <button type="button" class="btn ghost" style={{ justifySelf: 'start' }} onClick={() => setEditing(blocks.length)}>{tr('notes.escribe_o_usa_para_insertar')}</button>
             </div>
           )}
@@ -784,8 +851,8 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
           <div class="seg" role="tablist" aria-label={tr('notes.panel')}>
             {([['outline', tr('notes.esquema')], ...(app.settings.showBacklinks ? [['links', tr('notes.enlaces')]] : []), ['props', tr('notes.propiedades')], ['cards', tr('heatmap.tarjetas')], ['events', tr('notes.eventos')], ...(app.settings.showGraph ? [['graph', tr('notes.grafo')]] : [])] as [typeof tab, string][]).map(([k, l]) => <button type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}
           </div>
-          {tab === 'outline' && (outline(doc.body).map((h) => <div style={{ paddingLeft: `${(h.level - 1) * 12}px` }} class="note">{h.text}</div>) || null)}
-          {tab === 'outline' && !outline(doc.body).length && <p class="t2 note">{tr('notes.sin_titulos')}</p>}
+          {tab === 'outline' && (heads.map((h) => <div style={{ paddingLeft: `${(h.level - 1) * 12}px` }} class="note">{h.text}</div>) || null)}
+          {tab === 'outline' && !heads.length && <p class="t2 note">{tr('notes.sin_titulos')}</p>}
           {tab === 'links' && props.data && <Links path={props.path} title={meta.title} data={props.data} />}
           {tab === 'props' && <Properties fm={doc.data} onChange={setFm} />}
           {tab === 'events' && <><b class="note">{tr('notes.eventos_vinculados')}</b><LinkedEvents path={props.path} /></>}
@@ -1034,6 +1101,7 @@ function ShareNote(p: { path: string; title: string; text: string; onClose: () =
           <button type="button" class="btn" disabled={busy} onClick={async () => {
             // A2: imprimir con los originales (de uno en uno), no con las miniaturas
             setBusy(true);
+            await hydrateAllMedia(); // Prompt 14: también las que aún no se habían cargado
             const root = document.querySelector('.doc') ?? document;
             const restore = await swapToOriginals(app.vault, root, (n) => resolveMedia(app.vault, n));
             setBusy(false);

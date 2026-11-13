@@ -1,0 +1,63 @@
+{
+ "browser": "chromium",
+ "date": "2026-11-12T17:40:28.669Z",
+ "tab_N1": {
+  "openMs": 553,
+  "blocks": 501,
+  "clickToEditMs": 592,
+  "typeP50": 231,
+  "typeP95": 483,
+  "typeMax": 483,
+  "fps": 28,
+  "worstFrameMs": 50,
+  "findMs": 103,
+  "heapMB": 73,
+  "dom": 4034,
+  "blobs": 29,
+  "heapAfterMB": 44,
+  "blobsAfter": 29
+ },
+ "tab_N2": {
+  "openMs": 1687,
+  "blocks": 3001,
+  "clickToEditMs": 1346,
+  "typeP50": 1365,
+  "typeP95": 2922,
+  "typeMax": 2922,
+  "fps": 28,
+  "worstFrameMs": 50,
+  "findMs": 242,
+  "heapMB": 71,
+  "dom": 22846,
+  "blobs": 29,
+  "heapAfterMB": 86,
+  "blobsAfter": 29
+ },
+ "tab_N3": {
+  "openMs": 5821,
+  "blocks": 10001,
+  "clickToEditMs": 4989,
+  "typeP50": 4274,
+  "typeP95": 8512,
+  "typeMax": 8512,
+  "fps": 30,
+  "worstFrameMs": 50,
+  "findMs": 1465,
+  "heapMB": 83,
+  "dom": 75257,
+  "blobs": 29,
+  "heapAfterMB": 98,
+  "blobsAfter": 29
+ },
+ "panel_N2x2": {
+  "openMs": 32,
+  "blocks": 3001,
+  "clickToEditMs": 2593,
+  "typeP50": 2506,
+  "typeP95": 4931,
+  "typeMax": 4931,
+  "heapMB": 65,
+  "dom": 45337,
+  "blobs": 29
+ }
+}

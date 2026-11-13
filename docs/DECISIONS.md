@@ -738,3 +738,66 @@ Era un `.btn` suelto sobre el fondo (relleno de ~6 %, sin `.glass`): con los 5 f
 ### Límites y lo que falta validar en iPad real
 - La medición definitiva es en el dispositivo: fotogramas al desplazar Hoy sobre una foto y al hacer paneo con 4 paneles. Chromium headless compone por software y exagera el costo del desenfoque.
 - El Chromium de las pruebas no aplica `prefers-reduced-transparency` aunque se emule: la regla CSS sigue igual que antes, sin verificar aquí.
+
+## Prompt 14 — Asa de redimensionar, notas pesadas e imágenes grandes (rama `fix-lienzo-rendimiento`)
+
+Medición: `node scripts/note-fixtures.mjs` (N1 = 500 bloques/104 KB, N2 = 3 000/654 KB, N3 = 10 000/2.2 MB, con listas, tablas, callouts, wikilinks, 30 imágenes de 1–3 MP, 5 dibujos y bloques `query`; imágenes de 2, 12, 24 y 48 MP en JPG y PNG) y `npm run e2e:notas-perf`. Chromium headless (WebKit no está instalado en el contenedor). Cifras completas en `docs/perf/notas-*.json` e `imagenes-*.json`.
+
+### 1 · Asa de redimensionar
+- **Causa (reproducida)**: el asa estaba dentro de `.win-body`, el contenedor que se desplaza; al bajar por una nota subía con el contenido (74 333 px por debajo del borde del panel al final de N1).
+- **Cambio**: las asas son hijas de `.win`: esquina (dibujo de 22 px como antes; zona de 44 px con puntero grueso) y bordes derecho e inferior. `preventDefault` + `setPointerCapture`: no desplazan la nota ni abren el teclado. No se muestran en pausa ni en el teléfono. En paneles con nota, 22 px de relleno inferior para que el asa no tape la última línea; **solo en notas**: aplicado a todos, volvía desplazables los paneles de imagen y el paneo con 4 imágenes bajaba de ~55 a ~45 fps (cada área desplazable es otra capa).
+- `npm run e2e:p14` (asa): nota, PDF, documento y hoja; escala 1, 0.5 y 2; scroll arriba, a mitad y al final; ratón, táctil y Pencil.
+
+### 2 · Notas pesadas
+- **Causa (perfil de CPU)**: cada tecla volvía a convertir y sanear **todos** los bloques, y DOMPurify reprocesaba su configuración en cada llamada (≈ 2 s de los 4 s por tecla en N2).
+- **Cambios**: instancia de DOMPurify con la configuración fijada una vez (mismas reglas, prueba de igualdad); caché LRU de HTML ya saneado por bloque (`renderMarkdownCached`, 20 000 entradas); bloques con `memo`; consultas `query` solo cuando cambian sus datos; cobertura y esquema con el texto «asentado» (400 ms); tramos de 40 bloques con `content-visibility: auto` en notas de más de 80 bloques (en las cortas nada cambia; al imprimir se pintan todos; «Buscar en esta nota» recoloca la coincidencia al llegar); imágenes de la nota al acercarse a la pantalla, con préstamo de URLs (`acquireMediaUrl`/`releaseMediaUrl`: se revocan al cerrar la nota) y carga de todas antes de imprimir; índice de búsqueda ~1 s tras la última tecla; aviso suave en notas de más de 1.5 MB o 5 000 bloques.
+- **El archivo guardado es idéntico byte a byte** al de la rama base tras la misma edición (`npm run e2e:p14` guardado, comparado con sha256).
+
+| Pestaña Notas | Antes | Después |
+|---|---|---|
+| N1: abrir · tecla p50 / p95 | 553 ms · 231 / 483 ms | 251 ms · 22 / 58 ms |
+| N2: abrir · tecla p50 / p95 | 1 687 ms · 1 365 / 2 922 ms | 702 ms · 15 / 22 ms |
+| N3: abrir · tecla p50 / p95 | 5 821 ms · 4 274 / 8 512 ms | 1 810 ms · 19 / 43 ms |
+| N2 en dos paneles del lienzo: tecla p50 / p95 | 2 506 / 4 931 ms | 20 / 82 ms |
+| «Ver Markdown» en N3: tecla p50 | — | 44 ms (usable: sin aviso) |
+| Desplazar (fps) N1 / N2 / N3 | 30 / 32 / 31 | 30 / 28 / 32 |
+| `blob:` creadas al abrir | 29 | 0 |
+| Memoria tras 5 min escribiendo y desplazando N2 | — | 56 → 59 MB (estable) |
+
+El desplazamiento queda igual: Chromium headless no pasa de ~30 fps al desplazar una página en este contenedor, también con N1. Buscar en N3 tarda lo mismo (~1.5 s; recorre 75 000 nodos de texto). Las `blob:` crecen hasta el número de imágenes de la nota mientras está abierta (30 en la prueba) y se devuelven al cerrarla.
+
+### 3 · Imágenes grandes en el lienzo
+- **Causa**: el panel ponía el original completo (hasta 48 MP: ~190 MB decodificados) y su `blob:` no se liberaba nunca.
+- **Cambio** (`src/lib/imgview.ts`): versión al ancho del panel × densidad (escalones 640/1 280/2 560 px) en `.app/cache/img/` (regenerable; nunca en `media/` ni sobre el original), medidas leídas de la cabecera sin decodificar, versión mayor al acercar y original solo con «Ver original» (no si supera ~16.7 MP, límite de Safari: aviso). Zoom y arrastre propios (`data-own-zoom`, como el PDF). Las URL se devuelven al cerrar o dormir el panel. `saveImage` ya reducía a 2 000 px al importar; las imágenes que ya estaban no se tocan.
+
+| Imagen en un panel | Antes | Después |
+|---|---|---|
+| Mostrar 12 MP JPG · 48 MP PNG (primera vez) | 66 · 1 280 ms | 125 · 683 ms |
+| Píxeles decodificados | el original (hasta 48 MP) | 0.3 MP (640 × 480) |
+| Reabrir (p50) | 10 ms (original retenido) | 33 ms (desde la caché) |
+| `blob:` retenidas tras abrir y cerrar 20 | 6 (originales de hasta 25 MB) | 0 |
+| Paneo y zoom con 1 / 2 / 4 imágenes (fps) | 49 / 50 / 51 | 50 / 55 / 55 |
+
+### Descartado o pendiente
+- **Dibujos como miniatura hasta tocarlos**: con 5 dibujos por nota el impacto no fue medible; montarlos solo al tocar cambiaría el trazo directo con Pencil (el primer trazo se perdería).
+- **«Dividir en varias notas»**: pendiente; el aviso de nota gigante sugiere dividirla.
+- **`width`/`height` en las imágenes de la nota** para evitar saltos: las medidas no están en el Markdown; los tramos con `contain-intrinsic-size: auto` recuerdan la altura medida.
+- **Límites de Safari**: `content-visibility` desde Safari 18; `navigator.share`/impresión con Cmd+P no espera a las imágenes perezosas (el botón de imprimir sí); `createImageBitmap` con `resizeWidth` puede ignorarse en Safari antiguos y entonces se reduce dibujando en un lienzo.
+
+### Fallo intermitente encontrado en la regresión (y corregido)
+`e2e:mejoras` (renombrar una nota) y `e2e:p6` (mover a «Arritmias») fallaban a veces: al abrir «Nueva nota», el foco pasaba al título en el siguiente fotograma aunque ya se estuviera escribiendo en Materia o Tema, y ese texto acababa en el título (y se perdía). Con las notas más rápidas, la prueba escribía justo en ese fotograma. Ahora el título solo toma el foco si no se está ya en otro campo. Tras el arreglo: `e2e:mejoras` 10/10 y `e2e:p6` 5/5 (antes ~1 de 4 y ~2 de 3 fallos).
+
+### Lista para iPad real
+Nota larga desplazada y asa en un panel del lienzo (dedo y Pencil); nota de ~1 MB en pestaña y en panel; foto de 12 MP y de 48 MP en un panel; paneo y zoom con 4 paneles; escribir con el teclado en pantalla.
+
+## Unión de Notas-Pro · A y Prompt 17 con Prompt 14 (rendimiento de notas e imágenes)
+- **Medios en notas (`src/ui/md.tsx`)**: estructura del Prompt 14 (un solo `IntersectionObserver` para toda la app, `hydrateAllMedia` antes de imprimir, préstamo de URL para el audio). Las imágenes usan la miniatura de la Fase A (`mediaThumbUrl`, caché `.app/thumbs/`), con el alto reservado (`dims.json`) y el marcador para formatos que el navegador no muestra.
+- **Bloques**: tramos con `content-visibility` y `ViewBlock` memorizado del Prompt 14. El bloque lleva además `data-block` y el toque sobre una imagen la selecciona (callback estable, para no romper el `memo`).
+- **Imprimir**: primero `hydrateAllMedia` (Prompt 14), después el cambio a originales de uno en uno (Fase A).
+- **Sanitización**: el Prompt 14 sanea con una instancia propia de DOMPurify (`DOMPurify()` con la configuración fijada una vez). El filtro de clases del Prompt 17 se registra en esa misma instancia: en la instancia por defecto no se aplicaba. Lo cubren las pruebas de sanitización.
+- **Dos cachés de imágenes, a propósito y por ahora**:
+  - `.app/thumbs/` (Fase A): miniatura de 1200 px para notas.
+  - `.app/cache/img/` (Prompt 14): versiones de 640/1280/2560 px según el ancho del panel del lienzo, con «Ver original».
+  - Las dos son regenerables y ninguna viaja en el respaldo.
+  - Unificarlas (una función con escalones, el `imageSize` con orientación EXIF de la Fase A y la conversión de HEIC) es una refactorización pendiente, que no se hizo dentro de una unión.
+  - Ya no es cierto que `saveImage` reduzca a 2000 px: ahora guarda el original salvo con «Calidad: Optimizada». Por eso la versión reducida del lienzo importa más.

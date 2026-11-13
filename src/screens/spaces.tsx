@@ -22,6 +22,8 @@ import { listNotes } from '../notes/model';
 import { go, href, useApp, useAsync } from '../state';
 import { Html } from '../ui/md';
 import { Segmented, Sheet, usePhone } from '../ui/kit';
+import { acquireMediaUrl, releaseMediaUrl } from '../ui/background';
+import { imageSize, neededSide, reducedImage, stepFor, tooBig } from '../lib/imgview';
 import { extname } from '../vault/paths';
 import { readTextOr, walk } from '../vault/util';
 import { PdfViewer } from './pdf';
@@ -32,7 +34,6 @@ import { Study } from './study';
 import { todayProgress } from '../lib/stats';
 import { dayKey } from '../lib/days';
 import { saveImage } from '../notes/images';
-import { mediaThumbUrl, releaseThumb, type Shown } from '../notes/thumbs';
 
 type PType = 'estudio' | 'simulacro' | 'nota' | 'pdf' | 'docx' | 'hoja' | 'imagen' | 'pomodoro' | 'stats' | 'mazo' | 'tema' | 'calendario' | 'sonido';
 interface Panel { id: string; type: PType; arg: string; x: number; y: number; w: number; h: number; locked?: boolean; min?: boolean; z?: number }
@@ -351,6 +352,10 @@ function Tiles(p: { sp: Space; save: (s: Space) => void; ph?: Phone }) {
   );
 }
 
+/** Qué arrastra el puntero: la barra (mover), la esquina o un borde (redimensionar). */
+type Grip = 'move' | 'size' | 'w' | 'h';
+const GRIPS: [Grip, string][] = [['w', 'win-edge right'], ['h', 'win-edge bottom'], ['size', 'win-resize']];
+
 /** Operaciones de un panel; un objeto estable para que `Window` (memo) no se re-renderice por ellas. */
 interface WinApi { upd(id: string, patch: Partial<Panel>): void; close(id: string): void; minimize(id: string): void; front(id: string): void; k(): number }
 function winApi(get: () => { sp: Space; save: (s: Space) => void; k: number; front?: (id: string) => void }): WinApi {
@@ -635,15 +640,17 @@ const Window = memo(function Window(p: { panel: Panel; api: WinApi; free?: boole
   perf.inc('windowRender');
   const t = TYPES().find((x) => x.t === pn.type)!;
   const upd = (patch: Partial<Panel>) => p.api.upd(pn.id, patch);
-  const dragRef = useRef<{ x: number; y: number; px: number; py: number; mode: 'move' | 'size'; nx: number; ny: number } | null>(null);
+  const dragRef = useRef<{ x: number; y: number; px: number; py: number; mode: Grip; nx: number; ny: number } | null>(null);
   const winRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (restored.has(pn.id)) (restored.delete(pn.id), growIn(winRef.current));
   }, []);
   const minW = pn.type === 'nota' ? 480 : 260, minH = pn.type === 'nota' ? 360 : 200;
-  const start = (mode: 'move' | 'size') => (e: PointerEvent) => {
+  const start = (mode: Grip) => (e: PointerEvent) => {
     if (!p.free || pn.locked || (e.target as HTMLElement).closest('button')) return;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    // asas: sin desplazar la nota, sin mover el foco ni abrir el teclado
+    if (mode !== 'move') e.preventDefault();
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* puntero ya liberado */ }
     const px = mode === 'move' ? pn.x : pn.w, py = mode === 'move' ? pn.y : pn.h;
     dragRef.current = { x: e.clientX, y: e.clientY, px, py, mode, nx: px, ny: py };
     p.api.front(pn.id);
@@ -657,8 +664,8 @@ const Window = memo(function Window(p: { panel: Panel; api: WinApi; free?: boole
       d.nx = Math.round(d.px + dx); d.ny = Math.round(d.py + dy);
       el.style.transform = `translate(${d.nx - d.px}px, ${d.ny - d.py}px)`;
     } else {
-      d.nx = Math.max(minW, Math.round(d.px + dx)); d.ny = Math.max(minH, Math.round(d.py + dy));
-      el.style.width = `${d.nx}px`; el.style.height = `${d.ny}px`;
+      if (d.mode !== 'h') el.style.width = `${(d.nx = Math.max(minW, Math.round(d.px + dx)))}px`;
+      if (d.mode !== 'w') el.style.height = `${(d.ny = Math.max(minH, Math.round(d.py + dy)))}px`;
     }
   };
   const stop = () => {
@@ -685,8 +692,9 @@ const Window = memo(function Window(p: { panel: Panel; api: WinApi; free?: boole
         {p.lite ? <p class="lite-card" onPointerDown={start('move')} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop}>{t.icon}<span class="ellipsis">{title}</span></p>
           : p.asleep ? <p class="t2" style={{ padding: '16px' }}>{tr('spaces.panel_en_pausa_para_cuidar_la', { MAX_ACTIVE: MAX_ACTIVE })}</p>
           : <PanelBody panel={pn} onArg={(arg) => upd({ arg })} />}
-        {p.free && !p.lite && <div class="win-resize" onPointerDown={start('size')} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop} aria-hidden="true" />}
       </div>
+      {/* Prompt 14 · 1: asas hijas de .win (no del área que se desplaza): siguen en la esquina visible */}
+      {p.free && !p.lite && !p.asleep && GRIPS.map(([g, cls]) => <div class={cls} onPointerDown={start(g)} onPointerMove={move} onPointerUp={stop} onPointerCancel={stop} aria-hidden="true" />)}
     </section>
   );
 });
@@ -846,18 +854,85 @@ function SheetView(p: { path: string }) {
   );
 }
 
+/**
+ * Imagen en un panel (Prompt 14 · 3): muestra una versión reducida al ancho del panel (caché
+ * regenerable) y solo carga el original al acercar mucho o con «Ver original». Zoom propio
+ * (`data-own-zoom`: el pellizco y Ctrl+rueda sobre la imagen la acercan a ella) y arrastre al estar
+ * acercada. Las URLs se devuelven al cerrar o dormir el panel.
+ */
 function ImageView(p: { path: string }) {
   const app = useApp();
-  const [r, setR] = useState<Shown | null | undefined>(undefined);
+  const box = useRef<HTMLDivElement>(null);
+  const [src, setSrc] = useState<{ url: string; path: string; reduced: boolean; side: number } | null>(null);
+  const [info, setInfo] = useState<{ w: number; h: number } | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [z, setZ] = useState({ k: 1, x: 0, y: 0 });
+  const held = useRef(new Set<string>());
+  const want = useRef<'auto' | 'original'>('auto');
+  const show = async (path: string, reduced: boolean, side: number) => {
+    const url = await acquireMediaUrl(app.vault, path);
+    if (!url || !box.current) return url && releaseMediaUrl(path);
+    held.current.add(path);
+    setSrc((o) => { if (o && o.path !== path && held.current.delete(o.path)) releaseMediaUrl(o.path); return { url, path, reduced, side }; });
+  };
+  const pick = async () => {
+    const f = await app.vault.file?.(p.path);
+    const head = f ? new Uint8Array(await f.slice(0, 1 << 16).arrayBuffer()) : await app.vault.read(p.path);
+    const dims = imageSize(head);
+    if (!dims || !box.current) return show(p.path, false, 0); // formato sin cabecera conocida: el original
+    setInfo({ w: dims[0], h: dims[1] });
+    const step = want.current === 'original' && !tooBig(dims[0], dims[1]) ? null : stepFor(dims[0], dims[1], neededSide(dims[0], dims[1], box.current.clientWidth * z.k, devicePixelRatio));
+    if (step === null) return tooBig(dims[0], dims[1]) ? show(p.path, false, 0) : show(p.path, false, Math.max(...dims));
+    const r = await reducedImage(app.vault, p.path, step);
+    return r ? show(r, true, step) : tooBig(dims[0], dims[1]) ? setFailed(true) : show(p.path, false, Math.max(...dims));
+  };
   useEffect(() => {
-    let alive = true;
-    void mediaThumbUrl(app.vault, p.path).then((x) => alive && setR(x));
-    return () => { alive = false; releaseThumb(p.path); };
+    want.current = 'auto';
+    void pick();
+    return () => { for (const x of held.current) releaseMediaUrl(x); held.current.clear(); };
   }, [p.path]);
-  if (r === undefined) return <p class="t2">{tr('deck.cargando')}</p>;
-  if (!r) return <p class="t2">{tr('md.falta_media', { media: p.path })}</p>;
-  if (r.missing) return <a class="chip media-ph" href={r.url} download={r.name}>{r.name} · {tr('notes.abrir_original')}</a>;
-  return <img src={r.url} alt={p.path} style={{ maxWidth: '100%', display: 'block', margin: '0 auto' }} />;
+  // al acercar más allá de lo que da la versión actual, se pide la siguiente (o el original)
+  useEffect(() => {
+    if (!src || !info || !box.current || z.k <= 1) return;
+    const need = neededSide(info.w, info.h, box.current.clientWidth * z.k, devicePixelRatio);
+    if (src.side && need > src.side * 1.25 && src.side < Math.max(info.w, info.h)) void pick();
+  }, [z.k]);
+  // zoom propio: el lienzo nos manda su pellizco o Ctrl+rueda
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const on = (e: Event) => setZ((o) => { const k = Math.min(8, Math.max(1, o.k * (e as CustomEvent<{ f: number }>).detail.f)); return k === 1 ? { k, x: 0, y: 0 } : { ...o, k }; });
+    el.addEventListener('ownzoom', on);
+    return () => el.removeEventListener('ownzoom', on);
+  }, []);
+  const pts = useRef(new Map<number, { x: number; y: number }>());
+  const last = useRef<number | null>(null);
+  const zoomed = z.k > 1;
+  return (
+    <div ref={box} class="img-view" data-own-zoom>
+      {failed ? <p class="t2">{tr('imgview.no_se_pudo')}</p>
+        : !src ? <div class="img-skeleton" aria-busy="true"><span class="t2">{tr('deck.cargando')}</span></div>
+        : <img src={src.url} alt={p.path} decoding="async" draggable={false}
+            style={{ maxWidth: '100%', display: 'block', margin: '0 auto', ...(zoomed ? { transform: `translate(${z.x}px, ${z.y}px) scale(${z.k})`, transformOrigin: 'center top', touchAction: 'none' } : {}) }}
+            onPointerDown={(e) => { if (!zoomed) return; try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* sin captura */ } pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY }); e.stopPropagation(); }}
+            onPointerMove={(e) => {
+              const m = pts.current, prev = m.get(e.pointerId);
+              if (!prev) return;
+              m.set(e.pointerId, { x: e.clientX, y: e.clientY });
+              if (m.size === 1) setZ((o) => ({ ...o, x: o.x + e.clientX - prev.x, y: o.y + e.clientY - prev.y }));
+              else { const [a, b] = [...m.values()]; const d = Math.hypot(a!.x - b!.x, a!.y - b!.y); if (last.current) { const f = d / last.current; setZ((o) => ({ ...o, k: Math.min(8, Math.max(1, o.k * f)) })); } last.current = d; }
+            }}
+            onPointerUp={(e) => { pts.current.delete(e.pointerId); last.current = null; }}
+            onPointerCancel={(e) => { pts.current.delete(e.pointerId); last.current = null; }} />}
+      {src && (src.reduced || zoomed) && (
+        <div class="img-bar row">
+          {info && tooBig(info.w, info.h) && <span class="foot">{tr('imgview.muy_grande', { mp: Math.round((info.w * info.h) / 1e6) })}</span>}
+          {zoomed && <button type="button" class="btn small" onClick={() => setZ({ k: 1, x: 0, y: 0 })}>{tr('imgview.ajustar')}</button>}
+          {src.reduced && info && !tooBig(info.w, info.h) && <button type="button" class="btn small" onClick={() => { want.current = 'original'; void pick(); }}>{tr('imgview.ver_original')}</button>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 

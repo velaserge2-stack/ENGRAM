@@ -1,0 +1,102 @@
+{
+ "browser": "chromium",
+ "date": "2026-11-13T01:41:41.087Z",
+ "asa": {
+  "before": {
+   "dx": 1,
+   "dy": 1,
+   "inside": true,
+   "scroller": "win-body"
+  },
+  "after": {
+   "dx": 1,
+   "dy": 1,
+   "inside": true,
+   "scroller": "win-body"
+  }
+ },
+ "tab_N1": {
+  "openMs": 251,
+  "blocks": 501,
+  "clickToEditMs": 132,
+  "typeP50": 22,
+  "typeP95": 58,
+  "typeMax": 58,
+  "fps": 30,
+  "worstFrameMs": 50,
+  "scrolledPx": 3720,
+  "findMs": 89,
+  "mdTypeP50": 23,
+  "mdTypeP95": 39,
+  "heapMB": 126,
+  "dom": 4046,
+  "blobs": 0,
+  "heapAfterMB": 108,
+  "blobsAfter": 2
+ },
+ "tab_N2": {
+  "openMs": 702,
+  "blocks": 3001,
+  "clickToEditMs": 329,
+  "typeP50": 15,
+  "typeP95": 22,
+  "typeMax": 22,
+  "fps": 28,
+  "worstFrameMs": 83,
+  "scrolledPx": 3360,
+  "findMs": 346,
+  "mdTypeP50": 19,
+  "mdTypeP95": 48,
+  "heapMB": 130,
+  "dom": 22923,
+  "blobs": 0,
+  "heapAfterMB": 69,
+  "blobsAfter": 1
+ },
+ "tab_N3": {
+  "openMs": 1810,
+  "blocks": 10001,
+  "clickToEditMs": 216,
+  "typeP50": 19,
+  "typeP95": 43,
+  "typeMax": 43,
+  "fps": 32,
+  "worstFrameMs": 50,
+  "scrolledPx": 3900,
+  "findMs": 1634,
+  "mdTypeP50": 44,
+  "mdTypeP95": 57,
+  "heapMB": 86,
+  "dom": 75508,
+  "blobs": 0,
+  "heapAfterMB": 83,
+  "blobsAfter": 1
+ },
+ "panel_N2x2": {
+  "openMs": 53,
+  "blocks": 3001,
+  "clickToEditMs": 193,
+  "typeP50": 20,
+  "typeP95": 82,
+  "typeMax": 82,
+  "heapMB": 183,
+  "dom": 45522,
+  "blobs": 0
+ },
+ "soak": {
+  "minutes": 5,
+  "first": {
+   "s": 9,
+   "heapMB": 56,
+   "dom": 22923,
+   "blobs": 5
+  },
+  "last": {
+   "s": 294,
+   "heapMB": 59,
+   "dom": 22921,
+   "blobs": 29
+  },
+  "samples": 37
+ }
+}
