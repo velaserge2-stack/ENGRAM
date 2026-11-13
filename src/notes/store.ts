@@ -72,6 +72,8 @@ export const noteStore = {
       if (e.closed) { if (docs.get(path) === e) docs.delete(path); } else void e.saver.flush();
     };
   },
+  /** Hay cambios sin escribir en esa ruta (programados o en vuelo). */
+  pending: (path: string) => !docs.get(path)?.closed && (docs.get(path)?.saver.pending ?? false),
   flush: (path: string) => docs.get(path)?.saver.flush() ?? Promise.resolve(),
   /** El archivo pudo cambiar por fuera: recargar si no hay cambios sin guardar. */
   async refresh(vault: VaultAdapter, path: string) {

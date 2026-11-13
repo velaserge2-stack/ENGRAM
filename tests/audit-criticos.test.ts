@@ -298,6 +298,20 @@ describe('plan 10 · DeckEditor en NoteStore', () => {
     await noteStore.flush(p);
     expect(await readText(v, p)).toContain(withIds.trim());
   });
+  it('con cambios sin guardar en el editor, loadCollection no pierde lo escrito y su guardado conserva los IDs', async () => {
+    const v = new MemoryBackend();
+    const p = 'decks/Pendiente.md';
+    await v.write(p, 'Q:: a\nA:: b\n');
+    await noteStore.load(v, p);
+    noteStore.set(v, p, 'Q:: a\nA:: b\n\nQ:: nueva\nA:: escrita'); // tecleado, aún sin guardar
+    await loadCollection(v, P, T);
+    const id = /\^([a-z0-9]{5})/.exec(await readText(v, p))![1]!;
+    await noteStore.flush(p);
+    const disk = await readText(v, p);
+    expect(disk).toContain(`A:: b ^${id}`); // el ID que vio el historial sigue ahí
+    expect(disk).toContain('Q:: nueva\nA:: escrita'); // lo escrito, intacto (sin ID inventado mientras se escribe)
+    expect(noteStore.peek(p)).toBe(disk);
+  });
 });
 
 // ───────────────────────── 4 · mover ─────────────────────────

@@ -254,6 +254,32 @@ export function ensureIds(text: string, taken = new Set<string>(), rnd?: () => n
   return { text: added.length ? head + lines.join(eolOf(doc.body)) : text, added };
 }
 
+/**
+ * Lleva a `edited` (cambios sin guardar) los IDs que `ensureIds` puso en `fixed` (lo del disco):
+ * un bloque sin ID cuyo contenido coincide con uno de `fixed` recibe el mismo ID. Lo demás, intacto.
+ */
+export function carryIds(edited: string, fixed: string): string {
+  const key = (b: Block) => [...b.lines.slice(0, -1), b.lines.at(-1)!.replace(ID_RE, '').replace(/\s+$/, '')].join('\n');
+  const byKey = new Map<string, string>();
+  for (const b of blocks(parseFrontmatter(fixed).body)) {
+    const m = ID_RE.exec(b.lines.at(-1)!);
+    if (m && !byKey.has(key(b))) byKey.set(key(b), m[1]!);
+  }
+  const doc = parseFrontmatter(edited);
+  const lines = doc.body.split(/\r?\n/);
+  const taken = new Set(parseDeck(edited).notes.map((n) => n.id).filter(Boolean));
+  let changed = false;
+  for (const b of blocks(doc.body)) {
+    const last = lines[b.end]!;
+    const id = byKey.get(key(b));
+    if (ID_RE.test(last) || !id || taken.has(id)) continue;
+    taken.add(id);
+    lines[b.end] = `${last.replace(/\s+$/, '')} ^${id}`;
+    changed = true;
+  }
+  return changed ? edited.slice(0, edited.length - doc.body.length) + lines.join(eolOf(doc.body)) : edited;
+}
+
 const eolOf = (body: string) => (body.includes('\r\n') ? '\r\n' : '\n');
 
 /** Sustituye el bloque de una nota (editar durante el repaso). */
