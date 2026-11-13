@@ -58,6 +58,39 @@ export function rewriteNoteRefs(text: string, from: string, to: string): string 
     .replace(new RegExp(`(<!--\\s*src:\\s*)${esc(from)}(?=[#\\s])`, 'g'), `$1${to}`);
 }
 
+/**
+ * Lo mismo que aplicar `rewriteNoteRefs` por cada movida (en orden), en UNA pasada por forma: una sola
+ * expresión con todos los orígenes y un mapa al destino (Prompt 21 · 3b, cuello #8: antes 3 RegExp
+ * nuevas por movida y por archivo, ~606 000 al mover 100 notas). Si dos movidas comparten la misma
+ * clave, gana la primera, como en la reducción en orden. Se compila una vez por lote (`refsRewriter`).
+ */
+export function refsRewriter(moved: [string, string][]): (text: string) => string {
+  if (!moved.length) return (t) => t;
+  const wiki = new Map<string, string>(), link = new Map<string, string>(), src = new Map<string, string>();
+  const put = (m: Map<string, string>, k: string, v: string) => void (m.has(k) || m.set(k, v));
+  for (const [from, to] of moved) {
+    const a = noExt(from), b = noExt(to);
+    const a2 = a.replace(/^notes\//, ''), b2 = b.replace(/^notes\//, '');
+    put(wiki, a, b);
+    if (a2.includes('/')) put(wiki, a2, b2); // `[[Título]]` sin carpeta no se toca (ver rewriteNoteRefs)
+    put(link, from, to);
+    put(link, encodeURI(from), encodeURI(to));
+    put(src, from, to);
+  }
+  // alternativas de la más larga a la más corta: con el mismo prefijo, la más específica primero
+  const alt = (m: Map<string, string>) => [...m.keys()].sort((x, y) => y.length - x.length).map(esc).join('|');
+  const reWiki = new RegExp(`(\\[\\[)(${alt(wiki)})(\\.md)?(?=[\\]#|])`, 'g');
+  const reLink = new RegExp(`(\\]\\()(${alt(link)})(?=[)#])`, 'g');
+  const reSrc = new RegExp(`(<!--\\s*src:\\s*)(${alt(src)})(?=[#\\s])`, 'g');
+  return (text) => {
+    let t = text;
+    if (t.includes('[[')) t = t.replace(reWiki, (_m, o: string, p: string, md = '') => `${o}${wiki.get(p)}${md}`);
+    if (t.includes('](')) t = t.replace(reLink, (_m, o: string, p: string) => `${o}${link.get(p)}`);
+    if (t.includes('src:')) t = t.replace(reSrc, (_m, o: string, p: string) => `${o}${src.get(p)}`);
+    return t;
+  };
+}
+
 async function write(vault: VaultAdapter, log: Undo, path: string, text: string) {
   const before = (await vault.exists(path)) ? await readTextOr(vault, path, '') : null;
   if (before === text) return;
@@ -124,11 +157,12 @@ async function moveNotesIn(vault: VaultAdapter, paths: string[], dest: string, c
     moved.push([from, to]);
   }
   if (!moved.length) return { undo: log, moved };
-  // referencias por ruta en notas y mazos
+  // referencias por ruta en notas y mazos (una expresión por forma para todo el lote)
+  const rewrite = refsRewriter(moved);
   for (const f of [...(await walk(vault, 'notes')), ...(await walk(vault, 'decks'))]) {
     if (!f.path.endsWith('.md')) continue;
     const t = await readTextOr(vault, f.path, '');
-    const next = moved.reduce((acc, [a, b]) => rewriteNoteRefs(acc, a, b), t);
+    const next = rewrite(t);
     if (next !== t) await write(vault, log, f.path, next);
   }
   // calendario: vínculos por ruta (los de id siguen valiendo)
