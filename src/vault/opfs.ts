@@ -106,6 +106,9 @@ export class OPFSBackend implements VaultAdapter {
       opts.signal?.removeEventListener('abort', abort);
     }
   }
+  queued() {
+    return this.pending.size;
+  }
   async hash(path: string) {
     return this.call({ op: 'hash', path: normalizePath(path) }) as Promise<{ size: number; hash: string }>;
   }

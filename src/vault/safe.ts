@@ -15,6 +15,7 @@
  * el diario y el temporal se conservan y la siguiente operación los recupera ANTES de escribir
  * (si tampoco puede, se niega con un error claro en vez de pisar el diario).
  */
+import { perf } from '../lib/perf';
 import { normalizePath } from './paths';
 import { type BlobWriteOptions, type FileStat, type VaultAdapter, VaultError } from './types';
 import { checksum, decodeText, toBytes } from './util';
@@ -117,6 +118,7 @@ export class SafeVault implements VaultAdapter {
     await this.raw.write(tmp, bytes);
     const j: JournalEntry = { ...entry, tmp, size: bytes.length, hash: checksum(bytes), ts: Date.now() };
     await this.raw.write(JOURNAL_PATH, JSON.stringify({ v: 1, entries: [j] }));
+    if (perf.on) perf.inc('journal'); // solo con ?perf (Prompt 21)
     await this.apply(apply);
     await this.raw.remove(JOURNAL_PATH);
     await this.raw.remove(tmp);
@@ -151,6 +153,7 @@ export class SafeVault implements VaultAdapter {
       }
       const j: JournalEntry = { op: 'write', stream: true, path: p, tmp, size: r.size, hash: r.hash, ts: Date.now() };
       await this.raw.write(JOURNAL_PATH, JSON.stringify({ v: 1, entries: [j] }));
+      if (perf.on) perf.inc('journal');
       // si el movimiento falla, el temporal sigue completo: el reintento o `settle` lo vuelven a mover
       await this.apply(async () => (await this.raw.exists(tmp) ? this.raw.move(tmp, p) : undefined));
       await this.raw.remove(JOURNAL_PATH);
@@ -166,6 +169,9 @@ export class SafeVault implements VaultAdapter {
 
   async file(path: string) {
     return this.raw.file ? this.raw.file(normalizePath(path)) : this.raw.read(path).then((b) => new File([b as BlobPart], normalizePath(path).split('/').pop()!));
+  }
+  queued() {
+    return this.raw.queued?.() ?? 0;
   }
   async hash(path: string) {
     return this.sum(normalizePath(path));

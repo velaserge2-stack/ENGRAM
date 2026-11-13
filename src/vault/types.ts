@@ -31,6 +31,8 @@ export interface VaultAdapter {
   writeBlob?(path: string, blob: Blob, opts?: BlobWriteOptions): Promise<{ size: number; hash: string }>;
   /** Opcional: suma (FNV-1a) y tamaño de un archivo, leyéndolo por trozos. */
   hash?(path: string): Promise<{ size: number; hash: string }>;
+  /** Opcional: operaciones en vuelo hacia el almacenamiento (OPFS). Las tareas de fondo la usan para no competir con el usuario. */
+  queued?(): number;
   /** Opcional: el archivo como `File` (lectura por rangos con `slice`, sin cargarlo entero). */
   file?(path: string): Promise<File>;
 }

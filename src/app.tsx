@@ -4,6 +4,7 @@ import { PerfHud } from './ui/perfhud';
 import { Archive, Ellipsis, Inbox, Pause, Play, Plus, RefreshCw, Search, ShieldAlert, TriangleAlert } from 'lucide-preact';
 import { Popover } from './ui/overlay';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { lazy, Suspense } from 'preact/compat';
 import { loadCollection, type Collection } from './data/collection';
 import { createAutosave } from './lib/autosave';
 import { backupDue, mergeSettings, serializeSettings, SETTINGS_PATH, type Settings, srsParams } from './lib/settings';
@@ -12,9 +13,7 @@ import { BackupSheet } from './screens/backup';
 import { ImportSheet } from './screens/import';
 import { Screen } from './screens/router';
 import { Welcome } from './screens/welcome';
-import { AddCardSheet } from './screens/deck';
 import { ExamSheet } from './screens/exams';
-import { Palette } from './screens/palette';
 import { type AppCtx, Ctx, go, useApp as ctxHook, useRoute } from './state';
 import { applyTheme, onSchemeChange, resolvedMode, watchFrames } from './theme';
 import { BackgroundLayer, guard, sampleBackground, toneSign } from './ui/background';
@@ -30,7 +29,7 @@ import { FRAMING_PATH, normFraming, parseFramings } from './lib/framing';
 import { readTextOr } from './vault/util';
 import { PhoneTabBar } from './ui/phonebar';
 import { usePhone } from './ui/kit';
-import { Avatar, useProfile } from './screens/profile';
+import { Avatar, useProfile } from './ui/avatar';
 import { addonOn } from './screens/addons';
 import { AmbientController, AmbientPlayer, MiniAmbient } from './screens/ambient';
 import { Headphones } from 'lucide-preact';
@@ -39,6 +38,9 @@ import { GlobalKeys, keymap, ShortcutSheet } from './ui/keys';
 import { setPhotoQuality } from './notes/images';
 import { onNoteSaveFailed } from './notes/store';
 
+// hojas poco frecuentes: se cargan al abrirlas
+const AddCardSheet = lazy(() => import('./screens/deck').then((m) => ({ default: m.AddCardSheet })));
+const Palette = lazy(() => import('./screens/palette').then((m) => ({ default: m.Palette })));
 const DAY = 86_400_000;
 
 export function App(props: { opened: OpenedVault; initialSettings: Settings; hasData: boolean }) {
@@ -89,8 +91,10 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const paramsKey = JSON.stringify(srsParams(settings));
   useEffect(() => {
     let alive = true;
+    const t0 = perf.on ? performance.now() : 0; // solo con ?perf (Prompt 21)
     loadCollection(vault, srsParams(settings)).then((c) => {
       if (!alive) return;
+      if (perf.on) (perf.c.colMs = Math.round(performance.now() - t0), perf.c.colAt = Math.round(performance.now()));
       setCol(c);
       if (c.idsAdded) toast(t('app.se_anadieron_idsadded_ids_de_tarjeta', { idsAdded: c.idsAdded }));
       if (c.unreadable?.length) toast(t('app.mazos_ilegibles', { decks: c.unreadable.map((p) => p.slice('decks/'.length, -3)).join(', ') }));
@@ -103,6 +107,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   }, [version, paramsKey, addonOn(settings, 'inbox')]);
 
   const recheckIntegrity = async () => setIntegrity(await checkIntegrity(vault));
+  // al arrancar y tras cada cambio la comprobación espera a que la app esté quieta (nunca se omite; solo llega más tarde)
+  const recheckLater = () => ('requestIdleCallback' in window ? requestIdleCallback(() => void recheckIntegrity(), { timeout: 3000 }) : setTimeout(() => void recheckIntegrity(), 1500));
   // un fallo de disco que nadie atrapó (lectura estricta, cuota): avisar en vez de callar
   useEffect(() => {
     const onRejection = (ev: PromiseRejectionEvent) => {
@@ -115,7 +121,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     return () => (removeEventListener('unhandledrejection', onRejection), onNoteSaveFailed(() => {}));
   }, []);
   useEffect(() => {
-    void recheckIntegrity();
+    recheckLater();
     // papelera de mazos: vaciado automático a los N días (Ajustes → Mazos → Papelera)
     autoPurge(vault, settings.deckTrashDays).then((n) => n && setVersion((v) => v + 1), () => {});
     autoPurgeBanks(vault, settings.deckTrashDays).then((n) => n && setVersion((v) => v + 1), () => {}); // bancos: mismos días
@@ -124,7 +130,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     watchFrames(() => !ctxRef.current.settings.lightMode && toast(t('app.el_vidrio_va_lento_en_este'), { label: t('app.activar_modo_ligero'), run: () => ctxRef.current.update({ lightMode: true }) }));
   }, []);
   useEffect(() => {
-    if (version > 0) (void recheckIntegrity(), setHasData(true));
+    if (version > 0) (recheckLater(), setHasData(true));
   }, [version]);
 
   const sample = useRef<ImageData | null>(null);
@@ -291,9 +297,9 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       </div>
       {sheet === 'import' && <ImportSheet onClose={() => setSheet(null)} />}
       {sheet === 'backup' && <BackupSheet onClose={() => setSheet(null)} />}
-      {sheet === 'add' && <AddCardSheet deckPath={sheetArg} onClose={() => setSheet(null)} />}
+      {sheet === 'add' && <Suspense fallback={null}><AddCardSheet deckPath={sheetArg} onClose={() => setSheet(null)} /></Suspense>}
       {sheet === 'exam' && <ExamSheet path={sheetArg} onClose={() => setSheet(null)} />}
-      {sheet === 'palette' && <Palette mode={sheetArg} onClose={() => setSheet(null)} />}
+      {sheet === 'palette' && <Suspense fallback={null}><Palette mode={sheetArg} onClose={() => setSheet(null)} /></Suspense>}
       {phone && <PhoneTabBar tab={tabId} />}
       <GlobalKeys run={runGlobal} />
       {keysHelp && <ShortcutSheet onClose={() => setKeysHelp(false)} />}

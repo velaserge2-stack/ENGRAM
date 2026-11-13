@@ -1,0 +1,2994 @@
+{
+ "arranque-L": {
+  "name": "arranque-L",
+  "wallMs": 3793,
+  "totalMs": 3776,
+  "activeMs": 1346,
+  "gcMs": 106,
+  "programMs": 185,
+  "topSelf": [
+   [
+    "dayKey c-Dd7tYxJR.js:23",
+    374.6
+   ],
+   [
+    "parseBlock c-s_LEVPYB.js:201",
+    44
+   ],
+   [
+    "parseLog c-DWffiM3s.js:1642",
+    26.9
+   ],
+   [
+    "(anónima) index-CRlUzVdu.js:22417",
+    25.2
+   ],
+   [
+    "loadStates c-C07ynPKE.js:139",
+    24.1
+   ],
+   [
+    "decodeText c-BOkky_xV.js:22",
+    23.7
+   ],
+   [
+    "parseDeck c-s_LEVPYB.js:310",
+    22.1
+   ],
+   [
+    "get c-Dd7tYxJR.js:25",
+    18.1
+   ],
+   [
+    "checkIntegrity index-CRlUzVdu.js:22373",
+    17.6
+   ],
+   [
+    "logKey c-C07ynPKE.js:125",
+    16.4
+   ],
+   [
+    "guard index-CRlUzVdu.js:10595",
+    14.3
+   ],
+   [
+    "hex index-CRlUzVdu.js:10559",
+    13.7
+   ],
+   [
+    "(anónima) :10",
+    13.7
+   ],
+   [
+    "fmtParam c-G59Uu25-.js:5793",
+    13.5
+   ]
+  ],
+  "topIncl": [
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    553.8
+   ],
+   [
+    "I c-BKXw5a7h.js:77",
+    548.6
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    545.2
+   ],
+   [
+    "H$1 c-BKXw5a7h.js:70",
+    535.1
+   ],
+   [
+    "C$1 c-BKXw5a7h.js:58",
+    534.7
+   ],
+   [
+    "K$1 c-BKXw5a7h.js:263",
+    529.1
+   ],
+   [
+    "Today index-CRlUzVdu.js:19479",
+    453.1
+   ],
+   [
+    "dayKey c-Dd7tYxJR.js:23",
+    401.1
+   ],
+   [
+    "todayProgress index-CRlUzVdu.js:17669",
+    163.4
+   ],
+   [
+    "loadCollection c-C07ynPKE.js:167",
+    139.8
+   ],
+   [
+    "activity index-CRlUzVdu.js:17647",
+    129
+   ],
+   [
+    "doneToday index-CRlUzVdu.js:17681",
+    123.4
+   ],
+   [
+    "parseDeck c-s_LEVPYB.js:310",
+    103.5
+   ],
+   [
+    "runGuard index-CRlUzVdu.js:24109",
+    92.1
+   ],
+   [
+    "guard index-CRlUzVdu.js:10595",
+    89.8
+   ],
+   [
+    "loadStates c-C07ynPKE.js:139",
+    86.1
+   ],
+   [
+    "checkIntegrity index-CRlUzVdu.js:22373",
+    75.9
+   ],
+   [
+    "panelContrast index-CRlUzVdu.js:10579",
+    75.2
+   ],
+   [
+    "parseBlock c-s_LEVPYB.js:201",
+    66.2
+   ],
+   [
+    "ensureIds c-s_LEVPYB.js:381",
+    46.9
+   ],
+   [
+    "boot index-CRlUzVdu.js:24540",
+    37.1
+   ],
+   [
+    "Heatmap index-CRlUzVdu.js:18381",
+    36.8
+   ]
+  ],
+  "longTasks": 4,
+  "longestMs": 508,
+  "longTotalMs": 788,
+  "peakMB": 42.9,
+  "opsToWorker": {
+   "init": {
+    "n": 1,
+    "ms": 19,
+    "MB": 0
+   },
+   "exists": {
+    "n": 2,
+    "ms": 15,
+    "MB": 0
+   },
+   "remove": {
+    "n": 1,
+    "ms": 1,
+    "MB": 0
+   },
+   "read": {
+    "n": 460,
+    "ms": 3313,
+    "MB": 20.4
+   },
+   "list": {
+    "n": 208,
+    "ms": 2274,
+    "MB": 0
+   }
+  },
+  "journal": 0,
+  "out": {
+   "requests": 26
+  }
+ },
+ "abrir-notas-L": {
+  "name": "abrir-notas-L",
+  "wallMs": 19037,
+  "totalMs": 19137,
+  "activeMs": 1518,
+  "gcMs": 100,
+  "programMs": 720,
+  "topSelf": [
+   [
+    "postMessage :0",
+    70.5
+   ],
+   [
+    "(anónima) :10",
+    60.7
+   ],
+   [
+    "getBoundingClientRect :0",
+    55.4
+   ],
+   [
+    "normalizePath c-6gQA76Ut.js:9",
+    42.6
+   ],
+   [
+    "decode :0",
+    36.9
+   ],
+   [
+    "querySelectorAll :0",
+    35.8
+   ],
+   [
+    "postMessage :19",
+    27.2
+   ],
+   [
+    "createElementNS :0",
+    23.7
+   ],
+   [
+    "requestAnimationFrame :0",
+    22.1
+   ],
+   [
+    "linkIndex c-DK9FXYLa.js:122",
+    18.7
+   ],
+   [
+    "insertBefore :0",
+    17.6
+   ],
+   [
+    "parseFrontmatter c-s_LEVPYB.js:37",
+    16
+   ],
+   [
+    "contrast c-BKXw5a7h.js:1129",
+    15.4
+   ],
+   [
+    "setAttribute :0",
+    14
+   ]
+  ],
+  "topIncl": [
+   [
+    "C$1 c-BKXw5a7h.js:58",
+    176.7
+   ],
+   [
+    "H$1 c-BKXw5a7h.js:70",
+    176.7
+   ],
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    174.7
+   ],
+   [
+    "I c-BKXw5a7h.js:77",
+    170.4
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    164.9
+   ],
+   [
+    "checkIntegrity index-CRlUzVdu.js:22373",
+    130.9
+   ],
+   [
+    "read index-CRlUzVdu.js:4087",
+    122.1
+   ],
+   [
+    "read index-CRlUzVdu.js:15644",
+    121.1
+   ],
+   [
+    "runGuard index-CRlUzVdu.js:24109",
+    101.9
+   ],
+   [
+    "call index-CRlUzVdu.js:15589",
+    101.9
+   ],
+   [
+    "guard index-CRlUzVdu.js:10595",
+    99.9
+   ],
+   [
+    "postMessage :19",
+    99.2
+   ],
+   [
+    "linkIndex c-DK9FXYLa.js:122",
+    96.6
+   ],
+   [
+    "readText c-BOkky_xV.js:25",
+    87.1
+   ],
+   [
+    "postMessage :0",
+    70.5
+   ],
+   [
+    "readTextOr c-BOkky_xV.js:43",
+    66.2
+   ],
+   [
+    "getBoundingClientRect :0",
+    55.4
+   ],
+   [
+    "K$1 c-BKXw5a7h.js:263",
+    54
+   ],
+   [
+    "normalizePath c-6gQA76Ut.js:9",
+    42.6
+   ],
+   [
+    "panelContrast index-CRlUzVdu.js:10579",
+    39.7
+   ],
+   [
+    "A$2 c-BKXw5a7h.js:95",
+    38.3
+   ],
+   [
+    "parseFrontmatter c-s_LEVPYB.js:37",
+    38.2
+   ]
+  ],
+  "longTasks": 3,
+  "longestMs": 196,
+  "longTotalMs": 448,
+  "peakMB": 47.5,
+  "opsToWorker": {
+   "read": {
+    "n": 4085,
+    "ms": 18000,
+    "MB": 10.7
+   },
+   "list": {
+    "n": 82,
+    "ms": 704,
+    "MB": 0
+   },
+   "reset": {
+    "n": 1,
+    "ms": 750,
+    "MB": 0
+   }
+  },
+  "journal": 0,
+  "out": {
+   "navMs": 9930
+  }
+ },
+ "ciclo-pantallas-L": {
+  "name": "ciclo-pantallas-L",
+  "wallMs": 21536,
+  "totalMs": 21657,
+  "activeMs": 4434,
+  "gcMs": 74,
+  "programMs": 811,
+  "topSelf": [
+   [
+    "dayKey c-Dd7tYxJR.js:23",
+    1999.5
+   ],
+   [
+    "getBoundingClientRect :0",
+    92.7
+   ],
+   [
+    "postMessage :0",
+    85.9
+   ],
+   [
+    "(anónima) :10",
+    72.9
+   ],
+   [
+    "get index-CRlUzVdu.js:17649",
+    70.5
+   ],
+   [
+    "addDays c-Dd7tYxJR.js:37",
+    51.5
+   ],
+   [
+    "get c-Dd7tYxJR.js:25",
+    50.2
+   ],
+   [
+    "fmtParam c-G59Uu25-.js:5793",
+    46.3
+   ],
+   [
+    "normalizePath c-6gQA76Ut.js:9",
+    45.7
+   ],
+   [
+    "contrast c-BKXw5a7h.js:1129",
+    35.7
+   ],
+   [
+    "deckCounts index-CRlUzVdu.js:5253",
+    35.2
+   ],
+   [
+    "measure index-CRlUzVdu.js:24394",
+    32.5
+   ],
+   [
+    "decode :0",
+    29.9
+   ],
+   [
+    "querySelectorAll :0",
+    28.4
+   ]
+  ],
+  "topIncl": [
+   [
+    "H$1 c-BKXw5a7h.js:70",
+    2870
+   ],
+   [
+    "C$1 c-BKXw5a7h.js:58",
+    2869.4
+   ],
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    2835.4
+   ],
+   [
+    "K$1 c-BKXw5a7h.js:263",
+    2637.2
+   ],
+   [
+    "dayKey c-Dd7tYxJR.js:23",
+    2065.6
+   ],
+   [
+    "Today index-CRlUzVdu.js:19479",
+    1638.9
+   ],
+   [
+    "I c-BKXw5a7h.js:77",
+    1178.7
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    1170.3
+   ],
+   [
+    "activity index-CRlUzVdu.js:17647",
+    974.9
+   ],
+   [
+    "Stats index-CRlUzVdu.js:19862",
+    663.3
+   ],
+   [
+    "todayProgress index-CRlUzVdu.js:17669",
+    555.4
+   ],
+   [
+    "A$2 c-BKXw5a7h.js:95",
+    505.4
+   ],
+   [
+    "doneToday index-CRlUzVdu.js:17681",
+    468
+   ],
+   [
+    "runGuard index-CRlUzVdu.js:24109",
+    223
+   ],
+   [
+    "guard index-CRlUzVdu.js:10595",
+    221.5
+   ],
+   [
+    "deckCounts index-CRlUzVdu.js:5253",
+    158.3
+   ],
+   [
+    "read index-CRlUzVdu.js:4087",
+    140.3
+   ],
+   [
+    "read index-CRlUzVdu.js:15644",
+    139.4
+   ],
+   [
+    "Heatmap index-CRlUzVdu.js:18381",
+    138.7
+   ],
+   [
+    "checkIntegrity index-CRlUzVdu.js:22373",
+    133.7
+   ],
+   [
+    "DeckPanel index-CRlUzVdu.js:6171",
+    119.8
+   ],
+   [
+    "panelContrast index-CRlUzVdu.js:10579",
+    119
+   ]
+  ],
+  "longTasks": 10,
+  "longestMs": 501,
+  "longTotalMs": 3132,
+  "peakMB": 64.5,
+  "opsToWorker": {
+   "read": {
+    "n": 4091,
+    "ms": 19785,
+    "MB": 10.7
+   },
+   "list": {
+    "n": 85,
+    "ms": 1184,
+    "MB": 0
+   },
+   "reset": {
+    "n": 1,
+    "ms": 756,
+    "MB": 0
+   }
+  },
+  "journal": 0,
+  "out": {
+   "mazos": 123,
+   "notas": 9930,
+   "estadisticas": 592,
+   "hoy": 1419
+  }
+ },
+ "mover-100-notas-L": {
+  "name": "mover-100-notas-L",
+  "wallMs": 15873,
+  "totalMs": 15972,
+  "activeMs": 3595,
+  "gcMs": 27,
+  "programMs": 420,
+  "topSelf": [
+   [
+    "dayKey c-Dd7tYxJR.js:23",
+    796.7
+   ],
+   [
+    "rewriteNoteRefs c-D7CsujGA.js:308",
+    285
+   ],
+   [
+    "esc c-D7CsujGA.js:295",
+    155.4
+   ],
+   [
+    "postMessage :0",
+    138.6
+   ],
+   [
+    "(anónima) :10",
+    98
+   ],
+   [
+    "normalizePath c-6gQA76Ut.js:9",
+    50.2
+   ],
+   [
+    "decode :0",
+    36.7
+   ],
+   [
+    "postMessage :19",
+    30.7
+   ],
+   [
+    "addDays c-Dd7tYxJR.js:37",
+    27.8
+   ],
+   [
+    "get index-CRlUzVdu.js:17649",
+    26.6
+   ],
+   [
+    "noExt c-D7CsujGA.js:296",
+    22.8
+   ],
+   [
+    "get c-Dd7tYxJR.js:25",
+    19.4
+   ],
+   [
+    "moveNotes c-D7CsujGA.js:337",
+    18.9
+   ],
+   [
+    "contrast c-BKXw5a7h.js:1129",
+    15.4
+   ]
+  ],
+  "topIncl": [
+   [
+    "moveNotes c-D7CsujGA.js:337",
+    1719
+   ],
+   [
+    "rewriteNoteRefs c-D7CsujGA.js:308",
+    1570.4
+   ],
+   [
+    "C$1 c-BKXw5a7h.js:58",
+    1003
+   ],
+   [
+    "H$1 c-BKXw5a7h.js:70",
+    1003
+   ],
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    1001.9
+   ],
+   [
+    "I c-BKXw5a7h.js:77",
+    999.5
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    998.4
+   ],
+   [
+    "K$1 c-BKXw5a7h.js:263",
+    991.8
+   ],
+   [
+    "Today index-CRlUzVdu.js:19479",
+    897.7
+   ],
+   [
+    "dayKey c-Dd7tYxJR.js:23",
+    820.5
+   ],
+   [
+    "activity index-CRlUzVdu.js:17647",
+    327.6
+   ],
+   [
+    "doneToday index-CRlUzVdu.js:17681",
+    268.1
+   ],
+   [
+    "todayProgress index-CRlUzVdu.js:17669",
+    232.7
+   ],
+   [
+    "call index-CRlUzVdu.js:15589",
+    181.8
+   ],
+   [
+    "postMessage :19",
+    169.9
+   ],
+   [
+    "esc c-D7CsujGA.js:295",
+    164.3
+   ],
+   [
+    "read index-CRlUzVdu.js:15644",
+    163.1
+   ],
+   [
+    "read index-CRlUzVdu.js:4087",
+    161.1
+   ],
+   [
+    "postMessage :0",
+    138.6
+   ],
+   [
+    "readText c-BOkky_xV.js:25",
+    127.2
+   ],
+   [
+    "checkIntegrity index-CRlUzVdu.js:22373",
+    120.4
+   ],
+   [
+    "readTextOr c-BOkky_xV.js:43",
+    107.6
+   ]
+  ],
+  "longTasks": 3,
+  "longestMs": 536,
+  "longTotalMs": 1057,
+  "peakMB": 51.9,
+  "opsToWorker": {
+   "read": {
+    "n": 4486,
+    "ms": 16295,
+    "MB": 12.9
+   },
+   "list": {
+    "n": 198,
+    "ms": 1249,
+    "MB": 0
+   },
+   "exists": {
+    "n": 276,
+    "ms": 837,
+    "MB": 0
+   },
+   "stat": {
+    "n": 100,
+    "ms": 294,
+    "MB": 0
+   },
+   "write:enviado": {
+    "n": 0,
+    "ms": 0,
+    "MB": 1
+   },
+   "write": {
+    "n": 600,
+    "ms": 2901,
+    "MB": 0
+   },
+   "remove": {
+    "n": 500,
+    "ms": 1985,
+    "MB": 0
+   }
+  },
+  "journal": 200,
+  "out": {
+   "n": 100,
+   "ms": 15778.899999999441,
+   "journal": 200
+  }
+ },
+ "importar-zip-500": {
+  "name": "importar-zip-500",
+  "wallMs": 6721,
+  "totalMs": 6776,
+  "activeMs": 1134,
+  "gcMs": 39,
+  "programMs": 399,
+  "topSelf": [
+   [
+    "postMessage :0",
+    86.3
+   ],
+   [
+    "getTextAlternativeInternal :3807",
+    53.4
+   ],
+   [
+    "(anónima) :10",
+    46.4
+   ],
+   [
+    "normalizePath c-6gQA76Ut.js:9",
+    29.3
+   ],
+   [
+    "panelContrast index-CRlUzVdu.js:10579",
+    21.2
+   ],
+   [
+    "getCSSContent :3618",
+    20.5
+   ],
+   [
+    "hex index-CRlUzVdu.js:10559",
+    20
+   ],
+   [
+    "request :0",
+    19.9
+   ],
+   [
+    "postMessage :19",
+    18.6
+   ],
+   [
+    "(anónima) :0",
+    15.5
+   ],
+   [
+    "getComputedStyle :0",
+    15.3
+   ],
+   [
+    "lin c-BKXw5a7h.js:1120",
+    14.1
+   ],
+   [
+    "p5 index-CRlUzVdu.js:10588",
+    14.1
+   ],
+   [
+    "query :5413",
+    12.6
+   ]
+  ],
+  "topIncl": [
+   [
+    "evaluate :305",
+    222.9
+   ],
+   [
+    "querySelectorAll :7010",
+    217
+   ],
+   [
+    "_queryEngineAll :7058",
+    216.4
+   ],
+   [
+    "queryAll :5429",
+    200
+   ],
+   [
+    "query :5413",
+    199.5
+   ],
+   [
+    "queryRole :5371",
+    199.5
+   ],
+   [
+    "match :5373",
+    186.3
+   ],
+   [
+    "commit index-CRlUzVdu.js:3983",
+    135.8
+   ],
+   [
+    "runGuard index-CRlUzVdu.js:24109",
+    119.6
+   ],
+   [
+    "guard index-CRlUzVdu.js:10595",
+    118.5
+   ],
+   [
+    "call index-CRlUzVdu.js:15589",
+    115.4
+   ],
+   [
+    "getElementAccessibleNameText :3711",
+    109.4
+   ],
+   [
+    "computeAccessibleNameComposite :3683",
+    107.4
+   ],
+   [
+    "postMessage :19",
+    105.4
+   ],
+   [
+    "panelContrast index-CRlUzVdu.js:10579",
+    102.6
+   ],
+   [
+    "getTextAlternativeInternal :3807",
+    100.3
+   ],
+   [
+    "write index-CRlUzVdu.js:15650",
+    90.2
+   ],
+   [
+    "postMessage :0",
+    86.3
+   ],
+   [
+    "C$1 c-BKXw5a7h.js:58",
+    46.8
+   ],
+   [
+    "H$1 c-BKXw5a7h.js:70",
+    46.8
+   ],
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    44.1
+   ],
+   [
+    "isElementHiddenForAria :3546",
+    41.9
+   ]
+  ],
+  "longTasks": 0,
+  "longestMs": 0,
+  "longTotalMs": 0,
+  "peakMB": 16.5,
+  "opsToWorker": {
+   "list": {
+    "n": 9,
+    "ms": 162,
+    "MB": 0
+   },
+   "exists": {
+    "n": 1000,
+    "ms": 729,
+    "MB": 0
+   },
+   "write:enviado": {
+    "n": 0,
+    "ms": 0,
+    "MB": 1.2
+   },
+   "write": {
+    "n": 1500,
+    "ms": 3921,
+    "MB": 0
+   },
+   "remove": {
+    "n": 1000,
+    "ms": 911,
+    "MB": 0
+   },
+   "read": {
+    "n": 143,
+    "ms": 323,
+    "MB": 0.1
+   }
+  },
+  "journal": 500,
+  "out": {
+   "applyMs": 6153
+  }
+ },
+ "restaurar-respaldo-L": {
+  "name": "restaurar-respaldo-L",
+  "wallMs": 32325,
+  "totalMs": 32380,
+  "activeMs": 4834,
+  "gcMs": 175,
+  "programMs": 1485,
+  "topSelf": [
+   [
+    "postMessage :0",
+    382.4
+   ],
+   [
+    "mash c-DWffiM3s.js:391",
+    240.2
+   ],
+   [
+    "(anónima) :10",
+    179
+   ],
+   [
+    "write index-CRlUzVdu.js:15650",
+    151.3
+   ],
+   [
+    "postMessage :19",
+    126.2
+   ],
+   [
+    "normalizePath c-6gQA76Ut.js:9",
+    121.8
+   ],
+   [
+    "request :0",
+    106
+   ],
+   [
+    "getTextAlternativeInternal :3807",
+    90.9
+   ],
+   [
+    "fnvUpdate c-BOkky_xV.js:101",
+    90.7
+   ],
+   [
+    "getComputedStyle :0",
+    84.8
+   ],
+   [
+    "getCSSContent :3618",
+    80.1
+   ],
+   [
+    "(anónima) :0",
+    75
+   ],
+   [
+    "serializeStates c-C07ynPKE.js:160",
+    61.4
+   ],
+   [
+    "replay c-DWffiM3s.js:1608",
+    60.1
+   ]
+  ],
+  "topIncl": [
+   [
+    "commit index-CRlUzVdu.js:3983",
+    809.6
+   ],
+   [
+    "evaluate :305",
+    719.9
+   ],
+   [
+    "querySelectorAll :7010",
+    712.3
+   ],
+   [
+    "_queryEngineAll :7058",
+    710.3
+   ],
+   [
+    "queryAll :5429",
+    654.1
+   ],
+   [
+    "queryRole :5371",
+    651.3
+   ],
+   [
+    "query :5413",
+    649.4
+   ],
+   [
+    "loadStates c-C07ynPKE.js:139",
+    639.1
+   ],
+   [
+    "match :5373",
+    615.6
+   ],
+   [
+    "write index-CRlUzVdu.js:15650",
+    519
+   ],
+   [
+    "call index-CRlUzVdu.js:15589",
+    515.9
+   ],
+   [
+    "postMessage :19",
+    511.8
+   ],
+   [
+    "replay c-DWffiM3s.js:1608",
+    510.8
+   ],
+   [
+    "applyReview c-DWffiM3s.js:1585",
+    437.4
+   ],
+   [
+    "next c-DWffiM3s.js:1320",
+    416.6
+   ],
+   [
+    "postMessage :0",
+    382.4
+   ],
+   [
+    "review c-DWffiM3s.js:315",
+    363.1
+   ],
+   [
+    "getElementAccessibleNameText :3711",
+    327.6
+   ],
+   [
+    "computeAccessibleNameComposite :3683",
+    322.9
+   ],
+   [
+    "getTextAlternativeInternal :3807",
+    297.2
+   ],
+   [
+    "reviewState c-DWffiM3s.js:871",
+    286.2
+   ],
+   [
+    "next_interval c-DWffiM3s.js:669",
+    274.8
+   ]
+  ],
+  "longTasks": 2,
+  "longestMs": 631,
+  "longTotalMs": 804,
+  "peakMB": 47.7,
+  "opsToWorker": {
+   "list": {
+    "n": 29,
+    "ms": 918,
+    "MB": 0
+   },
+   "exists": {
+    "n": 5210,
+    "ms": 3608,
+    "MB": 0
+   },
+   "write:enviado": {
+    "n": 0,
+    "ms": 0,
+    "MB": 145.5
+   },
+   "write": {
+    "n": 7815,
+    "ms": 21313,
+    "MB": 0
+   },
+   "remove": {
+    "n": 5210,
+    "ms": 4264,
+    "MB": 0
+   },
+   "read": {
+    "n": 4,
+    "ms": 41,
+    "MB": 2.9
+   }
+  },
+  "journal": 2605,
+  "out": {
+   "applyMs": 30666
+  }
+ },
+ "crear-respaldo-L": {
+  "name": "crear-respaldo-L",
+  "wallMs": 13220,
+  "totalMs": 13336,
+  "activeMs": 2436,
+  "gcMs": 106,
+  "programMs": 393,
+  "topSelf": [
+   [
+    "dayKey c-Dd7tYxJR.js:23",
+    740
+   ],
+   [
+    "dflt index-CRlUzVdu.js:3240",
+    217.8
+   ],
+   [
+    "p index-CRlUzVdu.js:3346",
+    174.9
+   ],
+   [
+    "postMessage :0",
+    87.6
+   ],
+   [
+    "(anónima) :10",
+    87.6
+   ],
+   [
+    "hTree index-CRlUzVdu.js:3047",
+    41.4
+   ],
+   [
+    "cbf index-CRlUzVdu.js:3721",
+    40.5
+   ],
+   [
+    "backup c-C1nZLVOZ.js:96",
+    38.6
+   ],
+   [
+    "normalizePath c-6gQA76Ut.js:9",
+    36.8
+   ],
+   [
+    "postMessage :19",
+    25.6
+   ],
+   [
+    "get index-CRlUzVdu.js:17649",
+    19.7
+   ],
+   [
+    "decode :0",
+    19.2
+   ],
+   [
+    "lc index-CRlUzVdu.js:3131",
+    18.9
+   ],
+   [
+    "addDays c-Dd7tYxJR.js:37",
+    18
+   ]
+  ],
+  "topIncl": [
+   [
+    "C$1 c-BKXw5a7h.js:58",
+    909.4
+   ],
+   [
+    "H$1 c-BKXw5a7h.js:70",
+    909.4
+   ],
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    908.5
+   ],
+   [
+    "I c-BKXw5a7h.js:77",
+    905.7
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    904.7
+   ],
+   [
+    "K$1 c-BKXw5a7h.js:263",
+    901.4
+   ],
+   [
+    "Today index-CRlUzVdu.js:19479",
+    822.2
+   ],
+   [
+    "dayKey c-Dd7tYxJR.js:23",
+    759.6
+   ],
+   [
+    "backup c-C1nZLVOZ.js:96",
+    596.7
+   ],
+   [
+    "buildZip index-CRlUzVdu.js:4213",
+    558
+   ],
+   [
+    "zip index-CRlUzVdu.js:3701",
+    554.9
+   ],
+   [
+    "_loop_1 index-CRlUzVdu.js:3741",
+    552.8
+   ],
+   [
+    "deflateSync index-CRlUzVdu.js:3521",
+    351.3
+   ],
+   [
+    "dopt index-CRlUzVdu.js:3356",
+    350.4
+   ],
+   [
+    "dflt index-CRlUzVdu.js:3240",
+    348.6
+   ],
+   [
+    "activity index-CRlUzVdu.js:17647",
+    268.1
+   ],
+   [
+    "todayProgress index-CRlUzVdu.js:17669",
+    250.1
+   ],
+   [
+    "doneToday index-CRlUzVdu.js:17681",
+    243.5
+   ],
+   [
+    "p index-CRlUzVdu.js:3346",
+    174.9
+   ],
+   [
+    "read index-CRlUzVdu.js:4087",
+    138.4
+   ],
+   [
+    "read index-CRlUzVdu.js:15644",
+    138.1
+   ],
+   [
+    "checkIntegrity index-CRlUzVdu.js:22373",
+    129.8
+   ]
+  ],
+  "longTasks": 4,
+  "longestMs": 566,
+  "longTotalMs": 1558,
+  "peakMB": 49.3,
+  "opsToWorker": {
+   "read": {
+    "n": 4691,
+    "ms": 21254,
+    "MB": 81.3
+   },
+   "list": {
+    "n": 98,
+    "ms": 1006,
+    "MB": 0
+   }
+  },
+  "journal": 0,
+  "out": {
+   "files": 2607,
+   "bytes": 67820333,
+   "collectMs": 12249,
+   "zipMs": 908.4000000003725
+  }
+ },
+ "abrir-nota-5MB": {
+  "name": "abrir-nota-5MB",
+  "wallMs": 3437,
+  "totalMs": 3534,
+  "activeMs": 2199,
+  "gcMs": 212,
+  "programMs": 310,
+  "topSelf": [
+   [
+    "parseFromString :0",
+    260.6
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    104.6
+   ],
+   [
+    "(anónima) index-CRlUzVdu.js:7261",
+    103.9
+   ],
+   [
+    "DOMPurify.sanitize index-CRlUzVdu.js:9512",
+    80
+   ],
+   [
+    "_defineProperty c-Dna4QWHc.js:2167",
+    42.1
+   ],
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    40.3
+   ],
+   [
+    "query :5719",
+    38.1
+   ],
+   [
+    "renderMarkdownCached index-CRlUzVdu.js:9926",
+    37.7
+   ],
+   [
+    "querySelectorAll :0",
+    34.9
+   ],
+   [
+    "setAttribute :0",
+    32.6
+   ],
+   [
+    "insertBefore :0",
+    30.5
+   ],
+   [
+    "_createTrustedHTML index-CRlUzVdu.js:8222",
+    30.2
+   ],
+   [
+    "_isUnsafeNode index-CRlUzVdu.js:9109",
+    30
+   ],
+   [
+    "I c-BKXw5a7h.js:77",
+    29
+   ]
+  ],
+  "topIncl": [
+   [
+    "H$1 c-BKXw5a7h.js:70",
+    1485.6
+   ],
+   [
+    "C$1 c-BKXw5a7h.js:58",
+    1478.3
+   ],
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    1456.6
+   ],
+   [
+    "K$1 c-BKXw5a7h.js:263",
+    1063.1
+   ],
+   [
+    "NoteEditor c-CDpxRTPJ.js:4060",
+    968.8
+   ],
+   [
+    "renderMarkdownCached index-CRlUzVdu.js:9926",
+    863
+   ],
+   [
+    "renderMarkdown index-CRlUzVdu.js:9916",
+    825.3
+   ],
+   [
+    "clean index-CRlUzVdu.js:9897",
+    651.6
+   ],
+   [
+    "DOMPurify.sanitize index-CRlUzVdu.js:9512",
+    647.6
+   ],
+   [
+    "I c-BKXw5a7h.js:77",
+    527.4
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    508.8
+   ],
+   [
+    "_initDocument index-CRlUzVdu.js:8938",
+    313.5
+   ],
+   [
+    "parseFromString :0",
+    260.6
+   ],
+   [
+    "render c-Dna4QWHc.js:5531",
+    172.5
+   ],
+   [
+    "parse c-Dna4QWHc.js:5518",
+    163.8
+   ],
+   [
+    "process c-Dna4QWHc.js:3092",
+    158.7
+   ],
+   [
+    "_sanitizeElements index-CRlUzVdu.js:9210",
+    134.6
+   ],
+   [
+    "_sanitizeAttributes index-CRlUzVdu.js:9381",
+    106.9
+   ],
+   [
+    "N c-BKXw5a7h.js:123",
+    93
+   ],
+   [
+    "evaluate :305",
+    78.4
+   ],
+   [
+    "querySelectorAll :7010",
+    74.4
+   ],
+   [
+    "_queryEngineAll :7058",
+    73.6
+   ]
+  ],
+  "longTasks": 4,
+  "longestMs": 1371,
+  "longTotalMs": 1745,
+  "peakMB": 82.9,
+  "opsToWorker": {
+   "read": {
+    "n": 5,
+    "ms": 129,
+    "MB": 10.8
+   },
+   "list": {
+    "n": 2,
+    "ms": 1804,
+    "MB": 0
+   },
+   "reset": {
+    "n": 1,
+    "ms": 1171,
+    "MB": 0
+   }
+  },
+  "journal": 0
+ },
+ "buscar-en-nota-5MB": {
+  "name": "buscar-en-nota-5MB",
+  "wallMs": 2469,
+  "totalMs": 2603,
+  "activeMs": 2501,
+  "gcMs": 240,
+  "programMs": 184,
+  "topSelf": [
+   [
+    "at c-CDpxRTPJ.js:2177",
+    1231.2
+   ],
+   [
+    "foldMap c-D7CsujGA.js:21",
+    394.5
+   ],
+   [
+    "findHits c-D7CsujGA.js:72",
+    102.4
+   ],
+   [
+    "rangesIn c-CDpxRTPJ.js:2171",
+    73.3
+   ],
+   [
+    "closest :0",
+    48.9
+   ],
+   [
+    "query :5719",
+    46
+   ],
+   [
+    "queryRole :5371",
+    35.5
+   ],
+   [
+    "querySelectorAll :0",
+    24.9
+   ],
+   [
+    "(anónima) c-CDpxRTPJ.js:2182",
+    16.6
+   ],
+   [
+    "RegExp: \\p{M} :0",
+    11.3
+   ],
+   [
+    "getAriaRole :3521",
+    10.3
+   ],
+   [
+    "acceptNode c-CDpxRTPJ.js:2175",
+    9.3
+   ],
+   [
+    "getAttribute :0",
+    6.8
+   ],
+   [
+    "contrast c-BKXw5a7h.js:1129",
+    5.8
+   ]
+  ],
+  "topIncl": [
+   [
+    "D c-BKXw5a7h.js:471",
+    1898
+   ],
+   [
+    "g c-BKXw5a7h.js:394",
+    1898
+   ],
+   [
+    "rangesIn c-CDpxRTPJ.js:2171",
+    1894.2
+   ],
+   [
+    "at c-CDpxRTPJ.js:2177",
+    1231.2
+   ],
+   [
+    "findHits c-D7CsujGA.js:72",
+    510.3
+   ],
+   [
+    "foldMap c-D7CsujGA.js:21",
+    405.8
+   ],
+   [
+    "evaluate :305",
+    144.8
+   ],
+   [
+    "_queryEngineAll :7058",
+    143.6
+   ],
+   [
+    "querySelectorAll :7010",
+    143.6
+   ],
+   [
+    "queryRole :5371",
+    80.8
+   ],
+   [
+    "queryAll :5429",
+    80.8
+   ],
+   [
+    "_cached :5500",
+    62.2
+   ],
+   [
+    "query :5534",
+    62.2
+   ],
+   [
+    "query :5747",
+    62.2
+   ],
+   [
+    "_callQuery :5708",
+    62.2
+   ],
+   [
+    "_queryEngine :5696",
+    62.2
+   ],
+   [
+    "queryAll :7079",
+    62.2
+   ],
+   [
+    "_queryCSS :5716",
+    61.6
+   ],
+   [
+    "_querySimple :5595",
+    61.6
+   ],
+   [
+    "query :5719",
+    60.2
+   ],
+   [
+    "acceptNode c-CDpxRTPJ.js:2175",
+    58.1
+   ],
+   [
+    "closest :0",
+    48.9
+   ]
+  ],
+  "longTasks": 1,
+  "longestMs": 2130,
+  "longTotalMs": 2130,
+  "peakMB": 256.8,
+  "opsToWorker": {},
+  "journal": 0
+ },
+ "estudio-10-respuestas-L": {
+  "name": "estudio-10-respuestas-L",
+  "wallMs": 5395,
+  "totalMs": 5509,
+  "activeMs": 2453,
+  "gcMs": 114,
+  "programMs": 386,
+  "topSelf": [
+   [
+    "serializeStates c-C07ynPKE.js:160",
+    500.9
+   ],
+   [
+    "encode :0",
+    399.8
+   ],
+   [
+    "fnvUpdate c-BOkky_xV.js:101",
+    140.6
+   ],
+   [
+    "write index-CRlUzVdu.js:15650",
+    97.1
+   ],
+   [
+    "(anónima) c-C07ynPKE.js:126",
+    60.5
+   ],
+   [
+    "toBytes c-BOkky_xV.js:19",
+    47.1
+   ],
+   [
+    "buildQueue index-CRlUzVdu.js:5275",
+    43.1
+   ],
+   [
+    "contrast c-BKXw5a7h.js:1129",
+    42.2
+   ],
+   [
+    "logKey c-C07ynPKE.js:125",
+    40.9
+   ],
+   [
+    "decode :0",
+    35.1
+   ],
+   [
+    "(anónima) index-CRlUzVdu.js:10559",
+    29
+   ],
+   [
+    "stateOf index-CRlUzVdu.js:5222",
+    23.2
+   ],
+   [
+    "elementsFromPoint :0",
+    22.1
+   ],
+   [
+    "(anónima) :10",
+    19.6
+   ]
+  ],
+  "topIncl": [
+   [
+    "appendLog c-C07ynPKE.js:266",
+    961.1
+   ],
+   [
+    "serializeStates c-C07ynPKE.js:160",
+    500.9
+   ],
+   [
+    "encode :0",
+    399.8
+   ],
+   [
+    "write index-CRlUzVdu.js:4002",
+    343.1
+   ],
+   [
+    "toBytes c-BOkky_xV.js:19",
+    341.6
+   ],
+   [
+    "logKey c-C07ynPKE.js:125",
+    245.5
+   ],
+   [
+    "H$1 c-BKXw5a7h.js:70",
+    230.7
+   ],
+   [
+    "C$1 c-BKXw5a7h.js:58",
+    230.4
+   ],
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    229.2
+   ],
+   [
+    "commit index-CRlUzVdu.js:3983",
+    206.7
+   ],
+   [
+    "K$1 c-BKXw5a7h.js:263",
+    194.5
+   ],
+   [
+    "Study index-CRlUzVdu.js:13501",
+    174.6
+   ],
+   [
+    "runGuard index-CRlUzVdu.js:24109",
+    152.2
+   ],
+   [
+    "guard index-CRlUzVdu.js:10595",
+    150.9
+   ],
+   [
+    "checksum c-BOkky_xV.js:109",
+    141.4
+   ],
+   [
+    "fnvUpdate c-BOkky_xV.js:101",
+    140.6
+   ],
+   [
+    "w$1 c-BKXw5a7h.js:381",
+    134.1
+   ],
+   [
+    "panelContrast index-CRlUzVdu.js:10579",
+    130.6
+   ],
+   [
+    "buildQueue index-CRlUzVdu.js:5275",
+    126.1
+   ],
+   [
+    "write index-CRlUzVdu.js:15650",
+    102.3
+   ],
+   [
+    "evaluate :305",
+    100.3
+   ],
+   [
+    "checkIntegrity index-CRlUzVdu.js:22373",
+    66.4
+   ]
+  ],
+  "longTasks": 10,
+  "longestMs": 109,
+  "longTotalMs": 961,
+  "peakMB": 60.8,
+  "opsToWorker": {
+   "read": {
+    "n": 910,
+    "ms": 5457,
+    "MB": 31.4
+   },
+   "write:enviado": {
+    "n": 0,
+    "ms": 0,
+    "MB": 165.3
+   },
+   "write": {
+    "n": 60,
+    "ms": 735,
+    "MB": 0
+   },
+   "remove": {
+    "n": 40,
+    "ms": 230,
+    "MB": 0
+   }
+  },
+  "journal": 20
+ },
+ "fsrs-100k": {
+  "name": "fsrs-100k",
+  "wallMs": 4238,
+  "totalMs": 4346,
+  "activeMs": 4169,
+  "gcMs": 173,
+  "programMs": 268,
+  "topSelf": [
+   [
+    "mash c-DWffiM3s.js:391",
+    1276.6
+   ],
+   [
+    "replay c-DWffiM3s.js:1608",
+    390.5
+   ],
+   [
+    "dayKey c-Dd7tYxJR.js:23",
+    343.8
+   ],
+   [
+    "_defineProperty c-uzo7ZGAE.js:27",
+    186.8
+   ],
+   [
+    "applyReview c-DWffiM3s.js:1585",
+    138.9
+   ],
+   [
+    "(anónima) c-DWffiM3s.js:1611",
+    109.6
+   ],
+   [
+    "serializeStates c-C07ynPKE.js:160",
+    108.9
+   ],
+   [
+    "verifyDeterminism c-C07ynPKE.js:272",
+    96.6
+   ],
+   [
+    "encode :0",
+    67.4
+   ],
+   [
+    "date_scheduler c-DWffiM3s.js:95",
+    67
+   ],
+   [
+    "parseLog c-DWffiM3s.js:1642",
+    60.8
+   ],
+   [
+    "BasicLearningStepsStrategy c-DWffiM3s.js:211",
+    51.7
+   ],
+   [
+    "next_recall_stability c-DWffiM3s.js:713",
+    42.8
+   ],
+   [
+    "dateDiffInDays c-DWffiM3s.js:192",
+    40.2
+   ]
+  ],
+  "topIncl": [
+   [
+    "replay c-DWffiM3s.js:1608",
+    2792.9
+   ],
+   [
+    "applyReview c-DWffiM3s.js:1585",
+    2284.4
+   ],
+   [
+    "next c-DWffiM3s.js:1320",
+    2145.5
+   ],
+   [
+    "fsrs c-C1nZLVOZ.js:18",
+    2028.8
+   ],
+   [
+    "review c-DWffiM3s.js:315",
+    1868.2
+   ],
+   [
+    "reviewState c-DWffiM3s.js:871",
+    1536.2
+   ],
+   [
+    "next_interval c-DWffiM3s.js:669",
+    1457.4
+   ],
+   [
+    "apply_fuzz c-DWffiM3s.js:658",
+    1441.8
+   ],
+   [
+    "alea c-DWffiM3s.js:406",
+    1398.9
+   ],
+   [
+    "Alea c-DWffiM3s.js:348",
+    1357.9
+   ],
+   [
+    "next_interval c-DWffiM3s.js:922",
+    1301.7
+   ],
+   [
+    "mash c-DWffiM3s.js:391",
+    1276.6
+   ],
+   [
+    "loadStates c-C07ynPKE.js:139",
+    1144.7
+   ],
+   [
+    "verifyDeterminism c-C07ynPKE.js:272",
+    986.4
+   ],
+   [
+    "H$1 c-BKXw5a7h.js:70",
+    422.6
+   ],
+   [
+    "C$1 c-BKXw5a7h.js:58",
+    422.3
+   ],
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    422
+   ],
+   [
+    "I c-BKXw5a7h.js:77",
+    421.4
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    421.1
+   ],
+   [
+    "K$1 c-BKXw5a7h.js:263",
+    418.5
+   ],
+   [
+    "Today index-CRlUzVdu.js:19479",
+    384.2
+   ],
+   [
+    "dayKey c-Dd7tYxJR.js:23",
+    354.4
+   ]
+  ],
+  "longTasks": 6,
+  "longestMs": 1100,
+  "longTotalMs": 3798,
+  "peakMB": 146.9,
+  "opsToWorker": {
+   "read": {
+    "n": 37,
+    "ms": 4713,
+    "MB": 5.8
+   },
+   "exists": {
+    "n": 2,
+    "ms": 5,
+    "MB": 0
+   },
+   "write:enviado": {
+    "n": 0,
+    "ms": 0,
+    "MB": 29.4
+   },
+   "write": {
+    "n": 6,
+    "ms": 58,
+    "MB": 0
+   },
+   "remove": {
+    "n": 5,
+    "ms": 22,
+    "MB": 0
+   }
+  },
+  "journal": 2,
+  "out": {
+   "entries": 100000,
+   "cards": 19940,
+   "rebuilt": true,
+   "ok": true,
+   "parseMs": 32.700000000186265,
+   "replayMs": 1054.9000000003725,
+   "loadStatesMs": 1788,
+   "verifyMs": 1016.5
+  }
+ },
+ "integridad-L": {
+  "seconds_until_reads_stop": 7.9,
+  "totalReads": 2218,
+  "series": [
+   [
+    2637,
+    133
+   ],
+   [
+    4151,
+    813
+   ],
+   [
+    5856,
+    1434
+   ],
+   [
+    7370,
+    2128
+   ]
+  ]
+ },
+ "abrir-notas-L-quieto": {
+  "name": "abrir-notas-L-quieto",
+  "wallMs": 12238,
+  "totalMs": 12355,
+  "activeMs": 1156,
+  "gcMs": 29,
+  "programMs": 621,
+  "topSelf": [
+   [
+    "getBoundingClientRect :0",
+    55.2
+   ],
+   [
+    "postMessage :0",
+    49.6
+   ],
+   [
+    "(anónima) :10",
+    41.5
+   ],
+   [
+    "normalizePath c-6gQA76Ut.js:9",
+    25.3
+   ],
+   [
+    "querySelectorAll :0",
+    23.2
+   ],
+   [
+    "createElementNS :0",
+    22.3
+   ],
+   [
+    "linkIndex c-DK9FXYLa.js:122",
+    21.1
+   ],
+   [
+    "requestAnimationFrame :0",
+    18.2
+   ],
+   [
+    "decode :0",
+    15.9
+   ],
+   [
+    "panelContrast index-CRlUzVdu.js:10579",
+    15.5
+   ],
+   [
+    "postMessage :19",
+    13.9
+   ],
+   [
+    "wikilinks c-DK9FXYLa.js:119",
+    13.1
+   ],
+   [
+    "setAttribute :0",
+    12.9
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    12.7
+   ]
+  ],
+  "topIncl": [
+   [
+    "C$1 c-BKXw5a7h.js:58",
+    142.1
+   ],
+   [
+    "H$1 c-BKXw5a7h.js:70",
+    142.1
+   ],
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    141
+   ],
+   [
+    "I c-BKXw5a7h.js:77",
+    138.1
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    134.3
+   ],
+   [
+    "linkIndex c-DK9FXYLa.js:122",
+    121.7
+   ],
+   [
+    "readText c-BOkky_xV.js:25",
+    101.2
+   ],
+   [
+    "runGuard index-CRlUzVdu.js:24109",
+    92
+   ],
+   [
+    "guard index-CRlUzVdu.js:10595",
+    91.4
+   ],
+   [
+    "readTextOr c-BOkky_xV.js:43",
+    84
+   ],
+   [
+    "read index-CRlUzVdu.js:4087",
+    82.8
+   ],
+   [
+    "read index-CRlUzVdu.js:15644",
+    82.5
+   ],
+   [
+    "postMessage :19",
+    64.1
+   ],
+   [
+    "call index-CRlUzVdu.js:15589",
+    60.9
+   ],
+   [
+    "getBoundingClientRect :0",
+    55.2
+   ],
+   [
+    "postMessage :0",
+    49.6
+   ],
+   [
+    "K$1 c-BKXw5a7h.js:263",
+    44.4
+   ],
+   [
+    "A$2 c-BKXw5a7h.js:95",
+    33.5
+   ],
+   [
+    "panelContrast index-CRlUzVdu.js:10579",
+    32.5
+   ],
+   [
+    "N c-BKXw5a7h.js:123",
+    29.7
+   ],
+   [
+    "normalizePath c-6gQA76Ut.js:9",
+    25.3
+   ],
+   [
+    "D c-BKXw5a7h.js:471",
+    23.3
+   ]
+  ],
+  "longTasks": 3,
+  "longestMs": 205,
+  "longTotalMs": 423,
+  "peakMB": 44.2,
+  "opsToWorker": {
+   "list": {
+    "n": 82,
+    "ms": 673,
+    "MB": 0
+   },
+   "read": {
+    "n": 2001,
+    "ms": 4923,
+    "MB": 4.6
+   },
+   "reset": {
+    "n": 1,
+    "ms": 792,
+    "MB": 0
+   }
+  },
+  "journal": 0,
+  "out": {
+   "navMs": 6236
+  }
+ },
+ "ciclo-pantallas-L-quieto": {
+  "name": "ciclo-pantallas-L-quieto",
+  "wallMs": 16187,
+  "totalMs": 16273,
+  "activeMs": 4524,
+  "gcMs": 112,
+  "programMs": 901,
+  "topSelf": [
+   [
+    "dayKey c-Dd7tYxJR.js:23",
+    1123.3
+   ],
+   [
+    "activity index-CRlUzVdu.js:17647",
+    970.8
+   ],
+   [
+    "getBoundingClientRect :0",
+    87.1
+   ],
+   [
+    "addDays c-Dd7tYxJR.js:37",
+    56.7
+   ],
+   [
+    "postMessage :0",
+    50.8
+   ],
+   [
+    "createElementNS :0",
+    46.8
+   ],
+   [
+    "(anónima) :10",
+    45.1
+   ],
+   [
+    "setAttribute :0",
+    44
+   ],
+   [
+    "fmtParam c-G59Uu25-.js:5793",
+    42.9
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    41.2
+   ],
+   [
+    "deckCounts index-CRlUzVdu.js:5253",
+    39
+   ],
+   [
+    "measure index-CRlUzVdu.js:24394",
+    36.2
+   ],
+   [
+    "get c-Dd7tYxJR.js:25",
+    35.5
+   ],
+   [
+    "remove :0",
+    35
+   ]
+  ],
+  "topIncl": [
+   [
+    "H$1 c-BKXw5a7h.js:70",
+    3028
+   ],
+   [
+    "C$1 c-BKXw5a7h.js:58",
+    3026.8
+   ],
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    2990
+   ],
+   [
+    "K$1 c-BKXw5a7h.js:263",
+    2667.6
+   ],
+   [
+    "Today index-CRlUzVdu.js:19479",
+    1594.3
+   ],
+   [
+    "I c-BKXw5a7h.js:77",
+    1323.2
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    1319.8
+   ],
+   [
+    "dayKey c-Dd7tYxJR.js:23",
+    1170.4
+   ],
+   [
+    "activity index-CRlUzVdu.js:17647",
+    970.8
+   ],
+   [
+    "Stats index-CRlUzVdu.js:19862",
+    713.9
+   ],
+   [
+    "todayProgress index-CRlUzVdu.js:17669",
+    536.8
+   ],
+   [
+    "A$2 c-BKXw5a7h.js:95",
+    477.3
+   ],
+   [
+    "doneToday index-CRlUzVdu.js:17681",
+    464.8
+   ],
+   [
+    "runGuard index-CRlUzVdu.js:24109",
+    196.9
+   ],
+   [
+    "guard index-CRlUzVdu.js:10595",
+    196
+   ],
+   [
+    "deckCounts index-CRlUzVdu.js:5253",
+    160.7
+   ],
+   [
+    "Heatmap index-CRlUzVdu.js:18381",
+    141.8
+   ],
+   [
+    "forecast index-CRlUzVdu.js:17777",
+    130.3
+   ],
+   [
+    "linkIndex c-DK9FXYLa.js:122",
+    127.2
+   ],
+   [
+    "DeckPanel index-CRlUzVdu.js:6171",
+    117.2
+   ],
+   [
+    "readText c-BOkky_xV.js:25",
+    106.9
+   ],
+   [
+    "panelContrast index-CRlUzVdu.js:10579",
+    103.7
+   ]
+  ],
+  "longTasks": 10,
+  "longestMs": 456,
+  "longTotalMs": 3459,
+  "peakMB": 65.3,
+  "opsToWorker": {
+   "list": {
+    "n": 85,
+    "ms": 629,
+    "MB": 0
+   },
+   "read": {
+    "n": 2007,
+    "ms": 8143,
+    "MB": 4.6
+   },
+   "reset": {
+    "n": 1,
+    "ms": 780,
+    "MB": 0
+   }
+  },
+  "journal": 0,
+  "out": {
+   "mazos": 102,
+   "notas": 7537,
+   "estadisticas": 707,
+   "hoy": 1368
+  }
+ },
+ "estudio-10-respuestas-L-quieto": {
+  "name": "estudio-10-respuestas-L-quieto",
+  "wallMs": 4822,
+  "totalMs": 4937,
+  "activeMs": 2028,
+  "gcMs": 9,
+  "programMs": 336,
+  "topSelf": [
+   [
+    "serializeStates c-C07ynPKE.js:160",
+    442.5
+   ],
+   [
+    "encode :0",
+    376.8
+   ],
+   [
+    "fnvUpdate c-BOkky_xV.js:101",
+    134.4
+   ],
+   [
+    "write index-CRlUzVdu.js:15650",
+    98.7
+   ],
+   [
+    "(anónima) c-C07ynPKE.js:126",
+    60.7
+   ],
+   [
+    "(anónima) index-CRlUzVdu.js:13528",
+    51.1
+   ],
+   [
+    "toBytes c-BOkky_xV.js:19",
+    45.9
+   ],
+   [
+    "logKey c-C07ynPKE.js:125",
+    41.8
+   ],
+   [
+    "contrast c-BKXw5a7h.js:1129",
+    39.2
+   ],
+   [
+    "elementsFromPoint :0",
+    21.2
+   ],
+   [
+    "decode :0",
+    18.9
+   ],
+   [
+    "(anónima) index-CRlUzVdu.js:10559",
+    17.8
+   ],
+   [
+    "hex index-CRlUzVdu.js:10559",
+    16.7
+   ],
+   [
+    "getBoundingClientRect :0",
+    14.9
+   ]
+  ],
+  "topIncl": [
+   [
+    "appendLog c-C07ynPKE.js:266",
+    879.1
+   ],
+   [
+    "serializeStates c-C07ynPKE.js:160",
+    442.5
+   ],
+   [
+    "encode :0",
+    376.8
+   ],
+   [
+    "write index-CRlUzVdu.js:4002",
+    322.1
+   ],
+   [
+    "toBytes c-BOkky_xV.js:19",
+    321.5
+   ],
+   [
+    "logKey c-C07ynPKE.js:125",
+    237.3
+   ],
+   [
+    "commit index-CRlUzVdu.js:3983",
+    210.9
+   ],
+   [
+    "H$1 c-BKXw5a7h.js:70",
+    190.9
+   ],
+   [
+    "C$1 c-BKXw5a7h.js:58",
+    190.6
+   ],
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    189.7
+   ],
+   [
+    "K$1 c-BKXw5a7h.js:263",
+    153.9
+   ],
+   [
+    "Study index-CRlUzVdu.js:13501",
+    135.4
+   ],
+   [
+    "checksum c-BOkky_xV.js:109",
+    134.9
+   ],
+   [
+    "fnvUpdate c-BOkky_xV.js:101",
+    134.4
+   ],
+   [
+    "runGuard index-CRlUzVdu.js:24109",
+    119.2
+   ],
+   [
+    "guard index-CRlUzVdu.js:10595",
+    118.9
+   ],
+   [
+    "w$1 c-BKXw5a7h.js:381",
+    108.3
+   ],
+   [
+    "write index-CRlUzVdu.js:15650",
+    107.4
+   ],
+   [
+    "panelContrast index-CRlUzVdu.js:10579",
+    100.9
+   ],
+   [
+    "evaluate :305",
+    82.4
+   ],
+   [
+    "querySelectorAll :7010",
+    58.8
+   ],
+   [
+    "_queryEngineAll :7058",
+    57.9
+   ]
+  ],
+  "longTasks": 10,
+  "longestMs": 108,
+  "longTotalMs": 876,
+  "peakMB": 76.9,
+  "opsToWorker": {
+   "read": {
+    "n": 10,
+    "ms": 83,
+    "MB": 29.3
+   },
+   "write:enviado": {
+    "n": 0,
+    "ms": 0,
+    "MB": 165.3
+   },
+   "write": {
+    "n": 60,
+    "ms": 558,
+    "MB": 0
+   },
+   "remove": {
+    "n": 40,
+    "ms": 84,
+    "MB": 0
+   }
+  },
+  "journal": 20
+ },
+ "changed-con-Hoy-abierto-L": {
+  "name": "changed-con-Hoy-abierto-L",
+  "wallMs": 9233,
+  "totalMs": 9345,
+  "activeMs": 1090,
+  "gcMs": 84,
+  "programMs": 488,
+  "topSelf": [
+   [
+    "getBoundingClientRect :0",
+    76.7
+   ],
+   [
+    "(anónima) :10",
+    45.2
+   ],
+   [
+    "postMessage :0",
+    39.9
+   ],
+   [
+    "normalizePath c-6gQA76Ut.js:9",
+    24.3
+   ],
+   [
+    "linkIndex c-DK9FXYLa.js:122",
+    20.8
+   ],
+   [
+    "postMessage :19",
+    19.2
+   ],
+   [
+    "panelContrast index-CRlUzVdu.js:10579",
+    19.2
+   ],
+   [
+    "createElementNS :0",
+    16.4
+   ],
+   [
+    "decode :0",
+    14.3
+   ],
+   [
+    "insertBefore :0",
+    10.7
+   ],
+   [
+    "setAttribute :0",
+    10.1
+   ],
+   [
+    "requestAnimationFrame :0",
+    9.9
+   ],
+   [
+    "checkVisibility :0",
+    9.7
+   ],
+   [
+    "querySelectorAll :0",
+    9.7
+   ]
+  ],
+  "topIncl": [
+   [
+    "H$1 c-BKXw5a7h.js:70",
+    147.2
+   ],
+   [
+    "C$1 c-BKXw5a7h.js:58",
+    146.9
+   ],
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    145.4
+   ],
+   [
+    "I c-BKXw5a7h.js:77",
+    123.8
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    115.3
+   ],
+   [
+    "runGuard index-CRlUzVdu.js:24109",
+    109.8
+   ],
+   [
+    "guard index-CRlUzVdu.js:10595",
+    109.5
+   ],
+   [
+    "linkIndex c-DK9FXYLa.js:122",
+    103
+   ],
+   [
+    "readText c-BOkky_xV.js:25",
+    88.5
+   ],
+   [
+    "getBoundingClientRect :0",
+    76.7
+   ],
+   [
+    "readTextOr c-BOkky_xV.js:43",
+    72.8
+   ],
+   [
+    "read index-CRlUzVdu.js:15644",
+    72.5
+   ],
+   [
+    "read index-CRlUzVdu.js:4087",
+    72.5
+   ],
+   [
+    "K$1 c-BKXw5a7h.js:263",
+    64.2
+   ],
+   [
+    "postMessage :19",
+    59.7
+   ],
+   [
+    "call index-CRlUzVdu.js:15589",
+    53.7
+   ],
+   [
+    "postMessage :0",
+    39.9
+   ],
+   [
+    "D c-BKXw5a7h.js:471",
+    31.2
+   ],
+   [
+    "g c-BKXw5a7h.js:394",
+    30.6
+   ],
+   [
+    "panelContrast index-CRlUzVdu.js:10579",
+    29.8
+   ],
+   [
+    "NoteEditor c-CDpxRTPJ.js:4060",
+    25.7
+   ],
+   [
+    "reset c-D7CsujGA.js:260",
+    24.4
+   ]
+  ],
+  "longTasks": 3,
+  "longestMs": 103,
+  "longTotalMs": 284,
+  "peakMB": 53.3,
+  "opsToWorker": {
+   "read": {
+    "n": 2003,
+    "ms": 4738,
+    "MB": 4.6
+   },
+   "list": {
+    "n": 82,
+    "ms": 771,
+    "MB": 0
+   },
+   "reset": {
+    "n": 1,
+    "ms": 726,
+    "MB": 0
+   }
+  },
+  "journal": 0
+ },
+ "changed-un-solo-marcador-L": {
+  "name": "changed-un-solo-marcador-L",
+  "wallMs": 14152,
+  "totalMs": 14221,
+  "activeMs": 1628,
+  "gcMs": 87,
+  "programMs": 500,
+  "topSelf": [
+   [
+    "postMessage :0",
+    83.2
+   ],
+   [
+    "(anónima) :10",
+    72.2
+   ],
+   [
+    "parseBlock c-s_LEVPYB.js:201",
+    61.2
+   ],
+   [
+    "decode :0",
+    46.7
+   ],
+   [
+    "normalizePath c-6gQA76Ut.js:9",
+    41.3
+   ],
+   [
+    "querySelectorAll :0",
+    29.7
+   ],
+   [
+    "(anónima) index-CRlUzVdu.js:22417",
+    29.2
+   ],
+   [
+    "checkIntegrity index-CRlUzVdu.js:22373",
+    27.1
+   ],
+   [
+    "postMessage :19",
+    26.6
+   ],
+   [
+    "linkIndex c-DK9FXYLa.js:122",
+    25.9
+   ],
+   [
+    "requestAnimationFrame :0",
+    25.6
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    24.6
+   ],
+   [
+    "(anónima) c-BKXw5a7h.js:547",
+    24.4
+   ],
+   [
+    "buildLucideIconNode c-BKXw5a7h.js:901",
+    22
+   ]
+  ],
+  "topIncl": [
+   [
+    "H$1 c-BKXw5a7h.js:70",
+    231.4
+   ],
+   [
+    "C$1 c-BKXw5a7h.js:58",
+    231.1
+   ],
+   [
+    "z$2 c-BKXw5a7h.js:151",
+    215.8
+   ],
+   [
+    "I c-BKXw5a7h.js:77",
+    212.3
+   ],
+   [
+    "F$1 c-BKXw5a7h.js:223",
+    210
+   ],
+   [
+    "checkIntegrity index-CRlUzVdu.js:22373",
+    182.4
+   ],
+   [
+    "loadCollection c-C07ynPKE.js:167",
+    155.1
+   ],
+   [
+    "read index-CRlUzVdu.js:4087",
+    136.2
+   ],
+   [
+    "read index-CRlUzVdu.js:15644",
+    135.3
+   ],
+   [
+    "call index-CRlUzVdu.js:15589",
+    117
+   ],
+   [
+    "K$1 c-BKXw5a7h.js:263",
+    112
+   ],
+   [
+    "postMessage :19",
+    111
+   ],
+   [
+    "parseDeck c-s_LEVPYB.js:310",
+    106.1
+   ],
+   [
+    "linkIndex c-DK9FXYLa.js:122",
+    105.9
+   ],
+   [
+    "readText c-BOkky_xV.js:25",
+    98.9
+   ],
+   [
+    "postMessage :0",
+    83.2
+   ],
+   [
+    "readTextOr c-BOkky_xV.js:43",
+    75.5
+   ],
+   [
+    "parseBlock c-s_LEVPYB.js:201",
+    71.5
+   ],
+   [
+    "loadStates c-C07ynPKE.js:139",
+    62.7
+   ],
+   [
+    "Icon c-BKXw5a7h.js:979",
+    57.8
+   ],
+   [
+    "evaluate :305",
+    56.4
+   ],
+   [
+    "queryRole :5371",
+    55
+   ]
+  ],
+  "longTasks": 2,
+  "longestMs": 153,
+  "longTotalMs": 209,
+  "peakMB": 78.5,
+  "opsToWorker": {
+   "write:enviado": {
+    "n": 0,
+    "ms": 0,
+    "MB": 0
+   },
+   "write": {
+    "n": 3,
+    "ms": 11,
+    "MB": 0
+   },
+   "remove": {
+    "n": 2,
+    "ms": 2,
+    "MB": 0
+   },
+   "read": {
+    "n": 4213,
+    "ms": 21252,
+    "MB": 29.1
+   },
+   "list": {
+    "n": 193,
+    "ms": 4488,
+    "MB": 0
+   },
+   "reset": {
+    "n": 1,
+    "ms": 760,
+    "MB": 0
+   }
+  },
+  "journal": 1
+ }
+}

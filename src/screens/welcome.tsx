@@ -3,7 +3,7 @@ import { Import, PackageOpen, Sparkles } from 'lucide-preact';
 import { exampleFiles } from '../lib/example';
 import { isStandalone, requestPersist } from '../lib/storage';
 import { useApp } from '../state';
-import { InstallSteps } from './settings';
+import { InstallSteps } from './install';
 
 export function Welcome() {
   const app = useApp();

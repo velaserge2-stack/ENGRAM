@@ -13,14 +13,50 @@ function fmt(tz: string): Intl.DateTimeFormat {
   return f;
 }
 
-/** "AAAA-MM-DD" del día de estudio al que pertenece `ts`. */
-export function dayKey(ts: number, tz: string, dayStartHour = 4): string {
+const offFmtCache = new Map<string, Intl.DateTimeFormat>();
+const HOUR = 3_600_000;
+/** Desfase (ms) de cada hora UTC por zona; `null` = la hora cruza un cambio de desfase (se calcula directo). Caché en memoria, reconstruible. */
+const offCache = new Map<string, Map<number, number | null>>();
+
+/** Desfase de `tz` en `ts` (ms), con la misma `Intl` que el cálculo directo. */
+function offsetAt(tz: string, ts: number): number {
+  let f = offFmtCache.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+    offFmtCache.set(tz, f);
+  }
+  const p = f.formatToParts(new Date(ts));
+  const g = (t: string) => Number(p.find((x) => x.type === t)!.value);
+  return Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second')) - Math.floor(ts / 1000) * 1000;
+}
+
+/** Año, mes, día y hora locales de `ts`: aritmética con el desfase cacheado por hora UTC (idéntico a `Intl`; si la hora cruza un cambio, directo). */
+function localParts(ts: number, tz: string): [number, number, number, number] {
+  if (Number.isFinite(ts) && ts > 0 && ts < 4e12) {
+    let c = offCache.get(tz);
+    if (!c) offCache.set(tz, (c = new Map()));
+    const b = Math.floor(ts / HOUR);
+    let off = c.get(b);
+    if (off === undefined) {
+      const a = offsetAt(tz, b * HOUR);
+      off = a === offsetAt(tz, b * HOUR + HOUR - 1000) ? a : null;
+      if (c.size > 50_000) c.clear();
+      c.set(b, off);
+    }
+    if (off !== null) {
+      const d = new Date(ts + off);
+      return [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), d.getUTCHours()];
+    }
+  }
   const parts = fmt(tz).formatToParts(new Date(ts));
   const get = (t: string) => Number(parts.find((p) => p.type === t)!.value);
-  let y = get('year');
-  let m = get('month');
-  let d = get('day');
-  if (get('hour') < dayStartHour) {
+  return [get('year'), get('month'), get('day'), get('hour')];
+}
+
+/** "AAAA-MM-DD" del día de estudio al que pertenece `ts`. */
+export function dayKey(ts: number, tz: string, dayStartHour = 4): string {
+  let [y, m, d, h] = localParts(ts, tz);
+  if (h < dayStartHour) {
     const prev = new Date(Date.UTC(y, m - 1, d - 1));
     y = prev.getUTCFullYear();
     m = prev.getUTCMonth() + 1;
