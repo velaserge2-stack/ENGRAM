@@ -3,7 +3,7 @@ import { Archive, Camera, Settings as Gear, Trash2, UserRound } from 'lucide-pre
 import { useState } from 'preact/hooks';
 import { useExtra } from '../data/extra';
 import { dayKey, streaks } from '../lib/days';
-import { EMPTY_PROFILE, initial, parseProfile, PHOTO_DIR, type Profile, PROFILE_PATH, serializeProfile } from '../lib/profile';
+import { EMPTY_PROFILE, initial, normUsername, parseProfile, PHOTO_DIR, type Profile, PROFILE_PATH, serializeProfile, usernameError } from '../lib/profile';
 import { activity, studyMs } from '../lib/stats';
 import { useApp, useAsync } from '../state';
 import { mediaUrl } from '../ui/background';
@@ -57,8 +57,9 @@ export function ProfileScreen() {
   const cards = app.col?.decks.reduce((n, d) => n + d.cards.length, 0) ?? 0;
   const hours = [...act.values()].reduce((n, a) => n + studyMs(a), 0) / 3_600_000;
   const set = (k: keyof Profile, v: string) => setDraft({ ...p, [k]: v });
+  const uerr = usernameError(normUsername(p.username));
   const write = async (next: Profile) => {
-    await app.vault.write(PROFILE_PATH, serializeProfile(next));
+    await app.vault.write(PROFILE_PATH, serializeProfile({ ...next, username: normUsername(next.username) }));
     setDraft(null);
     app.changed();
   };
@@ -78,6 +79,7 @@ export function ProfileScreen() {
         <Avatar profile={p} size={88} />
         <div class="stack-s" style={{ minWidth: 0 }}>
           <h2 class="ellipsis" data-user-content>{p.name || t('profile.sin_nombre')}</h2>
+          {saved.username && <p class="t2 ellipsis" data-user-content>@{saved.username}</p>}
           {p.bio && <p class="t2" style={{ whiteSpace: 'pre-line', overflowWrap: 'anywhere' }} data-user-content>{p.bio}</p>}
           {(p.program || p.institution || p.year) && <p class="foot" data-user-content>{[p.program, p.institution, p.year].filter(Boolean).join(' · ')}</p>}
           {p.motto && <p class="note" data-user-content>“{p.motto}”</p>}
@@ -120,6 +122,14 @@ export function ProfileScreen() {
 
       <Group title={t('profile.datos')}>
         {field('name', t('profile.nombre'), { max: 80 })}
+        <label class="field" style={{ padding: '6px 18px' }}>{t('profile.usuario')}
+          <span class="at-input">
+            <span aria-hidden="true">@</span>
+            <input class="input wide" value={p.username} maxLength={31} autocapitalize="off" autocorrect="off" spellcheck={false} aria-label={t('profile.usuario')} aria-invalid={!!uerr} aria-describedby="usuario-ayuda"
+              onInput={(e) => set('username', (e.target as HTMLInputElement).value.replace(/^@+/, ''))} data-user-content />
+          </span>
+          <span id="usuario-ayuda" class={uerr ? 'err' : 'foot'} role={uerr ? 'alert' : undefined}>{uerr ? t(`profile.usuario_${uerr}`) : t('profile.usuario_ayuda')}</span>
+        </label>
         {field('bio', t('profile.bio'), { area: true, max: 600 })}
         {field('program', t('profile.carrera'), { max: 120 })}
         {field('institution', t('profile.institucion'), { max: 120 })}
@@ -127,7 +137,7 @@ export function ProfileScreen() {
         {field('motto', t('profile.lema'), { max: 160 })}
         <div class="row wrap" style={{ padding: '10px 18px 14px', justifyContent: 'flex-end' }}>
           <button type="button" class="btn" disabled={!draft} onClick={() => setDraft(null)}>{t('settings.cancelar')}</button>
-          <button type="button" class="btn primary" disabled={!draft} onClick={() => void write(p)}>{t('profile.guardar')}</button>
+          <button type="button" class="btn primary" disabled={!draft || !!uerr} onClick={() => void write(p)}>{t('profile.guardar')}</button>
         </div>
       </Group>
       <div style={{ height: '24px' }} />

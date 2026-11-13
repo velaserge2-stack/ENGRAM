@@ -29,7 +29,7 @@ for (let d = 1; d < 61; d++) if (d % 5 !== 3) for (let i = 0; i < 10 + ((d * 7) 
 const VAULT = zipSync({ '.app/reviews.jsonl': strToU8(rev.join('\n') + '\n'), 'notes/historial.md': strToU8('# historial\n') }, { level: 0 });
 
 const external = [];
-async function fresh(init) {
+async function fresh(init, vault = VAULT) {
   const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: 'es-MX', acceptDownloads: true });
   if (init) await ctx.addInitScript(init);
   const page = await ctx.newPage();
@@ -40,7 +40,7 @@ async function fresh(init) {
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   await page.goto(URL_ + '#/mazos');
   await page.getByRole('button', { name: 'Importar archivo' }).click();
-  await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'h.zip', mimeType: 'application/zip', buffer: Buffer.from(VAULT) });
+  await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'h.zip', mimeType: 'application/zip', buffer: Buffer.from(vault) });
   await page.locator('.sheet').getByRole('button', { name: 'Importar', exact: true }).click();
   await page.waitForTimeout(1200);
   for (let i = 0; i < 3 && (await page.locator('.scrim').count()); i++) { await page.keyboard.press('Escape'); await page.waitForTimeout(200); }
@@ -177,6 +177,89 @@ try {
     await page.locator('.sheet').getByRole('button', { name: 'Compartir', exact: true }).click();
     check(!(await dl), 'cancelar la hoja del sistema no es un error (sin descarga ni aviso)');
     await ctx.close();
+  }
+
+  // ── @usuario (Perfil + imagen), lugar opcional sin GPS, fuego de la racha
+  {
+    const GEO = () => {
+      // trampa: cualquier uso de la geolocalización queda registrado
+      Object.defineProperty(navigator, 'geolocation', { configurable: true, get: () => { window.__geo = true; return { getCurrentPosition() {}, watchPosition() {} }; } });
+      Object.defineProperty(navigator, 'canShare', { configurable: true, value: (d) => !!d?.files?.length });
+      Object.defineProperty(navigator, 'share', { configurable: true, value: async () => {} });
+    };
+    const { ctx, page } = await fresh(GEO);
+    console.log('@usuario');
+    await openSheet(page);
+    const userSw = page.locator('.sheet').getByRole('switch', { name: '@usuario' });
+    check(await userSw.isDisabled() && (await page.locator('.sheet a[href="#/perfil"]').count()) === 1, 'sin @usuario en el perfil: interruptor desactivado y enlace a Perfil');
+    await page.keyboard.press('Escape');
+    await page.goto(URL_ + '#/perfil');
+    const u = page.getByRole('textbox', { name: 'Nombre de usuario' });
+    const box = await u.boundingBox();
+    const fs = await u.evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
+    check(fs >= 16 && box.height >= 44 && (await u.getAttribute('autocapitalize')) === 'off' && (await u.getAttribute('spellcheck')) === 'false', `campo con prefijo @, ≥ 16 px y sin autocorrección (${fs}px, ${Math.round(box.height)} px)`);
+    await page.getByLabel('Nombre', { exact: true }).fill('Ana');
+    await u.fill('@ab');
+    check(await page.getByRole('alert').filter({ hasText: 'entre 3 y 30' }).count() === 1 && await page.getByRole('button', { name: 'Guardar', exact: true }).isDisabled(), '«ab»: error legible y no se puede guardar');
+    await u.fill('Serge..V');
+    check(await page.getByRole('alert').filter({ hasText: '«..»' }).count() === 1, '«Serge..V»: error de puntos');
+    await u.fill('@SergeV');
+    check((await u.inputValue()) === 'SergeV', 'la @ tecleada se quita');
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await page.waitForTimeout(400);
+    check(await page.locator('.profile-head').getByText('@SergeV').count() === 1, 'el encabezado del perfil muestra @SergeV');
+    await openSheet(page);
+    let r = await ready(page);
+    check(!(await userSw.isDisabled()) && r.lines.includes('@SergeV') && r.alt.includes('@SergeV'), `con @usuario: aparece bajo el nombre (${JSON.stringify(r.lines)})`);
+    await userSw.click({ force: true });
+    r = await ready(page);
+    check(!r.lines.includes('@SergeV'), 'apagado: no aparece');
+    await userSw.click({ force: true });
+
+    console.log('Lugar');
+    const place = page.getByRole('textbox', { name: '¿Dónde estás estudiando?' });
+    check(await page.locator('.sheet').getByText('Evita compartir tu dirección exacta').count() === 1, 'aviso de privacidad en el campo');
+    r = await ready(page);
+    const n0 = r.lines.length;
+    await place.fill('Biblioteca central de la Facultad de Medicina, piso 3');
+    r = await ready(page);
+    const pl = r.lines.at(-1);
+    check(r.lines.length === n0 + 1 && [...pl].length === 40 && pl.endsWith('…'), `lugar largo: una línea más, recortada a 40 con «…» («${pl}»)`);
+    await page.locator('.share-prev img').screenshot({ path: `${OUT}share-lugar.png` });
+    await place.fill('');
+    r = await ready(page);
+    check(r.lines.length === n0, 'lugar vacío: sin línea ni hueco');
+    await place.fill('Café Punta del Cielo');
+    await ready(page);
+    await page.locator('.sheet').getByRole('button', { name: 'Compartir', exact: true }).click();
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Escape');
+    await openSheet(page);
+    check((await place.inputValue()) === '', 'al volver a abrir, el campo está vacío («Recordar el último lugar» apagado)');
+    const chip = page.locator('.sheet').getByRole('group', { name: 'Lugares recientes' }).getByRole('button', { name: 'Café Punta del Cielo' });
+    check(await chip.count() === 1, 'el lugar quedó en los recientes');
+    await chip.click();
+    check((await place.inputValue()) === 'Café Punta del Cielo', 'tocar un reciente lo escribe');
+    await page.locator('.sheet').getByRole('button', { name: 'Olvidar lugares' }).click();
+    check(await page.locator('.sheet').getByRole('group', { name: 'Lugares recientes' }).count() === 0, '«Olvidar lugares» los borra');
+    await page.keyboard.press('Escape');
+    check(!(await page.evaluate(() => window.__geo)), 'ninguna llamada a navigator.geolocation');
+    await ctx.close();
+
+    console.log('Fuego de la racha');
+    for (const n of [1, 12, 123]) {
+      const rv = [];
+      for (let d = 0; d < n; d++) for (let i = 0; i < 12; i++) rv.push(JSON.stringify({ id: 'y' + i, ts: now - d * 86_400_000 - i * 60_000, rating: 3, ms: 20_000, state: 2, ivl: 30 }));
+      const v = zipSync({ '.app/reviews.jsonl': strToU8(rv.join('\n') + '\n'), 'notes/x.md': strToU8('# x\n') }, { level: 0 });
+      const f = await fresh(null, v);
+      await openSheet(f.page);
+      await seg(f.page, 'Periodo', 'Todo');
+      const rr = await ready(f.page);
+      const fl = rr.flame;
+      check(fl && !fl.dim && fl.x + fl.w <= fl.textX && /Racha \(días\): (\d+)/.exec(rr.alt)?.[1].length === String(n).length, `racha de ${String(n).length} cifra(s): fuego a la izquierda sin tapar el número (${JSON.stringify(fl)}; «${/Racha[^,]*/.exec(rr.alt)?.[0]}»)`);
+      await f.page.locator('.share-prev img').screenshot({ path: `${OUT}share-racha-${n}.png` });
+      await f.ctx.close();
+    }
   }
 
   // ── fondo de la imagen = fondo activo, 5 fondos × 2 modos, contraste ≥ 4.5

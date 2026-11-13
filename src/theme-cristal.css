@@ -256,6 +256,7 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 .input::placeholder { color: var(--t3); }
 .input.wide { width: 100%; }
 .field { display: grid; gap: 4px; font-size: var(--t-note); color: var(--t2); }
+.at-input { display: flex; align-items: center; gap: 6px; } .at-input .input { min-height: 44px; } .at-input > span { font-size: 1rem; color: var(--t2); } /* @usuario: prefijo fijo, no editable */
 
 /* ───────── hojas ───────── */
 .scrim { position: fixed; inset: 0; z-index: var(--z-modal); background: rgba(0, 0, 0, .5); padding: 16px; display: flex; align-items: flex-end; justify-content: center; animation: fade .2s; }

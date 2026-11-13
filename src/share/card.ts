@@ -31,7 +31,9 @@ export interface CardInput {
   bgImg: Img | null;
   avatar: Img | null;
   mark: Img | null;
-  profile: { name: string; emoji: string; initial: string; line: string };
+  profile: { name: string; username: string; emoji: string; initial: string; line: string };
+  /** «¿Dónde estás estudiando?»: texto libre del usuario (vacío = sin línea); nunca GPS */
+  place?: string;
   show: Record<ShowKey, boolean>;
   sum: Summary;
   font: string;
@@ -45,6 +47,27 @@ export interface CardResult {
   empty: boolean;
   /** ¿lleva encabezado (foto/emoji/nombre/línea)? */
   head: boolean;
+  /** textos del encabezado en orden (nombre, @usuario, carrera/lema, lugar) */
+  lines: string[];
+  /** fuego de la racha: dónde quedó respecto al número (para las pruebas) */
+  flame: { x: number; w: number; textX: number; textW: number; dim: boolean } | null;
+}
+
+/** Trazos de Lucide (ISC) en su caja de 24 px; se dibujan con Path2D para verse igual en todo dispositivo. */
+export const ICON = {
+  pin: ['M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0', 'M15 10a3 3 0 1 1-6 0a3 3 0 1 1 6 0'],
+  flame: ['M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4'],
+};
+/** Icono de trazo de `size` px con su esquina en (x, y); grosor 2 en la caja de 24, como en la app. */
+function strokeIcon(ctx: CanvasRenderingContext2D, d: string[], x: number, y: number, size: number, color: string) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(size / 24, size / 24);
+  ctx.lineWidth = 2;
+  ctx.lineCap = ctx.lineJoin = 'round';
+  ctx.strokeStyle = color;
+  for (const p of d) ctx.stroke(new Path2D(p));
+  ctx.restore();
 }
 
 const rgba = (c: RGB, a: number) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
@@ -119,30 +142,41 @@ export function compose(i: CardInput): CardResult {
   /** un bloque: alto a escala 1 y cómo dibujarse en (x, y) con escala s */
   type Block = { h: number; draw: (y: number, s: number) => void };
   const blocks: Block[] = [];
+  let flame: CardResult['flame'] = null;
 
-  const line = [i.profile.line].filter(Boolean)[0];
-  const head = (sh.photo && (i.avatar || i.profile.emoji || i.profile.initial)) || (sh.name && i.profile.name) || (sh.line && line);
+  // encabezado: avatar + líneas de texto (nombre, @usuario, carrera/lema), centradas en el avatar
+  type HLine = { text: string; size: number; weight: number; color: string; lh: number; pin?: boolean };
+  const hl: HLine[] = [];
+  if (sh.name && i.profile.name.trim()) hl.push({ text: i.profile.name.trim(), size: 56, weight: 700, color: t1, lh: 66 });
+  if (sh.user && i.profile.username) hl.push({ text: `@${i.profile.username}`, size: 34, weight: 500, color: t2, lh: 44 });
+  if (sh.line && i.profile.line) hl.push({ text: i.profile.line, size: 32, weight: 400, color: t2, lh: 42 });
+  if (i.place?.trim()) hl.push({ text: i.place.trim(), size: 32, weight: 500, color: t2, lh: 46, pin: true });
+  const avatarOn = !!(sh.photo && (i.avatar || i.profile.emoji || i.profile.initial));
+  const textH = hl.reduce((n, l) => n + l.lh, 0);
+  const head = avatarOn || hl.length > 0;
   if (head) blocks.push({
-    h: 132,
+    h: Math.max(avatarOn ? 132 : 0, textH),
     draw: (y, s) => {
       let x = z.x + pad * s;
       const A = 132 * s;
-      if (sh.photo && (i.avatar || i.profile.emoji || i.profile.initial)) {
+      const h = Math.max(avatarOn ? 132 : 0, textH) * s;
+      if (avatarOn) {
+        const ay = y + (h - A) / 2;
         ctx.save();
         ctx.beginPath();
-        ctx.arc(x + A / 2, y + A / 2, A / 2, 0, Math.PI * 2);
+        ctx.arc(x + A / 2, ay + A / 2, A / 2, 0, Math.PI * 2);
         ctx.fillStyle = i.mode === 'dark' ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.06)';
         ctx.fill();
         ctx.clip();
         if (i.avatar) {
           const k = Math.max(A / i.avatar.width, A / i.avatar.height);
-          ctx.drawImage(i.avatar, x + (A - i.avatar.width * k) / 2, y + (A - i.avatar.height * k) / 2, i.avatar.width * k, i.avatar.height * k);
+          ctx.drawImage(i.avatar, x + (A - i.avatar.width * k) / 2, ay + (A - i.avatar.height * k) / 2, i.avatar.width * k, i.avatar.height * k);
         } else {
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillStyle = t1;
           ctx.font = font(i.profile.emoji ? 400 : 700, A * (i.profile.emoji ? 0.56 : 0.46));
-          ctx.fillText(i.profile.emoji || i.profile.initial, x + A / 2, y + A / 2 + (i.profile.emoji ? A * 0.03 : 0));
+          ctx.fillText(i.profile.emoji || i.profile.initial, x + A / 2, ay + A / 2 + (i.profile.emoji ? A * 0.03 : 0));
         }
         ctx.restore();
         x += A + 32 * s;
@@ -150,17 +184,16 @@ export function compose(i: CardInput): CardResult {
       const maxW = z.x + z.w - pad * s - x;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
-      const name = sh.name ? i.profile.name.trim() : '';
-      const sub = sh.line ? line : '';
-      if (name) {
-        ctx.font = font(700, 56 * s);
-        ctx.fillStyle = t1;
-        ctx.fillText(ellipsize(name, maxW, (q) => ctx.measureText(q).width), x, y + A / 2 + (sub ? -4 * s : 20 * s));
-      }
-      if (sub) {
-        ctx.font = font(400, 32 * s);
-        ctx.fillStyle = t2;
-        ctx.fillText(ellipsize(sub, maxW, (q) => ctx.measureText(q).width), x, y + A / 2 + (name ? 44 * s : 12 * s));
+      let ty = y + (h - textH * s) / 2;
+      for (const l of hl) {
+        ctx.font = font(l.weight, l.size * s);
+        ctx.fillStyle = l.color;
+        const base = ty + (l.lh * 0.5 + l.size * 0.36) * s;
+        // el lugar lleva un pin a la izquierda, a la altura de la línea
+        const ic = l.pin ? l.size * 0.95 * s : 0, icGap = l.pin ? 10 * s : 0;
+        if (l.pin) strokeIcon(ctx, ICON.pin, x, ty + (l.lh * s - ic) / 2, ic, l.color);
+        ctx.fillText(ellipsize(l.text, maxW - ic - icGap, (q) => ctx.measureText(q).width), x + ic + icGap, base);
+        ty += l.lh * s;
       }
     },
   });
@@ -202,10 +235,10 @@ export function compose(i: CardInput): CardResult {
       },
     });
     const small = ([
-      sh.streak && [nf.format(sum.streak), t('share.racha_dias')],
+      sh.streak && [nf.format(sum.streak), t('share.racha_dias'), 'flame'],
       sh.days && [nf.format(sum.days), t('share.dias_estudiados')],
       sh.retention && sum.retention !== null && [`${nf.format(Math.round(sum.retention * 100))} %`, t('share.retencion')],
-    ].filter(Boolean) as [string, string][]);
+    ].filter(Boolean) as [string, string, 'flame'?][]);
     if (small.length) blocks.push({
       h: 104,
       draw: (y, s) => {
@@ -213,13 +246,31 @@ export function compose(i: CardInput): CardResult {
         // separador fino arriba (jerarquía sin color)
         ctx.fillStyle = i.mode === 'dark' ? 'rgba(255,255,255,.09)' : 'rgba(0,0,0,.08)';
         ctx.fillRect(z.x + pad * s, y - 20 * s, z.w - 2 * pad * s, 2);
-        small.forEach(([v, k], j) => {
+        small.forEach(([v, k, icon], j) => {
           const x = z.x + pad * s + j * (colW + 32 * s);
           ctx.textAlign = 'left';
           ctx.textBaseline = 'alphabetic';
           ctx.fillStyle = t1;
-          fit(v, colW, 60 * s);
-          ctx.fillText(v, x, y + 60 * s);
+          if (icon) {
+            // racha: fuego vectorial a la izquierda del número, a su altura, con el color del texto
+            // (sin acento); con racha 0, atenuado. Se mide el número para que nunca lo tape.
+            let size = 60 * s;
+            const box = () => size * 0.86, gap = () => size * 0.14;
+            ctx.font = font(700, size);
+            const m = ctx.measureText(v).width;
+            if (m + box() + gap() > colW) size *= colW / (m + box() + gap());
+            ctx.font = font(700, size);
+            const base = y + 60 * s;
+            ctx.save();
+            ctx.globalAlpha = sum.streak ? 1 : 0.4;
+            strokeIcon(ctx, ICON.flame, x, base - size * 0.36 - box() / 2, box(), t1);
+            ctx.restore();
+            flame = { x, w: box(), textX: x + box() + gap(), textW: ctx.measureText(v).width, dim: !sum.streak };
+            ctx.fillText(v, x + box() + gap(), base);
+          } else {
+            fit(v, colW, 60 * s);
+            ctx.fillText(v, x, y + 60 * s);
+          }
           ctx.fillStyle = t2;
           fit(k, colW, 28 * s, 500);
           ctx.fillText(k, x, y + 100 * s);
@@ -312,7 +363,7 @@ export function compose(i: CardInput): CardResult {
   let y = midTop + Math.max(0, (free - gap * (blocks.length - 1)) / 2);
   for (const b of blocks) (b.draw(y, s), (y += b.h * s + gap));
 
-  return { canvas, alpha, contrast: c, empty, head: !!head };
+  return { canvas, alpha, contrast: c, empty, head: !!head, lines: hl.map((l) => l.text), flame };
 }
 
 /** PNG (texto nítido); si pasa de 8 MB, JPEG de alta calidad. Suelta el canvas al terminar. */
