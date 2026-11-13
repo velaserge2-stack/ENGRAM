@@ -53,8 +53,8 @@ afterEach(() => vi.restoreAllMocks());
 
 // ───────────────────────── 1 · determinismo FSRS ─────────────────────────
 describe('auditoría · determinismo FSRS', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('una línea con ts fuera de rango (1e400, -1e20) no envenena la tarjeta (estabilidad NaN para siempre)', () => {
+  // auditoría: corregido (plan 6)
+  it('una línea con ts fuera de rango (1e400, -1e20) no envenena la tarjeta (estabilidad NaN para siempre)', () => {
     const text = [`{"id":"c","ts":${T},"rating":3}`, '{"id":"c","ts":1e400,"rating":3}', `{"id":"c","ts":${T + 3 * DAY},"rating":3}`].join('\n');
     const st = replay(parseLog(text).entries, P).get('c')!;
     expect(Number.isFinite(st.card.stability)).toBe(true);
@@ -81,12 +81,29 @@ describe('auditoría · determinismo FSRS', () => {
     await expect(loadStates(v, P)).rejects.toBeTruthy();
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('applyReview con el reloj atrasado (ts < último repaso) no lanza (si lanza, Estudio queda en busy)', () => {
+  // auditoría: corregido (plan 6)
+  it('applyReview con el reloj atrasado (ts < último repaso) no lanza (si lanza, Estudio queda en busy)', () => {
     const f = scheduler(P);
     const st = newState();
     applyReview(f, st, 'x', 3, T + 5 * DAY, 1000);
     expect(() => applyReview(f, st, 'x', 3, T + 3 * DAY, 1000)).not.toThrow();
+  });
+
+  it('plan 6: con el reloj atrasado (también tras «olvidar») el estado en vivo == replay del historial escrito', () => {
+    const f = scheduler(P);
+    const st = newState();
+    const es = [applyReview(f, st, 'x', 3, T + 5 * DAY, 1000), applyReview(f, st, 'x', 1, T + 3 * DAY, 1000)];
+    expect(es[1]!.ts).toBe(T + 5 * DAY + 1); // distinto ts: deshacer uno no deshace el otro
+    const forget = { id: 'x', ts: T + 6 * DAY, op: 'forget' as const };
+    Object.assign(st, newState(forget.ts), { history: st.history });
+    es.push(forget, applyReview(f, st, 'x', 4, T + 2 * DAY, 1000));
+    expect(JSON.stringify(replay(es, P).get('x')!.card)).toBe(JSON.stringify(st.card));
+  });
+
+  it('plan 6: parseLog descarta op desconocida, entradas sin calificación ni op y calificación con op', () => {
+    const r = parseLog([`{"id":"a","ts":${T},"rating":3}`, `{"id":"zz","ts":5}`, `{"id":"a","ts":${T},"op":"borrar"}`, `{"id":"a","ts":${T},"rating":3,"op":"undo"}`, `{"id":"a","ts":${T},"op":"undo","ref":${T}}`, `{"id":"a","ts":-1e20,"op":"suspend"}`].join('\n'));
+    expect(r.entries).toHaveLength(2);
+    expect(r.bad).toBe(4);
   });
 
   // auditoría: cambiar a it() al corregir
