@@ -30,7 +30,7 @@ import { FRAMING_PATH, normFraming, parseFramings } from './lib/framing';
 import { readTextOr } from './vault/util';
 import { PhoneTabBar } from './ui/phonebar';
 import { usePhone } from './ui/kit';
-import { Avatar, useProfile } from './screens/profile';
+import { Avatar, useProfile } from './ui/avatar';
 import { addonOn } from './screens/addons';
 import { AmbientController, AmbientPlayer, MiniAmbient } from './screens/ambient';
 import { Headphones } from 'lucide-preact';

@@ -14,7 +14,7 @@ import { DeckPanel } from './decks';
 import { AddExamButton, ExamCard } from './exams';
 import { Heatmap } from './heatmap';
 import { PomodoroPanel } from './pomodoro';
-import { useProfile } from './profile';
+import { useProfile } from '../ui/avatar';
 
 export function byDeckFn(app: ReturnType<typeof useApp>) {
   return (day: string) => {
