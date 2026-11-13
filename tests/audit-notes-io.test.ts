@@ -68,6 +68,9 @@ describe('auditoría · notas', () => {
     vi.setSystemTime(new Date('2026-11-14T03:00:00Z')); // 21:00 del 13 en CDMX
     try {
       expect(classNoteFromPlaud('T', []) ).toContain('fecha: 2026-11-13');
+      // pendiente de 23: sin materia ni tema no se escriben vacíos
+      expect(classNoteFromPlaud('T', [])).toMatch(/^---\nfecha: 2026-11-13\nfuente: plaud\n/);
+      expect(classNoteFromPlaud('T', [], 'Cardio')).toMatch(/^---\nmateria: Cardio\nfecha:/);
     } finally {
       vi.useRealTimers();
       if (prev === undefined) delete process.env.TZ; else process.env.TZ = prev;

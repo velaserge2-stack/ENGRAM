@@ -6,7 +6,7 @@ import { parseFrontmatter, rewriteDoc, stringifyFrontmatter } from '../lib/front
 import { docxToMarkdown, pdfToMarkdown } from '../notes/io';
 import { saveImage } from '../notes/images';
 import { STREAM_FROM } from '../io/import';
-import { buildTree, classNoteFromPlaud, glossarySuggestions, listNotes, newNoteText, notePath, plaudGroupKey, plaudKind, type PlaudKind, replaceAll, suggestPlace } from '../notes/model';
+import { buildTree, classNoteFromPlaud, glossarySuggestions, listNotes, localDate, newNoteText, notePath, plaudGroupKey, plaudKind, type PlaudKind, replaceAll, suggestPlace } from '../notes/model';
 import { go, href, useApp, useAsync } from '../state';
 import { Empty, PageTitle } from '../ui/kit';
 import { extname, withSuffix } from '../vault/paths';
@@ -103,7 +103,7 @@ async function intake(vault: ReturnType<typeof useApp>['vault'], files: File[], 
     } else {
       item.kind = item.files.some((x) => x.kind === 'doc') ? 'documento' : 'nota';
       const t = parts.map((p) => p.text ?? '').join('\n\n');
-      item.draft = /^---\n/.test(t) ? t : stringifyFrontmatter({ materia: '', tema: '', fecha: new Date().toISOString().slice(0, 10), tags: [] }, `# ${item.title}\n\n${t}\n`);
+      item.draft = /^---\n/.test(t) ? t : stringifyFrontmatter({ fecha: localDate(), tags: [] }, `# ${item.title}\n\n${t}\n`);
     }
     await vault.write(META(id), JSON.stringify(item));
   }

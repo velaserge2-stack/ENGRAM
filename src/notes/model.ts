@@ -281,7 +281,7 @@ export function srtToText(srt: string): string {
 }
 
 /** Fecha local AAAA-MM-DD (no UTC). */
-const localDate = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+export const localDate = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 export function classNoteFromPlaud(title: string, parts: { kind: PlaudKind; name: string; text?: string; media?: string }[], materia = '', tema = ''): string {
   const resumen = parts.filter((p) => p.kind === 'resumen').map((p) => parseFrontmatter(p.text ?? '').body.trim()).join('\n\n');
@@ -310,7 +310,8 @@ export function classNoteFromPlaud(title: string, parts: { kind: PlaudKind; name
     '',
     ...(trans ? ['> [!quote]- Transcripción', ...trans.split('\n').map((l) => `> ${l}`)] : []),
   ].join('\n');
-  return stringifyFrontmatter({ materia, tema, fecha: localDate(), fuente: 'plaud', tags: [] }, body + '\n');
+  // materia y tema solo si tienen valor (Prompt 12); el orden de las claves es el de siempre
+  return stringifyFrontmatter({ ...(materia.trim() ? { materia } : {}), ...(tema.trim() ? { tema } : {}), fecha: localDate(), fuente: 'plaud', tags: [] }, body + '\n');
 }
 
 /** Sugerencias del glosario: palabras parecidas a un término correcto (posibles errores de transcripción). */
