@@ -7,7 +7,7 @@ import { parseFrontmatter } from '../lib/frontmatter';
 import { basename, extname, normalizePath, withSuffix } from '../vault/paths';
 import { batch, type BatchOptions } from '../vault/safe';
 import type { VaultAdapter } from '../vault/types';
-import { appendLines, blobChecksum, bytesEqual, decodeText } from '../vault/util';
+import { appendLines, blobChecksum, bytesEqual, decodeText, walk } from '../vault/util';
 import { LIMITS } from './limits';
 import type { ApkgResult } from './apkg';
 import type { LogEntry } from '../srs/engine';
@@ -181,9 +181,19 @@ export async function buildPlan(vault: VaultAdapter, files: VaultFile[]): Promis
   const seen = new Map<string, VaultFile>();
   for (const f of files) seen.set(f.path, f); // si el lote repite ruta, gana el último
   const plan: PlanItem[] = [];
+  // Prompt 21 · 3b: qué existe ya, con UN listado por carpeta raíz afectada en lugar de un `exists` por
+  // archivo (restaurar L: 2 607 viajes al Worker). Solo las raíces que trae el lote; la respuesta es la misma.
+  const roots = [...new Set([...seen.keys()].map((p) => (p.includes('/') ? p.slice(0, p.indexOf('/')) : '')))];
+  const have = new Set<string>();
+  for (const r of roots) {
+    if (r) for (const st of await walk(vault, r)) have.add(st.path);
+    else for (const st of await vault.list('')) if (st.kind === 'file') have.add(st.path);
+  }
+  const lower = new Set([...have].map((p) => p.toLowerCase()));
   for (const f of seen.values()) {
     let status: ItemStatus = 'new';
-    if (await vault.exists(f.path)) {
+    // solo coincide sin mayúsculas (disco sin distinción, p. ej. una carpeta en macOS): se pregunta al disco
+    if (have.has(f.path) || (lower.has(f.path.toLowerCase()) && (await vault.exists(f.path)))) {
       if (f.blob) {
         // grande: tamaño y suma por trozos (sin leer ninguno de los dos entero)
         const cur = vault.hash ? await vault.hash(f.path) : null;
