@@ -105,39 +105,39 @@ describe('auditoría · md', () => {
 });
 
 describe('auditoría · simulacros', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('una lista numerada dentro de «Explicación:» no crea preguntas nuevas', () => {
+  // auditoría: corregido (menores)
+  it('una lista numerada dentro de «Explicación:» no crea preguntas nuevas', () => {
     const qs = parseText('1. ¿Cuál?\n A) uno*\n B) dos\n Explicación: pasos:\n 2. primero\n 3. segundo\n');
     expect(qs).toHaveLength(1);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('una opción en negritas al final («**texto**») no se toma por la marca de correcta', () => {
+  // auditoría: corregido (menores)
+  it('una opción en negritas al final («**texto**») no se toma por la marca de correcta', () => {
     const [q] = parseText('1. ¿Cuál?\n A) **Aspirina**\n B) otra\n Respuesta: B\n');
     expect(q!.options[0]!.text).toBe('**Aspirina**');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('serializar y volver a leer no pega el caso anterior a una pregunta sin caso', () => {
+  // auditoría: corregido (menores)
+  it('serializar y volver a leer no pega el caso anterior a una pregunta sin caso', () => {
     const a = finalize({ n: 1, case: 'Caso X', text: 'P1', options: [{ key: 'A', text: 'a' }, { key: 'B', text: 'b' }], answer: ['A'], explanation: '', topic: '' });
     const b = finalize({ n: 2, case: '', text: 'P2', options: [{ key: 'A', text: 'a' }, { key: 'B', text: 'b' }], answer: ['A'], explanation: '', topic: '' });
     const back = parseText(serializeBank({ name: 'x', minutes: 10, shuffle: false, questions: [a, b] }).replace(/^---[\s\S]*?---\n/, ''));
     expect(back[1]!.case).toBe('');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('dos preguntas idénticas no comparten id (la puntuación contaría la respuesta dos veces)', () => {
+  // auditoría: corregido (menores)
+  it('dos preguntas idénticas no comparten id (la puntuación contaría la respuesta dos veces)', () => {
     const qs = parseText('1. Igual\n A) a*\n B) b\n\n2. Igual\n A) a*\n B) b\n');
     expect(qs[0]!.id).not.toBe(qs[1]!.id);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('qid distingue preguntas que solo difieren en un emoji', () => {
+  // auditoría: corregido (menores)
+  it('qid distingue preguntas que solo difieren en un emoji', () => {
     expect(qid('😀', [])).not.toBe(qid('😁', []));
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('isCorrect rechaza respuestas con letras repetidas ([A,A] frente a [A,B])', () => {
+  // auditoría: corregido (menores)
+  it('isCorrect rechaza respuestas con letras repetidas ([A,A] frente a [A,B])', () => {
     const q = finalize({ n: 1, case: '', text: 'x', options: [{ key: 'A', text: 'a' }, { key: 'B', text: 'b' }], answer: ['A', 'B'], explanation: '', topic: '' });
     expect(isCorrect(q, ['A', 'A'])).toBe(false);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('JSON con más de 6 opciones no genera claves undefined', () => {
+  // auditoría: corregido (menores)
+  it('JSON con más de 6 opciones no genera claves undefined', () => {
     const qs = parseBankJSON(JSON.stringify([{ pregunta: 'p', opciones: ['1', '2', '3', '4', '5', '6', '7'], correcta: 'A' }]));
     expect(qs[0]!.options.every((o) => typeof o.key === 'string' && o.key)).toBe(true);
   });

@@ -34,7 +34,7 @@ export interface Bank {
 
 export function qid(text: string, opts: { text: string }[]): string {
   let h = 0x811c9dc5;
-  for (const ch of text + '|' + opts.map((o) => o.text).join('|')) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
+  for (const ch of text + '|' + opts.map((o) => o.text).join('|')) h = Math.imul(h ^ ch.codePointAt(0)!, 0x01000193);
   return (h >>> 0).toString(36);
 }
 
@@ -60,6 +60,16 @@ export function finalize(q: Omit<Question, 'id' | 'problems'> & { problems?: str
   return { ...q, problems, id: qid(q.case + q.text, q.options) };
 }
 
+/** Dos preguntas idénticas no pueden compartir id (score/byTopic indexan por id): la primera conserva el suyo, las siguientes llevan «-2», «-3»… */
+function uniqueIds(qs: Question[]): Question[] {
+  const seen = new Map<string, number>();
+  return qs.map((q) => {
+    const n = (seen.get(q.id) ?? 0) + 1;
+    seen.set(q.id, n);
+    return n > 1 ? { ...q, id: `${q.id}-${n}` } : q;
+  });
+}
+
 export function parseText(text: string): Question[] {
   const lines = text.replace(/\r/g, '').split('\n');
   const out: (Omit<Question, 'id' | 'problems'>)[] = [];
@@ -68,7 +78,15 @@ export function parseText(text: string): Question[] {
   let cur: (typeof out)[number] | null = null;
   let mode: 'text' | 'exp' | 'opt' = 'text';
   const key = new Map<number, string[]>();
-  for (const raw of lines) {
+  // dentro de una explicación, «N. …» abre pregunta solo si después vienen opciones (si no, es una lista numerada)
+  const opensQuestion = (from: number) => {
+    for (let j = from + 1; j < lines.length; j++) {
+      if (Q_RE.test(lines[j]!) || CASE_RE.test(lines[j]!)) return false;
+      if (OPT_RE.test(lines[j]!)) return true;
+    }
+    return false;
+  };
+  for (const [li, raw] of lines.entries()) {
     const line = raw.trimEnd();
     if (/^\s*<!--.*-->\s*$/.test(line)) continue;
     let m: RegExpExecArray | null;
@@ -85,7 +103,7 @@ export function parseText(text: string): Question[] {
       cur = null;
       continue;
     }
-    if ((m = Q_RE.exec(line))) {
+    if ((m = Q_RE.exec(line)) && (mode !== 'exp' || !cur || opensQuestion(li))) {
       inCase = false;
       cur = { n: Number(m[1]), case: caseText, text: m[2]!, options: [], answer: [], explanation: '', topic: '' };
       out.push(cur);
@@ -100,8 +118,8 @@ export function parseText(text: string): Question[] {
     if ((m = OPT_RE.exec(line)) && mode !== 'exp') {
       let t = m[2]!.trim();
       const k = m[1]!.toUpperCase();
-      if (/\s*\*$/.test(t)) {
-        t = t.replace(/\s*\*$/, '');
+      if (/(?<!\*)\s*\*$/.test(t)) {
+        t = t.replace(/(?<!\*)\s*\*$/, '');
         if (!cur.answer.includes(k)) cur.answer.push(k);
       }
       cur.options.push({ key: k, text: t });
@@ -121,7 +139,7 @@ export function parseText(text: string): Question[] {
     }
   }
   for (const q of out) if (!q.answer.length && key.has(q.n)) q.answer = key.get(q.n)!;
-  return out.map(finalize);
+  return uniqueIds(out.map(finalize));
 }
 
 export function parseBankMarkdown(text: string, fallbackName: string): Bank {
@@ -148,24 +166,24 @@ export function parseBankCSV(text: string): Question[] {
   const ci = idx(['correcta', 'respuesta', 'answer'], 6);
   const ei = idx(['explicación', 'explicacion', 'explanation'], 7);
   const ti = idx(['tema', 'topic'], 8);
-  return rows.slice(hasHeader ? 1 : 0).map((r, n) => {
+  return uniqueIds(rows.slice(hasHeader ? 1 : 0).map((r, n) => {
     const options = oi.map((i, k) => ({ key: 'ABCDE'[k]!, text: (i >= 0 ? r[i] ?? '' : '').trim() })).filter((o) => o.text);
     return finalize({ n: n + 1, case: '', text: (r[qi] ?? '').trim(), options, answer: letters(ci >= 0 ? r[ci] ?? '' : ''), explanation: (ei >= 0 ? r[ei] ?? '' : '').trim(), topic: (ti >= 0 ? r[ti] ?? '' : '').trim() });
-  });
+  }));
 }
 
 /** JSON: [{pregunta, opciones: [..] | {A: ..}, correcta, explicacion, tema, caso}] */
 export function parseBankJSON(text: string): Question[] {
   const data = JSON.parse(text) as unknown;
   const arr = (Array.isArray(data) ? data : (data as { preguntas?: unknown[]; questions?: unknown[] }).preguntas ?? (data as { questions?: unknown[] }).questions ?? []) as Record<string, unknown>[];
-  return arr.map((o, n) => {
+  return uniqueIds(arr.map((o, n) => {
     const raw = o.opciones ?? o.options ?? [];
     const options = Array.isArray(raw)
-      ? raw.map((t, k) => ({ key: 'ABCDEF'[k]!, text: String(t) }))
+      ? raw.map((t, k) => ({ key: String.fromCharCode(65 + k), text: String(t) }))
       : Object.entries(raw as Record<string, unknown>).map(([k, t]) => ({ key: k.toUpperCase(), text: String(t) }));
     const ans = o.correcta ?? o.respuesta ?? o.answer ?? '';
     return finalize({ n: n + 1, case: String(o.caso ?? o.case ?? ''), text: String(o.pregunta ?? o.question ?? ''), options, answer: Array.isArray(ans) ? ans.map((x) => String(x).toUpperCase()) : letters(String(ans)), explanation: String(o.explicacion ?? o.explicación ?? o.explanation ?? ''), topic: String(o.tema ?? o.topic ?? '') });
-  });
+  }));
 }
 
 export function summarize(qs: Question[]): string {
@@ -183,7 +201,8 @@ export function serializeBank(b: Bank): string {
   let lastCase = '';
   const body = b.questions.map((q, i) => {
     const parts: string[] = [];
-    if (q.case && q.case !== lastCase) parts.push(`Caso:: ${q.case}\n`);
+    // sin caso tras una con caso: «Caso::» vacío corta la herencia al releer
+    if (q.case !== lastCase) parts.push(q.case ? `Caso:: ${q.case}\n` : 'Caso::\n');
     lastCase = q.case;
     if (q.problems.length) parts.push(`<!-- borrador: ${q.problems.join(', ')} -->`);
     parts.push(`${i + 1}. ${q.text}`);
@@ -198,7 +217,8 @@ export function serializeBank(b: Bank): string {
 
 export function isCorrect(q: Question, given: string[] | undefined): boolean {
   if (!given?.length) return false;
-  return given.length === q.answer.length && given.every((g) => q.answer.includes(g));
+  const g = new Set(given);
+  return g.size === q.answer.length && [...g].every((x) => q.answer.includes(x));
 }
 
 export interface Score {
