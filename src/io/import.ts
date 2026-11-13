@@ -5,7 +5,7 @@ import { errMsg, t } from '../i18n';
  */
 import { parseFrontmatter } from '../lib/frontmatter';
 import { basename, extname, normalizePath, withSuffix } from '../vault/paths';
-import { batch } from '../vault/safe';
+import { batch, type BatchOptions } from '../vault/safe';
 import type { VaultAdapter } from '../vault/types';
 import { appendLines, blobChecksum, bytesEqual, decodeText } from '../vault/util';
 import { LIMITS } from './limits';
@@ -207,8 +207,10 @@ export function applyPlan(
   vault: VaultAdapter,
   plan: PlanItem[],
   resolve: (item: PlanItem) => Resolution,
+  opts?: BatchOptions,
 ): Promise<ApplyResult> {
-  return batch(vault, (tx) => applyPlanIn(tx, plan, resolve)); // toda la importación en un solo diario
+  // toda la importación en un solo diario; Cancelar antes del diario no cambia nada
+  return batch(vault, (tx) => applyPlanIn(tx, plan, resolve), opts);
 }
 async function applyPlanIn(vault: VaultAdapter, plan: PlanItem[], resolve: (item: PlanItem) => Resolution): Promise<ApplyResult> {
   const res: ApplyResult = { written: [], skipped: [], previous: new Map() };

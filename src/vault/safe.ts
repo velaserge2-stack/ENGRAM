@@ -103,9 +103,17 @@ function validBatch(j: Partial<BatchJournal>): j is BatchJournal {
     j.removes.every((p) => safeTarget(p)) && j.dirs.every((p) => safeTarget(p));
 }
 
+/**
+ * Progreso y cancelación de un lote (Prompt 21 · 3b). `onProgress(hecho, total)` cuenta los archivos
+ * confirmados. `signal` cancela mientras se escriben los temporales (se borran y no cambia nada); una vez
+ * escrito el diario el lote ya no se cancela: aplicarlo son solo renombrados y es lo seguro.
+ */
+export interface BatchOptions { onProgress?: (done: number, total: number) => void; signal?: AbortSignal }
+const aborted = () => new DOMException('Cancelado', 'AbortError');
+
 /** Ejecuta `fn` en un lote de SafeVault (un diario para todo); dentro de otro lote, en ese mismo; sin SafeVault, directo. */
-export function batch<T>(vault: VaultAdapter, fn: (tx: VaultAdapter) => Promise<T>): Promise<T> {
-  return vault instanceof SafeVault ? vault.batch(fn) : fn(vault);
+export function batch<T>(vault: VaultAdapter, fn: (tx: VaultAdapter) => Promise<T>, opts?: BatchOptions): Promise<T> {
+  return vault instanceof SafeVault ? vault.batch(fn, opts) : fn(vault);
 }
 
 export class SafeVault implements VaultAdapter {
@@ -230,14 +238,15 @@ export class SafeVault implements VaultAdapter {
    * diario → renombrar temporales a su destino → renombrar movidos → borrar → quitar el diario.
    * Si `fn` lanza no se escribe nada. Recuperación: ver `replayBatch`.
    */
-  async batch<T>(fn: (tx: Batch) => Promise<T>): Promise<T> {
+  async batch<T>(fn: (tx: Batch) => Promise<T>, opts: BatchOptions = {}): Promise<T> {
     const tx = new Batch(this.raw);
     const r = await fn(tx);
-    if (tx.size) await this.serial(() => this.commitBatch(tx));
+    if (opts.signal?.aborted) throw aborted();
+    if (tx.size) await this.serial(() => this.commitBatch(tx, opts));
     return r;
   }
 
-  private async commitBatch(tx: Batch) {
+  private async commitBatch(tx: Batch, opts: BatchOptions = {}) {
     const writes: BatchJournal['writes'] = [];
     const moves: BatchJournal['moves'] = [];
     const removes: string[] = [];
@@ -249,9 +258,13 @@ export class SafeVault implements VaultAdapter {
       moves.push(s.src.toLowerCase() === p.toLowerCase() ? { from: s.src, to: p, via: newTmp() } : { from: s.src, to: p });
     }
     for (const [p, s] of tx.st) if (s.k === 'gone' && !from.has(p)) removes.push(p);
+    let n = 0;
+    const total = [...tx.st.values()].filter((s) => s.k === 'data').length + moves.length;
     try {
       for (const [p, s] of tx.st) {
         if (s.k !== 'data') continue;
+        if (opts.signal?.aborted) throw aborted(); // aún sin diario: se borran los temporales y no cambia nada
+        opts.onProgress?.(n++, total);
         const w = { path: p, tmp: newTmp(), size: 0, hash: '' };
         writes.push(w);
         if (s.data instanceof Uint8Array) {
@@ -278,6 +291,7 @@ export class SafeVault implements VaultAdapter {
       await this.applyBatch(j, check);
     });
     await this.raw.remove(JOURNAL_PATH);
+    opts.onProgress?.(total, total);
   }
 
   /** Aplica un lote. Con `check`, salta lo que ya está hecho (reintento o recuperación). */

@@ -128,6 +128,32 @@ describe('SafeVault.batch: vista del lote', () => {
   });
 });
 
+describe('SafeVault.batch: progreso y Cancelar', () => {
+  it('cancelar mientras se escriben los temporales: no cambia nada, sin temporales ni diario', async () => {
+    const m = new MemoryBackend();
+    await seed(m);
+    const before = await snapshot(m);
+    const ac = new AbortController();
+    const seen: number[] = [];
+    await expect(new SafeVault(m).batch(work, { signal: ac.signal, onProgress: (d) => (seen.push(d), d === 1 && ac.abort()) })).rejects.toThrow(/Cancelado/);
+    expect(await snapshot(m)).toEqual(before);
+    expect(await m.exists(JOURNAL_PATH)).toBe(false);
+    expect(await m.exists(TMP_DIR)).toBe(false);
+    expect(seen).toEqual([0, 1]);
+  });
+  it('sin cancelar: progreso de 0 a total y el mismo resultado', async () => {
+    const { after } = await expected();
+    const m = new MemoryBackend();
+    await seed(m);
+    const seen: [number, number][] = [];
+    await new SafeVault(m).batch(work, { onProgress: (d, n) => seen.push([d, n]) });
+    expect(await snapshot(m)).toEqual(after);
+    const n = seen[0]![1];
+    expect(seen.at(-1)).toEqual([n, n]);
+    expect(seen.map((x) => x[0])).toEqual([...seen.map((x) => x[0])].sort((a, b) => a - b));
+  });
+});
+
 describe('SafeVault.batch: recuperación tras morir en cada paso', () => {
   it('todo o nada en cada punto de corte; sin temporales ni diario; integridad solo reporta', async () => {
     const { before, after } = await expected();
