@@ -292,7 +292,9 @@ try {
     {
       const { ctx, page } = await fresh();
       await start(page);
-      check(await page.locator('.topbar .mini-amb').count() === 1, 'está en la barra, junto al icono de Sonido ambiente');
+      // arreglo del reproductor: una sola pieza fija en la esquina inferior derecha (antes, en la barra superior)
+      const mb = await page.locator('.mini-amb').boundingBox();
+      check(await page.locator('.mini-amb.docked').count() === 1 && 1180 - (mb.x + mb.width) <= 20 && 820 - (mb.y + mb.height) <= 20, 'está fijo en la esquina inferior derecha, en una sola pieza');
       await page.locator('.mini-amb').hover();
       await page.locator('.mini-amb-x').waitFor();
       check(true, 'al pasar el cursor se extiende');
@@ -313,8 +315,9 @@ try {
       await page.waitForTimeout(400);
       check(await page.locator('.mini-amb-x').count() === 0, 'y luego se contrae');
       // teclado
-      await page.locator('.topbar').getByRole('button', { name: 'Sonido ambiente' }).focus();
-      await page.keyboard.press('Tab');
+      // el mini va al final del documento (capa flotante): Mayús+Tab desde el principio llega a él
+      await page.evaluate(() => { document.activeElement?.blur(); document.body.focus(); });
+      await page.keyboard.press('Shift+Tab');
       await page.locator('.mini-amb-x').waitFor();
       check(true, 'con el foco del teclado también se extiende');
       await page.keyboard.press('Escape');

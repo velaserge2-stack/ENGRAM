@@ -61,28 +61,35 @@ export function trackKeyboard(): void {
   vv.addEventListener('scroll', on);
 }
 
-/** Mide fotogramas al desplazar; si son lentos, sugiere el modo ligero. */
-export function watchFrames(onSlow: () => void): void {
-  let frames = 0;
-  let t0 = 0;
+/** fps de la mediana de los intervalos entre fotogramas (ms). */
+export function medianFps(intervals: number[]): number {
+  if (!intervals.length) return 60;
+  const s = [...intervals].sort((a, b) => a - b);
+  return 1000 / s[Math.floor(s.length / 2)]!;
+}
+
+/**
+ * Mide fotogramas al desplazar (también dentro de paneles: escucha en captura). Ventana de ~3 s:
+ * si la mediana queda por debajo de 40 fps, sugiere el modo ligero (una sola vez; nunca lo activa).
+ * Si se deja de desplazar, los fotogramas en reposo son rápidos y suben la mediana: sin falsos avisos.
+ */
+export function watchFrames(onSlow: () => void, windowMs = 3000): void {
   let measuring = false;
   let reported = false;
-  const loop = (t: number) => {
-    if (!t0) t0 = t;
-    frames++;
-    if (t - t0 < 1000) requestAnimationFrame(loop);
-    else {
-      measuring = false;
-      if (frames < 40 && !reported) ((reported = true), onSlow());
-    }
-  };
   addEventListener(
     'scroll',
     () => {
       if (measuring || reported) return;
       measuring = true;
-      frames = 0;
-      t0 = 0;
+      const gaps: number[] = [];
+      let t0 = 0, last = 0;
+      const loop = (t: number) => {
+        if (!t0) t0 = last = t;
+        else (gaps.push(t - last), (last = t));
+        if (t - t0 < windowMs) return void requestAnimationFrame(loop);
+        measuring = false;
+        if (medianFps(gaps) < 40 && !reported) ((reported = true), onSlow());
+      };
       requestAnimationFrame(loop);
     },
     { passive: true, capture: true },

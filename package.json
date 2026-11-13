@@ -25,6 +25,9 @@
     "e2e:p10": "node e2e/p10.mjs",
     "e2e:p12": "node e2e/p12.mjs",
     "e2e:p15": "node e2e/p15.mjs",
+    "e2e:reproductor": "node e2e/reproductor.mjs",
+    "e2e:adherencia": "node e2e/adherencia.mjs",
+    "e2e:glass": "node e2e/glass.mjs",
     "e2e:perf": "node e2e/perf.mjs",
     "e2e:notaspro": "node e2e/notaspro.mjs",
     "e2e:barra": "node e2e/barra.mjs"

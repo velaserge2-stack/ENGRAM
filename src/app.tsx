@@ -106,7 +106,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     // papelera de mazos: vaciado automático a los N días (Ajustes → Mazos → Papelera)
     autoPurge(vault, settings.deckTrashDays).then((n) => n && setVersion((v) => v + 1), () => {});
     onUpdateReady((apply) => setUpdate(() => apply));
-    watchFrames(() => !settings.lightMode && toast(t('app.el_vidrio_va_lento_en_este')));
+    // sugerencia discreta con acción: el usuario decide (nunca se activa solo)
+    watchFrames(() => !ctxRef.current.settings.lightMode && toast(t('app.el_vidrio_va_lento_en_este'), { label: t('app.activar_modo_ligero'), run: () => ctxRef.current.update({ lightMode: true }) }));
   }, []);
   useEffect(() => {
     if (version > 0) (void recheckIntegrity(), setHasData(true));
@@ -196,6 +197,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     focus: (on) => document.body.classList.toggle('focus', on),
     previewBg: (bg, mode = null) => setPreview(bg ? { bg, mode } : null),
   };
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
 
   // atajos con teclado externo (configurables: Ajustes → Atajos, .app/atajos.json)
   const [keysHelp, setKeysHelp] = useState(false);
