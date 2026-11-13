@@ -11,9 +11,12 @@
  * el temporal (si su suma coincide) o la descarta. Si muere antes de 2, el
  * destino nunca se tocó y el temporal huérfano se limpia.
  * Las operaciones se serializan para que el diario tenga a lo más una transacción.
+ * Si el paso 3 falla con la app viva (cuota, Worker), se reintenta una vez; si vuelve a fallar,
+ * el diario y el temporal se conservan y la siguiente operación los recupera ANTES de escribir
+ * (si tampoco puede, se niega con un error claro en vez de pisar el diario).
  */
 import { normalizePath } from './paths';
-import type { BlobWriteOptions, FileStat, VaultAdapter } from './types';
+import { type BlobWriteOptions, type FileStat, type VaultAdapter, VaultError } from './types';
 import { checksum, decodeText, toBytes } from './util';
 
 export const JOURNAL_PATH = '.app/journal.json';
@@ -41,6 +44,8 @@ let txSeq = 0;
 
 export class SafeVault implements VaultAdapter {
   private queue: Promise<unknown> = Promise.resolve();
+  /** Hay un diario sin aplicar (apply fallido con la app viva): recuperarlo antes de la siguiente operación. */
+  private stuck = false;
   constructor(readonly raw: VaultAdapter) {}
 
   get kind() {
@@ -48,9 +53,30 @@ export class SafeVault implements VaultAdapter {
   }
 
   private serial<T>(fn: () => Promise<T>): Promise<T> {
-    const run = this.queue.then(fn, fn);
+    const go = () => this.settle().then(fn);
+    const run = this.queue.then(go, go);
     this.queue = run.catch(() => undefined);
     return run;
+  }
+
+  private async settle() {
+    if (!this.stuck) return;
+    await this.replay();
+    if (this.stuck) throw new VaultError('Una escritura anterior quedó a medias y no se pudo completar; no se escribe nada más hasta recuperarla', 'io', JOURNAL_PATH);
+  }
+
+  /** Paso 3 con un reintento; si vuelve a fallar, el diario queda para `settle`. */
+  private async apply(fn: () => Promise<void>) {
+    try {
+      await fn();
+    } catch {
+      try {
+        await fn();
+      } catch (e) {
+        this.stuck = true;
+        throw e;
+      }
+    }
   }
 
   private async commit(entry: Omit<JournalEntry, 'tmp' | 'size' | 'hash' | 'ts'>, bytes: Uint8Array, apply: () => Promise<void>) {
@@ -58,7 +84,7 @@ export class SafeVault implements VaultAdapter {
     await this.raw.write(tmp, bytes);
     const j: JournalEntry = { ...entry, tmp, size: bytes.length, hash: checksum(bytes), ts: Date.now() };
     await this.raw.write(JOURNAL_PATH, JSON.stringify({ v: 1, entries: [j] }));
-    await apply();
+    await this.apply(apply);
     await this.raw.remove(JOURNAL_PATH);
     await this.raw.remove(tmp);
   }
@@ -92,7 +118,8 @@ export class SafeVault implements VaultAdapter {
       }
       const j: JournalEntry = { op: 'write', stream: true, path: p, tmp, size: r.size, hash: r.hash, ts: Date.now() };
       await this.raw.write(JOURNAL_PATH, JSON.stringify({ v: 1, entries: [j] }));
-      await this.raw.move(tmp, p);
+      // si el movimiento falla, el temporal sigue completo: el reintento o `settle` lo vuelven a mover
+      await this.apply(async () => (await this.raw.exists(tmp) ? this.raw.move(tmp, p) : undefined));
       await this.raw.remove(JOURNAL_PATH);
     });
   }
@@ -144,45 +171,55 @@ export class SafeVault implements VaultAdapter {
   /** Llamar una vez al arrancar, antes de cualquier otra operación. */
   recover(): Promise<RecoveryReport> {
     return this.serial(async () => {
-      const report: RecoveryReport = { recovered: [], discarded: [], journalCorrupt: false };
-      if (await this.raw.exists(JOURNAL_PATH)) {
-        let entries: JournalEntry[] = [];
-        try {
-          const j = JSON.parse(decodeText(await this.raw.read(JOURNAL_PATH))) as { entries?: JournalEntry[] };
-          entries = Array.isArray(j.entries) ? j.entries : [];
-        } catch {
-          report.journalCorrupt = true; // el diario se escribió a medias: el destino no se tocó
-        }
-        for (const e of entries) {
-          let ok = false;
-          try {
-            if (e.stream) {
-              // escritura por trozos: el temporal verificado se mueve; si ya se movió, se comprueba el destino
-              const dest = normalizePath(e.path);
-              if (await this.raw.exists(e.tmp)) {
-                const s = await this.sum(e.tmp);
-                if (s.size === e.size && s.hash === e.hash) (await this.raw.move(e.tmp, dest), (ok = true));
-              } else if (await this.raw.exists(dest)) {
-                const s = await this.sum(dest);
-                ok = s.size === e.size && s.hash === e.hash;
-              }
-            } else if (await this.raw.exists(e.tmp)) {
-              const bytes = await this.raw.read(e.tmp);
-              if (bytes.length === e.size && checksum(bytes) === e.hash) {
-                await this.raw.write(normalizePath(e.path), bytes);
-                if (e.op === 'move' && e.from) await this.raw.remove(normalizePath(e.from));
-                ok = true;
-              }
-            }
-          } catch {
-            ok = false;
-          }
-          (ok ? report.recovered : report.discarded).push(e.path);
-        }
-        await this.raw.remove(JOURNAL_PATH);
-      }
-      await this.raw.remove(TMP_DIR);
+      const report = await this.replay();
+      if (!this.stuck) await this.raw.remove(TMP_DIR); // con un diario pendiente, su temporal se conserva
       return report;
     });
+  }
+
+  /**
+   * Aplica el diario. Temporal ausente o con otra suma → se descarta (el destino no se tocó).
+   * Un fallo de E/S al aplicarlo → el diario y el temporal se conservan (`stuck`) para reintentar.
+   */
+  private async replay(): Promise<RecoveryReport> {
+    const report: RecoveryReport = { recovered: [], discarded: [], journalCorrupt: false };
+    this.stuck = false;
+    if (!(await this.raw.exists(JOURNAL_PATH))) return report;
+    let entries: JournalEntry[] = [];
+    try {
+      const j = JSON.parse(decodeText(await this.raw.read(JOURNAL_PATH))) as { entries?: JournalEntry[] };
+      entries = Array.isArray(j.entries) ? j.entries : [];
+    } catch {
+      report.journalCorrupt = true; // el diario se escribió a medias: el destino no se tocó
+    }
+    for (const e of entries) {
+      let ok = false;
+      try {
+        if (e.stream) {
+          // escritura por trozos: el temporal verificado se mueve; si ya se movió, se comprueba el destino
+          const dest = normalizePath(e.path);
+          if (await this.raw.exists(e.tmp)) {
+            const s = await this.sum(e.tmp);
+            if (s.size === e.size && s.hash === e.hash) (await this.raw.move(e.tmp, dest), (ok = true));
+          } else if (await this.raw.exists(dest)) {
+            const s = await this.sum(dest);
+            ok = s.size === e.size && s.hash === e.hash;
+          }
+        } else if (await this.raw.exists(e.tmp)) {
+          const bytes = await this.raw.read(e.tmp);
+          if (bytes.length === e.size && checksum(bytes) === e.hash) {
+            await this.raw.write(normalizePath(e.path), bytes);
+            if (e.op === 'move' && e.from) await this.raw.remove(normalizePath(e.from));
+            ok = true;
+          }
+        }
+      } catch {
+        this.stuck = true; // E/S: no se descarta, se reintenta en la siguiente operación
+        continue;
+      }
+      (ok ? report.recovered : report.discarded).push(e.path);
+    }
+    if (!this.stuck) await this.raw.remove(JOURNAL_PATH);
+    return report;
   }
 }

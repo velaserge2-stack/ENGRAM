@@ -229,3 +229,57 @@ describe('writeStream: archivos grandes por trozos (Prompt 11)', () => {
     expect(await blobChecksum(new Blob([d]))).toBe(checksum(d));
   });
 });
+
+describe('SafeVault: apply fallido con la app viva (auditoría plan 2)', () => {
+  /** Destino que se trunca y falla `fails` veces seguidas (sync handle de OPFS sin cuota). */
+  class Truncating extends MemoryBackend {
+    target = '';
+    fails = 0;
+    override async write(p: string, d: Uint8Array | string) {
+      if (p === this.target && this.fails > 0) {
+        this.fails--;
+        await super.write(p, new Uint8Array());
+        throw new Error('sin espacio');
+      }
+      return super.write(p, d);
+    }
+  }
+  it('si el reintento también falla, el diario se conserva y la siguiente escritura lo recupera antes', async () => {
+    const raw = new Truncating();
+    const v = new SafeVault(raw);
+    await v.write('notes/a.md', 'v1');
+    raw.target = 'notes/a.md';
+    raw.fails = 2;
+    await expect(v.write('notes/a.md', 'v2')).rejects.toThrow('sin espacio');
+    expect(await raw.exists(JOURNAL_PATH)).toBe(true);
+    await v.write('notes/b.md', 'otra');
+    expect(await readText(raw, 'notes/a.md')).toBe('v2');
+    expect(await raw.exists(JOURNAL_PATH)).toBe(false);
+  });
+  it('si la recuperación tampoco puede, se niega a escribir (no pisa el diario) y un arranque lo rehace', async () => {
+    const raw = new Truncating();
+    const v = new SafeVault(raw);
+    raw.target = 'notes/a.md';
+    raw.fails = 3;
+    await expect(v.write('notes/a.md', 'v2')).rejects.toThrow();
+    await expect(v.write('notes/b.md', 'otra')).rejects.toThrow(/a medias/);
+    expect(await raw.exists('notes/b.md')).toBe(false);
+    const r = await new SafeVault(raw).recover();
+    expect(r.recovered).toEqual(['notes/a.md']);
+    expect(await readText(raw, 'notes/a.md')).toBe('v2');
+  });
+  it('writeStream: si mover el temporal falla dos veces, el temporal sobrevive y se mueve después', async () => {
+    class BadMove extends MemoryBackend {
+      fails = 2;
+      override async move(a: string, b: string) {
+        if (this.fails-- > 0) throw new Error('move falló');
+        return super.move(a, b);
+      }
+    }
+    const raw = new BadMove();
+    const v = new SafeVault(raw);
+    await expect(v.writeStream('docs/x.pdf', new Blob(['PDF']))).rejects.toThrow('move falló');
+    await v.write('notes/b.md', 'otra');
+    expect(await readText(raw, 'docs/x.pdf')).toBe('PDF');
+  });
+});

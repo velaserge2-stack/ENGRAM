@@ -111,13 +111,13 @@ describe('auditoría · determinismo FSRS', () => {
 
 // ───────────────────────── 2 · SafeVault y diario ─────────────────────────
 describe('auditoría · SafeVault', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('un apply fallido (destino truncado) se recupera aunque después haya otra escritura', async () => {
+  // auditoría: corregido (plan 2). Con el reintento la escritura puede cumplirse: basta que no rechace con pérdida
+  it('un apply fallido (destino truncado) se recupera aunque después haya otra escritura', async () => {
     const raw = new Rig();
     const v = new SafeVault(raw);
     await v.write('notes/a.md', 'v1');
     raw.truncateThenFail = 'notes/a.md';
-    await expect(v.write('notes/a.md', 'v2')).rejects.toBeTruthy();
+    await v.write('notes/a.md', 'v2').catch(() => undefined); // hoy: rechaza; con el plan 2, el reintento la completa
     await v.write('notes/b.md', 'otra'); // la app sigue: esta transacción pisa el diario de la anterior
     await new SafeVault(raw).recover(); // siguiente arranque
     expect(['v1', 'v2']).toContain(await readText(raw, 'notes/a.md'));
