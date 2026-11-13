@@ -762,19 +762,28 @@ body:has(.tray.floating) .dev-sign { bottom: calc(env(safe-area-inset-bottom) + 
 body.focus .dev-sign, body.notes-full .dev-sign { display: none; }
 @media print { .dev-sign { display: none; } }
 
-/* Prompt 6 · D — mini reproductor de sonido ambiente */
-.mini-amb { display: inline-flex; align-items: center; gap: 2px; height: 44px; padding: 0 2px 0 12px; border-radius: var(--r-pill); max-width: 230px; flex: none; }
+/* Mini reproductor unificado: UNA superficie de vidrio (un solo backdrop-filter); la píldora queda
+   abajo y el contenido crece hacia arriba dentro del mismo contenedor (sin saltos) */
+.mini-amb { display: flex; flex-direction: column-reverse; align-items: stretch; border-radius: 22px; max-width: 230px; }
+.mini-amb.open { width: min(300px, calc(100vw - 32px)); max-width: none; }
+.mini-amb-pill { display: flex; align-items: center; gap: 2px; height: 44px; padding: 0 2px 0 12px; justify-content: space-between; }
 .mini-amb-main { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 44px; padding: 0; border: 0; background: none; color: var(--t1); font: inherit; font-size: var(--t-note); font-weight: 500; }
 .mini-amb-t { max-width: 140px; }
+.mini-amb.open .mini-amb-t { max-width: 210px; }
 .mini-amb .bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 14px; flex: none; }
 .mini-amb .bars i { width: 3px; height: 100%; background: var(--t1); border-radius: 1px; transform-origin: bottom; transform: scaleY(.3); }
 .mini-amb.on .bars i { animation: mini-lvl .9s ease-in-out infinite alternate; }
 .mini-amb.on .bars i:nth-child(2) { animation-delay: -.3s; }
 .mini-amb.on .bars i:nth-child(3) { animation-delay: -.6s; }
 @keyframes mini-lvl { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
+.mini-amb.docked { position: fixed; z-index: var(--z-dock); right: calc(env(safe-area-inset-right) + 16px); bottom: calc(env(safe-area-inset-bottom) + 16px + var(--kb-inset, 0px)); }
+/* en el lienzo, la esquina inferior derecha es del minimapa y su botón: el mini sube por encima */
+html.in-canvas .mini-amb.docked { bottom: calc(env(safe-area-inset-bottom) + 176px); }
 .mini-amb.floating { position: fixed; z-index: var(--z-dock); right: calc(env(safe-area-inset-right) + 12px); bottom: calc(env(safe-area-inset-bottom) + var(--tabbar-h) + 18px); }
-.mini-amb-x { width: min(300px, calc(100vw - 16px)); padding: 12px; animation: mini-in .28s var(--spring); transform-origin: top center; }
-@keyframes mini-in { from { opacity: 0; transform: translateY(-6px) scale(.97); } }
+.mini-amb-x { padding: 12px 12px 4px; border-bottom: var(--hair) solid var(--line); animation: fade .2s; }
+.mini-amb-line { display: grid; gap: 2px; min-width: 0; }
+.mini-amb-prog { height: 4px; margin-top: 4px; border-radius: 2px; background: var(--fill-2); overflow: hidden; }
+.mini-amb-prog i { display: block; height: 100%; background: var(--t1); }
 .mini-amb-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: center; gap: 8px; min-height: 44px; font-size: var(--t-note); }
 @media (prefers-reduced-motion: reduce) { .mini-amb.on .bars i { animation: none; transform: scaleY(.7); } .mini-amb-x { animation: none; } }
 

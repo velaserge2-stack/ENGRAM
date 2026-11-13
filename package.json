@@ -25,6 +25,7 @@
     "e2e:p10": "node e2e/p10.mjs",
     "e2e:p12": "node e2e/p12.mjs",
     "e2e:p15": "node e2e/p15.mjs",
+    "e2e:reproductor": "node e2e/reproductor.mjs",
     "e2e:perf": "node e2e/perf.mjs"
   },
   "dependencies": {
