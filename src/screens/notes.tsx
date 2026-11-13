@@ -866,7 +866,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
           )}
         </aside>
       )}
-      {sheet === 'share' && <ShareNote path={props.path} title={meta.title} text={text} onClose={() => setSheet(null)} />}
+      {sheet === 'share' && <ShareNote path={props.path} title={meta.title} text={text} doc={() => docRef.current} onClose={() => setSheet(null)} />}
       {sheet === 'history' && <HistorySheet path={props.path} onRestore={(t) => (set(t), setSheet(null))} onClose={() => setSheet(null)} />}
       {sheet === 'move' && props.data && <MoveNotesSheet items={{ notes: [props.path], folders: [] }} all={props.data.notes.map((n) => n.path)} current={props.embedded ? null : props.path} onClose={() => setSheet(null)} />}
       {sheet === 'prompt' && <PromptSheet path={props.path} title={meta.title} body={doc.body} onClose={() => setSheet(null)} />}
@@ -1064,7 +1064,23 @@ function Properties(p: { fm: Frontmatter; onChange: (fm: Frontmatter) => void })
   );
 }
 
-function ShareNote(p: { path: string; title: string; text: string; onClose: () => void }) {
+/**
+ * Imprimir / exportar a PDF solo esta nota: se marca su documento (`print-target`) y `<html>` lleva
+ * `printing-note` mientras dura la impresión (el CSS de impresión oculta todo lo demás). Con Cmd+P
+ * se marca la nota abierta; al terminar (`afterprint`) se quita todo.
+ */
+function markPrint(el: HTMLElement | null) {
+  if (!el) return;
+  document.querySelectorAll('.print-target').forEach((x) => x.classList.remove('print-target'));
+  el.classList.add('print-target');
+  document.documentElement.classList.add('printing-note');
+}
+if (typeof window !== 'undefined') {
+  addEventListener('beforeprint', () => { if (!document.querySelector('.print-target')) markPrint(document.querySelector<HTMLElement>('article.doc')); });
+  addEventListener('afterprint', () => { document.documentElement.classList.remove('printing-note'); document.querySelectorAll('.print-target').forEach((x) => x.classList.remove('print-target')); });
+}
+
+function ShareNote(p: { path: string; title: string; text: string; doc: () => HTMLElement | null; onClose: () => void }) {
   const app = useApp();
   const [links, setLinks] = useState(false);
   const [colors, setColors] = useState<'keep' | 'html' | 'plain'>('keep');
@@ -1102,12 +1118,14 @@ function ShareNote(p: { path: string; title: string; text: string; onClose: () =
             // A2: imprimir con los originales (de uno en uno), no con las miniaturas
             setBusy(true);
             await hydrateAllMedia(); // Prompt 14: también las que aún no se habían cargado
-            const root = document.querySelector('.doc') ?? document;
+            const target = p.doc();
+            const root = target ?? document.querySelector('.doc') ?? document;
             const restore = await swapToOriginals(app.vault, root, (n) => resolveMedia(app.vault, n));
             setBusy(false);
             p.onClose();
             addEventListener('afterprint', restore, { once: true });
             setTimeout(restore, 120_000); // por si el navegador no avisa al terminar de imprimir (iOS)
+            markPrint(target); // solo esta nota, en papel claro (también desde un panel)
             setTimeout(() => window.print(), 300);
           }}>{tr('notes.pdf_imprimir')}</button>
         </div>

@@ -66,6 +66,7 @@ npm run e2e:p7         # lienzo estático al alejar, PDF por página, firma
 npm run e2e:p10        # .apkg de Anki: legado, compatibilidad, formato nuevo y archivos basura
 npm run e2e:perf       # PDF de 800 páginas y lienzo de 30 paneles (antes: node scripts/perf-fixtures.mjs)
 npm run e2e:p14        # asa de los paneles, notas enormes (buscar, imprimir, exportar, guardado idéntico) e imágenes grandes
+npm run e2e:pdf        # exportar nota a PDF: papel claro en oscuro/claro y con cualquier fondo, solo la nota, pagina
 npm run e2e:p15        # minimapa del lienzo: tocar, arrastrar, teclado, plegar
 npm run e2e:phone      # iPhone: 6 tamaños × es/fr; MODE=baseline|compare para 0 píxeles en iPad y web
 ```

@@ -1544,3 +1544,19 @@ Un solo componente con dos estados (píldora `.glass` con lo que suena, play/pau
 Vitest (`target()` mute/duck, reanudación, `play()` rechazado → aviso y «detenido»); Playwright con salida falsa y política de autoplay: tras un clic, contexto `running` y `master` > 0, la música arranca en el mismo clic, el hover no inicia audio, el mini es un solo bloque (píldora y expandido, claro/oscuro), «sin color» y legibilidad. Verificación manual en dispositivo real (interruptor de silencio, altavoz, AirPods/Bluetooth, cambio de salida; Mac/Windows). Entrega: causas reales, cambios, archivos y qué no se pudo verificar sin audio real; `docs/DECISIONS.md` (gestos, `audioSession`) y este prompt en `docs/PROMPTS.md`.
 
 **Criterio**: tocar Reproducir hace que **suene por los altavoces** (también con el modo silencio en iOS), y el mini reproductor se ve y se comporta como **una sola pieza** de vidrio.
+
+---
+
+# MINI PROMPT: Exportar nota a PDF sale con las hojas negras
+
+Lee `CLAUDE.md`. Rama `fix-pdf-negro`. Arregla **solo** la impresión/exportación a PDF de notas (`window.print()` en `src/screens/notes.tsx`; reglas `@media print` y `print-only` en `src/theme-cristal.css`). **No cambies** el aspecto en pantalla (`MODE=compare npm run e2e:phone` = 0 píxeles), ni el formato de las notas, ni `.docx`/`.md`. Sin dependencias nuevas. Texto nuevo por `t()`. Skills: ponytail, webapp-testing, superpowers (reproduce primero).
+
+**Síntoma**: al exportar una nota a PDF (imprimir → «Guardar como PDF»), las hojas salen negras.
+
+**Causas probables (verificar con un PDF real)**: `html { background: #000 }` impreso en cada hoja; `color-scheme: dark`; tokens del tema oscuro sin sobreescribir en impresión (texto blanco sobre blanco, fondos oscuros de bloques); se imprime la app completa y los contenedores con scroll no se paginan; fondos de imagen/canvas, `will-change`/`backdrop-filter` rasterizados como cajas negras.
+
+**Reproduce primero** con Playwright (`page.emulateMedia({ media: 'print' })`, `page.pdf` con `printBackground` true y false, `pdftoppm`, % de píxeles oscuros) en tema oscuro y claro, con fondo de foto y sólido, y reporta la causa real.
+
+**Corrección (solo en `@media print`)**: tema de papel (`html, body` blancos, `color-scheme: light`, tokens claros en `:root` y `[data-glass]`); imprimir solo la nota (ocultar el resto, liberar `height`/`overflow`/`position` para paginar; clase `printing-note` antes de `window.print()` y quitada en `afterprint`, sin `beforeunload`); bloques claros con borde fino, colores legibles en papel, imágenes `max-width: 100%` y `break-inside: avoid`, sin sombras ni `backdrop-filter`; `@page { margin: 18mm 16mm }`, `h1–h3 { break-after: avoid }`, `orphans/widows: 3`; nunca el fondo del usuario; imprimir los originales esperando a que carguen; desde un panel de Espacios, solo esa nota.
+
+**Pruebas y entrega**: PDF en {oscuro, claro} × {foto, sólido} × `printBackground` {true, false} sin páginas con > 5 % de píxeles oscuros, texto completo (`pdftotext`), varias páginas para una nota larga, tabla y código completos; antes/después; pantalla sin cambios (`e2e:design`, `e2e:phone` = 0 píxeles), `npm test`, `typecheck`, `build`, `e2e`. Entrega: causa real, cambio, archivos y capturas; lo que no se puede verificar sin Safari real; una línea en `docs/DECISIONS.md` (el papel siempre es claro).

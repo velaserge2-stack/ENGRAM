@@ -85,8 +85,10 @@ async function zoomTo(page, k) {
   await page.evaluate(() => {
     const wrap = document.querySelector('.canvas-wrap'), w = wrap.getBoundingClientRect();
     const r = document.querySelector('.canvas-plane > .win').getBoundingClientRect();
-    const dx = Math.max(0, r.right - w.right + 220), dy = Math.max(0, r.bottom - w.bottom + 160);
-    if (dx || dy) wrap.dispatchEvent(new WheelEvent('wheel', { deltaX: dx, deltaY: dy, clientX: w.left + 5, clientY: w.top + 5, bubbles: true, cancelable: true }));
+    // la esquina del panel a un sitio fijo y libre del lienzo (lejos del minimapa y de los bordes):
+    // dónde aparece un panel nuevo depende del momento, y a veces quedaba fuera por la izquierda
+    const dx = r.right - (w.left + w.width * 0.6), dy = r.bottom - (w.top + w.height * 0.55);
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) wrap.dispatchEvent(new WheelEvent('wheel', { deltaX: dx, deltaY: dy, clientX: w.left + 5, clientY: w.top + 5, bubbles: true, cancelable: true }));
   });
   await page.waitForTimeout(350);
 }
