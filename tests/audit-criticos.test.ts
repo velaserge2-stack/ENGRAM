@@ -338,14 +338,14 @@ async function apkg(fields: string[], deck: string): Promise<Uint8Array> {
 }
 
 describe('auditoría · importadores', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('apkg: un mazo llamado «..::X» no produce una ruta con «..» (buildPlan rechazaría TODO el lote)', async () => {
+  // auditoría: corregido (plan 12)
+  it('apkg: un mazo llamado «..::X» no produce una ruta con «..» (buildPlan rechazaría TODO el lote)', async () => {
     const r = convertApkg(await apkg(['q\x1fa'], '..::X'), await sql());
     expect(() => normalizePath(r.decks[0]!.path)).not.toThrow();
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('apkg: un campo con una línea «Q:: …» no se convierte en otra tarjeta (ni se lleva el ID)', async () => {
+  // auditoría: corregido (plan 12)
+  it('apkg: un campo con una línea «Q:: …» no se convierte en otra tarjeta (ni se lleva el ID)', async () => {
     const r = convertApkg(await apkg(['pregunta\x1frespuesta<br>Q:: inyectada<br>A:: falsa'], 'Mazo'), await sql());
     expect(parseDeck(r.decks[0]!.text).notes).toHaveLength(1);
   });

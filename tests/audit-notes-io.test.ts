@@ -158,8 +158,8 @@ describe('auditoría · io', () => {
     const g = await gather([{ name: 'v.zip', bytes: async () => z }]);
     expect(g.files.map((f) => f.path).filter((p) => p.startsWith('.app/'))).toEqual([]);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('fieldToMd decodifica &#x27; y &apos;', () => {
+  // auditoría: corregido (plan 12)
+  it('fieldToMd decodifica &#x27; y &apos;', () => {
     expect(fieldToMd('it&#x27;s &apos;ok&apos;', new Set())).toBe("it's 'ok'");
   });
 });
@@ -186,14 +186,14 @@ async function apkg(media: Record<string, string>, fields: string[], decks: Reco
 }
 
 describe('auditoría · apkg (mapeo)', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('el nombre de un medio con caracteres prohibidos coincide en la tarjeta y en el archivo guardado', async () => {
+  // auditoría: corregido (plan 12)
+  it('el nombre de un medio con caracteres prohibidos coincide en la tarjeta y en el archivo guardado', async () => {
     const r = convertApkg(await apkg({ 0: 'a:b?.png' }, ['q<br><img src="a:b?.png">\x1fr'], { 5: 'Mazo' }), await sql());
     const ref = /!\[\[([^\]]+)\]\]/.exec(r.decks[0]!.text)![1]!;
     expect(r.media.map((m) => m.name)).toContain(ref);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('dos mazos de Anki que se sanean al mismo nombre no producen la misma ruta', async () => {
+  // auditoría: corregido (plan 12)
+  it('dos mazos de Anki que se sanean al mismo nombre no producen la misma ruta', async () => {
     const r = convertApkg(await apkg({}, ['uno\x1fa', 'dos\x1fb'], { 5: 'A:B', 6: 'A B' }), await sql());
     const paths = r.decks.map((d) => d.path);
     expect(new Set(paths).size).toBe(paths.length);
