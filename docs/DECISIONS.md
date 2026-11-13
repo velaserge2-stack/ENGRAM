@@ -571,3 +571,6 @@ Abrir la app con `?perf` (p. ej. `https://…/engrama/?perf#/pdfs`) muestra en u
 ### Límites de Safari / a validar en iPad real
 - `ResizeObserver` existe desde Safari 13.1; el respaldo con `resize` no detecta Stage Manager.
 - Arrastrar con dedo y con Apple Pencil, con 6+ paneles, en vertical y horizontal (WebKit de Playwright no está instalado en el contenedor: las e2e corrieron en Chromium).
+
+## Mini prompt — Minimizar del panel «Adherencia» (rama `fix-adherencia-minimizar`)
+En la versión recortada (`.heat-panel.fit`, ancho ajustado) el botón seguía anclado a `.mh`, que ocupa toda la fila, y quedaba fuera del vidrio; ahora `.mh:has(> .heat-panel.fit) { width: fit-content }` lo deja en la esquina del panel (solo CSS; `:has()` ya se usaba; Safari ≥ 15.4). Ningún otro panel de Hoy tiene un hijo de ancho ajustado dentro de `.mh`. `npm run e2e:adherencia`; en `e2e:phone`, Hoy solo cambia en la franja de 36 px del botón.
