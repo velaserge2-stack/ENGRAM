@@ -93,12 +93,16 @@ export async function zipVault(vault: VaultAdapter, appVersion: string, now = ne
     f.push(data, true);
   };
   add(MANIFEST, strToU8(JSON.stringify(manifest, null, 2)), false);
-  for (let i = 0; i < stats.length; i++) {
-    if (fail) break;
-    const s = stats[i]!;
-    add(s.path, await vault.read(s.path), ALREADY_COMPRESSED.test(s.path));
+  // la lectura del siguiente archivo (en el Worker) se pide antes de comprimir el actual (aquí): se solapan
+  const read = (i: number) => (i < stats.length ? vault.read(stats[i]!.path) : null);
+  let next = read(0);
+  for (let i = 0; i < stats.length && !fail; i++) {
+    const data = await next!;
+    next = read(i + 1);
+    add(stats[i]!.path, data, ALREADY_COMPRESSED.test(stats[i]!.path));
     onProgress?.(i + 1, stats.length);
   }
+  await next?.catch(() => {}); // si se cortó por un error, la lectura pendiente no queda sin atender
   z.end();
   await ended;
   if (fail) throw fail;
