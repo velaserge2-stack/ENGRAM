@@ -34,7 +34,7 @@ export function placeLoose(relPath: string, data: Uint8Array): string {
   const ext = extname(p);
   if (ext === 'md' || ext === 'markdown') {
     const fm = parseFrontmatter(decodeText(data.subarray(0, 4096)));
-    const name = ext === 'markdown' ? p.replace(/\.markdown$/i, '.md') : p;
+    const name = p.replace(/\.(markdown|md)$/i, '.md');
     return (fm.data.deck ? 'decks/' : 'notes/') + name;
   }
   if (IMAGE_OR_AUDIO.has(ext)) return 'media/' + basename(p);
