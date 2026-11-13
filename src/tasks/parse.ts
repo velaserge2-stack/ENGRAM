@@ -36,7 +36,7 @@ export function parseTasks(text: string): Task[] {
 }
 
 const clean = (s: string) => s.replace(/[\r\n]+/g, ' ').trim();
-export function taskLine(t: Pick<Task, 'level' | 'done' | 'text' | 'due'>): string {
+function taskLine(t: Pick<Task, 'level' | 'done' | 'text' | 'due'>): string {
   return `${t.level ? '  ' : ''}- [${t.done ? 'x' : ' '}] ${clean(t.text)}${t.due ? ` 📅 ${t.due}` : ''}`;
 }
 
