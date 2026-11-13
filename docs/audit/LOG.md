@@ -100,3 +100,9 @@ Pendiente: aviso «abierta en otra pestaña» sin `locks`; mazo ilegible hace fa
 Aplicados los puntos 6–10 (un commit por punto, detalle en `05-correcciones.md`): historial robusto (parseLog + reloj atrasado determinista + try/finally en Estudio), clave de `state.json` por suma de entradas + versión del motor, IDs únicos (historial y papelera; aviso de IDs repetidos) y mazo ilegible omitido sin archivar, NoteStore sin carreras, DeckEditor en NoteStore.
 `it.fails` → `it`: 9 (24 en total; quedan 64); `tests/move.test.ts` ajustada de forma. Verificación: typecheck, vitest, build, `e2e`, `e2e:flows`, `e2e:mejoras`, `e2e:mejoras2`, `e2e:barra`, `e2e:p14`, `e2e:p6` en verde (Chromium).
 Pendiente: IDs de `ensureIds` con el editor del mazo con cambios sin guardar; aviso visible de autoguardado fallido por temporizador.
+
+## Correcciones · plan 11–15 (2026-11-13) · subagente Opus
+
+Aplicados los puntos 11–15 (un commit por punto, detalle en `05-correcciones.md`): mover sin pérdida (destino primero, deshacer parcial, move(a,a), [[Título]] intacto), .apkg hostil (rutas, marcas del parser, medios, límites), calendario (desde `from`, INTERVAL/COUNT/YEARLY, RECURRENCE-ID, TRIGGER, TZID), Workers con salida (vigilante OPFS, búsqueda, DocxView) y `setKeys` para el frontmatter.
+`it.fails` → `it`: 19 (43 en total; quedan 45). Verificación: typecheck, vitest, build, `e2e`, `e2e:flows`, `e2e:mejoras`, `e2e:mejoras2`, `e2e:p6`, `e2e:p10`, `e2e:p12`, `e2e:notaspro` en verde (Chromium).
+Pendiente: RRULE original completo y EXDATE en UTC con DST; parse+stringify en inbox/stickies/exams/profile.

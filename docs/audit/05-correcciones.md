@@ -120,3 +120,64 @@ Pruebas: sin `it.fails` (02-ui #2 es e2e). Nuevas: `appendCard` con mazo abierto
 Riesgos residuales: si el editor del mazo tiene cambios sin guardar cuando `loadCollection` añade IDs, `refresh` no los aplica y el guardado del editor los quita (se regeneran distintos en la siguiente carga). `moveCards`, `setDeckMeta` y `moveDeck` siguen escribiendo en disco (el editor se entera por `app.version`).
 
 Verificación de la tanda 6–10: typecheck, vitest (354 + 64 esperadas), build; `e2e`, `e2e:flows`, `e2e:mejoras`, `e2e:mejoras2`, `e2e:barra`, `e2e:p14`, `e2e:p6` en verde con `BROWSER=chromium` a la primera.
+
+## Plan 11 · Mover sin pérdida (`116b38a`)
+
+Qué cambió:
+- `src/data/move.ts` `moveCards`: calcula todo, escribe el destino antes que los orígenes y, si una escritura falla, deshace lo escrito y relanza. Los registros de deshacer (`write`/`remove` en `data/move.ts` y `notes/move.ts`) se anotan después de escribir: una escritura atómica fallida no cambió nada.
+- `src/screens/move.tsx` (`runMove`, `MoveCardsSheet`) y `src/screens/notemove.tsx` (`runNoteMove`): `try/catch` que deshace el registro parcial, `app.changed()` siempre y aviso `move.fallo` (es/en/fr); `moveNoteFolder` recibe el registro compartido.
+- `move(a, a)` no hace nada en `SafeVault`, `MemoryBackend` y `HandleFS`; `HandleFS.move` no borra un destino que sea carpeta.
+- `moveNotes`: cambio solo de mayúsculas mira la carpeta por nombre exacto y mueve vía temporal.
+- `rewriteNoteRefs`: `[[Título]]` de una nota suelta no se reescribe (el resolvedor va por título).
+
+Pruebas a `it()` (4): críticos «moveCards…»; vault «SafeVault.move(a, a)», «MemoryBackend.move(a, a)»; notes-io «mover una nota suelta…». Nuevas en `move.test.ts` y `notemove.test.ts`.
+
+Riesgos residuales: si el deshacer automático también falla (p. ej. SafeVault bloqueado tras un apply fallido, plan 2), queda lo hecho hasta el fallo y el aviso; `moveDeck` con `merge` sigue sin comprobar IDs repetidos.
+
+## Plan 12 · .apkg hostil (`6ff174f`)
+
+Qué cambió (`src/io/apkg.ts`):
+- Rutas de mazos sin `.`/`..` ni punto inicial, ≤ 120 caracteres y ≤ 12 niveles; nombres que se sanean igual reciben «(2)».
+- `fieldToMd`: líneas que empiezan con una marca del parser (`Q::`, `A::`, `Cloze:`…) llevan un espacio delante; `# ` se escapa; `<!--` decodificado no crea metadatos; `&#x27;`/`&apos;`. No se escapa el `^` final: sin cortes de bloque, el ID añadido siempre es el último.
+- Medios: mapa nombre original → guardado (`safeMediaName`, también sin `[]|#^`) y sin colisiones.
+- `unzipSync` con tope total, de entradas y de razón (medios), con aviso; `Map` por `nid` en el historial.
+
+Pruebas a `it()` (5): críticos «..::X», «campo con Q::»; notes-io «nombre de un medio», «dos mazos de Anki», «fieldToMd decodifica &#x27;». Nuevas en `apkg.test.ts`.
+
+Riesgos residuales: el tope total es de 1 GB (el del zip); en un iPad con poca memoria puede seguir siendo mucho.
+
+## Plan 13 · Calendario (`7726d20`)
+
+Qué cambió (`src/lib/ics.ts`, `src/screens/calendar.tsx`):
+- `occurrences` salta aritméticamente hasta `from` (sin DST); con `COUNT` cuenta desde el inicio.
+- `INTERVAL` (también con `BYDAY`), `COUNT` y `YEARLY`, exportados. Campos opcionales nuevos (`interval`, `count`, `overridden`): los .ics guardados se leen igual.
+- `RECURRENCE-ID`: la ocurrencia original no se pinta (`overridden`, no se exporta como EXDATE); la excepción usa `uid#día` en memoria y el UID de la serie al exportar.
+- `TRIGGER` con W/D/H/M; `TZID` con `Intl` (zona inexistente → hora local); `unesc` en una pasada; importar no pisa `estudio.ics` ni otro importado.
+
+Pruebas a `it()` (6): críticos «DAILY de hace 16 años», «RECURRENCE-ID», «TRIGGER -P1D», «TZID»; lib «título con \n literal», «INTERVAL=2». Nuevas en `ics.test.ts`.
+
+No hecho: conservar el `RRULE` original completo (`BYMONTHDAY`, `BYSETPOS`…): los importados se guardan como texto y no se reescriben; `EXDATE` con hora UTC real en DST (03 §7.5).
+
+## Plan 14 · Workers con salida (`8612545`)
+
+Qué cambió:
+- `src/vault/opfs.ts`: vigilante por inactividad (el Worker serializa, así que un plazo por operación contaría la espera): con pendientes y sin mensajes en 20 s, rechaza con `io`, termina y recrea el Worker.
+- `src/notes/search-client.ts`: `onerror` resuelve pendientes, termina el Worker y repuebla el índice local desde una copia (`mirror`).
+- `src/io/extract.ts` + `src/screens/spaces.tsx` (`DocxView`): imágenes nombradas por contenido; solo se escribe la que falta.
+
+Pruebas: nuevas en `tests/workers.test.ts` (Worker simulado). Sin `it.fails` (requería dispositivo).
+
+Riesgos residuales: una operación legítima de más de 20 s sin progreso (lectura enorme) se cortaría; `writeBlob` envía progreso y no se ve afectado.
+
+## Plan 15 · Frontmatter sin pérdida (`549614f`)
+
+Qué cambió:
+- `src/lib/frontmatter.ts` `setKeys(text, patch)`: solo las líneas de esas claves; el resto byte a byte (bloques, mapas, comentarios, CRLF, BOM).
+- Lo usan `ensureFileId`, `moveNotes`, `rewriteDeckRefs`, `renameDeckText`, `setDeckMeta`; el editor de notas conserva el frontmatter al editar el cuerpo y `setFm` solo toca claves cambiadas.
+- `scalar`/`fmt`: números solo canónicos (`1.0`, `007` quedan texto), comillas en una pasada, `''` → `""`, `#…` entre comillas.
+
+Pruebas a `it()` (4): lib «ensureFileId no pierde líneas», «barra invertida», «números con forma de texto», «valor que empieza con #». Nuevas en `frontmatter.test.ts`.
+
+Pendiente: inbox, stickies, exams y profile siguen con parse + stringify (archivos de Engrama).
+
+Verificación de la tanda 11–15: typecheck, vitest (385 + 45 esperadas), build; `e2e`, `e2e:flows`, `e2e:mejoras`, `e2e:mejoras2`, `e2e:p6`, `e2e:p10`, `e2e:p12`, `e2e:notaspro` en verde con `BROWSER=chromium` a la primera.
