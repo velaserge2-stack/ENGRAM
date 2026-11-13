@@ -25,6 +25,7 @@ import { usePomodoro } from './screens/pomodoro';
 import { walk } from './vault/util';
 import { TooltipLayer } from './ui/tooltip';
 import { autoPurge } from './data/decktrash';
+import { autoPurgeBanks } from './sim/banktrash';
 import { FRAMING_PATH, normFraming, parseFramings } from './lib/framing';
 import { readTextOr } from './vault/util';
 import { PhoneTabBar } from './ui/phonebar';
@@ -105,6 +106,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     void recheckIntegrity();
     // papelera de mazos: vaciado automático a los N días (Ajustes → Mazos → Papelera)
     autoPurge(vault, settings.deckTrashDays).then((n) => n && setVersion((v) => v + 1), () => {});
+    autoPurgeBanks(vault, settings.deckTrashDays).then((n) => n && setVersion((v) => v + 1), () => {}); // bancos: mismos días
     onUpdateReady((apply) => setUpdate(() => apply));
     // sugerencia discreta con acción: el usuario decide (nunca se activa solo)
     watchFrames(() => !ctxRef.current.settings.lightMode && toast(t('app.el_vidrio_va_lento_en_este'), { label: t('app.activar_modo_ligero'), run: () => ctxRef.current.update({ lightMode: true }) }));
