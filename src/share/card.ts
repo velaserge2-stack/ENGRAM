@@ -31,7 +31,7 @@ export interface CardInput {
   bgImg: Img | null;
   avatar: Img | null;
   mark: Img | null;
-  profile: { name: string; emoji: string; initial: string; line: string };
+  profile: { name: string; username: string; emoji: string; initial: string; line: string };
   show: Record<ShowKey, boolean>;
   sum: Summary;
   font: string;
@@ -120,29 +120,38 @@ export function compose(i: CardInput): CardResult {
   type Block = { h: number; draw: (y: number, s: number) => void };
   const blocks: Block[] = [];
 
-  const line = [i.profile.line].filter(Boolean)[0];
-  const head = (sh.photo && (i.avatar || i.profile.emoji || i.profile.initial)) || (sh.name && i.profile.name) || (sh.line && line);
+  // encabezado: avatar + líneas de texto (nombre, @usuario, carrera/lema), centradas en el avatar
+  type HLine = { text: string; size: number; weight: number; color: string; lh: number };
+  const hl: HLine[] = [];
+  if (sh.name && i.profile.name.trim()) hl.push({ text: i.profile.name.trim(), size: 56, weight: 700, color: t1, lh: 66 });
+  if (sh.user && i.profile.username) hl.push({ text: `@${i.profile.username}`, size: 34, weight: 500, color: t2, lh: 44 });
+  if (sh.line && i.profile.line) hl.push({ text: i.profile.line, size: 32, weight: 400, color: t2, lh: 42 });
+  const avatarOn = !!(sh.photo && (i.avatar || i.profile.emoji || i.profile.initial));
+  const textH = hl.reduce((n, l) => n + l.lh, 0);
+  const head = avatarOn || hl.length > 0;
   if (head) blocks.push({
-    h: 132,
+    h: Math.max(avatarOn ? 132 : 0, textH),
     draw: (y, s) => {
       let x = z.x + pad * s;
       const A = 132 * s;
-      if (sh.photo && (i.avatar || i.profile.emoji || i.profile.initial)) {
+      const h = Math.max(avatarOn ? 132 : 0, textH) * s;
+      if (avatarOn) {
+        const ay = y + (h - A) / 2;
         ctx.save();
         ctx.beginPath();
-        ctx.arc(x + A / 2, y + A / 2, A / 2, 0, Math.PI * 2);
+        ctx.arc(x + A / 2, ay + A / 2, A / 2, 0, Math.PI * 2);
         ctx.fillStyle = i.mode === 'dark' ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.06)';
         ctx.fill();
         ctx.clip();
         if (i.avatar) {
           const k = Math.max(A / i.avatar.width, A / i.avatar.height);
-          ctx.drawImage(i.avatar, x + (A - i.avatar.width * k) / 2, y + (A - i.avatar.height * k) / 2, i.avatar.width * k, i.avatar.height * k);
+          ctx.drawImage(i.avatar, x + (A - i.avatar.width * k) / 2, ay + (A - i.avatar.height * k) / 2, i.avatar.width * k, i.avatar.height * k);
         } else {
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillStyle = t1;
           ctx.font = font(i.profile.emoji ? 400 : 700, A * (i.profile.emoji ? 0.56 : 0.46));
-          ctx.fillText(i.profile.emoji || i.profile.initial, x + A / 2, y + A / 2 + (i.profile.emoji ? A * 0.03 : 0));
+          ctx.fillText(i.profile.emoji || i.profile.initial, x + A / 2, ay + A / 2 + (i.profile.emoji ? A * 0.03 : 0));
         }
         ctx.restore();
         x += A + 32 * s;
@@ -150,17 +159,12 @@ export function compose(i: CardInput): CardResult {
       const maxW = z.x + z.w - pad * s - x;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
-      const name = sh.name ? i.profile.name.trim() : '';
-      const sub = sh.line ? line : '';
-      if (name) {
-        ctx.font = font(700, 56 * s);
-        ctx.fillStyle = t1;
-        ctx.fillText(ellipsize(name, maxW, (q) => ctx.measureText(q).width), x, y + A / 2 + (sub ? -4 * s : 20 * s));
-      }
-      if (sub) {
-        ctx.font = font(400, 32 * s);
-        ctx.fillStyle = t2;
-        ctx.fillText(ellipsize(sub, maxW, (q) => ctx.measureText(q).width), x, y + A / 2 + (name ? 44 * s : 12 * s));
+      let ty = y + (h - textH * s) / 2;
+      for (const l of hl) {
+        ctx.font = font(l.weight, l.size * s);
+        ctx.fillStyle = l.color;
+        ctx.fillText(ellipsize(l.text, maxW, (q) => ctx.measureText(q).width), x, ty + (l.lh * 0.5 + l.size * 0.36) * s);
+        ty += l.lh * s;
       }
     },
   });

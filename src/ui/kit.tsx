@@ -5,10 +5,10 @@ import { Portal, useLayer } from './overlay';
 import { isPhone, trackPhone } from '../theme';
 import { ChevronDown, X } from 'lucide-preact';
 
-export function Switch(props: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+export function Switch(props: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
   return (
     <label class="switch">
-      <input type="checkbox" role="switch" aria-label={props.label} checked={props.checked} onChange={(e) => props.onChange((e.target as HTMLInputElement).checked)} />
+      <input type="checkbox" role="switch" aria-label={props.label} checked={props.checked} disabled={props.disabled} onChange={(e) => props.onChange((e.target as HTMLInputElement).checked)} />
       <span />
     </label>
   );

@@ -92,11 +92,11 @@ export function ellipsize(text: string, max: number, measure: (s: string) => num
 }
 
 /** Qué se muestra (interruptores recordados en Ajustes; lo que falta toma su valor por defecto). */
-export const SHOW_KEYS = ['name', 'photo', 'line', 'hours', 'cards', 'streak', 'retention', 'days', 'heat', 'brand'] as const;
+export const SHOW_KEYS = ['name', 'user', 'photo', 'line', 'hours', 'cards', 'streak', 'retention', 'days', 'heat', 'brand'] as const;
 export type ShowKey = (typeof SHOW_KEYS)[number];
-/** Privacidad prudente: nombre y foto solo si existen en el perfil; carrera/lema apagado. */
-export function defaultShow(profile: { name: string; photo: string; emoji: string }): Record<ShowKey, boolean> {
-  return { name: !!profile.name.trim(), photo: !!(profile.photo || profile.emoji), line: false, hours: true, cards: true, streak: true, retention: true, days: true, heat: true, brand: true };
+/** Privacidad prudente: nombre, @usuario y foto solo si existen en el perfil; carrera/lema apagado. */
+export function defaultShow(profile: { name: string; username?: string; photo: string; emoji: string }): Record<ShowKey, boolean> {
+  return { name: !!profile.name.trim(), user: !!profile.username?.trim(), photo: !!(profile.photo || profile.emoji), line: false, hours: true, cards: true, streak: true, retention: true, days: true, heat: true, brand: true };
 }
 
 /** Nombre de archivo con la fecha local del día de estudio. */

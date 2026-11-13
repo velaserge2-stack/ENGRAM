@@ -90,7 +90,7 @@ export function ShareSheet(props: { act: Map<string, DayAct>; today: string; pro
         const r = compose({
           format: sh.format, period: sh.period, mode: resolvedMode(s), k: s.glass / 100, bg: s.bg, neutral: sh.neutral,
           framing: i.framing, dim: s.bgDim, blur: s.bgBlur, viewportW: innerWidth, bgImg: i.bg, avatar: i.avatar, mark: i.mark,
-          profile: { name: p.name, emoji: p.emoji, initial: initial(p), line },
+          profile: { name: p.name, username: p.username, emoji: p.emoji, initial: initial(p), line },
           show, sum, font: `${font.getPropertyValue('--font').trim() || 'sans-serif'}, ${font.getPropertyValue('--emoji').trim() || 'sans-serif'}`,
         });
         (window as unknown as { __share: unknown }).__share = { w: r.canvas.width, h: r.canvas.height, alpha: r.alpha, contrast: r.contrast, empty: r.empty, head: r.head };
@@ -125,12 +125,13 @@ export function ShareSheet(props: { act: Map<string, DayAct>; today: string; pro
   const nf = new Intl.NumberFormat(locale());
   const alt = [
     show.name && p.name.trim(),
+    show.user && p.username && `@${p.username}`,
     empty ? t('share.vacio') : [show.hours && `${t('share.horas_estudiadas')}: ${fmtDuration(sum.ms, locale())}`, show.cards && `${t('share.flashcards_estudiadas')}: ${nf.format(sum.cards)}`, show.streak && `${t('share.racha_dias')}: ${sum.streak}`].filter(Boolean).join(', '),
     rangeLabel(sum),
   ].filter(Boolean).join('. ');
   const FMT: Record<Format, string> = { historia: t('share.f_historia'), vertical: t('share.f_vertical'), cuadrada: t('share.f_cuadrada') };
   const PER: Record<Period, string> = { hoy: t('share.p_hoy'), '7': t('share.p_7'), '30': t('share.p_30'), anio: t('share.p_anio'), todo: t('share.p_todo') };
-  const LBL: Record<ShowKey, string> = { name: t('share.s_name'), photo: t('share.s_photo'), line: t('share.s_line'), hours: t('share.horas_estudiadas'), cards: t('share.flashcards_estudiadas'), streak: t('share.racha_dias'), retention: t('share.retencion'), days: t('share.dias_estudiados'), heat: t('today.mapa_de_adherencia'), brand: t('share.s_brand') };
+  const LBL: Record<ShowKey, string> = { name: t('share.s_name'), user: t('share.s_user'), photo: t('share.s_photo'), line: t('share.s_line'), hours: t('share.horas_estudiadas'), cards: t('share.flashcards_estudiadas'), streak: t('share.racha_dias'), retention: t('share.retencion'), days: t('share.dias_estudiados'), heat: t('today.mapa_de_adherencia'), brand: t('share.s_brand') };
 
   return (
     <Sheet title={t('share.compartir_estadisticas')} onClose={props.onClose} wide>
@@ -156,9 +157,15 @@ export function ShareSheet(props: { act: Map<string, DayAct>; today: string; pro
           <Segmented label={t('share.formato')} value={sh.format} onChange={(v) => set({ format: v })} options={FORMATS.map((f) => [f, FMT[f]])} />
           <Segmented label={t('share.periodo')} value={sh.period} onChange={(v) => set({ period: v })} options={PERIODS.map((x) => [x, PER[x]])} />
           <Group title={t('share.que_mostrar')}>
-            {SHOW_KEYS.filter((k) => k !== 'retention' || sum.retention !== null).map((k) => (
-              <Row k={LBL[k]}><Switch label={LBL[k]} checked={show[k]} onChange={(v) => set({ show: { ...sh.show, [k]: v } })} /></Row>
-            ))}
+            {SHOW_KEYS.filter((k) => k !== 'retention' || sum.retention !== null).map((k) => {
+              // sin @usuario en el perfil: interruptor apagado y un enlace a Perfil para definirlo
+              const off = k === 'user' && !p.username;
+              return (
+                <Row k={LBL[k]} sub={off ? <a href="#/perfil" onClick={props.onClose}>{t('share.definir_usuario')}</a> : undefined}>
+                  <Switch label={LBL[k]} checked={show[k] && !off} disabled={off} onChange={(v) => set({ show: { ...sh.show, [k]: v } })} />
+                </Row>
+              );
+            })}
             <Row k={t('share.fondo')}><Segmented label={t('share.fondo')} value={sh.neutral ? 'n' : 'a'} onChange={(v) => set({ neutral: v === 'n' })} options={[['a', t('share.fondo_app')], ['n', t('share.fondo_neutro')]]} /></Row>
           </Group>
         </div>
