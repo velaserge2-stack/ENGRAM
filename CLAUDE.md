@@ -67,4 +67,4 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 **Prompt 19 (revisión)** en la rama `compartir-estadisticas` (desde `main`; no unir ni subir sin confirmación): «Nombre de usuario» en Perfil (clave `usuario`, `normUsername`/`usernameError` en `src/lib/profile.ts`), @usuario y «¿Dónde estás estudiando?» en la imagen (texto libre con pin, sin GPS, últimos 5 lugares en `settings.share.places`) y fuego vectorial junto a la racha (`ICON`/`strokeIcon` en `src/share/card.ts`). `npm run e2e:share`.
 
 ## Skills activas
-Mantenimiento: webapp-testing, security-review (importadores), frontend-design (Cristal), ponytail. Máx. 5–6 a la vez.
+Auditoría (Prompt 13): ponytail, systematic-debugging (superpowers), webapp-testing, break-ui, security-review. Etapa 4b: code-simplifier y deslop pendientes (ver `docs/audit/LOG.md`). graphify no instalada (envía contenido a APIs externas si hay clave; ver LOG). Máx. 5–6 a la vez.
