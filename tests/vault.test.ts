@@ -333,4 +333,23 @@ describe('appendLines (auditoría plan 5)', () => {
     await expect(appendLines(broken, '.app/x.jsonl', ['6'])).rejects.toThrow('E/S');
     expect(await readText(v, '.app/x.jsonl')).toBe('1\n2\n3\n4\n5\n');
   });
+  it('entre pestañas (dos SafeVault sobre el mismo disco) no se pierden líneas con navigator.locks', async () => {
+    const { appendLines } = await import('../src/vault/util');
+    const { vi } = await import('vitest');
+    const chains = new Map<string, Promise<unknown>>();
+    const request = <T,>(name: string, cb: () => Promise<T>): Promise<T> => {
+      const run = (chains.get(name) ?? Promise.resolve()).then(cb, cb);
+      chains.set(name, run.catch(() => undefined));
+      return run;
+    };
+    vi.stubGlobal('navigator', { locks: { request } });
+    try {
+      const disk = new MemoryBackend();
+      const tabA = new SafeVault(disk), tabB = new SafeVault(disk); // cada pestaña, su propia cola
+      await Promise.all([appendLines(tabA, '.app/r.jsonl', ['a']), appendLines(tabB, '.app/r.jsonl', ['b'])]);
+      expect((await readText(disk, '.app/r.jsonl')).split('\n').filter(Boolean).sort()).toEqual(['a', 'b']);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

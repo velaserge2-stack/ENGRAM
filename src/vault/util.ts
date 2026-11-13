@@ -42,12 +42,21 @@ export async function readTextOr(vault: VaultAdapter, path: string, fallback: st
   }
 }
 
-/** Colas por bóveda y ruta: leer-modificar-escribir de un mismo archivo nunca se intercala. */
+/**
+ * Colas por bóveda y ruta: leer-modificar-escribir de un mismo archivo nunca se intercala. Entre
+ * pestañas, el cerrojo de SafeVault solo cubre la escritura (otra pestaña podría leer entre medias y
+ * pisar las líneas añadidas): si existe `navigator.locks`, el ciclo entero toma `engrama-file:<ruta>`
+ * (otro nombre que el de SafeVault: los cerrojos no son reentrantes).
+ */
 const fileQueues = new WeakMap<VaultAdapter, Map<string, Promise<unknown>>>();
+type Locks = { request<T>(name: string, cb: () => Promise<T>): Promise<T> };
 export function serialFile<T>(vault: VaultAdapter, path: string, fn: () => Promise<T>): Promise<T> {
   let m = fileQueues.get(vault);
   if (!m) fileQueues.set(vault, (m = new Map()));
-  const run = (m.get(path) ?? Promise.resolve()).then(fn, fn);
+  const nav = typeof navigator === 'undefined' ? null : (navigator as Navigator & { locks?: Locks });
+  const lk = nav && 'locks' in nav && nav.locks ? nav.locks : null;
+  const locked = () => (lk ? lk.request(`engrama-file:${path}`, fn) : fn());
+  const run = (m.get(path) ?? Promise.resolve()).then(locked, locked);
   const tail = run.catch(() => undefined);
   m.set(path, tail);
   void tail.then(() => m.get(path) === tail && m.delete(path));
