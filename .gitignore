@@ -5,3 +5,4 @@ coverage
 .DS_Store
 e2e/out
 tests/fixtures/perf/
+tests/fixtures/notes/
