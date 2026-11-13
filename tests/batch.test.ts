@@ -159,6 +159,43 @@ describe('SafeVault.batch: recuperación tras morir en cada paso', () => {
     expect([...seen].sort()).toEqual(['after', 'before']);
   });
 
+  it('morir también durante la recuperación: la siguiente recuperación termina igual (todo o nada)', async () => {
+    const { before, after } = await expected();
+    const probe = new Mortal();
+    await seed(probe);
+    probe.ops = [];
+    await new SafeVault(probe).batch(work);
+    const total = probe.ops.length;
+    for (let k = 0; k <= total; k++) {
+      // cuántas operaciones hace la recuperación tras el corte k
+      const r0 = new Mortal();
+      await seed(r0);
+      r0.limit = k;
+      r0.ops = [];
+      await new SafeVault(r0).batch(work).catch(() => {});
+      r0.limit = Infinity;
+      r0.ops = [];
+      await new SafeVault(r0).recover();
+      const rec = r0.ops.length;
+      for (let j = 0; j < rec; j++) {
+        const m = new Mortal();
+        await seed(m);
+        m.limit = k;
+        m.ops = [];
+        await new SafeVault(m).batch(work).catch(() => {});
+        m.ops = [];
+        m.limit = j; // la recuperación muere en su paso j
+        await new SafeVault(m).recover().catch(() => {});
+        m.limit = Infinity;
+        await new SafeVault(m).recover(); // se vuelve a abrir
+        const st = JSON.stringify(await snapshot(m));
+        expect(st === JSON.stringify(after) || st === JSON.stringify(before), `corte ${k}, recuperación cortada en ${j}`).toBe(true);
+        expect(await m.exists(JOURNAL_PATH)).toBe(false);
+        expect(await m.exists(TMP_DIR)).toBe(false);
+      }
+    }
+  });
+
   it('temporal dañado antes de aplicar nada: se revierte el lote entero', async () => {
     const m = new MemoryBackend();
     await seed(m);

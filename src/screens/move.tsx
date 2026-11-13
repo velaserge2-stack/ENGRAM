@@ -44,8 +44,8 @@ async function runMove(app: ReturnType<typeof useApp>, items: MoveItems, dest: s
       for (const f of items.folders) if (!inside(f)) await moveFolder(tx, col, f, dest, clash, log);
     });
   } catch (e) {
-    // a medias: se deshace lo que alcanzó a moverse (el registro sí está completo hasta el fallo)
-    await undoMove(app.vault, log).catch(() => {});
+    // el lote es todo o nada: si falló, no se movió nada (o, si el disco falló al aplicar, el diario
+    // lo completa en la recuperación). No hay nada que deshacer con `log`: sus pasos nunca se aplicaron.
     return app.toast(t('move.fallo', { message: errMsg(e) }));
   } finally {
     app.changed();
