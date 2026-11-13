@@ -84,3 +84,15 @@ describe('intentos guardados con el id antiguo (qid antes de codePointAt)', () =
     expect(pastResult(seen, plain!)).toBeUndefined();
   });
 });
+
+describe('simConfig: campos numéricos de un simulacro acotados', () => {
+  it('vacíos, cero, negativos y enormes', async () => {
+    const { simConfig, clampMinutes, MAX_MINUTES } = await import('../src/sim/parse');
+    expect(simConfig({ n: 0, minutes: 0, penalty: -1, pass: 0 }, 10)).toEqual({ n: 1, minutes: 1, penalty: 0, pass: 1 });
+    expect(simConfig({ n: NaN, minutes: NaN, penalty: NaN, pass: NaN }, 10)).toEqual({ n: 10, minutes: 60, penalty: 0, pass: 60 });
+    expect(simConfig({ n: 999, minutes: 1e9, penalty: 5, pass: 300 }, 25)).toEqual({ n: 25, minutes: MAX_MINUTES, penalty: 1, pass: 100 });
+    expect(simConfig({ n: 2.6, minutes: 30.4, penalty: 0.25, pass: 59.5 }, 25)).toEqual({ n: 3, minutes: 30, penalty: 0.25, pass: 60 });
+    expect(clampMinutes(-5)).toBe(1);
+    expect(parseBankMarkdown('---\nminutos: -3\n---\n1. a\nA) x *\nB) y', 'b').minutes).toBe(1);
+  });
+});

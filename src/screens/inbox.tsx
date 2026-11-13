@@ -9,7 +9,7 @@ import { STREAM_FROM } from '../io/import';
 import { buildTree, classNoteFromPlaud, glossarySuggestions, listNotes, newNoteText, notePath, plaudGroupKey, plaudKind, type PlaudKind, replaceAll, suggestPlace } from '../notes/model';
 import { go, href, useApp, useAsync } from '../state';
 import { Empty, PageTitle } from '../ui/kit';
-import { extname } from '../vault/paths';
+import { extname, withSuffix } from '../vault/paths';
 import { readTextOr, walk } from '../vault/util';
 import { PromptSheet } from './notes';
 
@@ -176,34 +176,41 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
   const doc = parseFrontmatter(it.draft);
   const sugg = glossarySuggestions(doc.body, app.settings.glossary);
   const archiving = useRef(false);
+  const [busy, setBusy] = useState(false);
   const archive = async () => {
     if (archiving.current) return; // doble toque: no crear «(2)»
     archiving.current = true;
+    setBusy(true);
+    // todo o nada: si algo falla antes de escribir la nota, los archivos vuelven a la bandeja
+    const moved: [string, string][] = [];
     try {
       let path = finalPath;
       for (let i = 2; await app.vault.exists(path); i++) path = notePath(it.materia, it.tema, `${it.title} (${i})`);
       let body = doc.body;
       const attach: string[] = [];
       for (const f of it.files) {
-        if (f.kind === 'doc') {
-          const dest = it.materia.trim() ? `docs/${it.materia}/${f.name}` : `docs/${f.name}`;
-          await app.vault.move(f.path, dest);
-          attach.push(`- [${f.name}](#/espacios/abrir/${encodeURIComponent(dest)})`);
-        } else if (f.kind === 'audio') {
-          const dest = `media/${f.name}`;
-          await app.vault.move(f.path, dest);
-        }
+        if (f.kind !== 'doc' && f.kind !== 'audio') continue;
+        let dest = f.kind === 'doc' ? (it.materia.trim() ? `docs/${it.materia}/${f.name}` : `docs/${f.name}`) : `media/${f.name}`;
+        for (let k = 2; await app.vault.exists(dest); k++) dest = withSuffix(f.kind === 'doc' ? (it.materia.trim() ? `docs/${it.materia}/${f.name}` : `docs/${f.name}`) : `media/${f.name}`, k); // nunca encima de otro archivo
+        await app.vault.move(f.path, dest);
+        moved.push([f.path, dest]);
+        if (f.kind === 'doc') attach.push(`- [${f.name}](#/espacios/abrir/${encodeURIComponent(dest)})`);
       }
       if (attach.length) body = body.replace('## Fuente\n', () => `## Fuente\n${attach.join('\n')}\n`);
       // solo materia y tema cambian: el resto del frontmatter del borrador queda tal cual
       await app.vault.write(path, rewriteDoc(it.draft, body, { materia: it.materia.trim() || undefined, tema: it.tema.trim() || undefined }));
+      moved.length = 0; // la nota ya existe: lo que siga (borrar la carpeta de la bandeja) no deshace nada
       await app.vault.remove(`inbox/${it.id}`);
       app.changed();
       app.toast(t('inbox.archivado_en_materia_tema_p_s', { materia: it.materia || t('notes.sin_clasificar'), tema: it.tema || '—', p: Math.round((Date.now() - started) / 1000) }));
       p.onDone(true);
       go('notas', ...path.split('/').slice(1));
+    } catch (e) {
+      for (const [from, to] of moved.reverse()) await app.vault.move(to, from).catch(() => undefined);
+      app.toast(t('inbox.no_se_archivo', { e: errMsg(e) }));
     } finally {
       archiving.current = false;
+      setBusy(false);
     }
   };
   const materias = p.tree.map((m) => m.materia);
@@ -256,7 +263,7 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
       {it.step === 3 && (
         <div class="stack">
           <p>{t('inbox.se_guardara_en')}{' '}<b>{finalPath}</b>. {it.files.some((f) => f.kind === 'doc') ? t('inbox.los_pdf_word_van_a_docs') : ''} {it.files.some((f) => f.kind === 'audio') ? t('inbox.el_audio_va_a_media') : ''}</p>
-          <button type="button" class="btn primary" onClick={archive}><Archive size={18} />{' '}{t('inbox.archivar')}</button>
+          <button type="button" class="btn primary" disabled={busy} onClick={archive}><Archive size={18} />{' '}{t('inbox.archivar')}</button>
           <a class="foot" href={href('notas')}>{t('inbox.tras_archivar_la_nota_muestra_cuantas')}</a>
         </div>
       )}

@@ -165,7 +165,7 @@ export function parseBankMarkdown(text: string, fallbackName: string): Bank {
   const { data, body } = parseFrontmatter(text);
   return {
     name: typeof data.examen === 'string' ? data.examen : fallbackName,
-    minutes: typeof data.minutos === 'number' ? data.minutos : 60,
+    minutes: typeof data.minutos === 'number' ? clampMinutes(data.minutos) : 60,
     shuffle: data.aleatorio !== false,
     questions: parseText(body),
   };
@@ -232,6 +232,22 @@ export function serializeBank(b: Bank): string {
     return parts.join('\n');
   });
   return stringifyFrontmatter({ examen: b.name, minutos: b.minutes, aleatorio: b.shuffle }, body.join('\n\n') + '\n');
+}
+
+/** Tope de minutos de un simulacro (12 h). */
+export const MAX_MINUTES = 720;
+const clampInt = (v: number, lo: number, hi: number, d: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d);
+/** Minutos válidos: entero de 1 a MAX_MINUTES (vacío, 0, negativo o texto → 60 o el tope). */
+export const clampMinutes = (m: number) => clampInt(m, 1, MAX_MINUTES, 60);
+
+/** Configuración de un intento con valores válidos: nº de preguntas 1…disponibles, minutos, penalización 0…1, aprobado 1…100 %. */
+export function simConfig(c: { n: number; minutes: number; penalty: number; pass: number }, available: number) {
+  return {
+    n: clampInt(c.n, 1, Math.max(1, available), Math.min(40, Math.max(1, available))),
+    minutes: clampMinutes(c.minutes),
+    penalty: Number.isFinite(c.penalty) ? Math.min(1, Math.max(0, c.penalty)) : 0,
+    pass: clampInt(c.pass, 1, 100, 60),
+  };
 }
 
 export function isCorrect(q: Question, given: string[] | undefined): boolean {

@@ -96,13 +96,14 @@ export function Spaces(props: { route: string[] }) {
   const isPhone = usePhone();
   const [show, setShow] = useState<string | null>(null);
   const ph: Phone | undefined = isPhone ? { show, setShow } : undefined;
-  const saveT = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // un temporizador por espacio: guardar B no cancela el guardado pendiente de A
+  const saveT = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const save = (s: Space) => {
     setSp(s);
-    clearTimeout(saveT.current);
+    clearTimeout(saveT.current.get(s.id));
     const isNew = !spaces?.some((x) => x.id === s.id);
-    if (isNew) void app.vault.write(`${DIR}/${s.id}.json`, JSON.stringify(s)).then(() => app.changed());
-    else saveT.current = setTimeout(() => void app.vault.write(`${DIR}/${s.id}.json`, JSON.stringify(s)), 400);
+    if (isNew) (saveT.current.delete(s.id), void app.vault.write(`${DIR}/${s.id}.json`, JSON.stringify(s)).then(() => app.changed()));
+    else saveT.current.set(s.id, setTimeout(() => (saveT.current.delete(s.id), void app.vault.write(`${DIR}/${s.id}.json`, JSON.stringify(s))), 400));
   };
   // abrir un archivo desde un enlace: #/espacios/abrir/<ruta[#pN]>
   useEffect(() => {

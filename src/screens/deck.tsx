@@ -79,6 +79,7 @@ export function CardForm(props: { onAdd: (block: string) => Promise<void>; initi
   const [lines, setLines] = useState('');
   const [image, setImage] = useState('');
   const [imgUrl, setImgUrl] = useState<string | null>(null);
+  useEffect(() => () => { if (imgUrl) URL.revokeObjectURL(imgUrl); }, [imgUrl]); // la anterior al elegir otra y al cerrar
   const [rects, setRects] = useState<Rect[]>([]);
   const ta = useRef<HTMLTextAreaElement>(null);
   const block = buildBlock(type, { front, back, lines, image, rects });

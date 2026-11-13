@@ -10,7 +10,7 @@ import { listBankTrash, purgeBank, restoreBank, trashBank, type BankTrashEntry }
 import { ATTEMPTS, deleteAttempt, restoreAttempt } from '../data/extra';
 import { appendCard, safeName } from '../data/ops';
 import { extractText } from '../io/extract';
-import { type Bank, byTopic, finalize, isCorrect, parseBankCSV, parseBankJSON, parseBankMarkdown, parseText, pastResult, pastResults, type Question, score, serializeBank, summarize } from '../sim/parse';
+import { type Bank, byTopic, finalize, isCorrect, parseBankCSV, parseBankJSON, parseBankMarkdown, parseText, pastResult, pastResults, type Question, score, serializeBank, simConfig, clampMinutes, MAX_MINUTES, summarize } from '../sim/parse';
 import { go, useApp, useAsync } from '../state';
 import { Bar, Empty, PageTitle, Segmented, Sheet } from '../ui/kit';
 import { extname } from '../vault/paths';
@@ -261,7 +261,9 @@ function CreateSim(props: { banks: { path: string; bank: Bank }[]; attempts: Att
   let chosen = pool.filter((x) => !tsel || tsel.includes(x.q.topic || tr('simulacros.sin_tema')));
   if (filter === 'failed') chosen = chosen.filter((x) => pastResult(seen, x.q) === true);
   if (filter === 'unseen') chosen = chosen.filter((x) => pastResult(seen, x.q) === undefined);
+  const cfg = simConfig({ n, minutes, penalty, pass }, chosen.length);
   const start = async () => {
+    const { n, minutes, penalty, pass } = cfg; // valores acotados (un campo vacío o negativo no llega al intento)
     const seed = String(Date.now());
     const picked = (shuf ? shuffle(chosen, seed) : chosen).slice(0, n);
     const at: Attempt = {
@@ -284,13 +286,13 @@ function CreateSim(props: { banks: { path: string; bank: Bank }[]; attempts: Att
         <Segmented label={tr('simulacros.preguntas')} value={filter} onChange={setFilter} options={[['all', tr('simulacros.todas')], ['failed', tr('simulacros.solo_falladas')], ['unseen', tr('simulacros.solo_no_vistas')]]} />
         <Segmented label={tr('deck.modo')} value={mode} onChange={setMode} options={[['sim', tr('simulacros.simulacro')], ['practice', tr('simulacros.practica')], ['errors', tr('simulacros.repaso_de_errores')]]} />
         <div class="row wrap">
-          <label class="field">{tr('simulacros.numero')}<input class="input" type="number" min={1} max={chosen.length} value={Math.min(n, chosen.length)} onInput={(e) => setN(Number((e.target as HTMLInputElement).value))} /></label>
-          {mode === 'sim' && <label class="field">{tr('heatmap.minutos')}<input class="input" type="number" min={1} value={minutes} onInput={(e) => setMinutes(Number((e.target as HTMLInputElement).value))} /></label>}
-          <label class="field">{tr('simulacros.penalizacion_por_error')}<input class="input" type="number" min={0} max={1} step={0.05} value={penalty} onInput={(e) => setPenalty(Number((e.target as HTMLInputElement).value))} /></label>
-          <label class="field">{tr('simulacros.aprobado')}<input class="input" type="number" min={1} max={100} value={pass} onInput={(e) => setPass(Number((e.target as HTMLInputElement).value))} /></label>
+          <label class="field">{tr('simulacros.numero')}<input class="input" type="number" min={1} max={chosen.length} value={Math.min(n, chosen.length)} onBlur={() => setN(cfg.n)} onInput={(e) => setN(Number((e.target as HTMLInputElement).value))} /></label>
+          {mode === 'sim' && <label class="field">{tr('heatmap.minutos')}<input class="input" type="number" min={1} max={MAX_MINUTES} value={minutes} onBlur={() => setMinutes(cfg.minutes)} onInput={(e) => setMinutes(Number((e.target as HTMLInputElement).value))} /></label>}
+          <label class="field">{tr('simulacros.penalizacion_por_error')}<input class="input" type="number" min={0} max={1} step={0.05} value={penalty} onBlur={() => setPenalty(cfg.penalty)} onInput={(e) => setPenalty(Number((e.target as HTMLInputElement).value))} /></label>
+          <label class="field">{tr('simulacros.aprobado')}<input class="input" type="number" min={1} max={100} value={pass} onBlur={() => setPass(cfg.pass)} onInput={(e) => setPass(Number((e.target as HTMLInputElement).value))} /></label>
         </div>
         <label class="row"><input type="checkbox" checked={shuf} onChange={(e) => setShuf((e.target as HTMLInputElement).checked)} />{' '}{tr('simulacros.orden_aleatorio_de_preguntas_y_opciones')}</label>
-        <button type="button" class="btn primary" disabled={!chosen.length} onClick={start}>{tr('simulacros.empezar_n', { n: Math.min(n, chosen.length) })}</button>
+        <button type="button" class="btn primary" disabled={!chosen.length} onClick={start}>{tr('simulacros.empezar_n', { n: chosen.length ? cfg.n : 0 })}</button>
       </div>
     </Sheet>
   );
@@ -523,7 +525,7 @@ function ImportBank() {
   const save = async () => {
     if (!qs) return;
     const path = `exams-bank/${safeName(name || 'Banco')}.md`;
-    await app.vault.write(path, serializeBank({ name: name || tr('simulacros.banco'), minutes, shuffle: true, questions: qs }));
+    await app.vault.write(path, serializeBank({ name: name || tr('simulacros.banco'), minutes: clampMinutes(minutes), shuffle: true, questions: qs }));
     app.changed();
     app.toast(tr('simulacros.banco_guardado_las_dudosas_quedan_como'));
     simGo();
@@ -546,7 +548,7 @@ function ImportBank() {
             <p class="foot">{tr('simulacros.las_preguntas_dudosas_se_marcan_corrigelas')}</p>
             <div class="row wrap">
               <label class="field">{tr('simulacros.nombre_del_banco')}<input class="input" value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} /></label>
-              <label class="field">{tr('heatmap.minutos')}<input class="input" type="number" value={minutes} onInput={(e) => setMinutes(Number((e.target as HTMLInputElement).value))} /></label>
+              <label class="field">{tr('heatmap.minutos')}<input class="input" type="number" min={1} max={MAX_MINUTES} value={minutes} onBlur={() => setMinutes(clampMinutes(minutes))} onInput={(e) => setMinutes(Number((e.target as HTMLInputElement).value))} /></label>
               <label class="row note"><input type="checkbox" checked={onlyBad} onChange={(e) => setOnlyBad((e.target as HTMLInputElement).checked)} />{' '}{tr('simulacros.solo_dudosas')}</label>
             </div>
             <div style={{ overflowX: 'auto' }}>

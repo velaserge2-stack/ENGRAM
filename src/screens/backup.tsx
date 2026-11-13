@@ -1,4 +1,4 @@
-import { t } from '../i18n';
+import { errMsg, t } from '../i18n';
 import { Archive, Share } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { deliver, stamp } from '../io/share';
@@ -29,6 +29,8 @@ export function BackupSheet(props: { onClose: () => void }) {
       const zip = await buildZip(files, APP_VERSION);
       setCounts(countFiles(files.map((f) => ({ path: f.path, size: f.data.length }))));
       setFile(new File([zip as BlobPart], t('backup.engrama_p_zip', { p: stamp() }), { type: 'application/zip' }));
+    } catch (e) {
+      app.toast(t('backup.no_se_pudo_preparar', { e: errMsg(e) }));
     } finally {
       setBusy(false);
     }
@@ -36,7 +38,12 @@ export function BackupSheet(props: { onClose: () => void }) {
 
   async function save() {
     if (!file) return;
-    const r = await deliver(file);
+    let r: Awaited<ReturnType<typeof deliver>>;
+    try {
+      r = await deliver(file);
+    } catch (e) {
+      return app.toast(t('backup.no_se_pudo_guardar', { e: errMsg(e) }));
+    }
     if (r === 'cancelled') return;
     app.update({ lastExportAt: Date.now(), backupReminderSnoozedUntil: null }, true);
     app.toast(r === 'shared' ? t('backup.respaldo_listo') : t('backup.respaldo_descargado'));
