@@ -1,5 +1,6 @@
 import { locale, t, tn } from '../i18n';
-import { BarChart3, BookOpen, CalendarRange, CheckCheck, Flame, GraduationCap, Layers, ListTodo, Timer } from 'lucide-preact';
+import { BarChart3, BookOpen, CalendarRange, CheckCheck, Flame, GraduationCap, Layers, ListTodo, Share2, Timer } from 'lucide-preact';
+import { useState } from 'preact/hooks';
 import { Minimizable, Tray, type TrayItem, useHoyTray } from '../ui/tray';
 import { fmt, remaining } from '../lib/pomodoro';
 import { useExtra } from '../data/extra';
@@ -44,6 +45,9 @@ export function Today() {
   const tray = useHoyTray();
   const profile = useProfile();
   const rem = fmt(remaining(app.pomo.state, app.pomo.now));
+  // «Compartir estadísticas» (Prompt 19): la hoja y el compositor se cargan al pulsar
+  const [Share, setShare] = useState<null | typeof import('../share/sheet').ShareSheet>(null);
+  const openShare = () => void import('../share/sheet').then((m) => setShare(() => m.ShareSheet), () => app.toast(t('share.error')));
   const ITEMS: Record<string, TrayItem> = {
     pomodoro: { id: 'pomodoro', label: t('today.pomodoro'), icon: <Timer size={20} />, live: rem, liveLabel: t(app.pomo.state.running ? 'tray.restantes' : 'tray.restantes_pausa', { rem }) },
     progreso: { id: 'progreso', label: t('today.progreso_de_hoy'), icon: <BarChart3 size={20} /> },
@@ -57,6 +61,7 @@ export function Today() {
     <>
       <PageTitle title={t('today.hoy')} sub={(profile.name.trim() ? `${t('today.hola_name', { name: profile.name.trim().split(/\s+/)[0] })} · ` : '') + new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', month: 'long', timeZone: s.timeZone }).format(now)}>
         <span class="title-chip glass row" data-tip={t('today.racha')}><Flame size={18} /> <b class="num">{st.current}</b> {tn('plural.daysword', st.current)}{st.todayCounts ? t('today.hoy_cuenta') : ''}</span>
+        <button type="button" class="btn share-btn" aria-label={t('share.compartir_estadisticas')} onClick={openShare}><Share2 size={18} /><span class="lbl">{t('share.compartir')}</span></button>
         <a class="btn primary" href="#/estudiar"><BookOpen size={18} />{' '}{t('today.estudiar')}{pend ? ` · ${pend.total}` : ''}</a>
       </PageTitle>
       {!st.todayCounts && evening && st.current > 0 && (
@@ -108,6 +113,7 @@ export function Today() {
         {s.addons.heatmap !== false && <div class="span-all"><Minimizable id="calor" label={t('today.mapa_de_adherencia')} tray={tray}>{(b) => <div class="mh">{b}<Heatmap act={act} today={today} byDeck={byDeckFn(app)} /></div>}</Minimizable></div>}
       </div>
       {tray.hidden.length > 0 && <div class="row" style={{ justifyContent: 'center', marginTop: '14px' }}><button type="button" class="btn small glass" onClick={tray.reopenAll}>{t('today.mostrar_paneles_cerrados_n', { n: tray.hidden.length })}</button></div>}
+      {Share && <Share act={act} today={today} profile={profile} onClose={() => setShare(null)} />}
       <Tray floating items={tray.min.map((id) => ITEMS[id]).filter((x): x is TrayItem => !!x)} onRestore={tray.restore} onClose={tray.close} />
     </>
   );

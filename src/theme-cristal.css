@@ -908,3 +908,13 @@ html.in-canvas .mini-amb.docked { bottom: calc(env(safe-area-inset-bottom) + 176
 .perf-hud dl { margin: 0; display: grid; grid-template-columns: auto auto; gap: 2px 12px; }
 .perf-hud dt { color: var(--t2); }
 .perf-hud dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* «Compartir estadísticas» (Prompt 19): vista previa a la izquierda, opciones a la derecha */
+.share-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; align-items: start; }
+.share-prev { display: grid; place-items: center; min-height: 240px; }
+.share-prev img { display: block; max-width: 100%; max-height: min(64dvh, 620px); border-radius: 14px; box-shadow: var(--shadow); transition: opacity .2s; }
+.share-prev img.stale { opacity: .55; }
+.share-grid > .stack-s:first-child { position: sticky; top: 0; }
+.is-phone .share-grid { grid-template-columns: 1fr; } .is-phone .share-prev img { max-height: 46dvh; } .is-phone .share-grid > .stack-s:first-child { position: static; }
+@media (prefers-reduced-motion: reduce) { .share-prev img { transition: none; } }
+.is-phone .share-btn { padding: 0; width: 44px; } .is-phone .share-btn .lbl { display: none; }
