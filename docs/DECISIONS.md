@@ -836,4 +836,9 @@ Nota larga desplazada y asa en un panel del lienzo (dedo y Pencil); nota de ~1 M
 - **Límite**: se muestran 50 y «Mostrar n más»; dentro de cada sticky, tope de alto con desplazamiento.
 - **Fuera por ahora**: soltar una sticky en el lienzo de Espacios. El panel de nota existente ya puede abrirla desde «Abrir en Notas», pero arrastrar entre Hoy y el lienzo no es barato.
 - **Apagado = cero costo**: `src/stickies/tile.tsx` se carga con `import()` solo si el add-on está activo.
+- **Tamaño** (gzip, contra `main` con la función 1 ya unida). La entrada de JS pasa de 91.7 KB a 96.2 KB.
+  - Las claves nuevas de es/en/fr explican ~2.3 KB; los tres idiomas van en la entrada.
+  - Otros ~2 KB son módulos ya existentes (atajos `lib/keys` y `ui/keys`, `io/csv` y unos iconos) que el empaquetador sacó de un fragmento compartido y metió en la entrada: se mueven, no se duplican. Ocurre en cuanto el mosaico de stickies usa el render de Markdown (`ui/md`). Ni importarlo de forma diferida ni un archivo de vista aparte lo cambió, y usar solo `md/render` subía markdown-it entero (+11 KB), así que se dejó el import directo.
+  - El CSS pasa de 14.0 a 14.7 KB.
+  - Los fragmentos de Tareas y Sticky notes pesan ~3.2 y ~3.4 KB y solo se descargan con su add-on activo (`e2e:tasks` y `e2e:stickies` comprueban que, apagados, no se piden).
 
