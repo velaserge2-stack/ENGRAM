@@ -4,7 +4,7 @@ import { t, tn } from '../i18n';
  * `reviews.jsonl` es la fuente de verdad: el estado de cada tarjeta se obtiene
  * REPRODUCIENDO el historial (`replay`). `state.json` es solo una caché.
  */
-import { type Card, createEmptyCard, fsrs, type FSRS, type Grade, State, forgetting_curve, computeDecayFactor, default_w } from 'ts-fsrs';
+import { type Card, createEmptyCard, fsrs, type FSRS, type Grade, State, computeDecayFactor, default_w } from 'ts-fsrs';
 
 export type Rating = 1 | 2 | 3 | 4;
 export const RATING_LABEL: Record<Rating, string> = { get 1() { return t('design.otra_vez'); }, get 2() { return t('design.dificil'); }, get 3() { return t('design.bien'); }, get 4() { return t('design.facil'); } };
@@ -165,12 +165,6 @@ export function workloadEstimate(states: Iterable<CardState>, retentions: number
   const S = [...states].filter((s) => s.card.state !== State.New && !s.suspended).map((s) => s.card.stability);
   for (const r of retentions) out[r] = S.reduce((n, s) => n + 1 / Math.max(1, intervalFor(s, r, w)), 0);
   return out;
-}
-
-export function rAt(card: Card, at: number, w: readonly number[] = default_w): number {
-  if (card.state === State.New || !card.last_review) return 0;
-  const days = Math.max(0, (at - card.last_review.getTime()) / 86_400_000);
-  return forgetting_curve(computeDecayFactor(w).decay, days, card.stability);
 }
 
 export { State };

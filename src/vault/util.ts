@@ -24,11 +24,6 @@ export async function readTextOr(vault: VaultAdapter, path: string, fallback: st
   }
 }
 
-export async function readJson<T>(vault: VaultAdapter, path: string, fallback: T): Promise<T> {
-  if (!(await vault.exists(path))) return fallback;
-  return JSON.parse(await readText(vault, path)) as T;
-}
-
 /** Recorre recursivamente y devuelve solo archivos. */
 export async function walk(
   vault: VaultAdapter,

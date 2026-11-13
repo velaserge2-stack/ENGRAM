@@ -38,10 +38,6 @@ export function dirname(path: string): string {
   return parts.slice(0, -1).join('/');
 }
 
-export function joinPath(...parts: string[]): string {
-  return normalizePath(parts.filter(Boolean).join('/'));
-}
-
 export function extname(path: string): string {
   const b = basename(path);
   const i = b.lastIndexOf('.');

@@ -62,10 +62,6 @@ const TYPE_OF: Record<string, NoteType> = {
   Q: 'basic', QR: 'reverse', T: 'type', L: 'list', LO: 'olist', MC: 'mc', MATCH: 'match', ORD: 'order', Cloze: 'cloze', IO: 'io',
 };
 
-export function isCardStart(line: string): boolean {
-  return START.test(line);
-}
-
 interface Block {
   start: number;
   end: number;

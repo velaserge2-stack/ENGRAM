@@ -181,7 +181,3 @@ export function examCids(col: Collection, e: Exam): Set<string> {
   for (const t of e.topics) for (const d of decksForTopic(col, t)) for (const c of d.cards) s.add(c.cid);
   return s;
 }
-
-export function todayKey(now: number, tz: string, h: number) {
-  return dayKey(now, tz, h);
-}

@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 /** Operaciones sobre mazos (escritura segura vía SafeVault). */
-import { ensureIds, newId, parseDeck } from '../cards/parse';
+import { newId, parseDeck } from '../cards/parse';
 import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr } from '../vault/util';
@@ -39,12 +39,6 @@ export async function setDeckMeta(vault: VaultAdapter, deckPath: string, patch: 
     else data[k] = v;
   }
   await vault.write(deckPath, stringifyFrontmatter(data, body));
-}
-
-export async function saveDeckText(vault: VaultAdapter, deckPath: string, text: string, taken: Set<string>): Promise<{ added: string[] }> {
-  const r = ensureIds(text, taken);
-  await vault.write(deckPath, r.text);
-  return { added: r.added };
 }
 
 /** Operación de estado (suspender, enterrar, olvidar) sobre varias tarjetas: se agrega al historial. */

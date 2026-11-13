@@ -48,24 +48,6 @@ export function resolveColor(name: string | null | undefined, dark: boolean): st
   return PALETTE.azul[dark ? 1 : 0];
 }
 
-function mix(hex: string, k: number): string {
-  const n = parseInt(hex.replace('#', ''), 16);
-  const ch = (v: number) => Math.round(v * (1 - k)).toString(16).padStart(2, '0');
-  return `#${ch((n >> 16) & 255)}${ch((n >> 8) & 255)}${ch(n & 255)}`.toUpperCase();
-}
-
-/**
- * Relleno con texto legible (AA, 4.5:1): si el blanco no alcanza, se oscurece
- * el color hasta un 20 %; si aun así no alcanza, texto negro sobre el color original.
- */
-export function fillFor(bg: string): { bg: string; fg: '#FFFFFF' | '#000000' } {
-  for (let k = 0; k <= 0.2001; k += 0.02) {
-    const c = k ? mix(bg, k) : bg;
-    if (contrast(c, '#FFFFFF') >= 4.5) return { bg: c, fg: '#FFFFFF' };
-  }
-  return { bg, fg: '#000000' };
-}
-
 function mixWith(hex: string, target: number, k: number): string {
   const n = parseInt(hex.replace('#', ''), 16);
   const ch = (v: number) => Math.round(v + (target - v) * k).toString(16).padStart(2, '0');

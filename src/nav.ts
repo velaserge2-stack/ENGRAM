@@ -15,4 +15,3 @@ export const TABS = [
   { id: 'estadisticas', get label() { return t('spaces.estadisticas'); }, icon: BarChart3 },
 ] as const;
 
-export type Route = (typeof TABS)[number]['id'] | 'ajustes' | 'bandeja' | 'addons' | 'perfil' | 'design';
