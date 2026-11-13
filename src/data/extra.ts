@@ -56,7 +56,7 @@ export async function loadExtra(vault: VaultAdapter): Promise<Extra> {
   return { pomodoro, exams };
 }
 
-export async function loadExams(vault: VaultAdapter): Promise<Exam[]> {
+async function loadExams(vault: VaultAdapter): Promise<Exam[]> {
   const out: Exam[] = [];
   for (const f of await walk(vault, 'exams')) if (f.path.endsWith('.md')) out.push(parseExam(f.path, await readTextOr(vault, f.path, '')));
   return out.sort((a, b) => a.date.localeCompare(b.date));

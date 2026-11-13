@@ -73,7 +73,7 @@ export async function loadStates(vault: VaultAdapter, params: SrsParams): Promis
   return { states, log: entries, bad, rebuilt: true };
 }
 
-export function serializeStates(states: Map<string, CardState>, key: string): string {
+function serializeStates(states: Map<string, CardState>, key: string): string {
   return JSON.stringify({ v: 1, key, cards: Object.fromEntries(states) });
 }
 

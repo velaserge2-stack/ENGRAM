@@ -19,7 +19,7 @@ import { readTextOr, walk } from '../vault/util';
 import type { Collection, Deck } from './collection';
 import { withSubdecks } from './decktrash';
 
-export type UndoOp = { kind: 'move'; from: string; to: string } | { kind: 'write'; path: string; before: string | null };
+type UndoOp = { kind: 'move'; from: string; to: string } | { kind: 'write'; path: string; before: string | null };
 export type Undo = UndoOp[];
 export type Clash = 'rename' | 'merge';
 
@@ -64,7 +64,7 @@ const fileOf = (p: string) => p.split('/').pop()!;
 const dirOf = (folder: string) => (folder ? `decks/${folder}` : 'decks');
 
 /** Renombra el prefijo de jerarquía `from` → `to` en un nombre de tema o mazo. */
-export function renamePrefix(s: string, from: string, to: string): string {
+function renamePrefix(s: string, from: string, to: string): string {
   return s === from ? to : s.startsWith(from + '/') ? to + s.slice(from.length) : s;
 }
 
@@ -72,7 +72,7 @@ export function renamePrefix(s: string, from: string, to: string): string {
  * Reescribe los vínculos que nombran mazos o carpetas por su jerarquía.
  * `names`: pares nombre completo viejo → nuevo; `paths`: rutas de archivo viejas → nuevas.
  */
-export async function rewriteDeckRefs(vault: VaultAdapter, log: Undo, names: [string, string][], paths: [string, string][]): Promise<void> {
+async function rewriteDeckRefs(vault: VaultAdapter, log: Undo, names: [string, string][], paths: [string, string][]): Promise<void> {
   if (!names.length && !paths.length) return;
   const ren = (s: string) => names.reduce((acc, [a, b]) => renamePrefix(acc, a, b), s);
   // calendario
