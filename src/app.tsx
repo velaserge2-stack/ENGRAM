@@ -37,6 +37,7 @@ import { Headphones } from 'lucide-preact';
 import { Sheet } from './ui/kit';
 import { GlobalKeys, keymap, ShortcutSheet } from './ui/keys';
 import { setPhotoQuality } from './notes/images';
+import { onNoteSaveFailed } from './notes/store';
 
 const DAY = 86_400_000;
 
@@ -109,7 +110,9 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       if (e && (e.name === 'VaultError' || (e instanceof DOMException && e.name !== 'AbortError'))) toast(t('app.error_de_almacenamiento', { e: e.message ?? '' }));
     };
     addEventListener('unhandledrejection', onRejection);
-    return () => removeEventListener('unhandledrejection', onRejection);
+    // autoguardado de notas y mazos (también el del temporizador): aviso una vez por archivo hasta que vuelva a guardar
+    onNoteSaveFailed((path, e) => toast(t('app.no_se_guardo_nota', { name: path.split('/').pop()!.replace(/\.md$/, ''), e: String((e as Error)?.message ?? e) })));
+    return () => (removeEventListener('unhandledrejection', onRejection), onNoteSaveFailed(() => {}));
   }, []);
   useEffect(() => {
     void recheckIntegrity();

@@ -108,6 +108,7 @@
  "app.la_carpeta_conectada_necesita_permiso_de": "Le dossier connecté a de nouveau besoin d’une autorisation. Le stockage privé est utilisé en attendant.",
  "app.luego": "Plus tard",
  "app.modo_temporal": "Mode temporaire.",
+ "app.no_se_guardo_nota": "« {name} » n’a pas été enregistré : {e}. Nouvel essai en continuant à écrire.",
  "app.no_se_pudo_cargar_la_coleccion": "Impossible de lire la collection ; rien n’a été modifié. {e}",
  "app.nueva_version_disponible": "Nouvelle version disponible.",
  "app.pausar_enfoque": "Mettre en pause",

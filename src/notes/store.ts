@@ -18,8 +18,22 @@ const docs = new Map<string, Entry>();
 let afterSave: (vault: VaultAdapter, path: string, text: string) => Promise<void> = async () => {};
 export function onNoteSaved(fn: typeof afterSave) { afterSave = fn; }
 
+/** Aviso de un guardado fallido (también el del temporizador): una vez por ruta hasta que vuelva a guardar bien. */
+let onFail: (path: string, err: unknown) => void = () => {};
+export function onNoteSaveFailed(fn: typeof onFail) { onFail = fn; }
+const failed = new Set<string>();
+
 /** Los mazos (decks/*.md) usan el mismo modelo, pero sin historial de versiones ni índice de notas. */
-const saverFor = (vault: VaultAdapter, path: string) => createAutosave(async (t: string) => { await vault.write(path, t); if (!path.startsWith('decks/')) await afterSave(vault, path, t); });
+const saverFor = (vault: VaultAdapter, path: string) => createAutosave(async (t: string) => {
+  try {
+    await vault.write(path, t);
+  } catch (e) {
+    if (!failed.has(path)) (failed.add(path), onFail(path, e));
+    throw e;
+  }
+  failed.delete(path);
+  if (!path.startsWith('decks/')) await afterSave(vault, path, t);
+});
 
 function entry(vault: VaultAdapter, path: string): Entry {
   let e = docs.get(path);

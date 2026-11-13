@@ -108,6 +108,7 @@
  "app.la_carpeta_conectada_necesita_permiso_de": "La carpeta conectada necesita permiso de nuevo. Mientras tanto se usa el almacenamiento privado.",
  "app.luego": "Luego",
  "app.modo_temporal": "Modo temporal.",
+ "app.no_se_guardo_nota": "No se guardó «{name}»: {e}. Se reintentará al seguir escribiendo.",
  "app.no_se_pudo_cargar_la_coleccion": "No se pudo leer la colección; no se cambió nada. {e}",
  "app.nueva_version_disponible": "Nueva versión disponible.",
  "app.pausar_enfoque": "Pausar enfoque",

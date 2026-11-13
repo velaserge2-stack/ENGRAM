@@ -108,6 +108,7 @@
  "app.la_carpeta_conectada_necesita_permiso_de": "The connected folder needs permission again. Private storage is used in the meantime.",
  "app.luego": "Later",
  "app.modo_temporal": "Temporary mode.",
+ "app.no_se_guardo_nota": "“{name}” wasn’t saved: {e}. It will retry as you keep typing.",
  "app.no_se_pudo_cargar_la_coleccion": "Could not read the collection; nothing was changed. {e}",
  "app.nueva_version_disponible": "New version available.",
  "app.pausar_enfoque": "Pause focus",
