@@ -38,3 +38,9 @@ Activas para la auditoría (≤ 6): ponytail, systematic-debugging, webapp-testi
 - Revisados los 24 módulos de `src/lib/`. Informe en `docs/audit/02-lib.md`: 17 hallazgos (3 altos, 7 medios, 7 bajos).
 - Altos: `ensureFileId` reescribe el frontmatter perdiendo líneas que el parser no entiende y sobrescribe la nota con un archivo casi vacío si la lectura falla; la ida y vuelta de `frontmatter.ts` altera números (`1.0`→`1`), barras invertidas y vacíos.
 - Pruebas: `tests/audit-lib.test.ts` con 14 `it.fails` (todas reproducen el error); cambiarlas a `it()` al corregir. Sin cambios en `src/`.
+
+## Etapa 2.2 · cards/srs/data (2026-11-13) · subagente Sonnet
+
+- Revisados `cards/parse`, `srs/engine`, `srs/queue` y `data/*` (collection, ops, extra, decktrash, move). Informe en `docs/audit/02-data.md`: 14 hallazgos (3 altos, 5 medios, 6 bajos).
+- Altos: el patrón `readTextOr(…, '')` seguido de escritura destruye datos con una lectura fallida en `appendLog` (historial FSRS), `appendCard`/`setDeckMeta` (mazo) y `restoreAttempt` (intentos); además `appendLog` pierde entradas si se solapan dos llamadas.
+- Pruebas: `tests/audit-data.test.ts` con 17 `it.fails` (cambiar a `it()` al corregir). Sin cambios en `src/`. Sección «para etapa 3» en el informe.
