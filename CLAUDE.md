@@ -40,7 +40,7 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 ## Comandos
 - `npm run dev` · `npm run build` · `npm run preview`
 - `npm test` (Vitest) · `npm run typecheck`
-- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras && npm run e2e:mejoras2 && npm run e2e:phone && npm run e2e:bloquec && npm run e2e:p5 && npm run e2e:p6 && npm run e2e:p7 && npm run e2e:p10 && npm run e2e:p12 && npm run e2e:p15 && npm run e2e:glass && npm run e2e:adherencia && npm run e2e:p14 && npm run e2e:reproductor && npm run e2e:pdf` y `npm run e2e:perf` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
+- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras && npm run e2e:mejoras2 && npm run e2e:phone && npm run e2e:bloquec && npm run e2e:p5 && npm run e2e:p6 && npm run e2e:p7 && npm run e2e:p10 && npm run e2e:p12 && npm run e2e:p15 && npm run e2e:glass && npm run e2e:adherencia && npm run e2e:p14 && npm run e2e:reproductor && npm run e2e:pdf && npm run e2e:intentos` y `npm run e2e:perf` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
 - `node scripts/icons.mjs` regenera íconos desde `scripts/icon.svg`
 
 ## Fase actual
@@ -58,6 +58,7 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 **PDF de notas** en la rama `fix-pdf-negro`: el papel siempre es claro (`@media print`: `html` blanco, tokens de papel en ambos modos, sin vidrio) y se imprime solo la nota (`.print-target` + `html.printing-note`, también desde un panel y con Cmd+P). `npm run e2e:pdf` (Chromium + `pdftoppm`/`pdftotext`).
 **Adherencia** en la rama `fix-adherencia-minimizar` (desde `main`): el botón minimizar del mapa recortado queda en la esquina del panel (`.mh:has(> .heat-panel.fit)`). `npm run e2e:adherencia`.
 **Vidrio** en la rama `fix-glass` (desde `main`; no unir sin confirmación): «Añadir examen» como `btn primary` dentro de vidrio (Hoy: píldora `.exam-add`; Estadísticas: encabezado `row glass panel`), `.glass.strong` sigue a la intensidad, modo ligero sin sombras grandes y aviso de 3 s con acción. Medición en `e2e/glass-perf.mjs`; contraste del botón en `npm run e2e:glass`.
+**Borrar intentos** en la rama `fix-borrar-intento` (desde `main`): papelera por fila en «Intentos» y «Borrar este intento» en Resultados, con confirmación y deshacer (`deleteAttempt`/`restoreAttempt` en `src/data/extra.ts`); «Descartar» el simulacro a medias; «Ver todos». `npm run e2e:intentos`.
 
 **Prompt 19** en la rama `compartir-stickies-tareas` (desde `main`; no unir ni subir sin confirmación): 1 = «Compartir estadísticas» (botón en Hoy, hoja con vista previa, Canvas 2D con el fondo activo y el vidrio del tema, logo sin recuadro `public/brand/logo-mark.png`, Web Share con descarga de respaldo). `npm run e2e:share`. En espera de prueba en iPhone/iPad. Siguen 2 (Tareas) y 3 (Sticky notes), add-ons apagados por defecto.
 

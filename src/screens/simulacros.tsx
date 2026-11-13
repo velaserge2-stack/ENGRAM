@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { createContext } from 'preact';
 import { useContext } from 'preact/hooks';
 import { ExamEditor } from './examedit';
-import { Pencil, Plus } from 'lucide-preact';
-import { ATTEMPTS } from '../data/extra';
+import { Pencil, Plus, Trash2 } from 'lucide-preact';
+import { ATTEMPTS, deleteAttempt, restoreAttempt } from '../data/extra';
 import { appendCard, createDeck, safeName } from '../data/ops';
 import { extractText } from '../io/extract';
 import { type Bank, byTopic, finalize, isCorrect, parseBankCSV, parseBankJSON, parseBankMarkdown, parseText, type Question, score, serializeBank, summarize } from '../sim/parse';
@@ -93,10 +93,47 @@ export function Simulacros(props: { route: string[] }) {
   return <SimHome />;
 }
 
+/** Confirmación pequeña (hoja por overlay) con Cancelar / acción. */
+function ConfirmSheet(p: { title: string; body: string; ok: string; onOk: () => void; onClose: () => void }) {
+  return (
+    <Sheet title={p.title} onClose={p.onClose}>
+      <div class="stack">
+        <p>{p.body}</p>
+        <div class="row wrap" style={{ justifyContent: 'flex-end' }}>
+          <button type="button" class="btn" onClick={p.onClose}>{tr('settings.cancelar')}</button>
+          <button type="button" class="btn danger" onClick={p.onOk}><Trash2 size={16} />{' '}{p.ok}</button>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+/**
+ * Borrar un intento terminado (lista y resultados): confirma, quita su línea del `.jsonl` por
+ * SafeVault y ofrece «Deshacer» en el aviso (vuelve a ponerla en su sitio, idéntica).
+ */
+function useDeleteAttempt(after?: () => void) {
+  const app = useApp();
+  const [ask, setAsk] = useState<string | null>(null);
+  const run = async (id: string) => {
+    setAsk(null);
+    const r = await deleteAttempt(app.vault, id);
+    if (!r) return;
+    app.changed(); // historial, estadísticas, mapa de adherencia y calendario vuelven a leer el archivo
+    after?.();
+    app.toast(tr('simulacros.intento_borrado'), { label: tr('move.deshacer'), run: async () => { await restoreAttempt(app.vault, r); app.changed(); } });
+  };
+  const sheet = ask && <ConfirmSheet title={tr('simulacros.borrar_intento')} body={tr('simulacros.confirm_borrar_intento')} ok={tr('simulacros.borrar')} onOk={() => void run(ask)} onClose={() => setAsk(null)} />;
+  return { ask: setAsk, sheet };
+}
+
 function SimHome() {
   const app = useApp();
   const { data } = useAsync(async () => ({ banks: await loadBanks(app.vault), attempts: await loadAttempts(app.vault), current: JSON.parse((await readTextOr(app.vault, CURRENT, 'null')) || 'null') as Attempt | null }), [app.version]);
   const [create, setCreate] = useState(false);
+  const [all, setAll] = useState(false);
+  const [discard, setDiscard] = useState(false);
+  const del = useDeleteAttempt();
   return (
     <>
       <PageTitle title={tr('calendar.simulacros')} sub={tr('simulacros.examenes_de_practica_con_cronometro_no')}>
@@ -105,7 +142,7 @@ function SimHome() {
         <button type="button" class="btn primary" disabled={!data?.banks.length} onClick={() => setCreate(true)}><Play size={18} />{' '}{tr('palette.crear_simulacro')}</button>
       </PageTitle>
       {data?.current && !data.current.finishedAt && (
-        <div class="banner glass"><Flag size={18} /><span class="k"><b>{data.current.title}</b>{' '}{tr('simulacros.quedo_a_medias_tus_respuestas_y')}</span><a class="btn small primary" href="#/simulacros/hacer">{tr('simulacros.continuar_simulacro')}</a></div>
+        <div class="banner glass"><Flag size={18} /><span class="k"><b>{data.current.title}</b>{' '}{tr('simulacros.quedo_a_medias_tus_respuestas_y')}</span><a class="btn small primary" href="#/simulacros/hacer">{tr('simulacros.continuar_simulacro')}</a><button type="button" class="btn small" onClick={() => setDiscard(true)}>{tr('simulacros.descartar')}</button></div>
       )}
       {!data ? <p class="t2">{tr('deck.cargando')}</p> : data.banks.length === 0 ? (
         <Empty icon={<ClipboardCheck size={44} />} title={tr('simulacros.sin_bancos_de_preguntas')} action={<a class="btn primary" href="#/simulacros/importar">{tr('simulacros.importar_examen')}</a>}>{tr('simulacros.importa_un_archivo_markdown_csv_json')}</Empty>
@@ -120,14 +157,23 @@ function SimHome() {
           </section>
           <section class="glass panel">
             <h2 style={{ fontSize: 'var(--t-3)', marginBottom: '8px' }}>{tr('simulacros.intentos')}</h2>
-            {data.attempts.length ? data.attempts.slice(-12).reverse().map((a) => {
+            {data.attempts.length ? (all ? data.attempts : data.attempts.slice(-12)).slice().reverse().map((a) => {
               const sc = score(a.qs.map((x) => x.q), a.answers, a.penalty, a.pass);
-              return <a class="kv" href={`#/simulacros/resultado/${a.id}`} style={{ textDecoration: 'none' }}><span class="k">{a.title} · {new Date(a.startedAt).toLocaleDateString(locale())}</span><span class="v">{Math.round(sc.pct * 100)} % {sc.passed ? '✓' : ''}</span></a>;
+              // el botón va fuera del enlace (no se anida un botón dentro de <a>)
+              return (
+                <div class="kv attempt-row">
+                  <a href={`#/simulacros/resultado/${a.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flex: '1', minWidth: '0', justifyContent: 'space-between', gap: '12px', alignItems: 'center' }}><span class="k">{a.title} · {new Date(a.startedAt).toLocaleDateString(locale())}</span><span class="v">{Math.round(sc.pct * 100)} % {sc.passed ? '✓' : ''}</span></a>
+                  <button type="button" class="btn icon ghost" aria-label={tr('simulacros.borrar_intento')} onClick={() => del.ask(a.id)}><Trash2 size={18} /></button>
+                </div>
+              );
             }) : <p class="t2">{tr('simulacros.aun_no_hay_intentos')}</p>}
+            {data.attempts.length > 12 && <button type="button" class="btn small ghost" onClick={() => setAll(!all)}>{all ? tr('simulacros.ver_recientes') : tr('simulacros.ver_todos', { n: data.attempts.length })}</button>}
           </section>
         </div>
       )}
       {create && data && <CreateSim banks={data.banks} attempts={data.attempts} onClose={() => setCreate(false)} />}
+      {del.sheet}
+      {discard && <ConfirmSheet title={tr('simulacros.descartar_simulacro')} body={tr('simulacros.confirm_descartar')} ok={tr('simulacros.descartar')} onOk={async () => { setDiscard(false); await app.vault.remove(CURRENT); app.changed(); }} onClose={() => setDiscard(false)} />}
     </>
   );
 }
@@ -318,6 +364,7 @@ function Results(props: { id: string }) {
   const app = useApp();
   const { data } = useAsync(() => loadAttempts(app.vault), [app.version]);
   const [onlyBad, setOnlyBad] = useState(false);
+  const del = useDeleteAttempt(() => simGo()); // al borrar, de vuelta a Simulacros
   const a = data?.find((x) => x.id === props.id);
   const qs = useMemo(() => a?.qs.map((x) => x.q) ?? [], [a]);
   if (!data) return <p class="t2">{tr('deck.cargando')}</p>;
@@ -350,7 +397,9 @@ function Results(props: { id: string }) {
       <PageTitle title={tr('simulacros.resultados')} sub={`${a.title} · ${new Date(a.startedAt).toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short' })}`}>
         <button type="button" class="btn" disabled={!failed.length} onClick={mkCards}><Sparkles size={18} />{' '}{tr('simulacros.crear_tarjetas_de_las_falladas')}</button>
         <button type="button" class="btn primary" disabled={!failed.length} onClick={retry}><Repeat size={18} />{' '}{tr('simulacros.repetir_solo_las_falladas')}</button>
+        <button type="button" class="btn" onClick={() => del.ask(a.id)}><Trash2 size={18} />{' '}{tr('simulacros.borrar_este_intento')}</button>
       </PageTitle>
+      {del.sheet}
       <div class="grid cards3">
         <section class="glass panel center stack-s"><div class="big">{Math.round(sc.pct * 100)}<small>%</small></div><p class="t2">{tr('simulacros.points_de_n_puntos', { points: sc.points, n: qs.length })}{' '}{sc.passed ? tr('simulacros.aprobado_2') : tr('simulacros.no_aprobado')} {tr('simulacros.umbral', { n: Math.round(a.pass * 100) })}</p></section>
         <section class="glass panel stack-s"><div class="kv"><span class="k">{tr('simulacros.correctas')}</span><span class="v">{sc.correct}</span></div><div class="kv"><span class="k">{tr('simulacros.incorrectas')}</span><span class="v">{sc.wrong}</span></div><div class="kv"><span class="k">{tr('simulacros.en_blanco')}</span><span class="v">{sc.blank}</span></div><div class="kv"><span class="k">{tr('simulacros.tiempo_total')}</span><span class="v">{Math.round((a.elapsedMs ?? 0) / 60000)} min</span></div><div class="kv"><span class="k">{tr('simulacros.por_pregunta')}</span><span class="v">{per} s</span></div></section>
