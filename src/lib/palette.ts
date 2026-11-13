@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 /** Paleta del sistema (SPEC §7). Valores aproximados; Apple no publica hex garantizados. */
-export const PALETTE = {
+const PALETTE = {
   azul: ['#007AFF', '#0A84FF'],
   verde: ['#34C759', '#30D158'],
   indigo: ['#5856D6', '#5E5CE6'],
@@ -26,7 +26,7 @@ function lin(c: number): number {
   return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
 }
 
-export function luminance(hex: string): number {
+function luminance(hex: string): number {
   const h = hex.replace('#', '');
   const n = parseInt(h.length === 3 ? h.replace(/./g, '$&$&') : h, 16);
   return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);

@@ -41,7 +41,7 @@ export interface StudyBlock {
 }
 
 /** Marca que separa la nota del usuario de los nombres legibles de los vínculos en DESCRIPTION. */
-export const LINKS_MARK = '\n\nVínculos: ';
+const LINKS_MARK = '\n\nVínculos: ';
 
 const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/([,;])/g, '\\$1');
 const unesc = (s: string) => s.replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1');

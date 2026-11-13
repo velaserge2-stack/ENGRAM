@@ -36,7 +36,7 @@ export function scaled(natW: number, natH: number, side: number): [number, numbe
   return [Math.max(1, Math.round(natW * s)), Math.max(1, Math.round(natH * s))];
 }
 /** Ruta en caché: huella de (ruta, tamaño, fecha) + escalón. Si el original cambia, cambia la huella. */
-export async function cachePath(vault: VaultAdapter, path: string, side: number): Promise<string | null> {
+async function cachePath(vault: VaultAdapter, path: string, side: number): Promise<string | null> {
   const st = await vault.stat(path);
   if (!st) return null;
   const ext = /\.jpe?g$/i.test(path) ? 'jpg' : 'png';

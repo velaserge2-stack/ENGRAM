@@ -4,7 +4,7 @@ import { readText } from '../vault/util';
 
 export const SETTINGS_PATH = '.app/settings.json';
 
-export type GlassMode = 'auto' | 'dark' | 'light';
+type GlassMode = 'auto' | 'dark' | 'light';
 
 export interface Background {
   kind: 'builtin' | 'image' | 'solid';
@@ -82,7 +82,7 @@ export const ACCENT_USES = ['nav', 'progreso', 'enlaces', 'seleccion', 'calor', 
 export type AccentUse = (typeof ACCENT_USES)[number];
 export const ACCENT_DEFAULT_USES: AccentUse[] = ['enlaces', 'progreso', 'calor'];
 
-export function deviceTimeZone(): string {
+function deviceTimeZone(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Monterrey';
   } catch {

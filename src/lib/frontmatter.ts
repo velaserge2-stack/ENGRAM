@@ -5,7 +5,7 @@ import { t } from '../i18n';
  *   clave: valor | clave: "texto" | clave: [a, b] | clave: (y debajo "- elemento")
  * Números y booleanos se convierten. Lo demás se reporta como error, nunca se borra.
  */
-export type FMValue = string | number | boolean | null | FMValue[];
+type FMValue = string | number | boolean | null | FMValue[];
 export type Frontmatter = Record<string, FMValue>;
 
 export interface ParsedDoc {
