@@ -642,7 +642,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
           )}
         </aside>
       )}
-      {sheet === 'share' && <ShareNote path={props.path} title={meta.title} text={text} onClose={() => setSheet(null)} />}
+      {sheet === 'share' && <ShareNote path={props.path} title={meta.title} text={text} doc={() => docRef.current} onClose={() => setSheet(null)} />}
       {sheet === 'history' && <HistorySheet path={props.path} onRestore={(t) => (set(t), setSheet(null))} onClose={() => setSheet(null)} />}
       {sheet === 'move' && props.data && <MoveNotesSheet items={{ notes: [props.path], folders: [] }} all={props.data.notes.map((n) => n.path)} current={props.embedded ? null : props.path} onClose={() => setSheet(null)} />}
       {sheet === 'prompt' && <PromptSheet path={props.path} title={meta.title} body={doc.body} onClose={() => setSheet(null)} />}
@@ -808,7 +808,23 @@ function Properties(p: { fm: Frontmatter; onChange: (fm: Frontmatter) => void })
   );
 }
 
-function ShareNote(p: { path: string; title: string; text: string; onClose: () => void }) {
+/**
+ * Imprimir / exportar a PDF solo esta nota: se marca su documento (`print-target`) y `<html>` lleva
+ * `printing-note` mientras dura la impresión (el CSS de impresión oculta todo lo demás). Con Cmd+P
+ * se marca la nota abierta; al terminar (`afterprint`) se quita todo.
+ */
+function markPrint(el: HTMLElement | null) {
+  if (!el) return;
+  document.querySelectorAll('.print-target').forEach((x) => x.classList.remove('print-target'));
+  el.classList.add('print-target');
+  document.documentElement.classList.add('printing-note');
+}
+if (typeof window !== 'undefined') {
+  addEventListener('beforeprint', () => { if (!document.querySelector('.print-target')) markPrint(document.querySelector<HTMLElement>('article.doc')); });
+  addEventListener('afterprint', () => { document.documentElement.classList.remove('printing-note'); document.querySelectorAll('.print-target').forEach((x) => x.classList.remove('print-target')); });
+}
+
+function ShareNote(p: { path: string; title: string; text: string; doc: () => HTMLElement | null; onClose: () => void }) {
   const app = useApp();
   const [links, setLinks] = useState(false);
   const [colors, setColors] = useState<'keep' | 'html' | 'plain'>('keep');
@@ -839,7 +855,7 @@ function ShareNote(p: { path: string; title: string; text: string; onClose: () =
         <div class="row wrap">
           <button type="button" class="btn" disabled={busy} onClick={() => prep('md')}>{tr('notes.preparar_md')}{mediaRefs(p.text).length ? tr('notes.zip_con_medios') : ''}</button>
           <button type="button" class="btn" disabled={busy} onClick={() => prep('docx')}>{tr('notes.preparar_docx')}</button>
-          <button type="button" class="btn" onClick={async () => { p.onClose(); await hydrateAllMedia(); setTimeout(() => window.print(), 300); }}>{tr('notes.pdf_imprimir')}</button>
+          <button type="button" class="btn" onClick={async () => { p.onClose(); await hydrateAllMedia(); markPrint(p.doc()); setTimeout(() => window.print(), 300); }}>{tr('notes.pdf_imprimir')}</button>
         </div>
         {file && <button type="button" class="btn primary" onClick={async () => { const r = await deliver(file); if (r !== 'cancelled') (app.toast(tr('notes.nota_exportada')), p.onClose()); }}><Share size={18} />{' '}{tr('notes.guardar_name', { name: file.name })}</button>}
         <p class="foot">{tr('notes.pdf_en_la_vista_de_impresion')}</p>

@@ -465,14 +465,42 @@ pre.preview { background: var(--fill-2); border: var(--hair) solid var(--line); 
 .drop { border: 1.5px dashed var(--border-strong); border-radius: var(--r-inner); padding: 26px 16px; text-align: center; color: var(--t2); }
 .drop.over { background: var(--fill); }
 
+/* Impresión / exportar a PDF: el papel SIEMPRE es claro, también con el tema oscuro y con fondos de
+   foto (antes `html { background: #000 }` y los tokens oscuros salían en cada hoja) */
 @media print {
-  body { background: #fff !important; }
-  .bg-layer, .bg-veil, .topbar, .no-print, .toast { display: none !important; }
-  [data-glass] { --t1: #000; --t2: #333; --line: #ccc; color: #000; }
+  html, body { background: #fff !important; color-scheme: light; height: auto !important; overflow: visible !important; }
+  :root, [data-glass], [data-glass="dark"], [data-glass="light"] {
+    --t1: #000; --t2: #333; --t3: #666; --line: #ccc; --border: #ccc; --border-strong: #888;
+    --fill: rgba(0, 0, 0, .06); --fill-2: rgba(0, 0, 0, .03); --fill-sel: rgba(0, 0, 0, .1);
+    --glass: #fff; --glass-strong: #fff; --glass-modal: #fff; --glass-flat: #fff;
+    --hilite: none; --shadow: none; --shadow-deep: none; --inverse-bg: #111; --inverse-fg: #fff; --heat: 0, 0, 0;
+    color: #000; color-scheme: light;
+  }
+  .bg-layer, .bg-veil, .topbar, .no-print, .toast, .tooltip, .dev-sign, .dock, .mini-amb, .tray { display: none !important; }
   .glass { background: none !important; box-shadow: none !important; border: 0 !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; text-shadow: none !important; }
   .print-only { display: block !important; }
   @page { margin: 18mm 16mm; }
   h1, h2, h3 { break-after: avoid; } table, img, .callout { break-inside: avoid; }
+  p, li { orphans: 3; widows: 3; }
+  /* contenido de la nota: bloques claros con borde fino, legibles también en escala de grises */
+  .md pre code, .md code { background: #f4f4f4 !important; border: .5pt solid #ccc; }
+  .md table td, .md table th { border-color: #999 !important; }
+  .md blockquote { color: #333; border-left-color: #888; }
+  .md .callout { border-color: #888; background: #fafafa; }
+  .md mark { background: #ffe680 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .md a { color: #003d99; }
+  .md img { max-width: 100% !important; break-inside: avoid; }
+  .md .c-azul { color: #0060df; } .md .c-verde { color: #1f8a3c; } .md .c-naranja { color: #b35c00; } .md .c-amarillo { color: #8a6d00; }
+  .md .c-menta { color: #007d78; } .md .c-turquesa { color: #00738a; } .md .c-rojo { color: #c4231b; } .md .c-rosa { color: #c2185b; }
+  .md .c-indigo { color: #3a37b8; } .md .c-morado { color: #8a2fb0; }
+  /* imprimir solo la nota (la marca el botón «PDF / imprimir» o Cmd+P): todo lo que no la contiene
+     ni está dentro de ella se oculta; sus contenedores dejan de ser rejillas, scroll o capas fijas */
+  html.printing-note body *:not(:has(.print-target)):not(.print-target):not(.print-target *) { display: none !important; }
+  html.printing-note body *:has(.print-target) { display: block !important; position: static !important; width: auto !important; max-width: none !important; height: auto !important; min-height: 0 !important; max-height: none !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; transform: none !important; background: none !important; border: 0 !important; box-shadow: none !important; }
+  html.printing-note .print-target { display: block !important; position: static !important; margin: 0 !important; padding: 0 !important; min-height: 0 !important; height: auto !important; overflow: visible !important; background: none !important; border: 0 !important; box-shadow: none !important; }
+  html.printing-note .print-target .doc-inner { max-width: none !important; }
+  html.printing-note .print-target button, html.printing-note .print-target .btn, html.printing-note .print-target textarea { display: none !important; }
 }
 .print-only { display: none; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
