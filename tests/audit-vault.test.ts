@@ -20,8 +20,8 @@ describe('auditoría vault', () => {
     await expect(readTextOr(broken, 'notes/a.md', '')).rejects.toBeTruthy();
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('readText sobre UTF-8 inválido no debe perder bytes en silencio (reescribir deja U+FFFD)', async () => {
+  // auditoría: corregido (menores)
+  it('readText sobre UTF-8 inválido no debe perder bytes en silencio (reescribir deja U+FFFD)', async () => {
     const v = new MemoryBackend();
     const original = new Uint8Array([0x68, 0xe9, 0x6c]); // "hél" en Latin-1
     await v.write('notes/latin1.md', original);
@@ -52,22 +52,24 @@ describe('auditoría vault', () => {
     expect(await m.exists('d/x.md')).toBe(true);
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('el nombre codificado para OPFS no debe superar 255 caracteres si normalizePath aceptó el segmento', () => {
-    const seg = 'á'.repeat(100); // 100 caracteres: válido para normalizePath
-    expect(normalizePath(seg)).toBe(seg);
-    expect(asciiCodec.enc(seg).length).toBeLessThanOrEqual(255); // 600
+  // auditoría: corregido (menores)
+  it('ningún nombre aceptado por normalizePath supera 255 caracteres una vez codificado para OPFS', () => {
+    const seg = 'á'.repeat(100); // codificado: 600
+    expect(() => normalizePath(seg)).toThrow(); // se rechaza con VaultError claro en vez de un error crudo del navegador
+    const ok = 'á'.repeat(40);
+    expect(normalizePath(ok)).toBe(ok);
+    expect(asciiCodec.enc(ok).length).toBeLessThanOrEqual(255);
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('MemoryBackend.write sobre una ruta que ya es carpeta debe fallar (como HandleFS)', async () => {
+  // auditoría: corregido (menores)
+  it('MemoryBackend.write sobre una ruta que ya es carpeta debe fallar (como HandleFS)', async () => {
     const m = new MemoryBackend();
     await m.write('a/b.md', 'x');
     await expect(m.write('a', 'y')).rejects.toBeTruthy();
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('las rutas inválidas deben rechazar la promesa, no lanzar de forma síncrona', async () => {
+  // auditoría: corregido (menores)
+  it('las rutas inválidas deben rechazar la promesa, no lanzar de forma síncrona', async () => {
     const v = new SafeVault(new MemoryBackend());
     let sync = false;
     let p: Promise<void> | undefined;

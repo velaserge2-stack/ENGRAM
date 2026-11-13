@@ -13,7 +13,13 @@ export function decodeText(bytes: Uint8Array, strict = false): string {
 }
 
 export async function readText(vault: VaultAdapter, path: string): Promise<string> {
-  return decodeText(await vault.read(path));
+  const bytes = await vault.read(path);
+  try {
+    return decodeText(bytes, true);
+  } catch {
+    // no es UTF-8 (p. ej. Latin-1 de otro programa): se lee como windows-1252 para no sembrar U+FFFD al guardar
+    return new TextDecoder('windows-1252').decode(bytes);
+  }
 }
 
 /** El archivo no existe (VaultError o DOMException de FS Access); cualquier otro fallo NO lo es. */

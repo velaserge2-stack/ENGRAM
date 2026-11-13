@@ -105,17 +105,17 @@ export class OPFSBackend implements VaultAdapter {
       opts.signal?.removeEventListener('abort', abort);
     }
   }
-  hash(path: string) {
+  async hash(path: string) {
     return this.call({ op: 'hash', path: normalizePath(path) }) as Promise<{ size: number; hash: string }>;
   }
-  file(path: string) {
+  async file(path: string) {
     return this.call({ op: 'file', path: normalizePath(path) }) as Promise<File>;
   }
 
-  list(path: string) {
+  async list(path: string) {
     return this.call({ op: 'list', path: normalizePath(path) }) as Promise<FileStat[]>;
   }
-  read(path: string) {
+  async read(path: string) {
     return this.call({ op: 'read', path: normalizePath(path) }) as Promise<Uint8Array>;
   }
   async write(path: string, data: Uint8Array | string) {
@@ -128,10 +128,10 @@ export class OPFSBackend implements VaultAdapter {
   async move(from: string, to: string) {
     await this.call({ op: 'move', from: normalizePath(from), to: normalizePath(to) });
   }
-  exists(path: string) {
+  async exists(path: string) {
     return this.call({ op: 'exists', path: normalizePath(path) }) as Promise<boolean>;
   }
-  stat(path: string) {
+  async stat(path: string) {
     return this.call({ op: 'stat', path: normalizePath(path) }) as Promise<FileStat | null>;
   }
 }

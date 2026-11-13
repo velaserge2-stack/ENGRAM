@@ -21,15 +21,15 @@ export class FSAccessBackend implements VaultAdapter {
     const picker = (window as unknown as { showDirectoryPicker(o: object): Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
     return new FSAccessBackend(await picker({ mode: 'readwrite' }));
   }
-  list(p: string) { return this.fs.list(normalizePath(p)); }
-  read(p: string) { return this.fs.read(normalizePath(p)); }
-  write(p: string, d: Uint8Array | string) { return this.fs.write(normalizePath(p), toBytes(d)); }
-  remove(p: string) { return this.fs.remove(normalizePath(p)); }
-  move(a: string, b: string) { return this.fs.move(normalizePath(a), normalizePath(b)); }
+  async list(p: string) { return this.fs.list(normalizePath(p)); }
+  async read(p: string) { return this.fs.read(normalizePath(p)); }
+  async write(p: string, d: Uint8Array | string) { return this.fs.write(normalizePath(p), toBytes(d)); }
+  async remove(p: string) { return this.fs.remove(normalizePath(p)); }
+  async move(a: string, b: string) { return this.fs.move(normalizePath(a), normalizePath(b)); }
   async exists(p: string) { return (await this.fs.stat(normalizePath(p))) !== null; }
-  stat(p: string) { return this.fs.stat(normalizePath(p)); }
+  async stat(p: string) { return this.fs.stat(normalizePath(p)); }
   // Prompt 11: por trozos (hilo principal: cada trozo cede el hilo al esperar la lectura)
-  writeBlob(p: string, blob: Blob, o: import('./types').BlobWriteOptions = {}) { return this.fs.writeBlob(normalizePath(p), blob, (n) => o.onProgress?.(n, blob.size), () => !!o.signal?.aborted); }
-  hash(p: string) { return this.fs.hash(normalizePath(p)); }
-  file(p: string) { return this.fs.file(normalizePath(p)); }
+  async writeBlob(p: string, blob: Blob, o: import('./types').BlobWriteOptions = {}) { return this.fs.writeBlob(normalizePath(p), blob, (n) => o.onProgress?.(n, blob.size), () => !!o.signal?.aborted); }
+  async hash(p: string) { return this.fs.hash(normalizePath(p)); }
+  async file(p: string) { return this.fs.file(normalizePath(p)); }
 }

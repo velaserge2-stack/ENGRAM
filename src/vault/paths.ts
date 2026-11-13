@@ -16,7 +16,8 @@ export function normalizePath(input: string): string {
   for (const seg of raw.split('/')) {
     if (seg === '' || seg === '.') continue;
     if (seg === '..') throw new VaultError('Ruta con ".." no permitida', 'invalid-path', input);
-    if (seg.length > MAX_SEGMENT) throw new VaultError('Nombre demasiado largo', 'invalid-path', input);
+    // el nombre en disco (OPFS lo codifica con %XX por cada carácter no ASCII) no puede pasar de 255
+    if (encodeURIComponent(seg).length > MAX_SEGMENT) throw new VaultError('Nombre demasiado largo', 'invalid-path', input);
     parts.push(seg.normalize('NFC'));
   }
   if (parts.length > MAX_DEPTH) throw new VaultError('Ruta demasiado profunda', 'invalid-path', input);

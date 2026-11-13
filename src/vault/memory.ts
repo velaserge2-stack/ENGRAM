@@ -44,6 +44,7 @@ export class MemoryBackend implements VaultAdapter {
   async write(path: string, data: Uint8Array | string): Promise<void> {
     const p = normalizePath(path);
     if (!p) throw new VaultError('Ruta vacía', 'invalid-path');
+    if ((await this.stat(p))?.kind === 'dir') throw new VaultError(`Es una carpeta: ${path}`, 'io', path); // como HandleFS
     this.files.set(p, { data: toBytes(data).slice(), mtime: Date.now() });
   }
 

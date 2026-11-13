@@ -122,7 +122,7 @@ export class SafeVault implements VaultAdapter {
     await this.raw.remove(tmp);
   }
 
-  write(path: string, data: Uint8Array | string): Promise<void> {
+  async write(path: string, data: Uint8Array | string): Promise<void> {
     const p = normalizePath(path);
     const bytes = toBytes(data);
     return this.serial(() => this.commit({ op: 'write', path: p }, bytes, () => this.raw.write(p, bytes)));
@@ -137,7 +137,7 @@ export class SafeVault implements VaultAdapter {
    * Cancelar (o un error) borra el temporal; el destino no se toca. Sin `writeBlob` en el
    * backend, se lee el Blob y se usa `write` (mismo resultado, más memoria).
    */
-  writeStream(path: string, blob: Blob, opts: BlobWriteOptions = {}): Promise<void> {
+  async writeStream(path: string, blob: Blob, opts: BlobWriteOptions = {}): Promise<void> {
     const p = normalizePath(path);
     if (!this.raw.writeBlob) return blob.arrayBuffer().then((b) => this.write(p, new Uint8Array(b)));
     return this.serial(async () => {
@@ -164,14 +164,14 @@ export class SafeVault implements VaultAdapter {
     return { size: b.length, hash: checksum(b) };
   }
 
-  file(path: string) {
+  async file(path: string) {
     return this.raw.file ? this.raw.file(normalizePath(path)) : this.raw.read(path).then((b) => new File([b as BlobPart], normalizePath(path).split('/').pop()!));
   }
-  hash(path: string) {
+  async hash(path: string) {
     return this.sum(normalizePath(path));
   }
 
-  move(from: string, to: string): Promise<void> {
+  async move(from: string, to: string): Promise<void> {
     const a = normalizePath(from);
     const b = normalizePath(to);
     return this.serial(async () => {
