@@ -93,7 +93,7 @@ export function DrawingBlock(p: { id: string }) {
   const [, bump] = useState(0);
   const resize = useRef<{ y: number; h: number } | null>(null);
   useEffect(() => {
-    void readTextOr(app.vault, jsonPath(p.id), '').then((t) => { const x = parseDrawing(t); hist.doc = x; latest.current = x; setD(x); });
+    void readTextOr(app.vault, jsonPath(p.id), '').then((t) => { const x = parseDrawing(t); hist.doc = x; latest.current = x; setD(x); }, () => { /* lectura fallida: se queda en «Cargando» (sin escribir encima del dibujo guardado) */ });
     const ro = new ResizeObserver(([e]) => setW(Math.max(200, Math.round(e!.contentRect.width))));
     if (host.current) ro.observe(host.current);
     return () => { ro.disconnect(); if (saveT.current) (clearTimeout(saveT.current), void flush()); };

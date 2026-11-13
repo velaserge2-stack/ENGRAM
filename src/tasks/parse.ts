@@ -25,7 +25,7 @@ const DUE = /\s*📅\s*(\d{4}-\d{2}-\d{2})\s*$/;
 
 export function parseTasks(text: string): Task[] {
   const out: Task[] = [];
-  text.split('\n').forEach((l, line) => {
+  text.split(/\r?\n/).forEach((l, line) => {
     const m = RE.exec(l);
     if (!m) return;
     const body = m[4] ?? '';

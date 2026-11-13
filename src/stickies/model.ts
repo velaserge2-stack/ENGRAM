@@ -74,8 +74,8 @@ export function newStickyPath(now: number, exists: (p: string) => boolean): stri
 
 /** Título para «Convertir en nota»: la primera línea con texto, sin marcas de Markdown. */
 export function stickyTitle(body: string, fallback: string): string {
-  const line = body.split('\n').map((l) => l.replace(/^\s*(#{1,6}|[-*+]( \[[ xX]\])?|\d+\.|>)\s*/, '').replace(/[*_~`=+[\]]/g, '').trim()).find(Boolean);
-  return (line ?? fallback).slice(0, 60).trim() || fallback;
+  const line = body.split('\n').map((l) => l.replace(/^\s*(#{1,6}|[-*+]( \[[ xX]\])?|\d+\.|>)\s*/, '').replace(/[*~`=[\]]/g, '').replace(/(?<![\p{L}\p{N}+])\+\+(\S[^+]*?)\+\+/gu, '$1').replace(/(?<![\p{L}\p{N}])_+(\S[^_]*?)_+(?![\p{L}\p{N}])/gu, '$1').trim()).find(Boolean);
+  return [...(line ?? fallback)].slice(0, 60).join('').trim() || fallback;
 }
 
 /** Texto de la nota completa: sin las claves de sticky (el resto del frontmatter se queda). */
