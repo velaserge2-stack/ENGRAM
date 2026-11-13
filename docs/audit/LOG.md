@@ -94,3 +94,9 @@ Nota: en la etapa 4, los commits que solo quitan `export` se verificaron en conj
 Aplicados los puntos 1–5 del PLAN (un commit por punto, detalle en `05-correcciones.md`): lectura estricta, SafeVault tras un apply fallido, diario validado + importación sin `.app/journal`/`tmp`, un solo escritor (`navigator.locks` + cola por backend) y `appendLines`.
 `it.fails` → `it`: 15 (quedan 73); tres pruebas de auditoría se ajustaron sin cambiar lo que comprueban (ver 05). Verificación: typecheck, vitest (337 + 73 esperadas), build, `e2e`, `e2e:flows`, `e2e:mejoras`, `e2e:intentos`, `e2e:notaspro` en verde (Chromium).
 Pendiente: aviso «abierta en otra pestaña» sin `locks`; mazo ilegible hace fallar la carga entera (con aviso).
+
+## Correcciones · plan 6–10 (2026-11-13) · subagente Opus
+
+Aplicados los puntos 6–10 (un commit por punto, detalle en `05-correcciones.md`): historial robusto (parseLog + reloj atrasado determinista + try/finally en Estudio), clave de `state.json` por suma de entradas + versión del motor, IDs únicos (historial y papelera; aviso de IDs repetidos) y mazo ilegible omitido sin archivar, NoteStore sin carreras, DeckEditor en NoteStore.
+`it.fails` → `it`: 9 (24 en total; quedan 64); `tests/move.test.ts` ajustada de forma. Verificación: typecheck, vitest, build, `e2e`, `e2e:flows`, `e2e:mejoras`, `e2e:mejoras2`, `e2e:barra`, `e2e:p14`, `e2e:p6` en verde (Chromium).
+Pendiente: IDs de `ensureIds` con el editor del mazo con cambios sin guardar; aviso visible de autoguardado fallido por temporizador.
