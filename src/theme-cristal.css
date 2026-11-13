@@ -937,3 +937,28 @@ html.in-canvas .mini-amb.docked { bottom: calc(env(safe-area-inset-bottom) + 176
 .task-sep { padding: 10px 0 4px; border-top: var(--hair) solid var(--line); }
 @media (prefers-reduced-motion: reduce) { .task-check .tx { transition: none; } }
 .task-add .input, .task.editing .input { min-height: 44px; }
+
+/* add-on «Sticky notes» (Prompt 19 · 3): un solo desenfoque (el del mosaico); cada sticky es papel.
+   Neutra por defecto (sin color de interfaz); el color elegido es contenido del usuario: papel pastel
+   opaco con texto oscuro (≥ 4.5:1 en cualquier fondo, porque no deja ver el fondo). */
+.sticky-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.sticky { display: flex; flex-direction: column; min-width: 0; border-radius: var(--r-row); border: var(--hair) solid var(--line); background: var(--fill-2); overflow: hidden; }
+.sticky.dragging { opacity: .5; } .sticky.drop { box-shadow: 0 0 0 2px var(--t1); }
+.sticky-bar { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.sticky-bar .grip { touch-action: none; cursor: grab; color: var(--t3); }
+.sticky-paper { flex: 1; padding: 4px 14px 12px; max-height: 260px; overflow-y: auto; overscroll-behavior: contain; overflow-wrap: anywhere; }
+.sticky-view { min-height: 44px; cursor: text; border-radius: 8px; }
+.sticky-view .md > :first-child { margin-top: 0; } .sticky-view .md > :last-child { margin-bottom: 0; }
+.sticky-edit { width: 100%; min-height: 88px; resize: none; border: 0; outline: none; background: transparent; color: inherit; font: inherit; font-size: max(16px, 1rem); line-height: 1.4; padding: 0; }
+.sticky-paper[data-color] { --t1: #111; --t2: rgba(0, 0, 0, .68); --t3: rgba(0, 0, 0, .5); --line: rgba(0, 0, 0, .12); color: #111; color-scheme: light; }
+.sticky-paper[data-color="azul"], .swatch[data-color="azul"] { background: #cfe2ff; } .sticky-paper[data-color="verde"], .swatch[data-color="verde"] { background: #cdeccf; }
+.sticky-paper[data-color="indigo"], .swatch[data-color="indigo"] { background: #dcdafc; } .sticky-paper[data-color="naranja"], .swatch[data-color="naranja"] { background: #ffe2c2; }
+.sticky-paper[data-color="rosa"], .swatch[data-color="rosa"] { background: #ffd6df; } .sticky-paper[data-color="rojo"], .swatch[data-color="rojo"] { background: #ffd2ce; }
+.sticky-paper[data-color="morado"], .swatch[data-color="morado"] { background: #eed8f6; } .sticky-paper[data-color="turquesa"], .swatch[data-color="turquesa"] { background: #cbeff6; }
+.sticky-paper[data-color="menta"], .swatch[data-color="menta"] { background: #cdf3ef; } .sticky-paper[data-color="amarillo"], .swatch[data-color="amarillo"] { background: #fff1b3; }
+.sticky-menu { min-width: 220px; } .sticky-menu .btn { justify-content: flex-start; }
+.sticky-swatches { display: grid; grid-template-columns: repeat(6, 44px); gap: 4px; padding: 4px 0; }
+.swatch { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border-strong); padding: 0; background: var(--fill-2); }
+.swatch[data-color="neutro"] { background: linear-gradient(135deg, transparent 46%, var(--t2) 47%, var(--t2) 53%, transparent 54%), var(--fill-2); }
+.swatch[aria-checked="true"] { box-shadow: 0 0 0 3px var(--t1); }
+.is-phone .sticky-grid { grid-template-columns: 1fr; }

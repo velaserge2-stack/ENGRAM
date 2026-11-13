@@ -826,3 +826,14 @@ Nota larga desplazada y asa en un panel del lienzo (dedo y Pencil); nota de ~1 M
 - **Sin integración con Calendario ni con «Pendientes»** por ahora: no es barata sin tocar su modelo de datos. Queda para después.
 - **Apagado = cero costo**: `src/tasks/tile.tsx` se carga con `import()` solo si el add-on está activo; el contador de la bandeja sale del mismo fragmento (`TasksCount`).
 
+## Prompt 19 · 3: add-on «Sticky notes»
+
+- **Cada sticky es una nota**: `notes/Stickies/<id>.md` (id = instante en base 36), con frontmatter `sticky: true`, `orden`, y opcionalmente `color`, `fijada` y `archivada`; las claves desconocidas se conservan. El explorador de Notas la muestra en la carpeta «Stickies» como cualquier otra (sin árbol duplicado), así que se busca, se enlaza, se exporta, se respalda y se abre en el editor completo. Se escribe por `noteStore` (el mismo documento que en Notas, guardado con SafeVault).
+- **Eliminar** la manda a la papelera de notas (`trash`) y «Deshacer» la restaura. **Convertir en nota** la mueve a `notes/<primera línea>.md` (`safeSegment`, con sufijo si ya existe) y quita solo las claves de sticky. Los enlaces `[[…]]` que apuntaban a la sticky no se reescriben (son raros); queda anotado. **Archivar** la oculta del mosaico, con un botón «n archivadas» para verlas.
+- **Color = contenido del usuario**: se elige por sticky entre la paleta de Notas (`COLORS`); por defecto, neutra. El color pinta solo el «papel» (`data-user-content`), como pastel opaco con texto `#111` (≥ 12:1, sin depender del fondo, porque no lo deja ver). El asa y el menú quedan neutros y sin color de interfaz.
+- **Un solo `backdrop-filter`** (el del mosaico): las stickies no llevan desenfoque propio. Sin rotación (la opción de rotarlas queda fuera, porque no aporta y complica el arrastre).
+- **Reordenar**: arrastrando el asa (Pointer Events con captura) o con Alt + flechas; se renumera `orden` de 10 en 10 y solo se escriben las que cambiaron. Las fijadas van siempre primero y no se mezclan con las demás.
+- **Límite**: se muestran 50 y «Mostrar n más»; dentro de cada sticky, tope de alto con desplazamiento.
+- **Fuera por ahora**: soltar una sticky en el lienzo de Espacios. El panel de nota existente ya puede abrirla desde «Abrir en Notas», pero arrastrar entre Hoy y el lienzo no es barato.
+- **Apagado = cero costo**: `src/stickies/tile.tsx` se carga con `import()` solo si el add-on está activo.
+

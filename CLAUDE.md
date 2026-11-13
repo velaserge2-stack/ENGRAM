@@ -29,6 +29,7 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 - `src/vault/` VaultAdapter (OPFS en Worker, FS Access, memoria), `safe.ts` (diario), `integrity.ts`.
 - `src/cards/parse.ts` parser de mazos · `src/srs/` FSRS, `replay`, cola · `src/data/` colección y operaciones.
 - `src/lib/` ajustes, días, estadísticas, exámenes/ritmo, pomodoro, `.ics`, consultas · `src/sim/` simulacros · `src/notes/` notas, Plaud, docx/pdf; fotos: `images.ts` (guarda el original), `thumbs.ts` (`mediaThumbUrl`, caché `.app/thumbs/`), `imgsize.ts`, `imagebar.tsx`.
+- `src/stickies/` add-on «Sticky notes» (`model.ts` frontmatter/orden, `tile.tsx` mosaico).
 - `src/tasks/` add-on «Tareas» (`parse.ts` formato `- [ ]`/📅, `tile.tsx` mosaico).
 - `src/share/` «Compartir estadísticas»: `period.ts` (cuentas puras), `card.ts` (Canvas 2D), `sheet.tsx` (hoja, con `import()`); `paintBackground` en `src/ui/background.tsx`.
 - `src/md/embed.ts` sintaxis de imagen `![[foto|300|izq|alt …]]`.
@@ -60,7 +61,7 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 **Adherencia** en la rama `fix-adherencia-minimizar` (desde `main`): el botón minimizar del mapa recortado queda en la esquina del panel (`.mh:has(> .heat-panel.fit)`). `npm run e2e:adherencia`.
 **Vidrio** en la rama `fix-glass` (desde `main`; no unir sin confirmación): «Añadir examen» como `btn primary` dentro de vidrio (Hoy: píldora `.exam-add`; Estadísticas: encabezado `row glass panel`), `.glass.strong` sigue a la intensidad, modo ligero sin sombras grandes y aviso de 3 s con acción. Medición en `e2e/glass-perf.mjs`; contraste del botón en `npm run e2e:glass`.
 
-**Prompt 19** en la rama `compartir-stickies-tareas` (desde `main`; no unir ni subir sin confirmación): 1 = «Compartir estadísticas» (botón en Hoy, hoja con vista previa, Canvas 2D con el fondo activo y el vidrio del tema, logo sin recuadro `public/brand/logo-mark.png`, Web Share con descarga de respaldo). `npm run e2e:share` (unido a `main`). 2 = add-on «Tareas» (`src/tasks/`: `parse.ts` puro, `tile.tsx` con `import()`; archivo `notes/Tareas.md`), `npm run e2e:tasks`. Sigue 3 (Sticky notes). En espera de prueba en iPhone/iPad.
+**Prompt 19** en la rama `compartir-stickies-tareas` (desde `main`; no unir ni subir sin confirmación): 1 = «Compartir estadísticas» (botón en Hoy, hoja con vista previa, Canvas 2D con el fondo activo y el vidrio del tema, logo sin recuadro `public/brand/logo-mark.png`, Web Share con descarga de respaldo). `npm run e2e:share` (unido a `main`). 2 = add-on «Tareas» (`src/tasks/`: `parse.ts` puro, `tile.tsx` con `import()`; archivo `notes/Tareas.md`), `npm run e2e:tasks`. 3 = add-on «Sticky notes» (`src/stickies/`: `model.ts` puro, `tile.tsx` con `import()`; `notes/Stickies/<id>.md`), `npm run e2e:stickies`. En espera de prueba en iPhone/iPad.
 
 ## Skills activas
 Mantenimiento: webapp-testing, security-review (importadores), frontend-design (Cristal), ponytail. Máx. 5–6 a la vez.

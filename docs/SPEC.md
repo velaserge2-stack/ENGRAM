@@ -192,6 +192,8 @@ Las superficies donde se **lee o escribe mucho** (tarjeta de estudio, editor de 
 
 **Tareas (Prompt 19 · 2, add-on `tasks`, apagado por defecto)**: mosaico minimizable en Hoy (bandeja con contador de pendientes). Archivo `notes/Tareas.md` en Markdown estándar (`- [ ]`/`- [x]`, subtareas de un nivel, ` 📅 AAAA-MM-DD`). Permite añadir (Intro), tachar (con animación; sin ella si hay `prefers-reduced-motion`), editar texto y fecha, marcar vencidas con icono y texto, reordenar arrastrando el asa o con Alt + ↑/↓, borrar con deshacer, «Borrar completadas» con confirmación y filtrar (Todas · Pendientes · Hechas). Teclado: Espacio marca, Supr borra, ↑/↓ mueven el foco.
 
+**Sticky notes (Prompt 19 · 3, add-on `sticky-notes`, apagado por defecto)**: mosaico minimizable en Hoy. Cada sticky es `notes/Stickies/<id>.md` (frontmatter `sticky: true`, `orden` y, opcionales, `color`, `fijada` y `archivada`). «Nueva sticky» crea una arriba y la abre para escribir. Se edita en el sitio con Markdown seguro (negrita, listas, `- [ ]`). Se puede mover arrastrando el asa o con Alt + flechas, fijar arriba, elegir color (paleta de Notas, neutra por defecto), archivar, eliminar a la papelera con deshacer, convertir en nota completa y abrir en Notas. Muestra 50 y «Mostrar más».
+
 ---
 
 ## 8. Estudio

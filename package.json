@@ -35,7 +35,8 @@
     "e2e:barra": "node e2e/barra.mjs",
     "e2e:notas-perf": "node e2e/notes-perf.mjs",
     "e2e:share": "node e2e/share.mjs",
-    "e2e:tasks": "node e2e/tasks.mjs"
+    "e2e:tasks": "node e2e/tasks.mjs",
+    "e2e:stickies": "node e2e/stickies.mjs"
   },
   "dependencies": {
     "docx": "^9.15.3",
