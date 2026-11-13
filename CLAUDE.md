@@ -57,7 +57,7 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 **PDF de notas** en la rama `fix-pdf-negro`: el papel siempre es claro (`@media print`: `html` blanco, tokens de papel en ambos modos, sin vidrio) y se imprime solo la nota (`.print-target` + `html.printing-note`, también desde un panel y con Cmd+P). `npm run e2e:pdf` (Chromium + `pdftoppm`/`pdftotext`).
 **Adherencia** en la rama `fix-adherencia-minimizar` (desde `main`): el botón minimizar del mapa recortado queda en la esquina del panel (`.mh:has(> .heat-panel.fit)`). `npm run e2e:adherencia`.
 **Vidrio** en la rama `fix-glass` (desde `main`; no unir sin confirmación): «Añadir examen» como `btn primary` dentro de vidrio (Hoy: píldora `.exam-add`; Estadísticas: encabezado `row glass panel`), `.glass.strong` sigue a la intensidad, modo ligero sin sombras grandes y aviso de 3 s con acción. Medición en `e2e/glass-perf.mjs`; contraste del botón en `npm run e2e:glass`.
+**Borrar intentos** en la rama `fix-borrar-intento` (desde `main`): papelera por fila en «Intentos» y «Borrar este intento» en Resultados, con confirmación y deshacer (`deleteAttempt`/`restoreAttempt` en `src/data/extra.ts`); «Descartar» el simulacro a medias; «Ver todos». `npm run e2e:intentos`.
 
 ## Skills activas
 Mantenimiento: webapp-testing, security-review (importadores), frontend-design (Cristal), ponytail. Máx. 5–6 a la vez.
-**Borrar intentos** en la rama `fix-borrar-intento` (desde `main`): papelera por fila en «Intentos» y «Borrar este intento» en Resultados, con confirmación y deshacer (`deleteAttempt`/`restoreAttempt` en `src/data/extra.ts`); «Descartar» el simulacro a medias; «Ver todos». `npm run e2e:intentos`.
