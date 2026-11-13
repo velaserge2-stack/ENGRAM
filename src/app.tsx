@@ -89,8 +89,10 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const paramsKey = JSON.stringify(srsParams(settings));
   useEffect(() => {
     let alive = true;
+    const t0 = perf.on ? performance.now() : 0; // solo con ?perf (Prompt 21)
     loadCollection(vault, srsParams(settings)).then((c) => {
       if (!alive) return;
+      if (perf.on) (perf.c.colMs = Math.round(performance.now() - t0), perf.c.colAt = Math.round(performance.now()));
       setCol(c);
       if (c.idsAdded) toast(t('app.se_anadieron_idsadded_ids_de_tarjeta', { idsAdded: c.idsAdded }));
       if (c.unreadable?.length) toast(t('app.mazos_ilegibles', { decks: c.unreadable.map((p) => p.slice('decks/'.length, -3)).join(', ') }));

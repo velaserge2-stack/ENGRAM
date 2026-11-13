@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { App } from './app';
 import { loadSettings } from './lib/settings';
 import { deviceLang, errMsg, setLang, t } from './i18n';
+import { perf } from './lib/perf';
 import { requestPersist } from './lib/storage';
 import { registerSW } from './sw-register';
 import { applyTheme, trackKeyboard, trackPhone } from './theme';
@@ -17,6 +18,7 @@ async function boot() {
   registerSW();
   const opened = await openVault();
   const settings = await loadSettings(opened.vault);
+  if (perf.on) void import('./lib/perfhooks').then((m) => m.install(opened.vault)); // solo con ?perf
   setLang(settings.lang || deviceLang());
   langSet = true;
   applyTheme(settings);
