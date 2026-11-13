@@ -114,3 +114,6 @@ Sobre 7e1d039: typecheck limpio, vitest 385 pasan y 45 `it.fails` (quedan 45 err
 ## Menores · lib/data/vault/ui (2026-11-13)
 
 `it.fails` → `it`: 22 (lib 6, data 10, vault 4, ui 2); 0 «no era error»; ninguno queda abierto. Además: Ajustes acotados también al editar (`app.update` → `mergeSettings`), Wake Lock del pomodoro, Archivar sin doble toque, `t()` en «días tarde»/«a tiempo»/Media Session. Pendientes y motivos en `05-correcciones.md`. Verificación: typecheck, vitest, build, `e2e`, `e2e:flows`, `e2e:mejoras`, `e2e:mejoras2`, `e2e:p6`, `e2e:intentos`, `e2e:bancos` en Chromium; `e2e:bancos` falló una comprobación una vez y pasó al repetir (intermitente).
+
+## 2026-11-13 · Menores notes/io/sim
+Corregidos los 23 `it.fails` de `tests/audit-notes-io.test.ts` (simulacros, notas/formato, md, tareas/stickies/ink, io); ninguno resultó correcto por diseño. Detalle en `05-correcciones.md`. Commits «Auditoría · menores: …».

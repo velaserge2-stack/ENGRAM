@@ -209,3 +209,18 @@ Verificación de la tanda 11–15: typecheck, vitest (385 + 45 esperadas), build
 - ui · campos numéricos de Ajustes: corregido (ver arriba). Simulacros (`numero`, `minutos`, `penalización`, `aprobado`): pendiente, es UI con estado local y no hay validación pura que probar.
 - ui · textos fijos sin `t()`: corregido título de Media Session de `ambient.ts` (`addons.n_ambient`).
 - pendiente · `inbox.archive` atómico (mover archivos antes de escribir la nota), `deck.tsx` `createObjectURL`, miniaturas de `pdf.tsx`/`pdfs.tsx`, `backup.tsx` sin `catch`, `spaces.tsx` `saveT` único: no son pequeños o necesitan navegador.
+
+## Menores · notes/io/sim (2026-11-13)
+
+`it.fails` → `it`: 23 en `tests/audit-notes-io.test.ts` (0 «no era error»). `readMeta`/`updatePdfMeta` ya estaban corregidos (plan 1).
+- sim · lista numerada en «Explicación:» (7): corregido (en modo explicación, «N. » abre pregunta solo si después vienen opciones).
+- sim · opción en negritas (8): corregido (`*` final solo marca si no es parte de `**`).
+- sim · caso heredado al reimportar (9): corregido (`serializeBank` escribe `Caso::` vacío al cortar el caso; archivos viejos se leen igual).
+- sim · id compartido (10): corregido (la primera conserva su id; repetidas `-2`, `-3`). qid con emoji: `codePointAt`; solo cambia el id de preguntas que contienen emoji (resto idéntico); sus intentos viejos quedarían como «en blanco».
+- sim · `isCorrect` con repetidas (21) y JSON > 6 opciones (20): corregidos (conjunto; clave `fromCharCode(65+k)`).
+- notes · `clearFormat` (12), `compatibleMarkdown` con `|` y `#ancla` (11), `suggestPlace` con tema vacío (22), fecha Plaud local (23), `srtToText`/`plaudGroupKey` (24), `saveImage` mismo ms (16): corregidos. Pendiente de 23: `materia:`/`tema:` vacíos en el frontmatter Plaud (sin prueba; formato).
+- md · `[[Nota#Sec]]` enlaza a «Nota» (13), `plainText` sin borrar `_ = >` normales (25): corregidos.
+- tasks/stickies/ink · CRLF (15), `stickyTitle` (25), `parseInk` sin size/tool/color (26): corregidos.
+- stickies/tile y ink/DrawingBlock (14): corregido (lectura fallida no se trata como vacío; no se escribe encima). `pdf/library`: ya estaba.
+- io · separador CSV (17) y `.MD` (18): corregidos.
+- pendiente · apkg O(n²) (6), `restore`/`snapshot`/miniaturas y demás sospechas del informe (sin prueba).
