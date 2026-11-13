@@ -1560,3 +1560,34 @@ Lee `CLAUDE.md`. Rama `fix-pdf-negro`. Arregla **solo** la impresión/exportaci�
 **Corrección (solo en `@media print`)**: tema de papel (`html, body` blancos, `color-scheme: light`, tokens claros en `:root` y `[data-glass]`); imprimir solo la nota (ocultar el resto, liberar `height`/`overflow`/`position` para paginar; clase `printing-note` antes de `window.print()` y quitada en `afterprint`, sin `beforeunload`); bloques claros con borde fino, colores legibles en papel, imágenes `max-width: 100%` y `break-inside: avoid`, sin sombras ni `backdrop-filter`; `@page { margin: 18mm 16mm }`, `h1–h3 { break-after: avoid }`, `orphans/widows: 3`; nunca el fondo del usuario; imprimir los originales esperando a que carguen; desde un panel de Espacios, solo esa nota.
 
 **Pruebas y entrega**: PDF en {oscuro, claro} × {foto, sólido} × `printBackground` {true, false} sin páginas con > 5 % de píxeles oscuros, texto completo (`pdftotext`), varias páginas para una nota larga, tabla y código completos; antes/después; pantalla sin cambios (`e2e:design`, `e2e:phone` = 0 píxeles), `npm test`, `typecheck`, `build`, `e2e`. Entrega: causa real, cambio, archivos y capturas; lo que no se puede verificar sin Safari real; una línea en `docs/DECISIONS.md` (el papel siempre es claro).
+
+---
+
+# PROMPT 19: «Compartir estadísticas» (imagen para Instagram) + Sticky notes + Tareas en Hoy
+
+Tres funciones en **Hoy**: (1) botón **«Compartir estadísticas»** que genera una imagen lista para Instagram con **el fondo que el usuario tiene en ese momento**; (2) **Sticky notes**; (3) **Tareas** que se llenan y se tachan. Sticky notes y Tareas son **add-ons apagados por defecto** que, al activarse, aparecen como **mosaicos minimizables** en Hoy.
+
+- Rama `compartir-stickies-tareas`, un commit por función; no unir a `main` ni hacer push sin confirmación; plan de ≤ 25 líneas primero.
+- Sin red en tiempo de ejecución, sin telemetría, sin dependencias nuevas (Canvas 2D propio). Sin marcas de Apple; iconos de Lucide; la pila de fuentes de la app.
+- Todo texto por `t()`/`tn()` (es/en/fr); escrituras por `SafeVault`/`NoteStore`; tema Cristal sin color; controles sobre el fondo dentro de `.glass`; 44 px; flotantes por `overlay.tsx`; teléfono bajo `html.is-phone`; `e2e:phone` = 0 px salvo lo nuevo.
+- Apagado = cero costo: Sticky notes y Tareas con `import()` al activarse; el generador de imagen al pulsar el botón.
+
+## 1. «Compartir estadísticas» (núcleo, siempre visible)
+- 1.1 Botón en el encabezado de Hoy, junto a la racha y «Estudiar», dentro de vidrio, `aria-label` traducido; en teléfono, solo icono. No es add-on.
+- 1.2 Hoja (por `overlay.tsx`): vista previa, formato (Historia 1080×1920 con ~250 px libres arriba y abajo, Vertical 1080×1350 por defecto, Cuadrada 1080×1080; 1×), periodo (Hoy · 7 días · 30 días · Este año · Todo, con corte a las 4:00 y zona horaria), qué mostrar (nombre, foto/emoji, carrera/institución/lema, horas, tarjetas, racha, retención, mini mapa, marca), «Compartir» y «Guardar imagen». Privacidad por defecto prudente.
+- 1.3 Contenido: encabezado (foto circular o emoji o inicial + nombre recortado + línea secundaria), «Horas estudiadas» («42 h 15 min», «5 h») y «Flashcards estudiadas» en grande, secundarias (racha, retención, días), mini mapa de adherencia sin color, y abajo el **logo sin su recuadro negro + «Engrama»** y el rango de fechas. El logo se deriva en `scripts/icons.mjs` (`public/brand/logo-mark.png`, alfa por diferencia con el fondo, sin halo, original intacto) y se pinta con `--t1` del tema (variante monocroma solo para la imagen; anotar en `DECISIONS.md`). «Engrama» ≥ 120 px del borde inferior en Historia. Periodo vacío: estado honesto y «Compartir» desactivado.
+- 1.4 Fondo = el fondo activo (foto, integrado o sólido) con su encuadre, desenfoque y atenuación, reutilizando la lógica de `BackgroundLayer`/`sampleBackground` (sin captura de pantalla); vidrio igual al de la app según tema e intensidad; texto ≥ 4.5:1 subiendo la opacidad del vidrio; alternativa «Neutro».
+- 1.5 PNG `engrama-estadisticas-AAAA-MM-DD.png`; Web Share con preparar → entregar (`canShare`, `share` dentro del gesto); sin soporte o con `NotAllowedError`, descarga con aviso; cancelar no es error; no afirmar publicación directa en Instagram.
+- 1.6 `alt` con el resumen, foco atrapado, `Esc`, 44 px; un solo trabajo a la vez; revocar Blob URL.
+
+## 2. Add-on «Sticky notes» (`sticky-notes`, apagado por defecto)
+Mosaico `Minimizable` (id `sticky`) en Hoy; cada sticky = `notes/Stickies/<id>.md` (frontmatter `sticky: true`, `orden`, `color`), por `NoteStore`/`SafeVault`; crear, editar en el sitio (Markdown seguro), reordenar por arrastre, fijar, archivar, eliminar con deshacer, convertir en nota, abrir en Notas; tarjetas de vidrio (un solo `backdrop-filter`); color por sticky elegido por el usuario (paleta de notas), neutro por defecto, contraste ≥ 4.5:1; máx. ~50 visibles.
+
+## 3. Add-on «Tareas» (`tasks`, apagado por defecto)
+Mosaico `Minimizable` (id `tareas`) con contador de pendientes; archivo Markdown estándar (`- [ ]` / `- [x]`, fecha opcional `📅 AAAA-MM-DD`); añadir, tachar con animación (sin ella con `prefers-reduced-motion`), editar, eliminar con deshacer, reordenar, fecha y vencidas (con icono/texto), «Borrar completadas» con confirmación, filtro, subtareas opcionales; casilla accesible y teclado (Espacio, Supr, ↑/↓). Integración con Calendario/Pendientes solo si es barata.
+
+## 4. Orden
+1 → 2 → 3; resumir y esperar prueba en dispositivo real al terminar la función 1.
+
+## 5. Pruebas y entrega
+Logo derivado (alfa, esquinas transparentes, sin negros opacos, hash del original igual); Vitest (horas/plural, periodos con corte y zona, recorte de nombres, zonas seguras, formatos de tareas y stickies, idempotencia); WebKit/Chromium (tamaños exactos, fondo = fondo activo, contraste en 5 fondos, interruptores, vacío, `navigator.share` con `File` y descarga, sin red; tareas y stickies; add-ons apagados sin código cargado); regresión completa y `e2e:phone`; tamaño del paquete antes/después; documentar lo no verificable sin dispositivo (Instagram instalado, «Guardar en Fotos», memoria con foto grande en iPad).
