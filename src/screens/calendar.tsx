@@ -69,7 +69,6 @@ export function Calendar() {
     app.changed();
   };
 
-  // rango visible
   let days: string[];
   if (view === 'mes') {
     const first = anchor.slice(0, 8) + '01';

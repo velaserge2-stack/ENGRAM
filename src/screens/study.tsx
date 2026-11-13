@@ -63,7 +63,6 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
 
   const queue = useMemo(() => (col ? buildQueue(col, props.filter, Date.now(), lim, params, extraNew) : null), [col, props.filter, extraNew, count, app.tick]);
 
-  // elegir la siguiente tarjeta
   useEffect(() => {
     if (!col || !queue) return;
     if (cur && col.byCid.has(cur) && !done.has(cur)) return;

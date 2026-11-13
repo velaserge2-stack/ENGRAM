@@ -85,7 +85,6 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     return onSchemeChange(() => applyTheme(eff));
   }, [settings, preview]);
 
-  // colección (mazos + estado FSRS)
   const paramsKey = JSON.stringify(srsParams(settings));
   useEffect(() => {
     let alive = true;
@@ -115,7 +114,6 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     if (version > 0) (void recheckIntegrity(), setHasData(true));
   }, [version]);
 
-  // guardián de legibilidad
   const sample = useRef<ImageData | null>(null);
   const lastBg = useRef('');
   const toastedFor = useRef('');
