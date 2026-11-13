@@ -1,17 +1,17 @@
 import { t } from '../i18n';
 import { lazy, Suspense } from 'preact/compat';
-import { Decks } from './decks';
-import { DeckEditor } from './deck';
-import { Explorar } from './explorar';
-import { SettingsScreen } from './settings';
-import { Stats } from './stats';
-import { Study } from './study';
+import { Decks } from './decks'; // ya va en el paquete inicial (Hoy usa DeckPanel)
 import { Today } from './today';
 import { useEffect } from 'preact/hooks';
 import { useApp } from '../state';
 import { addonOn } from './addons';
 
 // Pantallas pesadas: carga diferida (import dinámico)
+const DeckEditor = lazy(() => import('./deck').then((m) => ({ default: m.DeckEditor })));
+const Explorar = lazy(() => import('./explorar').then((m) => ({ default: m.Explorar })));
+const SettingsScreen = lazy(() => import('./settings').then((m) => ({ default: m.SettingsScreen })));
+const Stats = lazy(() => import('./stats').then((m) => ({ default: m.Stats })));
+const Study = lazy(() => import('./study').then((m) => ({ default: m.Study })));
 const Simulacros = lazy(() => import('./simulacros').then((m) => ({ default: m.Simulacros })));
 const Calendar = lazy(() => import('./calendar').then((m) => ({ default: m.Calendar })));
 const Notes = lazy(() => import('./notes').then((m) => ({ default: m.Notes })));

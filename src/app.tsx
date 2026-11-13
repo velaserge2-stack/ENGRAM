@@ -4,6 +4,7 @@ import { PerfHud } from './ui/perfhud';
 import { Archive, Ellipsis, Inbox, Pause, Play, Plus, RefreshCw, Search, ShieldAlert, TriangleAlert } from 'lucide-preact';
 import { Popover } from './ui/overlay';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { lazy, Suspense } from 'preact/compat';
 import { loadCollection, type Collection } from './data/collection';
 import { createAutosave } from './lib/autosave';
 import { backupDue, mergeSettings, serializeSettings, SETTINGS_PATH, type Settings, srsParams } from './lib/settings';
@@ -12,9 +13,7 @@ import { BackupSheet } from './screens/backup';
 import { ImportSheet } from './screens/import';
 import { Screen } from './screens/router';
 import { Welcome } from './screens/welcome';
-import { AddCardSheet } from './screens/deck';
 import { ExamSheet } from './screens/exams';
-import { Palette } from './screens/palette';
 import { type AppCtx, Ctx, go, useApp as ctxHook, useRoute } from './state';
 import { applyTheme, onSchemeChange, resolvedMode, watchFrames } from './theme';
 import { BackgroundLayer, guard, sampleBackground, toneSign } from './ui/background';
@@ -39,6 +38,9 @@ import { GlobalKeys, keymap, ShortcutSheet } from './ui/keys';
 import { setPhotoQuality } from './notes/images';
 import { onNoteSaveFailed } from './notes/store';
 
+// hojas poco frecuentes: se cargan al abrirlas
+const AddCardSheet = lazy(() => import('./screens/deck').then((m) => ({ default: m.AddCardSheet })));
+const Palette = lazy(() => import('./screens/palette').then((m) => ({ default: m.Palette })));
 const DAY = 86_400_000;
 
 export function App(props: { opened: OpenedVault; initialSettings: Settings; hasData: boolean }) {
@@ -295,9 +297,9 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       </div>
       {sheet === 'import' && <ImportSheet onClose={() => setSheet(null)} />}
       {sheet === 'backup' && <BackupSheet onClose={() => setSheet(null)} />}
-      {sheet === 'add' && <AddCardSheet deckPath={sheetArg} onClose={() => setSheet(null)} />}
+      {sheet === 'add' && <Suspense fallback={null}><AddCardSheet deckPath={sheetArg} onClose={() => setSheet(null)} /></Suspense>}
       {sheet === 'exam' && <ExamSheet path={sheetArg} onClose={() => setSheet(null)} />}
-      {sheet === 'palette' && <Palette mode={sheetArg} onClose={() => setSheet(null)} />}
+      {sheet === 'palette' && <Suspense fallback={null}><Palette mode={sheetArg} onClose={() => setSheet(null)} /></Suspense>}
       {phone && <PhoneTabBar tab={tabId} />}
       <GlobalKeys run={runGlobal} />
       {keysHelp && <ShortcutSheet onClose={() => setKeysHelp(false)} />}

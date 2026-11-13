@@ -1,5 +1,5 @@
 import { t as tr, deviceLang, firstDayOfWeek, LANGS, setLang } from '../i18n';
-import { Check, ChevronLeft, ChevronsDownUp, ChevronsUpDown, Crop, FolderOpen, ImagePlus, PlusSquare, Share as ShareIcon, Trash2 } from 'lucide-preact';
+import { Check, ChevronLeft, ChevronsDownUp, ChevronsUpDown, Crop, FolderOpen, ImagePlus, Trash2 } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { DEFAULT_FRAMING, framingStyle, FRAMING_PATH, normFraming, parseFramings, type Framing } from '../lib/framing';
 import { addonOn, AddonsGroup, MODULES } from './addons';
@@ -23,16 +23,7 @@ import { FSAccessBackend } from '../vault/fsaccess';
 import { rememberFolder } from '../vault/open';
 import { readTextOr, walk } from '../vault/util';
 import { APP_VERSION } from './backup';
-
-export function InstallSteps() {
-  return (
-    <ol>
-      <li>{tr('settings.toca')}{' '}<b>{tr('settings.compartir')}</b> <ShareIcon size={16} aria-label={tr('settings.icono_de_compartir')} style={{ verticalAlign: '-3px' }} />{' '}{tr('settings.en_la_barra_de_safari')}</li>
-      <li>{tr('settings.elige')}{' '}<b>{tr('settings.anadir_a_pantalla_de_inicio')}</b> <PlusSquare size={16} aria-hidden="true" style={{ verticalAlign: '-3px' }} />.</li>
-      <li>{tr('settings.abre_engrama_desde_su_icono_funciona')}</li>
-    </ol>
-  );
-}
+import { InstallSteps } from './install';
 
 function Slider(p: { label: string; min: number; max: number; step: number; value: number; unit?: string; onInput: (v: number) => void }) {
   return (
