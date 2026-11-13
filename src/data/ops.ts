@@ -1,6 +1,7 @@
 import { t } from '../i18n';
 /** Operaciones sobre mazos (escritura segura vía SafeVault). */
 import { newId, noteIdOf, parseDeck } from '../cards/parse';
+import { noteStore } from '../notes/store';
 import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr } from '../vault/util';
@@ -22,13 +23,17 @@ export async function createDeck(vault: VaultAdapter, name: string, folder = '')
 
 /** Añade un bloque de tarjeta al final del mazo con ID nuevo. */
 export async function appendCard(vault: VaultAdapter, deckPath: string, block: string, col: Collection | null): Promise<string> {
-  const text = await readTextOr(vault, deckPath, '');
+  // si el mazo está abierto en un editor (NoteStore), se añade sobre ese documento y se guarda ya
+  const open = noteStore.peek(deckPath);
+  const text = open ?? (await readTextOr(vault, deckPath, ''));
   // también los IDs del historial (tarjetas archivadas o en la papelera): un ID nuevo no hereda su FSRS
   const taken = new Set<string>(col ? [...col.byCid.keys(), ...col.log.map((e) => e.id)].map(noteIdOf) : []);
   for (const n of parseDeck(text).notes) if (n.id) taken.add(n.id);
   const id = newId(taken);
   const body = text.replace(/\s*$/, '');
-  await vault.write(deckPath, `${body}\n\n${block.trim()} ^${id}\n`);
+  const next = `${body}\n\n${block.trim()} ^${id}\n`;
+  if (open !== null) (noteStore.set(vault, deckPath, next), await noteStore.flush(deckPath));
+  else await vault.write(deckPath, next);
   return id;
 }
 

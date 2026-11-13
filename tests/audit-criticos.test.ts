@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseDeck } from '../src/cards/parse';
 import { appendLog, loadCollection, loadStates, REVIEWS, STATE } from '../src/data/collection';
 import { moveCards } from '../src/data/move';
+import { appendCard } from '../src/data/ops';
 import { convertApkg, type SqlJs } from '../src/io/apkg';
 import { parseZip } from '../src/io/zip';
 import { LIMITS } from '../src/io/limits';
@@ -265,6 +266,37 @@ describe('plan 9 · NoteStore', () => {
     await noteStore.flush(p);
     un();
     expect(await readText(v, p)).toBe('tres');
+  });
+});
+
+describe('plan 10 · DeckEditor en NoteStore', () => {
+  it('appendCard sobre un mazo abierto con cambios sin guardar conserva ambos y avisa a los suscriptores', async () => {
+    const v = new MemoryBackend();
+    const p = 'decks/Abierto.md';
+    await v.write(p, 'Q:: uno\nA:: r ^aaa11\n');
+    await noteStore.load(v, p);
+    let seen = '';
+    const un = noteStore.subscribe(v, p, (t) => (seen = t));
+    noteStore.set(v, p, 'Q:: uno editada\nA:: r ^aaa11\n'); // tecleado, aún sin guardar
+    const id = await appendCard(v, p, 'Q:: desde una nota\nA:: x', null);
+    un();
+    await noteStore.flush(p);
+    const disk = await readText(v, p);
+    expect(disk).toContain('uno editada');
+    expect(disk).toContain(`desde una nota\nA:: x ^${id}`);
+    expect(seen).toBe(disk);
+  });
+  it('los IDs que añade loadCollection llegan al editor abierto (la siguiente tecla no los borra)', async () => {
+    const v = new MemoryBackend();
+    const p = 'decks/SinIds.md';
+    await v.write(p, 'Q:: a\nA:: b\n');
+    await noteStore.load(v, p);
+    await loadCollection(v, P, T);
+    const withIds = noteStore.peek(p)!;
+    expect(withIds).toMatch(/\^[a-z0-9]{5}/);
+    noteStore.set(v, p, withIds + '\nQ:: c\nA:: d\n');
+    await noteStore.flush(p);
+    expect(await readText(v, p)).toContain(withIds.trim());
   });
 });
 

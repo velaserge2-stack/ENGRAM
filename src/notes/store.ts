@@ -18,7 +18,8 @@ const docs = new Map<string, Entry>();
 let afterSave: (vault: VaultAdapter, path: string, text: string) => Promise<void> = async () => {};
 export function onNoteSaved(fn: typeof afterSave) { afterSave = fn; }
 
-const saverFor = (vault: VaultAdapter, path: string) => createAutosave(async (t: string) => { await vault.write(path, t); await afterSave(vault, path, t); });
+/** Los mazos (decks/*.md) usan el mismo modelo, pero sin historial de versiones ni índice de notas. */
+const saverFor = (vault: VaultAdapter, path: string) => createAutosave(async (t: string) => { await vault.write(path, t); if (!path.startsWith('decks/')) await afterSave(vault, path, t); });
 
 function entry(vault: VaultAdapter, path: string): Entry {
   let e = docs.get(path);
@@ -39,7 +40,7 @@ export const noteStore = {
     e.loading ??= readTextOr(vault, path, '').then((t) => ((e.text ??= t), (e.loading = null), e.text), (err) => { e.loading = null; throw err; });
     return e.loading;
   },
-  peek: (path: string) => docs.get(path)?.text ?? null,
+  peek: (path: string) => (docs.get(path)?.closed ? null : docs.get(path)?.text ?? null),
   set(vault: VaultAdapter, path: string, text: string) {
     const e = entry(vault, path);
     if (e.closed) return console.warn('Nota movida o borrada: no se guarda en la ruta vieja', path);

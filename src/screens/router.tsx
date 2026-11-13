@@ -33,7 +33,7 @@ export function Screen(props: { route: string[] }) {
   const sub = rest.join('/');
   let el: preact.JSX.Element;
   switch (tab) {
-    case 'mazos': el = sub ? <DeckEditor path={sub} /> : <Decks />; break;
+    case 'mazos': el = sub ? <DeckEditor key={sub} path={sub} /> : <Decks />; break;
     case 'estudiar': el = <Study key={sub} filter={sub || null} />; break;
     case 'explorar': el = <Explorar key={sub} q={sub} />; break;
     case 'estadisticas': el = <Stats />; break;

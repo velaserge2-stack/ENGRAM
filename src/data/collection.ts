@@ -7,6 +7,7 @@ import { t } from '../i18n';
  */
 import { type CardRef, cardsOf, ensureIds, type Note, noteIdOf, parseDeck } from '../cards/parse';
 import { DECK_TRASH } from './decktrash';
+import { noteStore } from '../notes/store';
 import type { Frontmatter } from '../lib/frontmatter';
 import { type CardState, ENGINE_VERSION, type LogEntry, parseLog, replay, type SrsParams } from '../srs/engine';
 import type { VaultAdapter } from '../vault/types';
@@ -106,6 +107,7 @@ export async function loadCollection(vault: VaultAdapter, params: SrsParams, now
       text = fixed.text;
       idsAdded += fixed.added.length;
       await vault.write(path, text);
+      await noteStore.refresh(vault, path); // el editor abierto de ese mazo recibe los IDs
     }
     const p = parseDeck(text);
     const rel = path.slice('decks/'.length, -3);

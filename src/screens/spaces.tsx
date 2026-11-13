@@ -799,7 +799,7 @@ function DeckPanelBody(p: { path: string }) {
         <span class="grow" />
         {deck && <button type="button" class="btn icon small" aria-label={tr('decks.opciones_de_label', { label: deck.name })} onClick={() => setGear(true)}><Settings2 size={16} /></button>}
       </div>
-      {!deck && app.col ? <div class="err">⚠ {tr('spaces.mazo_no_encontrado', { path: p.path })}</div> : tab === 'cards' ? <DeckEditor path={p.path} onGear={() => setGear(true)} /> : <Study filter={p.path} embedded />}
+      {!deck && app.col ? <div class="err">⚠ {tr('spaces.mazo_no_encontrado', { path: p.path })}</div> : tab === 'cards' ? <DeckEditor key={p.path} path={p.path} onGear={() => setGear(true)} /> : <Study filter={p.path} embedded />}
       {gear && deck && <DeckOptions deck={deck} onClose={() => setGear(false)} />}
     </div>
   );
