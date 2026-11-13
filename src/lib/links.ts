@@ -5,7 +5,7 @@
  * (sin migraciones). Sin `id`, se resuelve por nombre o ruta; si no se encuentra, es un enlace roto.
  */
 import { newId } from '../cards/parse';
-import { parseFrontmatter, stringifyFrontmatter } from './frontmatter';
+import { parseFrontmatter, setKeys } from './frontmatter';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr, walk } from '../vault/util';
 
@@ -79,7 +79,7 @@ export async function ensureFileId(vault: VaultAdapter, path: string, taken: Set
   if (typeof doc.data.id === 'string' && doc.data.id) return doc.data.id;
   if (typeof doc.data.id === 'number') return String(doc.data.id);
   const id = newId(taken);
-  await vault.write(path, stringifyFrontmatter({ ...doc.data, id }, doc.hasFrontmatter ? doc.body : text));
+  await vault.write(path, setKeys(text, { id })); // solo la línea `id:`: el resto del frontmatter queda intacto
   return id;
 }
 

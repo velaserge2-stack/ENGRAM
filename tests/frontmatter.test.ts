@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseFrontmatter, stringifyFrontmatter } from '../src/lib/frontmatter';
+import { parseFrontmatter, setKeys, stringifyFrontmatter } from '../src/lib/frontmatter';
 import { checkIntegrity } from '../src/vault/integrity';
 import { MemoryBackend } from '../src/vault/memory';
 
@@ -46,5 +46,21 @@ describe('integridad', () => {
     expect(r.byFolder).toEqual({ decks: 3, notes: 1, '.app': 2, media: 1 });
     expect(r.problems.map((p) => p.path).sort()).toEqual(['.app/reviews.jsonl', '.app/settings.json', 'decks/roto.md', 'decks/sin.md', 'notes/bin.md']);
     expect(await v.exists('decks/roto.md')).toBe(true);
+  });
+});
+
+describe('plan 15: setKeys', () => {
+  it('cambia solo las claves pedidas y deja intacto lo que el parser no entiende', () => {
+    const t = '---\ndescripcion: >\n  Texto largo\ntemas:\n  - a\n  - b\nversion: 1.0\n# comentario\n---\n# Hola\n';
+    expect(setKeys(t, { temas: ['c'], id: 'x1' })).toBe('---\ndescripcion: >\n  Texto largo\ntemas: [c]\nversion: 1.0\n# comentario\nid: x1\n---\n# Hola\n');
+    expect(setKeys(t, { descripcion: undefined })).toBe('---\ntemas:\n  - a\n  - b\nversion: 1.0\n# comentario\n---\n# Hola\n');
+  });
+  it('sin frontmatter lo antepone; CRLF se conserva; sin claves lo quita; «» no pasa a null', () => {
+    expect(setKeys('# Nota\n', { id: 'k' })).toBe('---\nid: k\n---\n# Nota\n');
+    expect(setKeys('# Nota\n', { id: undefined })).toBe('# Nota\n');
+    expect(setKeys('---\r\nmateria: X\r\n---\r\nTexto\r\n', { tema: 'Y' })).toBe('---\r\nmateria: X\r\ntema: Y\r\n---\r\nTexto\r\n');
+    expect(setKeys('---\nmateria: X\n---\nB\n', { materia: undefined })).toBe('B\n');
+    expect(parseFrontmatter(stringifyFrontmatter({ a: '' }, '')).data.a).toBe('');
+    expect(setKeys('---\nab: 1\n---\n', { a: 2 })).toBe('---\nab: 1\na: 2\n---\n');
   });
 });

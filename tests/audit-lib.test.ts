@@ -23,8 +23,8 @@ describe('auditoría · links', () => {
     // src/ui/links.tsx:83 usa key = t.path.slice(4) = 'ecg'
     expect(resolveLink('engrama://tag/ecg', idx).target).not.toBeNull();
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('ensureFileId no pierde líneas de frontmatter que el parser no entiende (escalares de bloque, mapas anidados)', async () => {
+  // auditoría: corregido (plan 15)
+  it('ensureFileId no pierde líneas de frontmatter que el parser no entiende (escalares de bloque, mapas anidados)', async () => {
     const v = new MemoryBackend();
     await v.write('notes/a.md', '---\ndescripcion: >\n  Texto largo\nprops:\n  a: 1\n---\n# Hola\n');
     await ensureFileId(v, 'notes/a.md', new Set());
@@ -47,20 +47,20 @@ describe('auditoría · links', () => {
 });
 
 describe('auditoría · frontmatter', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('ida y vuelta con una barra invertida no duplica la barra', () => {
+  // auditoría: corregido (plan 15)
+  it('ida y vuelta con una barra invertida no duplica la barra', () => {
     const data = { ruta: 'C:\\apuntes' };
     expect(parseFrontmatter(stringifyFrontmatter(data, '')).data).toEqual(data);
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('reescribir no altera números con forma de texto (1.0, 007)', () => {
+  // auditoría: corregido (plan 15)
+  it('reescribir no altera números con forma de texto (1.0, 007)', () => {
     const doc = parseFrontmatter('---\nversion: 1.0\ncodigo: 007\n---\n');
     const out = stringifyFrontmatter(doc.data, '');
     expect(out).toContain('version: 1.0');
     expect(out).toContain('codigo: 007');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('un valor que empieza con # se escribe entrecomillado (en YAML estándar `# …` es comentario)', () => {
+  // auditoría: corregido (plan 15)
+  it('un valor que empieza con # se escribe entrecomillado (en YAML estándar `# …` es comentario)', () => {
     expect(stringifyFrontmatter({ color: '#FF9500' }, '')).toContain('"#FF9500"');
   });
 });

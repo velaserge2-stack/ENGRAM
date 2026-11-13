@@ -2,7 +2,7 @@ import { t } from '../i18n';
 /** Operaciones sobre mazos (escritura segura vía SafeVault). */
 import { newId, noteIdOf, parseDeck } from '../cards/parse';
 import { noteStore } from '../notes/store';
-import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
+import { parseFrontmatter, setKeys, stringifyFrontmatter } from '../lib/frontmatter';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr } from '../vault/util';
 import { appendLog, type Collection } from './collection';
@@ -39,12 +39,8 @@ export async function appendCard(vault: VaultAdapter, deckPath: string, block: s
 
 export async function setDeckMeta(vault: VaultAdapter, deckPath: string, patch: Record<string, string | number | string[] | null>): Promise<void> {
   const text = await readTextOr(vault, deckPath, '');
-  const { data, body } = parseFrontmatter(text);
-  for (const [k, v] of Object.entries(patch)) {
-    if (v === null || v === '') delete data[k];
-    else data[k] = v;
-  }
-  await vault.write(deckPath, stringifyFrontmatter(data, body));
+  // solo las claves que cambian (setKeys): lo que el parser no entiende no se pierde
+  await vault.write(deckPath, setKeys(text, Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === null || v === '' ? undefined : v]))));
 }
 
 /** Operación de estado (suspender, enterrar, olvidar) sobre varias tarjetas: se agrega al historial. */

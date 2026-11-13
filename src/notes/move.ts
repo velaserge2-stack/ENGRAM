@@ -10,7 +10,7 @@
  * Imágenes y dibujos viven en `media/` y no se mueven. La papelera no se toca.
  * Devuelve un registro para deshacer (el mismo formato que mover mazos).
  */
-import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
+import { parseFrontmatter, setKeys } from '../lib/frontmatter';
 import { fromICS, toICS } from '../lib/ics';
 import { makeUri, parseUri } from '../lib/links';
 import { rewriteSpaces, type Undo } from '../data/move';
@@ -113,10 +113,8 @@ export async function moveNotes(vault: VaultAdapter, paths: string[], dest: stri
     const depth = to.split('/').length - 1;
     if (doc.hasFrontmatter && depth <= 3 && m.materia !== DAILY && ('materia' in doc.data || 'tema' in doc.data)) {
       // Prompt 12: se escriben solo si tienen valor («Sin clasificar» o «Sin tema» los quitan)
-      const data = { ...doc.data };
-      if (m.structured && m.materia) data.materia = m.materia; else delete data.materia;
-      if (m.structured && m.tema) data.tema = m.tema; else delete data.tema;
-      await write(vault, log, to, stringifyFrontmatter(data, doc.body));
+      // solo esas dos líneas (setKeys): lo demás del frontmatter del usuario no se reescribe
+      await write(vault, log, to, setKeys(text, { materia: m.structured && m.materia ? m.materia : undefined, tema: m.structured && m.tema ? m.tema : undefined }));
     }
     for (const h of await walk(vault, `${HISTORY}/${from}`)) await move(vault, log, h.path, `${HISTORY}/${to}/${h.path.slice(`${HISTORY}/${from}/`.length)}`);
     moved.push([from, to]);

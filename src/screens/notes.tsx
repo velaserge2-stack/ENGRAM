@@ -6,7 +6,7 @@ import { appendCard } from '../data/ops';
 import { deliver } from '../io/share';
 import { buildZip } from '../io/zip';
 import { addDays, dayKey } from '../lib/days';
-import { type Frontmatter, parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
+import { type Frontmatter, parseFrontmatter, setKeys } from '../lib/frontmatter';
 import { renderMarkdown, renderMarkdownCached } from '../md/render';
 import { memo } from 'preact/compat';
 import { compatibleMarkdown, htmlToMarkdown, markdownToDocx } from '../notes/io';
@@ -630,8 +630,14 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
     const decks = [...new Set([...(app.col?.byCid.values() ?? [])].filter((x) => x.ref.note.src?.startsWith(`${props.path}#p`)).map((x) => x.deck.path))];
     if (decks.length && (await remapSources(app.vault, decks, props.path, parseFrontmatter(from).body, parseFrontmatter(to).body))) app.changed();
   };
-  const setBody = (body: string, kind: 'type' | 'action' = 'action') => set(stringifyFrontmatter(doc.data, body), kind);
-  const setFm = (fm: Frontmatter) => set(stringifyFrontmatter(fm, doc.body));
+  // el frontmatter se conserva tal cual (byte a byte) al editar el cuerpo; al editar campos, solo
+  // cambian las líneas de las claves tocadas (setKeys)
+  const setBody = (body: string, kind: 'type' | 'action' = 'action') => set(text.slice(0, text.length - doc.body.length) + body, kind);
+  const setFm = (fm: Frontmatter) => {
+    const patch: Record<string, Frontmatter[string] | undefined> = {};
+    for (const k of new Set([...Object.keys(doc.data), ...Object.keys(fm)])) if (JSON.stringify(fm[k]) !== JSON.stringify(doc.data[k])) patch[k] = k in fm ? fm[k] : undefined;
+    set(setKeys(text, patch));
+  };
   const blocks = splitBlocks(doc.body);
   /** Cambio desde la barra de imagen: una sola escritura, deshacible con ⌘Z. */
   const setBlocks = (next: string[]) => setBody(next.join('\n\n'));

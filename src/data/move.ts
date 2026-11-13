@@ -10,7 +10,7 @@
  * Cada operación devuelve un registro para deshacerla (movimientos inversos y textos previos).
  */
 import { newId, noteIdOf, parseDeck } from '../cards/parse';
-import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter';
+import { parseFrontmatter, setKeys } from '../lib/frontmatter';
 import { fromICS, toICS } from '../lib/ics';
 import { makeUri, parseUri } from '../lib/links';
 import { withSuffix } from '../vault/paths';
@@ -103,7 +103,7 @@ async function rewriteDeckRefs(vault: VaultAdapter, log: Undo, names: [string, s
     const temas = doc.data.temas.map(String);
     const next = temas.map((x) => (x.startsWith('tag:') ? x : ren(x)));
     if (next.every((x, i) => x === temas[i])) continue;
-    await write(vault, log, f.path, stringifyFrontmatter({ ...doc.data, temas: next }, doc.body));
+    await write(vault, log, f.path, setKeys(text, { temas: next }));
   }
 }
 
@@ -142,8 +142,7 @@ export function removeBlock(text: string, id: string): string {
 
 /** Cambia el nombre visible (`deck:`) de un archivo de mazo. */
 function renameDeckText(text: string, name: string): string {
-  const doc = parseFrontmatter(text);
-  return stringifyFrontmatter({ ...doc.data, deck: name }, doc.hasFrontmatter ? doc.body : text);
+  return setKeys(text, { deck: name });
 }
 
 /**
