@@ -30,8 +30,8 @@ class Flaky extends MemoryBackend {
 }
 
 describe('auditoría · notas', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('mover una nota suelta no convierte [[Título]] en [[Materia/Título]] (el resolvedor solo conoce títulos)', () => {
+  // auditoría: corregido (plan 11)
+  it('mover una nota suelta no convierte [[Título]] en [[Materia/Título]] (el resolvedor solo conoce títulos)', () => {
     expect(rewriteNoteRefs('ver [[Nota]]', 'notes/Nota.md', 'notes/Cardio/Nota.md')).toBe('ver [[Nota]]');
   });
   // auditoría: corregido (plan 1)

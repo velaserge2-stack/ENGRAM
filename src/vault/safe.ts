@@ -175,6 +175,7 @@ export class SafeVault implements VaultAdapter {
     const a = normalizePath(from);
     const b = normalizePath(to);
     return this.serial(async () => {
+      if (a === b) return; // mover sobre sí mismo: escribir y borrar `a` lo perdería
       const st = await this.raw.stat(a);
       if (st?.kind !== 'file') return this.raw.move(a, b); // directorios: el backend copia y luego borra
       const bytes = await this.raw.read(a);

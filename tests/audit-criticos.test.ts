@@ -302,8 +302,8 @@ describe('plan 10 · DeckEditor en NoteStore', () => {
 
 // ───────────────────────── 4 · mover ─────────────────────────
 describe('auditoría · mover tarjetas', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('moveCards: si falla la escritura del destino, la tarjeta no desaparece de ambos archivos', async () => {
+  // auditoría: corregido (plan 11)
+  it('moveCards: si falla la escritura del destino, la tarjeta no desaparece de ambos archivos', async () => {
     const v = new Rig();
     await v.write('decks/A.md', 'Q:: tarjeta que se mueve\nA:: r ^mov01\n\nQ:: otra\nA:: r ^otr01\n');
     await v.write('decks/B.md', 'Q:: destino\nA:: r ^des01\n');

@@ -37,12 +37,13 @@ export async function undoMove(vault: VaultAdapter, log: Undo): Promise<void> {
 async function write(vault: VaultAdapter, log: Undo, path: string, text: string) {
   const before = (await vault.exists(path)) ? await readTextOr(vault, path, '') : null;
   if (before === text) return;
+  await vault.write(path, text); // se anota después: una escritura (atómica) que falla no cambió nada
   log.push({ kind: 'write', path, before });
-  await vault.write(path, text);
 }
 async function remove(vault: VaultAdapter, log: Undo, path: string) {
-  log.push({ kind: 'write', path, before: await readTextOr(vault, path, '') });
+  const before = await readTextOr(vault, path, '');
   await vault.remove(path);
+  log.push({ kind: 'write', path, before });
 }
 async function move(vault: VaultAdapter, log: Undo, from: string, to: string) {
   await vault.move(from, to);
@@ -240,6 +241,9 @@ export async function moveCards(vault: VaultAdapter, col: Collection, cids: stri
     }
     bySource.set(src.path, [...(bySource.get(src.path) ?? []), id]);
   }
+  // primero se calcula todo; se escribe el DESTINO antes que los orígenes: un fallo a mitad deja
+  // la tarjeta duplicada (aviso de ID repetido), nunca en ningún archivo. Y se deshace lo escrito.
+  const sources: [string, string][] = [];
   for (const [path, list] of bySource) {
     let text = await readTextOr(vault, path, '');
     for (const id of list) {
@@ -249,9 +253,15 @@ export async function moveCards(vault: VaultAdapter, col: Collection, cids: stri
       text = removeBlock(text, id);
       moved++;
     }
-    await write(vault, log, path, text);
+    sources.push([path, text]);
   }
-  if (moved || duplicated) await write(vault, log, target.path, dest);
+  try {
+    if (moved || duplicated) await write(vault, log, target.path, dest);
+    for (const [path, text] of sources) await write(vault, log, path, text);
+  } catch (e) {
+    await undoMove(vault, log).catch(() => {});
+    throw e;
+  }
   return { undo: log, moved, skipped, duplicated };
 }
 

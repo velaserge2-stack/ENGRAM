@@ -897,6 +897,7 @@
  "move.deshecho": "Déplacement annulé",
  "move.destino": "Destination",
  "move.duplicadas": "{n} dupliquées avec un nouvel ID",
+ "move.fallo": "Déplacement impossible ({message}) ; ce qui avait été déplacé a été annulé.",
  "move.duplicar": "Dupliquer avec un nouvel ID",
  "move.fusionar": "Fusionner",
  "move.fusionar_nota": "Fusionner réunit ses cartes dans le paquet existant (ID et historique conservés).",

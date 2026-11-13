@@ -35,16 +35,16 @@ describe('auditoría vault', () => {
     expect(lossless).toBe(true);
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('SafeVault.move(a, a) no debe borrar el archivo', async () => {
+  // auditoría: corregido (plan 11)
+  it('SafeVault.move(a, a) no debe borrar el archivo', async () => {
     const v = new SafeVault(new MemoryBackend());
     await v.write('notes/x.md', 'contenido');
     await v.move('notes/x.md', 'notes/x.md');
     expect(await v.exists('notes/x.md')).toBe(true);
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('MemoryBackend.move(a, a) (archivo y carpeta) no debe borrar', async () => {
+  // auditoría: corregido (plan 11)
+  it('MemoryBackend.move(a, a) (archivo y carpeta) no debe borrar', async () => {
     const m = new MemoryBackend();
     await m.write('d/x.md', 'hola');
     await m.move('d/x.md', 'd/x.md');

@@ -897,6 +897,7 @@
  "move.deshecho": "Movimiento deshecho",
  "move.destino": "Destino",
  "move.duplicadas": "{n} duplicadas con ID nuevo",
+ "move.fallo": "No se pudo mover ({message}); se deshizo lo que alcanzó a moverse.",
  "move.duplicar": "Duplicar con ID nuevo",
  "move.fusionar": "Fusionar",
  "move.fusionar_nota": "Fusionar junta sus tarjetas en el mazo existente (conservan ID e historial).",

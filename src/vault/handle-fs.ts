@@ -198,8 +198,11 @@ export class HandleFS {
   async move(from: string, to: string): Promise<void> {
     const h = await this.resolve(from);
     if (!h) throw new VaultError(`No existe: ${from}`, 'not-found', from);
+    if (splitPath(from).join('/') === splitPath(to).join('/')) return; // mover sobre sí mismo: nada (si no, `remove(to)` lo borra)
     if (h.kind === 'file') {
       const parts = splitPath(to);
+      // un destino que es carpeta nunca se borra para dejar sitio a un archivo
+      if ((await this.resolve(to))?.kind === 'directory') throw new VaultError(`El destino es una carpeta: ${to}`, 'io', to);
       const fh = h as FileSystemFileHandle & { move?: (dir: FileSystemDirectoryHandle, name: string) => Promise<void> };
       if (typeof fh.move === 'function') {
         try {

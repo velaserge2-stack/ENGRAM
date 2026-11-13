@@ -897,6 +897,7 @@
  "move.deshecho": "Move undone",
  "move.destino": "Destination",
  "move.duplicadas": "{n} duplicated with a new ID",
+ "move.fallo": "Could not move ({message}); what had been moved was undone.",
  "move.duplicar": "Duplicate with new ID",
  "move.fusionar": "Merge",
  "move.fusionar_nota": "Merge puts its cards into the existing deck (IDs and history are kept).",

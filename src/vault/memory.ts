@@ -57,6 +57,10 @@ export class MemoryBackend implements VaultAdapter {
   async move(from: string, to: string): Promise<void> {
     const a = normalizePath(from);
     const b = normalizePath(to);
+    if (a === b) {
+      if (!(await this.exists(a))) throw new VaultError(`No existe: ${from}`, 'not-found', from);
+      return;
+    }
     const f = this.files.get(a);
     if (f) {
       this.files.set(b, f);
