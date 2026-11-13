@@ -44,6 +44,47 @@ export interface StudyBlock {
   links?: string[];
   /** propiedades desconocidas del VEVENT, conservadas tal cual al reexportar */
   extra?: string[];
+  /** valor de RRULE tal como se leyó (BYMONTHDAY, BYSETPOS…): se reescribe igual si la repetición no se editó */
+  rruleRaw?: string;
+}
+
+type RRuleFields = Pick<StudyBlock, 'rrule' | 'until' | 'interval' | 'count' | 'byday'>;
+
+/** Lo que Engrama entiende de un RRULE (el resto se conserva en `rruleRaw`). */
+function readRRule(v: string): RRuleFields {
+  const r: RRuleFields = { rrule: ((/FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)/.exec(v)?.[1]) as StudyBlock['rrule']) ?? '', until: '' };
+  const iv = /INTERVAL=(\d+)/.exec(v), cn = /COUNT=(\d+)/.exec(v);
+  if (iv && +iv[1]! > 1) r.interval = Math.min(+iv[1]!, 1000);
+  if (cn && +cn[1]! > 0) r.count = +cn[1]!;
+  const by = /BYDAY=([A-Z,]+)/.exec(v);
+  if (by) r.byday = by[1]!.split(',').filter((d) => (WEEKDAYS as readonly string[]).includes(d));
+  const u = /UNTIL=(\d{4})(\d{2})(\d{2})/.exec(v);
+  if (u) r.until = `${u[1]}-${u[2]}-${u[3]}`;
+  return r;
+}
+
+/** RRULE que escribe Engrama a partir de lo que entiende. */
+function genRRule(r: RRuleFields, b: Pick<StudyBlock, 'allDay' | 'floating'>): string {
+  return `FREQ=${r.rrule}${r.interval && r.interval > 1 ? `;INTERVAL=${r.interval}` : ''}${r.count ? `;COUNT=${r.count}` : ''}${r.rrule === 'WEEKLY' && r.byday?.length ? `;BYDAY=${r.byday.join(',')}` : ''}${r.until ? `;UNTIL=${r.until.replace(/-/g, '')}${b.allDay ? '' : b.floating ? 'T235959' : 'T235959Z'}` : ''}`;
+}
+
+/** Si el bloque trae un RRULE leído y la repetición no se editó, ese mismo (completo); si no, el de Engrama. */
+function rruleOf(b: StudyBlock): string {
+  const mine = genRRule(b, b);
+  return b.rruleRaw && genRRule(readRRule(b.rruleRaw), b) === mine ? b.rruleRaw : mine;
+}
+
+/**
+ * EXDATE de un evento en UTC: RFC 5545 repite una serie en UTC conservando la hora UTC de DTSTART,
+ * así que la ocurrencia del día local `x` es DTSTART + k días (no la hora de pared, que cambia con el horario de verano).
+ */
+function exdateUtc(b: StudyBlock, x: string): string {
+  const [y, m, d] = x.split('-').map(Number);
+  const s = new Date(b.start);
+  let at = b.start + Math.round((Date.UTC(y!, m! - 1, d!) - Date.UTC(s.getFullYear(), s.getMonth(), s.getDate())) / 864e5) * 864e5;
+  if (localKey(at) < x) at += 864e5;
+  else if (localKey(at) > x) at -= 864e5;
+  return utc(at);
 }
 
 /** Marca que separa la nota del usuario de los nombres legibles de los vínculos en DESCRIPTION. */
@@ -87,8 +128,8 @@ export function toICS(blocks: StudyBlock[], name = 'Engrama · estudio', labelOf
     if (desc) L.push(`DESCRIPTION:${esc(desc)}`);
     if (b.subject) L.push(`CATEGORIES:${esc(b.subject)}`);
     if (b.location) L.push(`LOCATION:${esc(b.location)}`);
-    if (b.rrule) L.push(`RRULE:FREQ=${b.rrule}${b.interval && b.interval > 1 ? `;INTERVAL=${b.interval}` : ''}${b.count ? `;COUNT=${b.count}` : ''}${b.rrule === 'WEEKLY' && b.byday?.length ? `;BYDAY=${b.byday.join(',')}` : ''}${b.until ? `;UNTIL=${b.until.replace(/-/g, '')}${b.allDay ? '' : b.floating ? 'T235959' : 'T235959Z'}` : ''}`);
-    for (const x of b.exdate ?? []) L.push(b.allDay ? `EXDATE;VALUE=DATE:${x.replace(/-/g, '')}` : `EXDATE:${b.floating ? `${x.replace(/-/g, '')}T${local(b.start).slice(9)}` : utc(new Date(`${x}T${new Date(b.start).toTimeString().slice(0, 8)}`).getTime())}`);
+    if (b.rrule) L.push(`RRULE:${rruleOf(b)}`);
+    for (const x of b.exdate ?? []) L.push(b.allDay ? `EXDATE;VALUE=DATE:${x.replace(/-/g, '')}` : `EXDATE:${b.floating ? `${x.replace(/-/g, '')}T${local(b.start).slice(9)}` : exdateUtc(b, x)}`);
     if (b.kind) L.push(`X-ENGRAMA-KIND:${b.kind}`);
     if (b.done.length) L.push(`X-ENGRAMA-DONE:${b.done.join(',')}`);
     for (const l of b.links ?? []) L.push(`X-ENGRAMA-LINK:${l}`);
@@ -149,6 +190,9 @@ export function fromICS(text: string, source = ''): StudyBlock[] {
           ...(cur.kind ? { kind: cur.kind } : {}), ...(cur.allDay ? { allDay: true } : {}), ...(cur.floating ? { floating: true } : {}), ...(cur.location ? { location: cur.location } : {}),
           ...(cur.interval && cur.interval > 1 ? { interval: cur.interval } : {}), ...(cur.count ? { count: cur.count } : {}),
         });
+        // solo si dice más de lo que Engrama escribiría (BYMONTHDAY, BYSETPOS, WKST, UNTIL con hora…)
+        const nb = out[out.length - 1]!;
+        if (nb.rrule && cur.rruleRaw && cur.rruleRaw !== genRRule(nb, nb)) nb.rruleRaw = cur.rruleRaw;
         if (cur.rid) rids.push([out[out.length - 1]!, cur.rid]);
       }
       cur = null;
@@ -196,15 +240,7 @@ export function fromICS(text: string, source = ''): StudyBlock[] {
           break;
         }
         case 'RRULE': {
-          const f = /FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)/.exec(v);
-          const iv = /INTERVAL=(\d+)/.exec(v), cn = /COUNT=(\d+)/.exec(v);
-          if (iv && +iv[1]! > 1) cur.interval = Math.min(+iv[1]!, 1000);
-          if (cn && +cn[1]! > 0) cur.count = +cn[1]!;
-          cur.rrule = (f?.[1] as StudyBlock['rrule']) ?? '';
-          const by = /BYDAY=([A-Z,]+)/.exec(v);
-          if (by) cur.byday = by[1]!.split(',').filter((d) => (WEEKDAYS as readonly string[]).includes(d));
-          const u = /UNTIL=(\d{4})(\d{2})(\d{2})/.exec(v);
-          if (u) cur.until = `${u[1]}-${u[2]}-${u[3]}`;
+          Object.assign(cur, readRRule(v), { rruleRaw: v.trim() });
           break;
         }
         default:

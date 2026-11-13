@@ -174,3 +174,31 @@ describe('plan 13: calendario', () => {
     expect(z!.start).toBe(new Date(2026, 10, 10, 9).getTime());
   });
 });
+
+describe('pendientes de la auditoría: RRULE completo y EXDATE con horario de verano', () => {
+  const cal = (body: string) => `BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\n${body.replace(/\n/g, '\r\n')}\r\nEND:VEVENT\r\nEND:VCALENDAR`;
+  it('conserva el RRULE original (BYMONTHDAY, BYSETPOS, WKST) si la repetición no se edita', () => {
+    const [b] = fromICS(cal('UID:m\nDTSTART:20260105T150000Z\nRRULE:FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1;WKST=MO'));
+    expect(toICS([b!])).toContain('RRULE:FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1;WKST=MO\r\n');
+    const [c] = fromICS(cal('UID:n\nDTSTART:20260115T150000Z\nRRULE:FREQ=MONTHLY;BYMONTHDAY=15,30'));
+    expect(toICS([c!])).toContain('RRULE:FREQ=MONTHLY;BYMONTHDAY=15,30\r\n');
+    // editada en Engrama (otra frecuencia o fin): se escribe la de Engrama
+    expect(toICS([{ ...c!, until: '2026-12-31' }])).toContain('RRULE:FREQ=MONTHLY;UNTIL=20261231T235959Z\r\n');
+    // los eventos de Engrama no guardan copia: el ida y vuelta es idéntico
+    const [own] = fromICS(cal('UID:o\nDTSTART:20260105T150000Z\nRRULE:FREQ=WEEKLY;BYDAY=MO,WE'));
+    expect(own!.rruleRaw).toBeUndefined();
+  });
+  it('EXDATE de una serie en UTC tras el cambio de horario: la hora UTC de la ocurrencia RFC', () => {
+    const tz = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+    try {
+      const b: StudyBlock = { uid: 'd', start: Date.UTC(2026, 2, 1, 14, 0), end: Date.UTC(2026, 2, 1, 15, 0), title: 'x', subject: '', note: '', rrule: 'DAILY', until: '', done: [], alarmMin: null, exdate: ['2026-03-20', '2026-03-02'] };
+      const t = toICS([b]);
+      expect(t).toContain('EXDATE:20260320T140000Z'); // antes: 130000Z (hora de pared), no casaba en otros calendarios
+      expect(t).toContain('EXDATE:20260302T140000Z');
+      expect(fromICS(t)[0]!.exdate).toEqual(['2026-03-20', '2026-03-02']); // y se relee en el mismo día local
+    } finally {
+      process.env.TZ = tz;
+    }
+  });
+});
