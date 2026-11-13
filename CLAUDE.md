@@ -66,5 +66,7 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 **Borrar bancos** en la rama `fix-borrar-banco` (desde `main`): papelera de bancos `.app/papelera-bancos/` (`src/sim/banktrash.ts`, mismos días que la de mazos), confirmación con intentos afectados, deshacer, restaurar y eliminar definitivamente al final de Simulacros. `npm run e2e:bancos`.
 **Prompt 19 (revisión)** en la rama `compartir-estadisticas` (desde `main`; no unir ni subir sin confirmación): «Nombre de usuario» en Perfil (clave `usuario`, `normUsername`/`usernameError` en `src/lib/profile.ts`), @usuario y «¿Dónde estás estudiando?» en la imagen (texto libre con pin, sin GPS, últimos 5 lugares en `settings.share.places`) y fuego vectorial junto a la racha (`ICON`/`strokeIcon` en `src/share/card.ts`). `npm run e2e:share`.
 
+**Prompt 21 · rendimiento** en `main` (fases 0–2): `npm run perf` y `scripts/vault-gen.mjs` (bóvedas S/M/L), integridad en reposo, `dayKey` en caché y pantallas con `import()` (paquete inicial −28 %). Detenido a petición del usuario; lo que falta, en `docs/rendimiento/PENDIENTE.md`. La fase 3a a medias está en la rama `rendimiento-3a-wip` (no unir sin terminarla).
+
 ## Skills activas
 Auditoría (Prompt 13): ponytail, systematic-debugging (superpowers), webapp-testing, break-ui, security-review. Etapa 4b: code-simplifier y deslop pendientes (ver `docs/audit/LOG.md`). graphify no instalada (envía contenido a APIs externas si hay clave; ver LOG). Máx. 5–6 a la vez.
