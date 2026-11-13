@@ -388,9 +388,13 @@ function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { ma
   const [tema, setTema] = useState(props.initial?.tema ?? '');
   const [title, setTitle] = useState(props.initial?.title ?? '');
   const [tpl, setTpl] = useState('Clase');
-  // el título lleva el foco al abrir (después de que la hoja enfoque su contenedor)
+  // el título lleva el foco al abrir (después de que la hoja enfoque su contenedor), salvo que ya se
+  // esté escribiendo en otro campo: robarle el foco a mitad de escribir mandaba el texto al título
   const titleRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { const r = requestAnimationFrame(() => titleRef.current?.focus()); return () => cancelAnimationFrame(r); }, []);
+  useEffect(() => {
+    const r = requestAnimationFrame(() => { const a = document.activeElement; if (!(a instanceof HTMLInputElement || a instanceof HTMLTextAreaElement || a instanceof HTMLSelectElement)) titleRef.current?.focus(); });
+    return () => cancelAnimationFrame(r);
+  }, []);
   const temas = tree.find((m) => m.materia === materia)?.temas.map((t) => t.tema) ?? [];
   return (
     <Sheet title={tr('notes.nueva_nota')} onClose={props.onClose}>
