@@ -11,6 +11,11 @@ import { IMG_EXT, parseEmbed } from './embed';
 type MD = InstanceType<typeof MarkdownIt>;
 
 const COLORS = new Set(['azul', 'verde', 'indigo', 'naranja', 'rosa', 'rojo', 'morado', 'turquesa', 'menta', 'amarillo']);
+/** Prompt 17: tamaños relativos `[texto]{.grande}` y alineación de párrafo ` {.centro}` (listas cerradas). */
+const SIZES = new Set(['pequeno', 'grande', 'muygrande']);
+const ALIGN_END = /[ \t]*\{\.(centro|der|justificado)\}[ \t]*$/;
+/** Clases que puede llevar el HTML de una nota; cualquier otra se descarta al sanitizar. */
+const CLASS_OK = /^(callout|callout-t|wl|cloze|hidden|c-[a-z]+|t-(pequeno|grande|muygrande)|al-(centro|der|justificado)|language-[\w-]+)$/;
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
@@ -25,6 +30,9 @@ function engine(): MD {
     let m: RegExpExecArray | null;
     if ((m = /^==([^=\n]+)==/.exec(src))) {
       if (!silent) state.push('html_inline', '', 0).content = `<mark>${md!.renderInline(m[1]!)}</mark>`;
+    } else if ((m = /^\+\+(?=\S)([^+\n]*?[^\s+])\+\+/.exec(src)) && !/[\p{L}\p{N}_+]/u.test(state.src[state.pos - 1] ?? '')) {
+      // ++subrayado++ (no en `c++`/`i++`: debe empezar fuera de una palabra; el código ya lo consumió antes)
+      if (!silent) state.push('html_inline', '', 0).content = `<u>${md!.renderInline(m[1]!)}</u>`;
     } else if ((m = /^!\[\[([^\]\n]+)\]\]/.exec(src)) && (!m[1]!.includes('|') || IMG_EXT.test(m[1]!.split('|')[0]!.trim()))) {
       // `![[nota|alias]]` (no imagen) sigue como antes: «!» + enlace con alias
       if (!silent) {
@@ -41,8 +49,10 @@ function engine(): MD {
       }
     } else if ((m = /^\[\[([^\]|\n]+)(?:\|([^\]\n]+))?\]\]/.exec(src))) {
       if (!silent) state.push('html_inline', '', 0).content = `<a class="wl" data-wl="${esc(m[1]!.trim())}" href="#/notas/${encodeURIComponent(m[1]!.trim())}">${esc((m[2] ?? m[1]!).trim())}</a>`;
-    } else if ((m = /^\[([^\]\n]+)\]\{\.([a-z]+)\}/.exec(src)) && COLORS.has(m[2]!)) {
-      if (!silent) state.push('html_inline', '', 0).content = `<span class="c-${m[2]}">${md!.renderInline(m[1]!)}</span>`;
+    } else if ((m = /^\[([^\]\n]+)\]\{((?:\.[a-z]+[ \t]*)+)\}/.exec(src)) && m[2]!.split(/\s+/).filter(Boolean).every((c) => COLORS.has(c.slice(1)) || SIZES.has(c.slice(1)))) {
+      // [texto]{.color} y [texto]{.color .tamaño}; una clase desconocida deja todo literal
+      const cls = m[2]!.split(/\s+/).filter(Boolean).map((c) => (COLORS.has(c.slice(1)) ? 'c-' : 't-') + c.slice(1));
+      if (!silent) state.push('html_inline', '', 0).content = `<span class="${cls.join(' ')}">${md!.renderInline(m[1]!)}</span>`;
     } else return false;
     state.pos += m[0].length;
     return true;
@@ -93,8 +103,30 @@ function engine(): MD {
       tok.children.unshift(box);
     }
   });
+  // alineación de párrafo o título: ` {.centro}` al final → clase en el bloque (se quita del texto)
+  md.core.ruler.after('inline', 'align', (state: StateCore) => {
+    const t = state.tokens;
+    for (let i = 1; i < t.length; i++) {
+      const tok = t[i]!;
+      const open = t[i - 1]!;
+      // `hidden`: párrafo interno de un elemento de lista (ahí la marca queda literal)
+      if (tok.type !== 'inline' || (open.type !== 'paragraph_open' && open.type !== 'heading_open') || open.hidden || !ALIGN_END.test(tok.content)) continue;
+      const last = tok.children?.[tok.children.length - 1];
+      if (!last || last.type !== 'text' || !ALIGN_END.test(last.content)) continue;
+      open.attrJoin('class', `al-${ALIGN_END.exec(last.content)![1]}`);
+      last.content = last.content.replace(ALIGN_END, '');
+    }
+  });
   return md;
 }
+
+// solo clases de la lista cerrada (el Markdown no admite HTML, pero el HTML importado de .docx sí pasa por aquí)
+DOMPurify.addHook?.('uponSanitizeAttribute', (_node, data) => {
+  if (data.attrName !== 'class') return;
+  const keep = data.attrValue.split(/\s+/).filter((c) => CLASS_OK.test(c));
+  if (keep.length) data.attrValue = keep.join(' ');
+  else data.keepAttr = false;
+});
 
 const PURIFY = {
   ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|blob|media):|#|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
@@ -137,7 +169,9 @@ export function renderCloze(text: string, n: number, reveal: boolean): string {
 export function plainText(text: string): string {
   return text
     .replace(/\{\{c\d+::(.*?)(?:::.*?)?\}\}/g, '$1')
-    .replace(/\[([^\]]+)\]\{\.[a-z]+\}/g, '$1')
+    .replace(/\[([^\]]+)\]\{(?:\.[a-z]+\s*)+\}/g, '$1')
+    .replace(/\+\+(\S[^+\n]*?)\+\+/g, '$1')
+    .replace(/\s*\{\.(centro|der|justificado)\}\s*$/gm, '')
     .replace(/!?\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g, '$1')
     .replace(/[*_=`#>]/g, '')
     .replace(/\s+/g, ' ')

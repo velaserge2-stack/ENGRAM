@@ -14,11 +14,19 @@ type Tok = ReturnType<InstanceType<typeof MarkdownItType>['parse']>[number];
 const COLORS: Record<string, string> = { azul: '0A6FD8', verde: '1F8A3C', indigo: '4B48C7', naranja: 'B35C00', rosa: 'C8204A', rojo: 'C62D23', morado: '8E3DB8', turquesa: '00738A', menta: '007D78', amarillo: '8A6D00' };
 
 /** [[Nota]] → [Nota](Nota.md); colores → HTML o texto plano. */
+const SIZE_EM: Record<string, number> = { pequeno: 0.85, grande: 1.25, muygrande: 1.6 };
+
 export function compatibleMarkdown(md: string, opts: { links: boolean; colors: 'keep' | 'html' | 'plain' }): string {
   let out = md;
   if (opts.links) out = out.replace(/(?<!!)\[\[([^\]|#]+)(?:\|([^\]]+))?\]\]/g, (_, t: string, a?: string) => `[${a ?? t}](${encodeURI(t.trim())}.md)`).replace(/!\[\[([^\]|]+)\]\]/g, (_, f: string) => `![](${encodeURI(f.trim())})`);
-  if (opts.colors === 'html') out = out.replace(/\[([^\]\n]+)\]\{\.([a-z]+)\}/g, (_, t: string, c: string) => `<span style="color:#${COLORS[c] ?? '000000'}">${t}</span>`);
-  if (opts.colors === 'plain') out = out.replace(/\[([^\]\n]+)\]\{\.[a-z]+\}/g, '$1');
+  // colores, tamaños (Prompt 17), ++subrayado++ y alineación ` {.centro}` para editores que no los conocen
+  if (opts.colors === 'html') out = out
+    .replace(/\[([^\]\n]+)\]\{((?:\.[a-z]+\s*)+)\}/g, (_, t: string, cs: string) => `<span style="${cs.split(/\s+/).filter(Boolean).map((c) => c.slice(1)).map((c) => (SIZE_EM[c] ? `font-size:${SIZE_EM[c]}em` : `color:#${COLORS[c] ?? '000000'}`)).join(';')}">${t}</span>`)
+    .replace(/(?<![\p{L}\p{N}_+])\+\+(\S[^+\n]*?)\+\+/gu, '<u>$1</u>');
+  if (opts.colors === 'plain') out = out
+    .replace(/\[([^\]\n]+)\]\{(?:\.[a-z]+\s*)+\}/g, '$1')
+    .replace(/(?<![\p{L}\p{N}_+])\+\+(\S[^+\n]*?)\+\+/gu, '$1')
+    .replace(/[ \t]*\{\.(centro|der|justificado)\}[ \t]*$/gm, '');
   return out;
 }
 
@@ -39,6 +47,7 @@ export async function markdownToDocx(md: string, title: string, loadImage: (name
   const children: (InstanceType<typeof d.Paragraph> | InstanceType<typeof d.Table>)[] = [];
 
   let centered = false; // el párrafo lleva una imagen `|centro`
+  let align: 'centro' | 'der' | 'justificado' | null = null; // marca ` {.centro}` del párrafo
   /** `![[foto.jpg|300|izq|alt …]]`: el original, con su proporción real y el tamaño y lugar de la nota (A2). */
   async function image(inner: string): Promise<Run | null> {
     const e = parseEmbed(inner);
@@ -68,16 +77,26 @@ export async function markdownToDocx(md: string, title: string, loadImage: (name
 
   async function runs(inline: Tok): Promise<Run[]> {
     centered = false;
+    align = null;
     const out: Run[] = [];
     let bold = false, italic = false, strike = false, link: string | null = null;
     const text = (s: string) => {
       // ==resaltado==, [texto]{.color}, [[wikilink]]
-      const parts = s.split(/(==[^=]+==|\[[^\]\n]+\]\{\.[a-z]+\}|\[\[[^\]]+\]\])/g).filter(Boolean);
+      // (Prompt 17: ++subrayado++, [texto]{.color .tamaño} y la marca final de alineación)
+      const al = /[ \t]*\{\.(centro|der|justificado)\}[ \t]*$/.exec(s);
+      if (al) (align = al[1] as typeof align), (s = s.slice(0, al.index));
+      const parts = s.split(/(==[^=]+==|\+\+\S[^+\n]*?\+\+|\[[^\]\n]+\]\{(?:\.[a-z]+\s*)+\}|\[\[[^\]]+\]\])/g).filter(Boolean);
       for (const p of parts) {
         let m: RegExpExecArray | null;
         const base = { bold, italics: italic, strike };
         if ((m = /^==([^=]+)==$/.exec(p))) out.push(new d.TextRun({ ...base, text: m[1]!, highlight: 'yellow' }));
-        else if ((m = /^\[([^\]]+)\]\{\.([a-z]+)\}$/.exec(p))) out.push(new d.TextRun({ ...base, text: m[1]!, color: COLORS[m[2]!] ?? '000000' }));
+        else if ((m = /^\+\+(\S[^+\n]*?)\+\+$/.exec(p))) out.push(new d.TextRun({ ...base, text: m[1]!, underline: {} }));
+        else if ((m = /^\[([^\]]+)\]\{((?:\.[a-z]+\s*)+)\}$/.exec(p))) {
+          const cs = m[2]!.split(/\s+/).filter(Boolean).map((c) => c.slice(1));
+          const col = cs.find((c) => COLORS[c]);
+          const size = cs.map((c) => ({ pequeno: 19, grande: 28, muygrande: 36 })[c]).find(Boolean); // medios puntos (normal 22)
+          out.push(new d.TextRun({ ...base, text: m[1]!, ...(col ? { color: COLORS[col] } : {}), ...(size ? { size } : {}) }));
+        }
         else if ((m = /^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]$/.exec(p))) out.push(new d.TextRun({ ...base, text: m[2] ?? m[1]!, underline: {} }));
         else if (link) out.push(new d.ExternalHyperlink({ link, children: [new d.TextRun({ ...base, text: p, style: 'Hyperlink' })] }));
         else out.push(new d.TextRun({ ...base, text: p }));
@@ -114,7 +133,8 @@ export async function markdownToDocx(md: string, title: string, loadImage: (name
     if (t.type === 'heading_open') {
       const lvl = Number(t.tag.slice(1));
       const H = [d.HeadingLevel.HEADING_1, d.HeadingLevel.HEADING_2, d.HeadingLevel.HEADING_3, d.HeadingLevel.HEADING_4, d.HeadingLevel.HEADING_5, d.HeadingLevel.HEADING_6];
-      children.push(new d.Paragraph({ heading: H[lvl - 1], children: await runs(tokens[i + 1]!) }));
+      const hr = await runs(tokens[i + 1]!);
+      children.push(new d.Paragraph({ heading: H[lvl - 1], children: hr, ...(align ? { alignment: align === 'centro' ? d.AlignmentType.CENTER : align === 'der' ? d.AlignmentType.RIGHT : d.AlignmentType.JUSTIFIED } : {}) }));
       i += 2;
     } else if (t.type === 'bullet_list_open' || t.type === 'ordered_list_open') list.push({ ordered: t.type === 'ordered_list_open' });
     else if (t.type === 'bullet_list_close' || t.type === 'ordered_list_close') list.pop();
@@ -136,7 +156,7 @@ export async function markdownToDocx(md: string, title: string, loadImage: (name
       const lvl = list.length - 1;
       children.push(new d.Paragraph({
         children: r,
-        ...(centered ? { alignment: d.AlignmentType.CENTER } : {}),
+        ...(align ? { alignment: align === 'centro' ? d.AlignmentType.CENTER : align === 'der' ? d.AlignmentType.RIGHT : d.AlignmentType.JUSTIFIED } : centered ? { alignment: d.AlignmentType.CENTER } : {}),
         ...(list.length ? (list[lvl]!.ordered ? { numbering: { reference: 'num', level: lvl } } : { bullet: { level: lvl } }) : {}),
         ...(quote ? { border: { left: { style: d.BorderStyle.SINGLE, size: 12, color: '888888', space: 8 }, top: callout ? { style: d.BorderStyle.SINGLE, size: 4, color: '888888', space: 4 } : undefined, bottom: callout ? { style: d.BorderStyle.SINGLE, size: 4, color: '888888', space: 4 } : undefined, right: callout ? { style: d.BorderStyle.SINGLE, size: 4, color: '888888', space: 4 } : undefined }, indent: { left: 240 } } : {}),
       }));

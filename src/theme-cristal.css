@@ -309,6 +309,9 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 .md code { font-family: var(--mono); font-size: .9em; background: var(--fill); border-radius: 5px; padding: 1px 5px; }
 .md pre code { display: block; padding: 10px; overflow-x: auto; }
 .md a.wl { text-decoration: underline dotted; }
+/* Prompt 17: tamaños relativos (respetan el tamaño de texto del usuario) y alineación de párrafo */
+.md .t-pequeno { font-size: .85em; } .md .t-grande { font-size: 1.25em; } .md .t-muygrande { font-size: 1.6em; line-height: 1.25; }
+.md .al-centro { text-align: center; } .md .al-der { text-align: right; } .md .al-justificado { text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
 /* Notas-Pro · A3: imágenes con tamaño y posición (![[foto|300|izq]]). Solo cambia lo que usa la sintaxis nueva. */
 div.md:has(img[data-align]) { display: flow-root; }
 .md img[data-align="izq"] { float: left; margin: 4px 16px 8px 0; }
