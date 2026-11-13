@@ -37,7 +37,7 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 ## Comandos
 - `npm run dev` · `npm run build` · `npm run preview`
 - `npm test` (Vitest) · `npm run typecheck`
-- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras && npm run e2e:mejoras2 && npm run e2e:phone && npm run e2e:bloquec && npm run e2e:p5 && npm run e2e:p6 && npm run e2e:p7 && npm run e2e:p10 && npm run e2e:p12 && npm run e2e:p15 && npm run e2e:glass` y `npm run e2e:perf` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
+- `npm run build && npm run e2e && npm run e2e:flows && npm run e2e:design && npm run e2e:mejoras && npm run e2e:mejoras2 && npm run e2e:phone && npm run e2e:bloquec && npm run e2e:p5 && npm run e2e:p6 && npm run e2e:p7 && npm run e2e:p10 && npm run e2e:p12 && npm run e2e:p15 && npm run e2e:glass && npm run e2e:adherencia` y `npm run e2e:perf` (Playwright; `PLAYWRIGHT_PATH` si está instalado globalmente, `BROWSER=webkit|chromium`)
 - `node scripts/icons.mjs` regenera íconos desde `scripts/icon.svg`
 
 ## Fase actual
@@ -48,6 +48,7 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 **Prompt 12** en `main`: crear una nota solo pide el título; sin materia → `notes/<Título>.md` («Sin clasificar»), solo materia → `notes/<Materia>/<Título>.md` («Sin tema»); `safeSegment` para nombres.
 **Prompt 11** en la rama `perf-pdf-lienzo` (no unir a `main` sin confirmación): PDF pesados por trozos (`SafeVault.writeStream`, recuperable) y por rangos (`src/pdf/open.ts`), visor virtualizado (`src/pdf/virtual.ts`: alturas, ventana, cola de 2, presupuesto de píxeles), miniaturas perezosas, Lienzo sin re-renders en el gesto y con culling (`awakePanels`). `?perf` muestra contadores (`src/lib/perf.ts`, `src/ui/perfhud.tsx`); `npm run e2e:perf` mide y comprueba (fixtures con `node scripts/perf-fixtures.mjs`). Cifras en `docs/perf/` y `docs/DECISIONS.md`.
 **Prompt 15** en la rama `fix-minimapa` (desde `main`; no unir sin confirmación): minimapa del lienzo interactivo (`src/lib/minimap.ts`: límites = paneles visibles ∪ vista; tocar centra, arrastrar mueve, tocar un panel lo trae al frente; teclado; plegable con `minimap: false` opcional en el espacio). `npm run e2e:p15`. Fallo previo anotado: «Ajustar al contenido» no responde al ratón (captura del puntero del lienzo).
+**Adherencia** en la rama `fix-adherencia-minimizar` (desde `main`): el botón minimizar del mapa recortado queda en la esquina del panel (`.mh:has(> .heat-panel.fit)`). `npm run e2e:adherencia`.
 **Vidrio** en la rama `fix-glass` (desde `main`; no unir sin confirmación): «Añadir examen» como `btn primary` dentro de vidrio (Hoy: píldora `.exam-add`; Estadísticas: encabezado `row glass panel`), `.glass.strong` sigue a la intensidad, modo ligero sin sombras grandes y aviso de 3 s con acción. Medición en `e2e/glass-perf.mjs`; contraste del botón en `npm run e2e:glass`.
 
 ## Skills activas
