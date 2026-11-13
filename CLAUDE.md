@@ -30,6 +30,7 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 - `src/cards/parse.ts` parser de mazos · `src/srs/` FSRS, `replay`, cola · `src/data/` colección y operaciones.
 - `src/lib/` ajustes, días, estadísticas, exámenes/ritmo, pomodoro, `.ics`, consultas · `src/sim/` simulacros · `src/notes/` notas, Plaud, docx/pdf; fotos: `images.ts` (guarda el original), `thumbs.ts` (`mediaThumbUrl`, caché `.app/thumbs/`), `imgsize.ts`, `imagebar.tsx`.
 - `src/md/embed.ts` sintaxis de imagen `![[foto|300|izq|alt …]]`.
+- Editor de notas: `src/notes/format.ts` (edición pura: marcas, estilos, listas, tablas, bloques), `editorbar.tsx` (barra fija), `history.ts` (deshacer/rehacer), `sources.ts` (orígenes `#pN` al mover).
 - `src/io/` importar (zip, CSV, `.apkg` en Worker: legado, compatibilidad y formato nuevo), extraer texto, compartir · `src/md/` Markdown seguro.
 - `src/i18n/` idiomas (`index.ts` + `es|en|fr.json`; pseudoidioma `xx` en /design).
 - `src/ink/` motor de tinta (modelo, capa, dibujos) · `src/pdf/` anotaciones y biblioteca · `src/lib/keys.ts` atajos.
@@ -50,6 +51,7 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 **Prompt 11** en la rama `perf-pdf-lienzo` (no unir a `main` sin confirmación): PDF pesados por trozos (`SafeVault.writeStream`, recuperable) y por rangos (`src/pdf/open.ts`), visor virtualizado (`src/pdf/virtual.ts`: alturas, ventana, cola de 2, presupuesto de píxeles), miniaturas perezosas, Lienzo sin re-renders en el gesto y con culling (`awakePanels`). `?perf` muestra contadores (`src/lib/perf.ts`, `src/ui/perfhud.tsx`); `npm run e2e:perf` mide y comprueba (fixtures con `node scripts/perf-fixtures.mjs`). Cifras en `docs/perf/` y `docs/DECISIONS.md`.
 **Prompt 15** en la rama `fix-minimapa` (desde `main`; no unir sin confirmación): minimapa del lienzo interactivo (`src/lib/minimap.ts`: límites = paneles visibles ∪ vista; tocar centra, arrastrar mueve, tocar un panel lo trae al frente; teclado; plegable con `minimap: false` opcional en el espacio). `npm run e2e:p15`. Fallo previo anotado: «Ajustar al contenido» no responde al ratón (captura del puntero del lienzo).
 **Notas-Pro** en la rama `notas-pro` (desde `main`; no unir sin confirmación): paquete 1 = Fase A (fotos: original byte a byte, miniaturas en caché, `![[foto|ancho|izq|alt …]]`, barra de imagen, exportar originales), en espera de prueba en iPad. Siguen los paquetes 2–4 (add-ons de notas apagados por defecto). `npm run e2e:notaspro`.
+**Prompt 17** en la rama `barra-editor` (= `main` + Notas-Pro · Fase A; no unir ni hacer push sin confirmación): barra fija del editor de notas (formato, `++subrayado++`, tamaño `{.grande}`, alineación ` {.centro}`, listas, tablas, imagen, mover bloques, deshacer/rehacer, atajos «Editor»). `npm run e2e:barra`.
 
 ## Skills activas
 Mantenimiento: webapp-testing, security-review (importadores), frontend-design (Cristal), ponytail. Máx. 5–6 a la vez.

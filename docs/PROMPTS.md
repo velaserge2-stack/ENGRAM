@@ -1391,3 +1391,102 @@ Cardiología
 - Actualiza `CLAUDE.md` («Fase actual», mapa del código), `docs/DECISIONS.md` (miniaturas como caché, sintaxis de imagen, ajuste de calidad, conversiones al exportar, por qué KaTeX/Mermaid bajo demanda, formato `mapa`/`diagrama` como texto y renderizador propio en lugar de librerías) y `docs/PROMPTS.md`.
 - Al terminar **cada paquete**, dime: qué reutilizaste y qué construiste, decisiones tomadas, qué **no** pudiste verificar sin un iPad real (Pencil, pulsación larga, memoria con fotos de 12 MP), tamaño del paquete, y qué quedó fuera.
 - Commits pequeños por fase, todos en `notas-pro`.
+
+---
+
+# PROMPT 17: Barra de herramientas del editor de notas (formato, tablas, imágenes, listas, orden)
+
+## 0. Objetivo
+En **Notas**, una **barra de menú fija** encima del documento que se está editando, para dar formato sin escribir Markdown a mano: **negrita, cursiva, subrayado, tachado, resaltado, color, tamaño de letra, títulos, listas, tareas, citas, tablas, imágenes (con lugar y tamaño), enlaces, alineación de párrafo, mover párrafos, deshacer/rehacer**, etc. Todo sigue guardándose como **Markdown legible** en el `.md` (la nota es la fuente de verdad) y **se ve nativo en el tema Cristal**.
+
+## 1. Lectura previa (y plan corto antes de escribir código)
+Lee `CLAUDE.md`, `docs/SPEC.md` (§4 Markdown extendido), `docs/DESIGN.md`, `docs/DECISIONS.md`, `src/screens/notes.tsx`, `src/md/render.ts`, `src/ui/md.tsx`, `src/ui/overlay.tsx`, `src/lib/keys.ts`, `src/notes/store.ts`, `src/notes/images.ts`.
+
+**Lo que ya existe (reutilízalo, no lo dupliques)** en `notes.tsx`:
+- El editor es **por bloques**: `BlockInput` (un `<textarea>` por bloque) con modo `doc`/`md`; `splitBlocks`; `NoteStore` (un solo documento en memoria).
+- Una **barra flotante de formato que solo aparece al seleccionar texto** (`role="toolbar"`, `aria-label` «Formato»): negrita (`wrap('**')`), resaltar (`==`), color (`[x]{.azul}`), enlazar a nota (`[[ ]]`), crear cloze/básica.
+- El menú «/» (`SLASH()`): títulos, listas, tarea, tabla, cita, callout, imagen, dibujo, cuaderno, tarjeta, código, enlace.
+- `insertAtCursor` (imagen, HTML→Markdown pegado, enlace por URL).
+
+**Responde con un plan de ≤ 25 líneas**: qué se reutiliza, qué se construye, cómo se opera sobre el bloque activo, y qué referencias de este prompt no existen en la rama (**no las inventes**). Revisa también `docs/PROMPTS.md` y las ramas: los prompts **Notas Pro (Fase A: fotos con `|ancho|alineación`, Fase K: mapas mentales)** y **Notas con solo título obligatorio** pueden tocar lo mismo. **No dupliques**: esta barra solo **llama** a esa lógica cuando exista (ver §5).
+
+## 2. Reglas estrictas
+- Rama **`barra-editor`** desde `main`. Un commit pequeño por punto. **No unas a `main` ni hagas push sin mi confirmación.**
+- **Formatos retrocompatibles y perezosos**: no se reescribe ninguna nota hasta que el usuario edite. Todo lo nuevo se guarda como Markdown/sintaxis que se lea bien en cualquier editor de texto; nada de HTML crudo ni estilos en línea.
+- **Escrituras por `NoteStore`/`SafeVault`**, un cambio = una entrada de historial (⌘Z/⌘⇧Z funcionan); nunca estado duplicado fuera del texto.
+- Texto de interfaz por `t()`/`tn()` (es/en/fr; la prueba de claves debe seguir pasando; se prueba también el pseudo-idioma +40 %). Nunca se traducen formatos de archivo.
+- **Tema Cristal, sin color en la interfaz** (croma ≤ 5 %): la barra va **dentro de una superficie `.glass`**; botones con relleno/borde/estado activo por **opacidad y relleno invertido**, no por tono. Solo iconos de `lucide-preact` (sin SF Symbols). Botones solo-icono con `aria-label` (sin `title`); flotantes por `src/ui/overlay.tsx` y z-index con `--z-*`.
+- Objetivos táctiles ≥ 44 px, inputs ≥ 16 px. Teléfono solo bajo `html.is-phone`. **iPad y web no cambian fuera de la barra**: `MODE=compare npm run e2e:phone` = **0 píxeles** salvo el área de la barra (documenta la diferencia esperada).
+- Contenido del usuario con `data-user-content`; todo HTML por DOMPurify. Si agregas atributos o clases nuevas al render, agrégalas **a la lista permitida** y **prueba que nada más pasa** (ni `style` en línea).
+- Sin dependencias nuevas. Código mínimo (ponytail) sin recortar accesibilidad ni escritura segura.
+- Skills sugeridas: ponytail, webapp-testing (WebKit), frontend-design (Cristal), superpowers.
+
+## 3. La barra
+**Ubicación y permanencia (requisito clave): la barra es ESTÁTICA y nunca desaparece mientras haya una nota abierta.**
+- Es **parte fija del editor**, anclada arriba (`position: sticky; top: 0`) **dentro del área de la nota**, no un flotante que aparece y se esconde. **No** se oculta al desplazarse, al perder el foco, al cerrar el teclado, al salir de la edición de un bloque, al cambiar entre `doc` y `md`, ni al abrir paneles laterales (Esquema, Enlaces, Propiedades, Grafo, Tarjetas).
+- **Botón «Plegar/Desplegar barra»** (icono de chevron, `aria-label` y `aria-expanded`), **siempre visible en un extremo de la barra**. Plegar **no la oculta**: la reduce a una **franja fina y fija** (≥ 44 px de alto táctil, o ~28 px con ratón) que conserva el botón de desplegar, **deshacer/rehacer** y **negrita**, y se queda anclada en el mismo sitio. Así nunca desaparece del todo. Estado **plegado/desplegado recordado** (en ajustes de la interfaz, por dispositivo; por defecto **desplegada**), con atajo (p. ej. ⌘⇧T si está libre). Plegar y desplegar **no mueve el texto** de forma brusca (mantén la posición de lectura) y se anima solo con `opacity`/`transform`, apagado con `prefers-reduced-motion`. En iPhone y en paneles estrechos de Espacios, por defecto **plegada** si el espacio es muy corto.
+- **Sin selección o sin bloque en edición, los botones se quedan visibles pero desactivados** (`disabled`, 38 % de opacidad, estado legible), nunca se esconden. Así su lugar y tamaño no cambian y el documento **no salta** de posición.
+- Debe verse en **todos los contextos donde se edita una nota**: pestaña de Notas, nota en panel de Espacios (versión compacta que siempre está), pantalla completa y modo `md`. En **solo lectura** (nota de la papelera, vista de historial) se muestra desactivada o se sustituye por una franja de aviso, pero no desaparece sin explicación.
+- Altura **constante** (un solo renglón con desplazamiento horizontal, grupos separados por divisores); si no caben todos los botones, el **resto vive en «Más»**, que siempre está en la barra. No se parte en varias líneas ni cambia de altura.
+- Va **encima** del contenido y de las barras flotantes (con `--z-*`), pero **por debajo** de hojas y modales; **no tapa** el contenido ni el teclado virtual del iPad: se mantiene visible **encima del teclado** usando `visualViewport` (en iPad con teclado abierto sigue a la vista, sin saltos).
+- La barra flotante de selección actual (cloze/básica) **se conserva aparte**; la estática no depende de ella.
+
+**Cómo opera**: sobre el **bloque que se está editando** y su selección (el `textarea` activo). Los botones usan `onMouseDown={e => e.preventDefault()}` para no perder el foco (como la barra flotante actual). Si no hay bloque en edición, los botones de bloque (título, lista, cita…) actúan sobre el **último bloque enfocado**; los de texto se desactivan con estado visible. La barra flotante actual al seleccionar texto **se conserva** (cloze/básica) y comparte las mismas funciones (una sola implementación de `wrap`/`toggle`).
+
+**Comportamiento «alternar»**: aplicar negrita sobre texto ya en negrita **la quita**; el botón activo refleja el formato en el cursor (`aria-pressed`). Sin selección, aplica a la palabra bajo el cursor. Las acciones son **idempotentes** y no rompen bloques de código ni `![[ ]]`/`[[ ]]`.
+
+### Grupos y botones (propuesta; ajusta con el plan)
+1. **Historial**: deshacer · rehacer.
+2. **Estilo de párrafo** (selector): Texto normal · Título 1 · Título 2 · Título 3 · Cita · Código · Callout (tipos existentes).
+3. **Texto**: **Negrita** · *Cursiva* · <u>Subrayado</u> · ~~Tachado~~ · `Código en línea` · ==Resaltar== · Color (paleta existente, `[texto]{.color}`) · **Tamaño** (Pequeño · Normal · Grande · Muy grande) · «Quitar formato».
+4. **Párrafo**: alinear Izquierda · Centro · Derecha · Justificado · Sangría +/− (al nivel de lista si es lista).
+5. **Listas**: viñetas · numerada · **tarea** `- [ ]` · cambiar de tipo de lista · subir/bajar nivel.
+6. **Insertar**: **Tabla** · **Imagen** · **Enlace** (URL o `[[nota]]`) · Línea divisoria · Fecha de hoy · Callout · Bloque de código · Dibujo/cuaderno (los existentes) · «Más» (menú «/» completo, para no recargar la barra).
+7. **Orden**: **Mover párrafo/bloque arriba · abajo** · Duplicar · Eliminar bloque (con deshacer) · Combinar con el anterior.
+8. **Vista**: alternar `doc`/`md` (ya existe) · buscar en la nota (ya existe).
+
+## 4. Sintaxis nueva (mínima, retrocompatible; define y documenta en `docs/SPEC.md` §4 y `DECISIONS.md`)
+Antes de definirla, **mira cómo ya se parsean `==`, `[x]{.color}` y los callouts** y extiende ese mismo mecanismo:
+- **Subrayado**: usa una marca legible, p. ej. `++texto++` (renderiza `<u>`). Comprueba que **no choque** con listas, `c++`/`i++` en código ni con `[[ ]]`; fuera de bloques de código; valor desconocido = se deja literal.
+- **Tamaño**: reutiliza la sintaxis de clase existente: `[texto]{.grande}` · `{.muygrande}` · `{.pequeno}` (lista cerrada, sin tamaños arbitrarios). Escala relativa (`em`) en `theme-cristal.css`, que respeta el tamaño de fuente del usuario.
+- **Alineación de párrafo**: una marca al final del bloque que no ensucie el texto, p. ej. ` {.centro}` / `{.der}` / `{.justificado}`. Lista cerrada; en `html.is-phone` se respeta igual. Si es difícil, déjalo como **mejora opcional** y dilo.
+- Cada marca nueva: **validada** (lista cerrada), **sanitizada** (`class` permitido solo para esa lista, nada más) y **probada** con textos hostiles.
+- Si algo ya existe con otro nombre, **usa el existente** y no inventes otro.
+
+## 5. Imágenes: lugar y tamaño
+- Botón **Imagen** → selector de archivo/cámara/portapapeles usando el **mismo `saveImage`** que ya usan «/», pegar y arrastrar (no crees otra ruta de guardado). Inserta en el bloque actual.
+- Al seleccionar una imagen (tocar) aparece su **barra flotante** (por `overlay.tsx`): **Izquierda · Centro · Derecha**, tamaño **S / M / L / ancho completo**, texto alternativo y eliminar.
+- **Si el prompt Notas Pro (Fase A) ya está implementado**: usa **su** sintaxis (`![[foto.jpg|300|izq]]`), su asa de redimensionar y sus validaciones; esta barra solo los **expone**. **Si no lo está**: implementa solo lo mínimo con la sintaxis actual `![[foto.jpg|ancho]]` más la alineación `|izq|centro|der` (orden libre, valores desconocidos ignorados sin romper la nota, atributos nuevos en DOMPurify y probados) y avisa que Notas Pro deberá **reutilizarlo**, no rehacerlo. Imágenes nunca estiradas; reserva de alto para que el scroll no salte.
+
+## 6. Tablas
+- **Insertar tabla** con selector de tamaño (columnas × filas, p. ej. rejilla hasta 6×6) → tabla Markdown (GFM).
+- Con el cursor dentro de una tabla, la barra muestra un **grupo contextual**: agregar/eliminar fila y columna, **alineación de columna** (`:---`, `:---:`, `---:`), fila de encabezado, y «Ajustar columnas» (reformatea el texto de la tabla alineado, sin cambiar contenido). Si es demasiado, entrega primero insertar + fila/columna y deja lo demás como siguiente paso.
+- Tablas largas/anchas: desplazamiento horizontal en pantallas estrechas (como hoy).
+
+## 7. Mover y corregir el orden
+- **Mover bloque arriba/abajo** (botones y atajos), manteniendo la selección y el foco; funciona con listas (mueve el elemento con sus hijos) y con encabezados (opción «mover sección completa»).
+- **Arrastrar y soltar** bloques por un asa (opcional; con Pointer Events y `setPointerCapture`; fuera del textarea). Con lectores de pantalla: los botones de mover anuncian la nueva posición.
+- **No rompe** `^bloque` IDs de tarjetas, vínculos `[[nota#sección]]` ni la cobertura de párrafos: probar mover un párrafo con tarjeta vinculada.
+
+## 8. Atajos, accesibilidad y teclado
+- Atajos en `src/lib/keys.ts` **sin chocar** con los existentes: ⌘B, ⌘I, ⌘U, ⌘K (enlace) si no está tomado (si ⌘K es la paleta, usa otro y dilo), ⌘⇧X tachado, ⌘⇧H resaltar, ⌘⌥1/2/3 títulos, ⌘⌥↑/↓ mover bloque, ⌘Z/⌘⇧Z. Visibles en el tooltip de cada botón (viene del `aria-label`).
+- `role="toolbar"` con **navegación por flechas** (un solo tab-stop), `aria-pressed` en los alternables, foco visible, anunciado a VoiceOver; funciona con teclado físico, mando y Apple Pencil.
+- Respeta `prefers-reduced-motion` y `prefers-contrast`.
+
+## 9. iPad, iPhone y rendimiento
+- **iPad**: barra completa y **siempre visible**; no se mueve ni se esconde al aparecer el teclado (usa `visualViewport`). Probar en horizontal/vertical y con Stage Manager.
+- **iPhone** (`html.is-phone`): barra **compacta, siempre visible** y desplazable, anclada arriba del teclado cuando está abierto, con los grupos más usados primero y «Más» para el resto; sin cambios fuera de ese modo.
+- **Rendimiento**: la barra no provoca re-render del documento entero; calcula el estado activo solo al cambiar la selección (`selectionchange` con *debounce*). Carga las partes pesadas (selector de tabla, paleta) bajo demanda. No agrega más de ~6 KB gzip al paquete inicial; reporta el tamaño antes y después.
+- **Una sola superficie de vidrio** para toda la barra (sin `backdrop-filter` por botón). Al ser permanente y fija sobre contenido que se desplaza, usa relleno translúcido estable y evita repintados costosos (revisa con el prompt de rendimiento del glassmorphism si ya está aplicado).
+- **Dentro del lienzo (Espacios)**: en un panel de nota estrecho, la barra pasa a una versión compacta (solo iconos, resto en «Más») que **sigue siempre visible** dentro del panel y no rompe el redimensionado ni el paneo (queda **fuera** del área desplazable del contenido, como el asa de redimensionar del bug anterior).
+
+## 10. Pruebas
+- **Vitest**: funciones puras de edición (alternar negrita/cursiva/subrayado/tachado/resaltado con y sin selección; quitar formato; títulos; cambio de tipo de lista; sangría; insertar/editar tabla y alineaciones; mover bloque/sección; imagen con alineación y tamaño) con **ida y vuelta** (texto → acción → texto esperado), idempotencia, selecciones que cruzan `[[ ]]`/código, Unicode/emoji y textos hostiles; sanitización de las marcas nuevas (solo lo permitido).
+- **WebKit (Playwright)**: **la barra permanece visible** (`isVisible`, misma posición y altura; plegada queda la franja con el botón de desplegar, y el estado sobrevive a recargar) al desplazar una nota larga, al enfocar y desenfocar bloques, al cambiar `doc`↔`md`, al abrir y cerrar cada panel lateral, con el teclado virtual simulado, en panel de Espacios y en iPhone; sin selección sus botones aparecen desactivados, no ausentes; abrir una nota; usar cada grupo de la barra; ⌘Z/⌘⇧Z tras cada acción; insertar imagen y alinearla a izq/centro/der; insertar tabla 3×3 y agregar fila/columna; mover un párrafo; recargar y verificar que **todo quedó en el `.md`**; la barra no tapa el contenido con el teclado virtual simulado; teléfono y lienzo.
+- **Regresión**: `npm test`, `typecheck`, `build`, `e2e`, `e2e:flows`, `e2e:design`, `e2e:phone` (**0 píxeles** fuera de la barra), pruebas de «sin color» y legibilidad, claves i18n (es/en/fr y +40 %).
+- Verificación manual en **iPad real** (teclado virtual, Apple Pencil, gesto de selección, pulsación larga) y iPhone.
+
+## 11. Entrega
+Resumen corto: qué reutilizaste y qué construiste, sintaxis nueva (con ejemplos), botones entregados y los que quedaron para después (con motivo), tamaño del paquete antes/después, qué **no** pudiste verificar sin un iPad real. Actualiza `CLAUDE.md` («Fase actual», mapa del código), `docs/SPEC.md` §4, `docs/DECISIONS.md` y guarda este prompt en `docs/PROMPTS.md`.
+
+**Criterio de aceptación**: la barra está **siempre visible** en cualquier nota abierta (desplegada o plegada a una franja, nunca oculta); sin escribir una sola marca de Markdown, puedo dar formato (incluido subrayado y tamaño), insertar y acomodar imágenes, crear tablas y listas, y reordenar párrafos desde una barra que se ve y se siente parte de Engrama; la nota queda como texto limpio en el `.md`.

@@ -620,3 +620,57 @@ Abrir la app con `?perf` (p. ej. `https://…/engrama/?perf#/pdfs`) muestra en u
 - No hay WebKit en este contenedor: Safari no se probó aquí. Hay que confirmar si `createImageBitmap` con `resizeWidth` reduce en Safari antes de decodificar (si no, hay fallbacks) y si `OffscreenCanvas` funciona en el Worker (Safari 16.4+).
 - Memoria con fotos de 12 MP reales (HEIC de la cámara), Pencil en el asa y `afterprint` en iOS.
 - En las pruebas automáticas, si se teclea «/ima» + Intro sin pausa, el menú «/» a veces no recibe el Intro (fallo previo de `BlockInput`, no tocado; la prueba teclea a ritmo humano).
+
+## Prompt 17 — Barra de herramientas del editor de notas (rama `barra-editor`, desde `main`)
+
+### Antes de empezar (verificado)
+- Ya existían y se reutilizan: el editor por bloques (`BlockInput`, `splitBlocks`, `NoteStore`), la barra de formato que aparece al seleccionar texto, el menú «/» (`SLASH`), `insertAtCursor`, `[texto]{.color}`, `saveImage`, `overlay.tsx` y `keys.ts`.
+- **Notas-Pro · Fase A no estaba en `main`** (sigue en `notas-pro`, pendiente de prueba en iPad). Para no duplicar la sintaxis `![[foto|ancho|izq]]`, su barra de imagen ni su asa, `barra-editor` = `main` + ese commit. **Unir `barra-editor` a `main` trae también la Fase A.**
+
+### Sintaxis nueva
+- `++subrayado++`, `[texto]{.grande .rojo}` (varias clases de dos listas cerradas) y ` {.centro|der|justificado}` al final de un párrafo o título. Ver `docs/SPEC.md` §4.
+- Se extendió el mismo mecanismo que `==resaltado==` y `[texto]{.color}` (regla en línea de markdown-it). La alineación es una regla del núcleo que quita la marca del texto y pone la clase `al-*` en el `<p>`/`<hN>`. Se omite en los párrafos internos de las listas, así que en una lista la marca queda literal.
+- Sanitización: un gancho de DOMPurify deja en `class` solo una lista cerrada (`callout`, `callout-t`, `wl`, `cloze`, `hidden`, `c-*`, `t-*`, `al-*`, `language-*`); cualquier otra clase se descarta. Se probó con textos hostiles.
+- Exportar: el «.md compatible» convierte las marcas a HTML o las quita; el `.docx` lleva subrayado, tamaño (medios puntos 19/28/36) y alineación del párrafo.
+
+### Edición (puro, `src/notes/format.ts`)
+- Alternar marcas sin cortar `[[ ]]`, `![[ ]]` ni código en línea. Sin selección, actúa sobre la palabra bajo el cursor. No se envuelven los espacios de los bordes. Si la selección cruza líneas, se marca línea por línea, después de la viñeta, `>` o `#`.
+- Color y tamaño editan la misma marca `[…]{…}`; volver a elegir el mismo valor lo quita.
+- Estilo de párrafo: normal, H1–H3, cita, código o callout; conserva la alineación.
+- Listas, tareas y sangría; mover un elemento de lista con sus hijos.
+- Tablas GFM: insertar 1×1 a 6×6, filas, columnas, alineación de columna y «Ajustar columnas» (texto alineado). La fila de encabezado es obligatoria en GFM, así que no se ofrece quitarla.
+- Bloques: mover (también «sección completa» bajo un título, desde «Más»), duplicar, eliminar y combinar con el anterior.
+
+### Barra (`src/notes/editorbar.tsx`)
+- Es parte del editor: `position: sticky` arriba de la nota (bajo la barra superior; arriba del todo en pantalla completa, en iPhone y dentro de un panel de Espacios), con una sola superficie `.glass strong` y `--z-panel` (por debajo de hojas y modales).
+- Un renglón de alto constante con desplazamiento horizontal. «Más» (menú «/» y mover sección) y plegar siempre a la vista en el extremo.
+- Plegada = franja del mismo alto con deshacer, rehacer, negrita y desplegar, así que plegar no mueve el texto. El estado se guarda en `engrama.notesUI` (por dispositivo). Por defecto está plegada si la ventana mide menos de 560 px de alto o el panel de Espacios menos de 420 px.
+- Sin bloque en edición, los botones de texto quedan desactivados al 38 % (no se ocultan). Los de bloque actúan sobre el último bloque tocado. En la vista Markdown actúa sobre el párrafo del cursor.
+- Botones de 44×44, `aria-pressed` en los alternables, un solo tab-stop con flechas/Inicio/Fin. El tooltip toma el `aria-label`, que incluye el atajo configurado.
+- `visualViewport` desplaza la barra lo que la vista visible se haya movido (teclado del iPad/iPhone). No se puede probar aquí: hay que verlo en el dispositivo.
+- El estado (marcas activas, estilo, tabla bajo el cursor) se recalcula con una pausa de 60 ms tras `selectionchange`/teclas/clic, no en cada evento.
+- La barra flotante de selección (cloze/básica) se conserva y usa las mismas funciones (`toggleMark`, `setSpanClass`).
+
+### Historial (`src/notes/history.ts`)
+- Deshacer/rehacer por nota, en memoria: cada acción de la barra es un paso y lo tecleado seguido (< 1 s) se agrupa. ⌘Z/⌘⇧Z usan este historial también dentro del campo del bloque, porque el campo controlado pierde el deshacer nativo al reescribirse.
+- Sustituye la pila propia de la barra de imagen (Notas-Pro · A4).
+- El historial de versiones en disco no cambió.
+
+### Atajos (ámbito nuevo «Editor» en Ajustes → Atajos)
+- ⌘B, ⌘I, ⌘U, ⌘⇧X (tachado), ⌘⇧H (resaltar), **⌘⇧K enlace** (⌘K es la paleta), ⌘⌥1/2/3 (títulos), ⌘⌥↑/↓ (mover bloque), ⌘Z/⌘⇧Z y **⌘⌥B plegar la barra** (⌘⇧T lo reserva Safari).
+- Solo actúan en el editor activo (puede haber varios: pestaña y paneles del lienzo) y con el foco dentro de él.
+- `bindingOf` usa la tecla física con ⌥, porque en Mac ⌥1 escribe «¡». Ningún atajo existente usaba ⌥ con letras o números, así que no cambia nada.
+
+### Mover sin romper tarjetas ni enlaces
+- Mover copia el bloque tal cual: los `^id` de tarjetas y los `[[nota#sección]]` no cambian.
+- La **cobertura de párrafos** usa el número de párrafo (`<!-- src: nota.md#pN -->`). Tras cada acción de la barra (y al deshacer/rehacer) se empareja cada párrafo por contenido (`paraMap`) y se reescribe N en los mazos que lo citan, por SafeVault (`src/notes/sources.ts`). Lo tecleado no lo hace, igual que antes.
+
+### Fallos previos encontrados
+- **Corregido:** un `BlockInput` ya desmontado podía cerrar con su temporizador de «perder foco» la edición del bloque siguiente (y `onSelect` leía un campo ya desmontado). Pasaba al cambiar de bloque deprisa y con la barra se volvía frecuente. Se corrigió con una comprobación de `ref.current`.
+- **Sin tocar (fuera de este prompt):** en `main`, Intro al final de un bloque no añade la línea nueva, porque el `\n` final se pierde al volver a dividir el texto en bloques. Shift+Intro tampoco. Se escribe una línea nueva en medio del texto o en la vista Markdown.
+
+### No hecho o pendiente
+- Arrastrar bloques por un asa (era opcional).
+- Quitar la fila de encabezado de una tabla (GFM la exige).
+- Cambiar el tipo de tarjeta o de callout desde la barra (el callout entra como `[!note]`; el tipo se cambia en el texto).
+- No probado en WebKit ni en un iPad real: teclado virtual (`visualViewport`), Pencil, Stage Manager y gesto de selección de iOS.

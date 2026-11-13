@@ -339,6 +339,9 @@ try {
     const { ctx, page } = await fresh(390, 844, { isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
     check(await page.evaluate(() => document.documentElement.classList.contains('is-phone')), 'modo teléfono');
     await newNote(page, 'Teléfono');
+    await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Ver Markdown' }).click();
+    await page.getByLabel('Markdown de la nota').fill(Array.from({ length: 40 }, (_, i) => `Párrafo ${i} con texto suficiente para ocupar varias líneas en un iPhone.`).join('\n\n'));
+    await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Documento' }).click();
     await bar(page).waitFor();
     const b0 = await box(page);
     await page.evaluate(() => scrollTo(0, 2000));
@@ -348,6 +351,22 @@ try {
     check(b1 && b1.y >= 0 && b1.y < 60 && b1.h === b0.h && noHScroll, `visible arriba al desplazar, un solo renglón y sin scroll horizontal de la página (y=${b1?.y}, alto ${b1?.h})`);
     check(await bar(page).evaluate((e) => e.querySelector('.eb-scroll').scrollWidth > e.querySelector('.eb-scroll').clientWidth), 'los botones se desplazan dentro de la barra; «Más» y plegar siempre a la vista');
     await page.screenshot({ path: OUT + 'barra-telefono.png' });
+    await ctx.close();
+  }
+
+  if (run('pseudo')) {
+    console.log('Pseudoidioma (+40 %)');
+    const { ctx, page } = await fresh();
+    await newNote(page, 'Pseudo');
+    const h0 = (await box(page)).h;
+    await page.goto(URL_ + '#/design');
+    await page.getByRole('button', { name: 'Pseudo +40 %' }).click();
+    await page.goto(URL_ + '#/notas/' + encodeURI('Pseudo.md'));
+    await page.locator('.editorbar').waitFor();
+    const r = await page.locator('.editorbar').evaluate((e) => ({ h: Math.round(e.getBoundingClientRect().height), page: document.documentElement.scrollWidth <= innerWidth }));
+    check(r.h === h0 && r.page, `con textos un 40 % más largos la barra sigue en un renglón (${r.h} px) y la página sin scroll horizontal`);
+    await page.goto(URL_ + '#/design');
+    await page.getByRole('button', { name: 'ES', exact: true }).click();
     await ctx.close();
   }
 
