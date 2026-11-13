@@ -194,8 +194,8 @@ describe('auditoría · SafeVault', () => {
 
 // ───────────────────────── 3 · NoteStore ─────────────────────────
 describe('auditoría · NoteStore', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('refresh durante un guardado en curso no devuelve el documento al texto viejo del disco', async () => {
+  // auditoría: corregido (plan 9)
+  it('refresh durante un guardado en curso no devuelve el documento al texto viejo del disco', async () => {
     const raw = new Rig();
     const v = new SafeVault(raw);
     const p = 'notes/carrera-refresh.md';
@@ -214,8 +214,8 @@ describe('auditoría · NoteStore', () => {
     }
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('forget con un panel aún suscrito: teclear después no resucita la nota en la ruta vieja', async () => {
+  // auditoría: corregido (plan 9)
+  it('forget con un panel aún suscrito: teclear después no resucita la nota en la ruta vieja', async () => {
     const v = new SafeVault(new MemoryBackend());
     const p = 'notes/se-mueve.md';
     await v.write(p, 'texto');
@@ -227,6 +227,44 @@ describe('auditoría · NoteStore', () => {
     await noteStore.flush(p);
     un();
     expect(await v.exists(p)).toBe(false);
+  });
+});
+
+describe('plan 9 · NoteStore', () => {
+  class SlowRead extends MemoryBackend {
+    hold: Promise<void> | null = null;
+    override async read(p: string) { const h = this.hold; const r = await super.read(p); if (h) await h; return r; }
+  }
+  it('una lectura de refresh que empezó antes de teclear y termina tras el guardado no pisa lo tecleado', async () => {
+    const raw = new SlowRead();
+    const p = 'notes/carrera-lectura.md';
+    await raw.write(p, 'A');
+    await noteStore.load(raw, p);
+    let release!: () => void;
+    raw.hold = new Promise<void>((r) => (release = r));
+    const r = noteStore.refresh(raw, p); // lee «A» y se queda esperando
+    await tick();
+    raw.hold = null;
+    noteStore.set(raw, p, 'A + x');
+    await noteStore.flush(p); // el guardado termina: ya no hay pendiente
+    release();
+    await r;
+    expect(noteStore.peek(p)).toBe('A + x');
+    expect(await readText(raw, p)).toBe('A + x');
+  });
+  it('tras forget con un panel suscrito, load de la misma ruta la reabre desde el disco y vuelve a guardar', async () => {
+    const v = new MemoryBackend();
+    const p = 'notes/reabre.md';
+    await v.write(p, 'uno');
+    await noteStore.load(v, p);
+    const un = noteStore.subscribe(v, p, () => {});
+    await noteStore.forget(p);
+    await v.write(p, 'dos'); // deshacer mover: la nota vuelve
+    expect(await noteStore.load(v, p)).toBe('dos');
+    noteStore.set(v, p, 'tres');
+    await noteStore.flush(p);
+    un();
+    expect(await readText(v, p)).toBe('tres');
   });
 });
 

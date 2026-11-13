@@ -205,7 +205,7 @@ export function NotePanel(props: { path: string }) {
   const box = useRef<HTMLDivElement>(null);
   // panel corto del lienzo: la barra empieza plegada (sigue visible como franja)
   useEffect(() => { const h = box.current?.closest('.win-body')?.clientHeight ?? 0; if (h && h < 420) setUi((u) => ({ ...u, barFolded: true })); }, []);
-  return <div class="note-panel" ref={box}><NoteEditor path={props.path} data={data} ui={ui} setUi={(p) => setUi((u) => ({ ...u, ...p }))} overlay embedded /></div>;
+  return <div class="note-panel" ref={box}><NoteEditor key={props.path} path={props.path} data={data} ui={ui} setUi={(p) => setUi((u) => ({ ...u, ...p }))} overlay embedded /></div>;
 }
 
 /** «＋ Nueva nota» desde un panel: crea la nota de verdad (en la materia y tema elegidos) y la devuelve. */

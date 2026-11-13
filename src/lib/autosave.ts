@@ -13,21 +13,26 @@ export function createAutosave<T>(save: (value: T) => Promise<void>, delay = 500
   let timer: ReturnType<typeof setTimeout> | null = null;
   let next: { value: T } | null = null;
   let inflight: Promise<void> = Promise.resolve();
+  /** el último guardado: `flush` lo devuelve y RECHAZA si falló (el temporizador solo lo registra) */
+  let last: Promise<void> = inflight;
+  let saving = 0;
 
   const run = (): Promise<void> => {
     if (timer) clearTimeout(timer);
     timer = null;
-    if (!next) return inflight;
+    if (!next) return last;
     const { value } = next;
     next = null;
-    inflight = inflight.then(() => save(value)).catch((e) => console.error('Autoguardado falló', e));
-    return inflight;
+    saving++;
+    last = inflight.then(() => save(value)).finally(() => void saving--);
+    inflight = last.catch((e) => console.error('Autoguardado falló', e));
+    return last;
   };
 
   const onHide = () => {
-    if (!target || target.visibilityState === 'hidden') void run();
+    if (!target || target.visibilityState === 'hidden') void run().catch(() => undefined);
   };
-  const onPageHide = () => void run();
+  const onPageHide = () => void run().catch(() => undefined);
   target?.addEventListener('visibilitychange', onHide);
   (typeof window !== 'undefined' ? window : null)?.addEventListener('pagehide', onPageHide);
 
@@ -35,15 +40,16 @@ export function createAutosave<T>(save: (value: T) => Promise<void>, delay = 500
     schedule(value) {
       next = { value };
       if (timer) clearTimeout(timer);
-      timer = setTimeout(run, delay);
+      timer = setTimeout(() => void run().catch(() => undefined), delay);
     },
     flush: run,
     dispose() {
       target?.removeEventListener('visibilitychange', onHide);
       (typeof window !== 'undefined' ? window : null)?.removeEventListener('pagehide', onPageHide);
     },
+    /** hay algo sin escribir: programado o con el guardado en vuelo */
     get pending() {
-      return next !== null;
+      return next !== null || saving > 0;
     },
   };
 }

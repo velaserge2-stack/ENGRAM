@@ -117,8 +117,8 @@ describe('auditoría · pomodoro', () => {
 });
 
 describe('auditoría · autosave', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('flush informa del fallo de guardado (hoy solo console.error y la promesa se cumple)', async () => {
+  // auditoría: corregido (plan 9)
+  it('flush informa del fallo de guardado (hoy solo console.error y la promesa se cumple)', async () => {
     const a = createAutosave<string>(async () => { throw new Error('disco lleno'); }, 10, null);
     const quiet = console.error;
     console.error = () => {};
