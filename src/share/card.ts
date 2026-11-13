@@ -49,6 +49,8 @@ export interface CardResult {
   head: boolean;
   /** textos del encabezado en orden (nombre, @usuario, carrera/lema, lugar) */
   lines: string[];
+  /** fuego de la racha: dónde quedó respecto al número (para las pruebas) */
+  flame: { x: number; w: number; textX: number; textW: number; dim: boolean } | null;
 }
 
 /** Trazos de Lucide (ISC) en su caja de 24 px; se dibujan con Path2D para verse igual en todo dispositivo. */
@@ -140,6 +142,7 @@ export function compose(i: CardInput): CardResult {
   /** un bloque: alto a escala 1 y cómo dibujarse en (x, y) con escala s */
   type Block = { h: number; draw: (y: number, s: number) => void };
   const blocks: Block[] = [];
+  let flame: CardResult['flame'] = null;
 
   // encabezado: avatar + líneas de texto (nombre, @usuario, carrera/lema), centradas en el avatar
   type HLine = { text: string; size: number; weight: number; color: string; lh: number; pin?: boolean };
@@ -232,10 +235,10 @@ export function compose(i: CardInput): CardResult {
       },
     });
     const small = ([
-      sh.streak && [nf.format(sum.streak), t('share.racha_dias')],
+      sh.streak && [nf.format(sum.streak), t('share.racha_dias'), 'flame'],
       sh.days && [nf.format(sum.days), t('share.dias_estudiados')],
       sh.retention && sum.retention !== null && [`${nf.format(Math.round(sum.retention * 100))} %`, t('share.retencion')],
-    ].filter(Boolean) as [string, string][]);
+    ].filter(Boolean) as [string, string, 'flame'?][]);
     if (small.length) blocks.push({
       h: 104,
       draw: (y, s) => {
@@ -243,13 +246,31 @@ export function compose(i: CardInput): CardResult {
         // separador fino arriba (jerarquía sin color)
         ctx.fillStyle = i.mode === 'dark' ? 'rgba(255,255,255,.09)' : 'rgba(0,0,0,.08)';
         ctx.fillRect(z.x + pad * s, y - 20 * s, z.w - 2 * pad * s, 2);
-        small.forEach(([v, k], j) => {
+        small.forEach(([v, k, icon], j) => {
           const x = z.x + pad * s + j * (colW + 32 * s);
           ctx.textAlign = 'left';
           ctx.textBaseline = 'alphabetic';
           ctx.fillStyle = t1;
-          fit(v, colW, 60 * s);
-          ctx.fillText(v, x, y + 60 * s);
+          if (icon) {
+            // racha: fuego vectorial a la izquierda del número, a su altura, con el color del texto
+            // (sin acento); con racha 0, atenuado. Se mide el número para que nunca lo tape.
+            let size = 60 * s;
+            const box = () => size * 0.86, gap = () => size * 0.14;
+            ctx.font = font(700, size);
+            const m = ctx.measureText(v).width;
+            if (m + box() + gap() > colW) size *= colW / (m + box() + gap());
+            ctx.font = font(700, size);
+            const base = y + 60 * s;
+            ctx.save();
+            ctx.globalAlpha = sum.streak ? 1 : 0.4;
+            strokeIcon(ctx, ICON.flame, x, base - size * 0.36 - box() / 2, box(), t1);
+            ctx.restore();
+            flame = { x, w: box(), textX: x + box() + gap(), textW: ctx.measureText(v).width, dim: !sum.streak };
+            ctx.fillText(v, x + box() + gap(), base);
+          } else {
+            fit(v, colW, 60 * s);
+            ctx.fillText(v, x, y + 60 * s);
+          }
           ctx.fillStyle = t2;
           fit(k, colW, 28 * s, 500);
           ctx.fillText(k, x, y + 100 * s);
@@ -342,7 +363,7 @@ export function compose(i: CardInput): CardResult {
   let y = midTop + Math.max(0, (free - gap * (blocks.length - 1)) / 2);
   for (const b of blocks) (b.draw(y, s), (y += b.h * s + gap));
 
-  return { canvas, alpha, contrast: c, empty, head: !!head, lines: hl.map((l) => l.text) };
+  return { canvas, alpha, contrast: c, empty, head: !!head, lines: hl.map((l) => l.text), flame };
 }
 
 /** PNG (texto nítido); si pasa de 8 MB, JPEG de alta calidad. Suelta el canvas al terminar. */

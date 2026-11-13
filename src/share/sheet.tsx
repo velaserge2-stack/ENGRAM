@@ -98,7 +98,7 @@ export function ShareSheet(props: { act: Map<string, DayAct>; today: string; pro
           profile: { name: p.name, username: p.username, emoji: p.emoji, initial: initial(p), line },
           show, place: shown, sum, font: `${font.getPropertyValue('--font').trim() || 'sans-serif'}, ${font.getPropertyValue('--emoji').trim() || 'sans-serif'}`,
         });
-        (window as unknown as { __share: unknown }).__share = { w: r.canvas.width, h: r.canvas.height, alpha: r.alpha, contrast: r.contrast, empty: r.empty, head: r.head, lines: r.lines };
+        (window as unknown as { __share: unknown }).__share = { w: r.canvas.width, h: r.canvas.height, alpha: r.alpha, contrast: r.contrast, empty: r.empty, head: r.head, lines: r.lines, flame: r.flame };
         const { blob, ext } = await encode(r.canvas);
         if (id !== job.current) return;
         setFile(new File([blob], fileName(props.today, ext), { type: blob.type }));
