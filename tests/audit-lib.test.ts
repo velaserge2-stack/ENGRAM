@@ -66,13 +66,13 @@ describe('auditoría · frontmatter', () => {
 });
 
 describe('auditoría · ics', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('un título con «\\n» literal (ruta C:\\nuevo) sobrevive a exportar e importar', () => {
+  // auditoría: corregido (plan 13)
+  it('un título con «\\n» literal (ruta C:\\nuevo) sobrevive a exportar e importar', () => {
     const b = { ...BLOCK, title: 'C:\\nuevo' };
     expect(fromICS(toICS([b]))[0]!.title).toBe('C:\\nuevo');
   });
-  // auditoría: cambiar a it() al corregir
-  it.fails('RRULE con INTERVAL=2 no se expande cada semana', () => {
+  // auditoría: corregido (plan 13)
+  it('RRULE con INTERVAL=2 no se expande cada semana', () => {
     const ics = 'BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:x\nDTSTART:20261102T090000\nDTEND:20261102T100000\nSUMMARY:Quincenal\nRRULE:FREQ=WEEKLY;INTERVAL=2\nEND:VEVENT\nEND:VCALENDAR';
     const [b] = fromICS(ics, 'ext');
     const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);

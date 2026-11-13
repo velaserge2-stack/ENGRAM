@@ -144,3 +144,33 @@ describe('solo este día / toda la serie', () => {
     expect(day(r[0]!.start)).toBe('2026-11-16'); // la serie sigue empezando el mismo día
   });
 });
+
+describe('plan 13: calendario', () => {
+  const cal = (...ev: string[]) => ['BEGIN:VCALENDAR', ...ev.flatMap((e) => ['BEGIN:VEVENT', ...e.split('\n'), 'END:VEVENT']), 'END:VCALENDAR'].join('\r\n');
+  const day = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  it('COUNT, YEARLY y BYDAY con INTERVAL', () => {
+    const [c] = fromICS(cal('UID:c\nDTSTART:20261102T090000\nDTEND:20261102T100000\nRRULE:FREQ=DAILY;COUNT=3'));
+    expect(occurrences(c!, '2026-11-01', '2026-11-30', day).map((o) => o.date)).toEqual(['2026-11-02', '2026-11-03', '2026-11-04']);
+    const [y] = fromICS(cal('UID:y\nDTSTART:20000315T090000\nDTEND:20000315T100000\nRRULE:FREQ=YEARLY'));
+    expect(occurrences(y!, '2026-01-01', '2027-12-31', day).map((o) => o.date)).toEqual(['2026-03-15', '2027-03-15']);
+    const [w] = fromICS(cal('UID:w\nDTSTART:20261102T090000\nDTEND:20261102T100000\nRRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE'));
+    expect(occurrences(w!, '2026-11-01', '2026-11-22', day).map((o) => o.date)).toEqual(['2026-11-02', '2026-11-04', '2026-11-16', '2026-11-18']);
+    expect(toICS([w!])).toContain('RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE');
+  });
+  it('RECURRENCE-ID: UID propio en memoria, el de la serie al exportar; sin EXDATE añadido', () => {
+    const bs = fromICS(cal('UID:s\nDTSTART:20261102T090000\nDTEND:20261102T100000\nRRULE:FREQ=WEEKLY', 'UID:s\nRECURRENCE-ID:20261109T090000\nDTSTART:20261109T120000\nDTEND:20261109T130000'));
+    expect(bs.map((b) => b.uid)).toEqual(['s', 's#2026-11-09']);
+    const out = toICS(bs);
+    expect(out.match(/^UID:s$/gm)).toHaveLength(2);
+    expect(out).toContain('RECURRENCE-ID:20261109T090000');
+    expect(out).not.toContain('EXDATE');
+  });
+  it('TRIGGER con semanas y horas; zona inexistente → hora local', () => {
+    const [a] = fromICS(cal('UID:a\nDTSTART:20261110T090000\nBEGIN:VALARM\nTRIGGER:-P1W\nEND:VALARM'));
+    expect(a!.alarmMin).toBe(10080);
+    const [h] = fromICS(cal('UID:h\nDTSTART:20261110T090000\nBEGIN:VALARM\nTRIGGER:-PT1H30M\nEND:VALARM'));
+    expect(h!.alarmMin).toBe(90);
+    const [z] = fromICS(cal('UID:z\nDTSTART;TZID=Nada/Inexistente:20261110T090000'));
+    expect(z!.start).toBe(new Date(2026, 10, 10, 9).getTime());
+  });
+});

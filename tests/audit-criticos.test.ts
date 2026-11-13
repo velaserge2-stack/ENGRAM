@@ -368,14 +368,14 @@ const localDay = (ms: number) => { const d = new Date(ms); return `${d.getFullYe
 const ics = (...ev: string[]) => ['BEGIN:VCALENDAR', ...ev.flatMap((e) => ['BEGIN:VEVENT', ...e.split('\n'), 'END:VEVENT']), 'END:VCALENDAR'].join('\r\n');
 
 describe('auditoría · calendario', () => {
-  // auditoría: cambiar a it() al corregir
-  it.fails('una serie DAILY que empezó hace más de ~16 años sigue apareciendo (tope de 6000 iteraciones desde el inicio)', () => {
+  // auditoría: corregido (plan 13)
+  it('una serie DAILY que empezó hace más de ~16 años sigue apareciendo (tope de 6000 iteraciones desde el inicio)', () => {
     const [b] = fromICS(ics('UID:d\nDTSTART:20050103T090000\nDTEND:20050103T100000\nRRULE:FREQ=DAILY'));
     expect(occurrences(b!, '2026-11-02', '2026-11-08', localDay)).toHaveLength(7);
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('una excepción RECURRENCE-ID sustituye a la ocurrencia original (no se pinta dos veces)', () => {
+  // auditoría: corregido (plan 13)
+  it('una excepción RECURRENCE-ID sustituye a la ocurrencia original (no se pinta dos veces)', () => {
     const bs = fromICS(ics(
       'UID:s@x\nDTSTART:20261102T090000\nDTEND:20261102T100000\nRRULE:FREQ=WEEKLY',
       'UID:s@x\nRECURRENCE-ID:20261109T090000\nDTSTART:20261109T120000\nDTEND:20261109T130000',
@@ -384,14 +384,14 @@ describe('auditoría · calendario', () => {
     expect(onDay).toHaveLength(1);
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('VALARM TRIGGER:-P1D es un día antes (1440 min), no a la hora del evento', () => {
+  // auditoría: corregido (plan 13)
+  it('VALARM TRIGGER:-P1D es un día antes (1440 min), no a la hora del evento', () => {
     const [b] = fromICS(ics('UID:a\nDTSTART:20261110T090000\nDTEND:20261110T100000\nBEGIN:VALARM\nTRIGGER:-P1D\nACTION:DISPLAY\nEND:VALARM'));
     expect(b!.alarmMin).toBe(1440);
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('DTSTART;TZID=America/New_York se interpreta en esa zona, no en la del dispositivo', () => {
+  // auditoría: corregido (plan 13)
+  it('DTSTART;TZID=America/New_York se interpreta en esa zona, no en la del dispositivo', () => {
     const [b] = fromICS(ics('UID:z\nDTSTART;TZID=America/New_York:20261110T090000\nDTEND;TZID=America/New_York:20261110T100000'));
     expect(b!.start).toBe(Date.UTC(2026, 10, 10, 14, 0, 0));
   });

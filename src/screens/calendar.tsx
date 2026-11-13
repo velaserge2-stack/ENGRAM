@@ -13,6 +13,7 @@ import { activity, avgDaily, forecast, studyMs } from '../lib/stats';
 import { href, useApp, useAsync } from '../state';
 import { PageTitle, Segmented, Sheet, Switch } from '../ui/kit';
 import { readTextOr, walk } from '../vault/util';
+import { withSuffix } from '../vault/paths';
 import { loadAttempts } from './simulacros';
 import { LinkChips, LinkPicker, startBlock, useLinkIndex } from '../ui/links';
 import { type LinkIndex, resolveLink } from '../lib/links';
@@ -231,7 +232,7 @@ export function Calendar() {
           </div>
           <div class="row wrap" style={{ marginTop: '8px' }}>
             <button type="button" class="btn small" onClick={async () => { if (!data) return; await deliver(new File([toICS(data.own)], 'engrama-estudio.ics', { type: 'text/calendar' })); }}><Download size={16} />{' '}{tr('calendar.exportar_ics')}</button>
-            <label class="btn small"><Upload size={16} />{' '}{tr('calendar.importar_ics')}<input type="file" hidden accept=".ics,text/calendar" onChange={async (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (!f) return; const t = await f.text(); const n = fromICS(t, f.name).length; await app.vault.write(`calendar/${f.name.replace(/[^\w.-]+/g, '_')}`, t); app.changed(); app.toast(tr('calendar.eventos_importados', { n })); }} /></label>
+            <label class="btn small"><Upload size={16} />{' '}{tr('calendar.importar_ics')}<input type="file" hidden accept=".ics,text/calendar" onChange={async (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (!f) return; const t = await f.text(); const n = fromICS(t, f.name).length; let dest = `calendar/${f.name.replace(/[^\w.-]+/g, '_')}`; if (dest === 'calendar/estudio.ics') dest = 'calendar/estudio-importado.ics'; for (let k = 2; await app.vault.exists(dest); k++) dest = withSuffix(dest.replace(/ \(\d+\)(?=\.[^.]*$|$)/, ''), k); await app.vault.write(dest, t); app.changed(); app.toast(tr('calendar.eventos_importados', { n })); }} /></label>
           </div>
           <p class="foot">{tr('calendar.una_web_no_puede_escribir_en')}</p>
         </section>
