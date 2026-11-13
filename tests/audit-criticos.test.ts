@@ -7,7 +7,7 @@ process.env.TZ = 'America/Mexico_City';
 import { strToU8, zipSync } from 'fflate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseDeck } from '../src/cards/parse';
-import { loadCollection, loadStates, REVIEWS, STATE } from '../src/data/collection';
+import { appendLog, loadCollection, loadStates, REVIEWS, STATE } from '../src/data/collection';
 import { moveCards } from '../src/data/move';
 import { convertApkg, type SqlJs } from '../src/io/apkg';
 import { parseZip } from '../src/io/zip';
@@ -61,8 +61,8 @@ describe('auditoría · determinismo FSRS', () => {
     expect(Number.isFinite(st.card.due.getTime())).toBe(true);
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('la caché state.json se invalida si cambia una línea intermedia de reviews.jsonl (misma longitud y misma última)', async () => {
+  // auditoría: corregido (plan 7)
+  it('la caché state.json se invalida si cambia una línea intermedia de reviews.jsonl (misma longitud y misma última)', async () => {
     const v = new MemoryBackend();
     const lines = (r: number) => [`{"id":"a","ts":${T},"rating":3}`, `{"id":"b","ts":${T + 1},"rating":${r}}`, `{"id":"c","ts":${T + 2},"rating":3}`].join('\n') + '\n';
     await v.write(REVIEWS, lines(3));
@@ -70,6 +70,17 @@ describe('auditoría · determinismo FSRS', () => {
     await v.write(REVIEWS, lines(1)); // edición a mano / sincronización: «b» pasa de Bien a Otra vez
     const r = await loadStates(v, P);
     expect(JSON.stringify(r.states.get('b')!.card)).toBe(JSON.stringify(replay(r.log, P).get('b')!.card));
+  });
+
+  it('plan 7: la caché se reutiliza tras appendLog y se reconstruye con un state.json de clave vieja', async () => {
+    const v = new MemoryBackend();
+    await v.write('decks/A.md', 'Q:: a\nA:: b ^aaaaa\n');
+    const col = await loadCollection(v, P, T);
+    await appendLog(v, col, [applyReview(scheduler(P), newState(), 'aaaaa', 3, T, 1000)], P);
+    expect((await loadStates(v, P)).rebuilt).toBe(false);
+    const old = JSON.parse(await readText(v, STATE)) as { key: string };
+    await v.write(STATE, JSON.stringify({ ...old, key: `1:${T}:aaaaa:x` })); // clave del formato anterior
+    expect((await loadStates(v, P)).rebuilt).toBe(true);
   });
 
   // auditoría: corregido (plan 1)

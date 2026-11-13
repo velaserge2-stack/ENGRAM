@@ -7,9 +7,9 @@ import { t } from '../i18n';
  */
 import { type CardRef, cardsOf, ensureIds, type Note, parseDeck } from '../cards/parse';
 import type { Frontmatter } from '../lib/frontmatter';
-import { type CardState, type LogEntry, parseLog, replay, type SrsParams } from '../srs/engine';
+import { type CardState, ENGINE_VERSION, type LogEntry, parseLog, replay, type SrsParams } from '../srs/engine';
 import type { VaultAdapter } from '../vault/types';
-import { appendLines, readTextOr, walk } from '../vault/util';
+import { appendLines, checksum, enc, readTextOr, walk } from '../vault/util';
 
 export const REVIEWS = '.app/reviews.jsonl';
 export const STATE = '.app/state.json';
@@ -45,9 +45,13 @@ export function paramsKey(p: SrsParams): string {
   return JSON.stringify([p.retention, p.learningSteps, p.relearningSteps, p.maxInterval, p.w, p.fuzz]);
 }
 
+/**
+ * Clave de `state.json`: suma de TODAS las entradas que reproduce `replay` (no solo la última) + versión del
+ * motor + parámetros. Se calcula sobre las entradas leídas, no sobre los bytes: así `appendLog` no relee el
+ * archivo y la caché queda ligada al historial con el que se calculó (si otra pestaña añadió líneas, no casa).
+ */
 function logKey(log: LogEntry[], p: SrsParams): string {
-  const last = log[log.length - 1];
-  return `${log.length}:${last?.ts ?? 0}:${last?.id ?? ''}:${paramsKey(p)}`;
+  return `${log.length}:${checksum(enc.encode(log.map((e) => JSON.stringify(e)).join('\n')))}:${ENGINE_VERSION}:${paramsKey(p)}`;
 }
 
 type SerializedState = Omit<CardState, 'card'> & { card: Record<string, unknown> };

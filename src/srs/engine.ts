@@ -4,7 +4,10 @@ import { t, tn } from '../i18n';
  * `reviews.jsonl` es la fuente de verdad: el estado de cada tarjeta se obtiene
  * REPRODUCIENDO el historial (`replay`). `state.json` es solo una caché.
  */
-import { type Card, createEmptyCard, fsrs, type FSRS, type Grade, State, computeDecayFactor, default_w } from 'ts-fsrs';
+import { type Card, createEmptyCard, fsrs, type FSRS, FSRSVersion, type Grade, State, computeDecayFactor, default_w } from 'ts-fsrs';
+
+/** Versión del motor (ts-fsrs + reglas de `replay`); entra en la clave de `state.json`. Subir el `+n` al cambiar `replay`. */
+export const ENGINE_VERSION = `${FSRSVersion}+1`;
 
 export type Rating = 1 | 2 | 3 | 4;
 export const RATING_LABEL: Record<Rating, string> = { get 1() { return t('design.otra_vez'); }, get 2() { return t('design.dificil'); }, get 3() { return t('design.bien'); }, get 4() { return t('design.facil'); } };
