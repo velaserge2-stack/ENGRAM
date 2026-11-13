@@ -304,3 +304,19 @@ describe('SafeVault: diario validado (auditoría plan 3)', () => {
     expect(await readText(raw, 'notes/keep.md')).toBe('no tocar');
   });
 });
+
+describe('SafeVault: un solo escritor (auditoría plan 4)', () => {
+  it('con navigator.locks, cada operación toma el cerrojo «engrama-vault»', async () => {
+    const names: string[] = [];
+    const prev = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    Object.defineProperty(globalThis, 'navigator', { value: { locks: { request: (n: string, cb: () => Promise<unknown>) => (names.push(n), cb()) } }, configurable: true });
+    try {
+      const v = new SafeVault(new MemoryBackend());
+      await v.write('notes/a.md', 'x');
+      await v.remove('notes/a.md');
+      expect(names).toEqual(['engrama-vault', 'engrama-vault']);
+    } finally {
+      if (prev) Object.defineProperty(globalThis, 'navigator', prev);
+    }
+  });
+});

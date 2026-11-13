@@ -42,6 +42,19 @@ export interface RecoveryReport {
 
 let txSeq = 0;
 
+/**
+ * Un solo escritor por bóveda: el diario es uno para toda la bóveda. La cola se comparte por backend
+ * (varias SafeVault sobre el mismo `raw`) y, si existe `navigator.locks`, cada operación toma además
+ * el cerrojo entre pestañas (dos pestañas no se pisan el diario ni el temporal en curso).
+ */
+const queues = new WeakMap<VaultAdapter, Promise<unknown>>();
+const LOCK = 'engrama-vault';
+type Locks = { request<T>(name: string, cb: () => Promise<T>): Promise<T> };
+function locks(): Locks | null {
+  const n = typeof navigator === 'undefined' ? null : (navigator as Navigator & { locks?: Locks });
+  return n && 'locks' in n && n.locks ? n.locks : null;
+}
+
 /** Ruta normalizada fuera de `.app/tmp` y distinta del diario (o null si no vale). */
 function safeTarget(p: unknown): string | null {
   if (typeof p !== 'string') return null;
@@ -63,7 +76,6 @@ function validEntry(e: Partial<JournalEntry> | null): e is JournalEntry {
 }
 
 export class SafeVault implements VaultAdapter {
-  private queue: Promise<unknown> = Promise.resolve();
   /** Hay un diario sin aplicar (apply fallido con la app viva): recuperarlo antes de la siguiente operación. */
   private stuck = false;
   constructor(readonly raw: VaultAdapter) {}
@@ -74,8 +86,9 @@ export class SafeVault implements VaultAdapter {
 
   private serial<T>(fn: () => Promise<T>): Promise<T> {
     const go = () => this.settle().then(fn);
-    const run = this.queue.then(go, go);
-    this.queue = run.catch(() => undefined);
+    const locked = () => locks()?.request(LOCK, go) ?? go();
+    const run = (queues.get(this.raw) ?? Promise.resolve()).then(locked, locked);
+    queues.set(this.raw, run.catch(() => undefined));
     return run;
   }
 

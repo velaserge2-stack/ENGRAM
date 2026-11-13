@@ -134,20 +134,26 @@ describe('auditoría · SafeVault', () => {
     expect(await raw.exists('decks/Cardio.md')).toBe(true);
   });
 
-  // auditoría: cambiar a it() al corregir
-  it.fails('dos pestañas: la transacción de una no borra el diario de la otra mientras su escritura sigue en curso', async () => {
+  // auditoría: corregido (plan 4). Con un solo escritor, A espera a B: ya no se puede esperar a A con B detenido,
+  // así que A se lanza sin esperar y se comprueba que no toca el diario de B (ni escribe) hasta que B termina.
+  it('dos pestañas: la transacción de una no borra el diario de la otra mientras su escritura sigue en curso', async () => {
     const raw = new Rig();
     const tabA = new SafeVault(raw), tabB = new SafeVault(raw);
     const g = gated(raw, 'notes/b.md');
     const pb = tabB.write('notes/b.md', 'B');
     await g.reached();
+    let pa: Promise<void> | undefined;
     try {
-      await tabA.write('notes/a.md', 'A');
+      pa = tabA.write('notes/a.md', 'A');
+      for (let i = 0; i < 20; i++) await tick();
       expect(await raw.exists(JOURNAL_PATH)).toBe(true); // si B muere ahora, nadie puede rehacer b.md
+      expect(await raw.exists('notes/a.md')).toBe(false);
     } finally {
       g.release();
       await pb;
+      await pa;
     }
+    expect(await readText(raw, 'notes/a.md')).toBe('A');
   });
 
   it('control: un .app/journal.json importado por SafeVault.write se borra en la misma transacción (impacto de 02-notes-io #3 acotado a un corte en esa ventana)', async () => {
