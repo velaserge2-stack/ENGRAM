@@ -117,3 +117,7 @@ Sobre 7e1d039: typecheck limpio, vitest 385 pasan y 45 `it.fails` (quedan 45 err
 
 ## 2026-11-13 · Menores notes/io/sim
 Corregidos los 23 `it.fails` de `tests/audit-notes-io.test.ts` (simulacros, notas/formato, md, tareas/stickies/ink, io); ninguno resultó correcto por diseño. Detalle en `05-correcciones.md`. Commits «Auditoría · menores: …».
+
+## 2026-11-13 · Pendientes aprobados (subagente Opus)
+Nueve puntos, un commit por punto (`154a6e9`…`2d80e28`; detalle en `05-correcciones.md` § Pendientes): intentos de simulacros con el id antiguo (`legacyQid`), aviso visible de autoguardado fallido, IDs de `ensureIds` con el mazo sin guardar (`carryIds`), señal de vida del Worker OPFS en hash/move/list, `serialFile` con `navigator.locks` entre pestañas (el cerrojo de SafeVault no lo cubría), RRULE original y EXDATE en UTC real, `rewriteDoc` en exámenes/perfil/stickies/bandeja, UI (simulacros acotados, archivar todo o nada, URLs liberadas, respaldo con aviso, guardado por espacio) y Plaud sin claves vacías. apkg O(n²): ya era lineal (plan 12).
+Verificación: typecheck, vitest 443, build; `e2e`, `flows`, `mejoras`, `mejoras2`, `intentos`, `bancos`, `p6`, `p10`, `barra`, `notaspro`, `pdf`, `p14` en Chromium; `notaspro` intermitente una vez (pasó al repetir).
