@@ -9,7 +9,7 @@ import { JOURNAL_PATH, TMP_DIR } from './safe';
 import type { VaultAdapter } from './types';
 import { decodeText, walk } from './util';
 
-export interface IntegrityProblem {
+interface IntegrityProblem {
   path: string;
   reason: string;
 }

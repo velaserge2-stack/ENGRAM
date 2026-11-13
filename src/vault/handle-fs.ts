@@ -23,7 +23,7 @@ export interface NameCodec {
   dec(stored: string): string;
 }
 
-export const identityCodec: NameCodec = { enc: (n) => n, dec: (n) => n };
+const identityCodec: NameCodec = { enc: (n) => n, dec: (n) => n };
 
 export const asciiCodec: NameCodec = {
   enc: (n) => (/^[A-Za-z0-9 ._()\-]+$/.test(n) ? n : encodeURIComponent(n)),
