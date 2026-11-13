@@ -315,6 +315,48 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 .md code { font-family: var(--mono); font-size: .9em; background: var(--fill); border-radius: 5px; padding: 1px 5px; }
 .md pre code { display: block; padding: 10px; overflow-x: auto; }
 .md a.wl { text-decoration: underline dotted; }
+/* Prompt 17 · barra del editor: fija arriba de la nota, un renglón de alto constante, una sola superficie de vidrio */
+.editorbar { position: sticky; top: calc(env(safe-area-inset-top) + 72px + var(--vv-top, 0px)); z-index: var(--z-panel); display: flex; align-items: center; gap: 4px; min-height: 52px; padding: 4px; border-radius: 18px; }
+body.notes-full .editorbar, .note-panel .editorbar { top: calc(env(safe-area-inset-top) + var(--vv-top, 0px)); }
+.note-panel .editorbar { top: 0; border-radius: 14px; }
+.editorbar .eb-scroll { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.editorbar .eb-scroll::-webkit-scrollbar { display: none; }
+.editorbar .eb-end { display: flex; gap: 2px; padding-left: 4px; border-left: var(--hair) solid var(--line); flex: none; }
+.editorbar .btn { flex: none; min-height: 44px; } .editorbar .btn.icon { width: 44px; }
+.editorbar .btn:disabled { opacity: .38; }
+.editorbar .btn[aria-pressed="true"] { background: var(--inverse-bg); color: var(--inverse-fg); }
+.editorbar .eb-sep { flex: none; width: var(--hair); align-self: stretch; margin: 8px 4px; background: var(--line); }
+.editorbar .eb-select { flex: none; width: auto; min-height: 40px; padding: 0 10px; font-size: 16px; }
+.editorbar .eb-txt { font-weight: 700; font-size: .875rem; }
+.editorbar.folded .eb-scroll { flex: 0 1 auto; }
+.eb-grid { display: grid; grid-template-columns: repeat(6, 28px); gap: 4px; padding: 6px; }
+.eb-grid button { width: 28px; height: 28px; border-radius: 6px; border: var(--hair) solid var(--border); background: var(--fill-2); padding: 0; }
+.eb-grid button.on { background: var(--inverse-bg); }
+.eb-grid-wrap { display: grid; justify-items: center; gap: 4px; padding-bottom: 6px; }
+@media (prefers-reduced-motion: no-preference) { .editorbar .eb-scroll > * { transition: opacity .15s; } }
+html.is-phone .editorbar { top: calc(env(safe-area-inset-top) + 4px + var(--vv-top, 0px)); border-radius: 14px; }
+/* Prompt 17: tamaños relativos (respetan el tamaño de texto del usuario) y alineación de párrafo */
+.md .t-pequeno { font-size: .85em; } .md .t-grande { font-size: 1.25em; } .md .t-muygrande { font-size: 1.6em; line-height: 1.25; }
+.md .al-centro { text-align: center; } .md .al-der { text-align: right; } .md .al-justificado { text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
+/* Notas-Pro · A3: imágenes con tamaño y posición (![[foto|300|izq]]). Solo cambia lo que usa la sintaxis nueva. */
+div.md:has(img[data-align]) { display: flow-root; }
+.md img[data-align="izq"] { float: left; margin: 4px 16px 8px 0; }
+.md img[data-align="der"] { float: right; margin: 4px 0 8px 16px; }
+.md img[data-align="centro"] { display: block; margin: 8px auto; }
+.md:has(img[data-align]) :is(h1, h2, h3, h4, h5, h6, table, pre, hr, blockquote, .callout) { clear: both; }
+.md img[data-heavy] { outline: 1px dashed var(--border-strong); }
+/* foto aún sin cargar (carga perezosa): una img sin src es texto en línea y no respeta aspect-ratio → caja con su alto ya reservado */
+.md img[data-media][style*="aspect-ratio"]:not([src]) { display: inline-block; vertical-align: top; color: transparent; background: var(--fill-2); overflow: hidden; }
+.md .media-ph, .media-ph { display: inline-flex; min-height: 44px; align-items: center; text-decoration: none; }
+.win-body:has(img[data-align]) { container-type: inline-size; }
+.imgbar { display: grid; gap: 6px; min-width: 0; max-width: min(460px, calc(100vw - 16px)); }
+.imgbar .row { flex-wrap: wrap; gap: 4px; }
+.imgbar-sep { width: var(--hair); align-self: stretch; background: var(--line); margin: 6px 2px; }
+.img-handle { position: fixed; z-index: var(--z-popover); width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; padding: 0; touch-action: none; cursor: nwse-resize; color: var(--t1); }
+.md img.img-sel { outline: 2px solid var(--border-strong); outline-offset: 2px; }
+@container (max-width: 480px) { .md img[data-align] { float: none; display: block; width: 100% !important; margin: 8px auto; } } /* gana al ancho reservado en línea */
+@media (max-width: 480px) { .md img[data-align] { float: none; display: block; width: 100% !important; margin: 8px auto; } } /* gana al ancho reservado en línea */
+html.is-phone .md img[data-align] { float: none; display: block; width: 100% !important; margin: 8px auto; }
 .md ul.task { list-style: none; padding-left: 4px; }
 .md h1 { font-size: var(--t-1); margin: 10px 0 6px; } .md h2 { font-size: var(--t-2); margin: 10px 0 6px; } .md h3 { font-size: var(--t-3); margin: 8px 0 4px; }
 .md p { margin: 6px 0; }

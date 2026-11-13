@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { DEFAULT_FRAMING, framingStyle, FRAMING_PATH, normFraming, parseFramings, type Framing } from '../lib/framing';
 import { addonOn, AddonsGroup, MODULES } from './addons';
 import { StorageSheet } from './storage';
+import { clearThumbs, THUMBS_DIR } from '../notes/thumbs';
 import { KeySettings } from './keysettings';
 import { verifyDeterminism } from '../data/collection';
 import { exampleFiles } from '../lib/example';
@@ -231,6 +232,28 @@ function FramingEditor(props: { path: string; onClose: () => void }) {
 /** Secciones plegables de Ajustes, en su orden. */
 const FOLDS = ['idioma', 'fondo', 'acento', 'estudio', 'fsrs', 'pomodoro', 'notas', 'almacenamiento', 'respaldo', 'integridad', 'tinta', 'atajos', 'addons', 'instalar', 'mas', 'acerca'];
 
+/** Notas-Pro · A1: fotos originales, caché de miniaturas y calidad de las fotos nuevas. */
+function PhotoStorage() {
+  const app = useApp();
+  const [tick, setTick] = useState(0);
+  const { data } = useAsync(async () => {
+    const sum = async (dir: string, ok: (p: string) => boolean = () => true) => (await walk(app.vault, dir).catch(() => [])).filter((f) => ok(f.path)).reduce((n, f) => n + f.size, 0);
+    return { media: await sum('media', (p) => !p.startsWith('media/.app/')), thumbs: await sum(THUMBS_DIR) };
+  }, [tick, app.version]);
+  return (
+    <>
+      <Row k={tr('settings.fotos_media')}><span class="v">{formatBytes(data?.media ?? null)}</span></Row>
+      <Row k={tr('settings.miniaturas_cache')} sub={tr('settings.miniaturas_cache_sub')}>
+        <span class="v">{formatBytes(data?.thumbs ?? null)}</span>
+        <button type="button" class="link" disabled={!data?.thumbs} onClick={async () => { await clearThumbs(app.vault); setTick((n) => n + 1); app.toast(tr('settings.miniaturas_vaciadas')); }}>{tr('settings.vaciar')}</button>
+      </Row>
+      <Row k={tr('settings.calidad_fotos')} sub={tr('settings.calidad_fotos_sub')}>
+        <Segmented label={tr('settings.calidad_fotos')} value={app.settings.photoQuality} onChange={(v) => app.update({ photoQuality: v })} options={[['original', tr('settings.calidad_original')], ['optimizada', tr('settings.calidad_optimizada')]]} />
+      </Row>
+    </>
+  );
+}
+
 export function SettingsScreen(props: { focus?: string | null } = {}) {
   const app = useApp();
   // #/ajustes/<sección>: desplaza hasta ella (p. ej. Add-ons)
@@ -379,6 +402,8 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
           {!info?.persisted && <button type="button" class="link" onClick={async () => (await requestPersist(), setTick((n) => n + 1))}>{tr('settings.pedir')}</button>}
         </Row>
         <Row k={tr('settings.espacio_usado')}><span class="v">{tr('settings.usado_de', { used: formatBytes(info?.usage ?? null), quota: formatBytes(info?.quota ?? null) })}</span></Row>
+        {info?.usage != null && info.quota ? info.usage / info.quota > 0.8 && <p class="err" role="status">⚠ {tr('settings.espacio_casi_lleno', { p: Math.round((info.usage / info.quota) * 100) })}</p> : null}
+        <PhotoStorage />
         <Row k={tr('storage.administrar')} sub={tr('storage.administrar_sub')} onClick={() => setStorageOpen(true)}><span class="v">›</span></Row>
         {storageOpen && <StorageSheet onClose={() => setStorageOpen(false)} />}
         {FSAccessBackend.isSupported() && (

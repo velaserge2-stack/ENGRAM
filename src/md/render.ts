@@ -6,10 +6,16 @@
 import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
 import type { StateCore, StateInline } from 'markdown-it';
+import { IMG_EXT, parseEmbed } from './embed';
 
 type MD = InstanceType<typeof MarkdownIt>;
 
 const COLORS = new Set(['azul', 'verde', 'indigo', 'naranja', 'rosa', 'rojo', 'morado', 'turquesa', 'menta', 'amarillo']);
+/** Prompt 17: tamaños relativos `[texto]{.grande}` y alineación de párrafo ` {.centro}` (listas cerradas). */
+const SIZES = new Set(['pequeno', 'grande', 'muygrande']);
+const ALIGN_END = /[ \t]*\{\.(centro|der|justificado)\}[ \t]*$/;
+/** Clases que puede llevar el HTML de una nota; cualquier otra se descarta al sanitizar. */
+const CLASS_OK = /^(callout|callout-t|wl|cloze|hidden|c-[a-z]+|t-(pequeno|grande|muygrande)|al-(centro|der|justificado)|language-[\w-]+)$/;
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
@@ -24,20 +30,29 @@ function engine(): MD {
     let m: RegExpExecArray | null;
     if ((m = /^==([^=\n]+)==/.exec(src))) {
       if (!silent) state.push('html_inline', '', 0).content = `<mark>${md!.renderInline(m[1]!)}</mark>`;
-    } else if ((m = /^!\[\[([^\]|\n]+)(?:\|(\d+))?\]\]/.exec(src))) {
+    } else if ((m = /^\+\+(?=\S)([^+\n]*?[^\s+])\+\+/.exec(src)) && !/[\p{L}\p{N}_+]/u.test(state.src[state.pos - 1] ?? '')) {
+      // ++subrayado++ (no en `c++`/`i++`: debe empezar fuera de una palabra; el código ya lo consumió antes)
+      if (!silent) state.push('html_inline', '', 0).content = `<u>${md!.renderInline(m[1]!)}</u>`;
+    } else if ((m = /^!\[\[([^\]\n]+)\]\]/.exec(src)) && (!m[1]!.includes('|') || IMG_EXT.test(m[1]!.split('|')[0]!.trim()))) {
+      // `![[nota|alias]]` (no imagen) sigue como antes: «!» + enlace con alias
       if (!silent) {
-        const name = m[1]!.trim();
-        const w = m[2] ? ` width="${m[2]}"` : '';
-        state.push('html_inline', '', 0).content = /\.(png|jpe?g|gif|webp|svg|heic)$/i.test(name)
-          ? `<img data-media="${esc(name)}" alt="${esc(name)}"${w}>`
+        const e = parseEmbed(m[1]!);
+        const name = e.name;
+        // valores ya validados por parseEmbed (números finitos en rango, alineación de lista cerrada)
+        const w = e.w ? ` width="${e.w.v}${e.w.unit === '%' ? '%' : ''}" data-w="${e.w.v}${e.w.unit === '%' ? '%' : ''}"` : '';
+        const al = e.align ? ` data-align="${e.align}"` : '';
+        state.push('html_inline', '', 0).content = IMG_EXT.test(name)
+          ? `<img data-media="${esc(name)}" alt="${esc(e.alt ?? name)}"${w}${al}>`
           : /\.(mp3|m4a|wav|ogg)$/i.test(name)
             ? `<audio controls data-media="${esc(name)}"></audio>`
             : `<a class="wl" href="#/notas/${encodeURIComponent(name)}">${esc(name)}</a>`;
       }
     } else if ((m = /^\[\[([^\]|\n]+)(?:\|([^\]\n]+))?\]\]/.exec(src))) {
       if (!silent) state.push('html_inline', '', 0).content = `<a class="wl" data-wl="${esc(m[1]!.trim())}" href="#/notas/${encodeURIComponent(m[1]!.trim())}">${esc((m[2] ?? m[1]!).trim())}</a>`;
-    } else if ((m = /^\[([^\]\n]+)\]\{\.([a-z]+)\}/.exec(src)) && COLORS.has(m[2]!)) {
-      if (!silent) state.push('html_inline', '', 0).content = `<span class="c-${m[2]}">${md!.renderInline(m[1]!)}</span>`;
+    } else if ((m = /^\[([^\]\n]+)\]\{((?:\.[a-z]+[ \t]*)+)\}/.exec(src)) && m[2]!.split(/\s+/).filter(Boolean).every((c) => COLORS.has(c.slice(1)) || SIZES.has(c.slice(1)))) {
+      // [texto]{.color} y [texto]{.color .tamaño}; una clase desconocida deja todo literal
+      const cls = m[2]!.split(/\s+/).filter(Boolean).map((c) => (COLORS.has(c.slice(1)) ? 'c-' : 't-') + c.slice(1));
+      if (!silent) state.push('html_inline', '', 0).content = `<span class="${cls.join(' ')}">${md!.renderInline(m[1]!)}</span>`;
     } else return false;
     state.pos += m[0].length;
     return true;
@@ -88,12 +103,31 @@ function engine(): MD {
       tok.children.unshift(box);
     }
   });
+  // alineación de párrafo o título: ` {.centro}` al final → clase en el bloque (se quita del texto)
+  md.core.ruler.after('inline', 'align', (state: StateCore) => {
+    const t = state.tokens;
+    for (let i = 1; i < t.length; i++) {
+      const tok = t[i]!;
+      const open = t[i - 1]!;
+      // `hidden`: párrafo interno de un elemento de lista (ahí la marca queda literal)
+      if (tok.type !== 'inline' || (open.type !== 'paragraph_open' && open.type !== 'heading_open') || open.hidden || !ALIGN_END.test(tok.content)) continue;
+      const last = tok.children?.[tok.children.length - 1];
+      if (!last || last.type !== 'text' || !ALIGN_END.test(last.content)) continue;
+      open.attrJoin('class', `al-${ALIGN_END.exec(last.content)![1]}`);
+      last.content = last.content.replace(ALIGN_END, '');
+    }
+  });
   return md;
 }
 
+// solo clases de la lista cerrada (el Markdown no admite HTML, pero el HTML importado de .docx sí pasa por aquí)
+
 const PURIFY = {
   ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|blob|media):|#|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
-  ADD_ATTR: ['data-media', 'data-wl', 'data-kind', 'target'],
+  // solo estos data-*; nunca `style` en línea (Notas-Pro · A3)
+  ADD_ATTR: ['data-media', 'data-wl', 'data-kind', 'data-w', 'data-align', 'target'],
+  ALLOW_DATA_ATTR: false,
+  FORBID_ATTR: ['style'],
   FORBID_TAGS: ['style', 'iframe', 'form', 'object', 'embed'],
   ADD_TAGS: ['details', 'summary'],
 };
@@ -104,13 +138,29 @@ const PURIFY = {
  * mitad del tiempo de renderizar una nota. Mismas reglas, mismo resultado.
  */
 let purify: ReturnType<typeof DOMPurify> | null = null;
-export function sanitize(html: string): string {
+/** Markdown propio (markdown-it con `html: false`: solo nuestras reglas emiten clases). Sin ganchos: rápido. */
+function clean(html: string): string {
   if (!purify) (purify = DOMPurify()).setConfig(PURIFY);
   return purify.sanitize(html) as string;
 }
+/** HTML externo (docx…): además, solo clases de la lista cerrada (Prompt 17). Instancia aparte: un gancho
+ * en la de Markdown triplicaba el tiempo de renderizar. */
+let strict: ReturnType<typeof DOMPurify> | null = null;
+export function sanitize(html: string): string {
+  if (!strict) {
+    (strict = DOMPurify()).setConfig(PURIFY);
+    strict.addHook('uponSanitizeAttribute', (_node, data) => {
+      if (data.attrName !== 'class') return;
+      const keep = data.attrValue.split(/\s+/).filter((c) => CLASS_OK.test(c));
+      if (keep.length) data.attrValue = keep.join(' ');
+      else data.keepAttr = false;
+    });
+  }
+  return strict.sanitize(html) as string;
+}
 
 export function renderMarkdown(text: string): string {
-  return sanitize(engine().render(text));
+  return clean(engine().render(text));
 }
 
 /**
@@ -135,7 +185,7 @@ export function renderMarkdownCached(text: string): string {
 export const renderCacheSize = () => lru.size;
 
 export function renderInline(text: string): string {
-  return sanitize(engine().renderInline(text));
+  return clean(engine().renderInline(text));
 }
 
 /** Cloze: oculta el número `n` (con pista) y muestra el resto; `reveal` lo resalta. */
@@ -157,7 +207,9 @@ export function renderCloze(text: string, n: number, reveal: boolean): string {
 export function plainText(text: string): string {
   return text
     .replace(/\{\{c\d+::(.*?)(?:::.*?)?\}\}/g, '$1')
-    .replace(/\[([^\]]+)\]\{\.[a-z]+\}/g, '$1')
+    .replace(/\[([^\]]+)\]\{(?:\.[a-z]+\s*)+\}/g, '$1')
+    .replace(/\+\+(\S[^+\n]*?)\+\+/g, '$1')
+    .replace(/\s*\{\.(centro|der|justificado)\}\s*$/gm, '')
     .replace(/!?\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g, '$1')
     .replace(/[*_=`#>]/g, '')
     .replace(/\s+/g, ' ')
