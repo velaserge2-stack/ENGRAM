@@ -8,7 +8,8 @@ const KINDS: readonly string[] = ['mapa', 'flujo', 'diagrama'];
 
 /** Monta `DiagramView` en cada `.diag-host` (`data-kind`, `data-src`). Devuelve una función que los desmonta. */
 export function mountDiagrams(root: HTMLElement): () => void {
-  const hosts = Array.from(root.querySelectorAll<HTMLElement>('.diag-host'));
+  // el propio contenedor puede ser el host (DiagramSlot lo pasa así): antes solo se buscaban descendientes
+  const hosts = root.matches('.diag-host') ? [root] : Array.from(root.querySelectorAll<HTMLElement>('.diag-host'));
   const done: HTMLElement[] = [];
   for (const host of hosts) {
     if (host.dataset.mounted) continue;
