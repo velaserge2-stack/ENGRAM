@@ -17,10 +17,16 @@ function rangesIn(root: HTMLElement, q: string): Range[] {
   let all = '';
   const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: (n) => ((n.parentElement?.closest('textarea, input, button, .find-bar')) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
   for (let n = w.nextNode() as Text | null; n; n = w.nextNode() as Text | null) (nodes.push(n), starts.push(all.length), (all += n.data));
+  // el último nodo que empieza en `pos` o antes (búsqueda binaria; antes se recorría hacia atrás desde el
+  // final en cada coincidencia: 1.2 s de 2.1 s al buscar en una nota de 5 MB, Prompt 21 · cuello #10)
   const at = (pos: number): [Text, number] => {
-    let k = starts.length - 1;
-    while (k > 0 && starts[k]! > pos) k--;
-    return [nodes[k]!, pos - starts[k]!];
+    let lo = 0, hi = starts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (starts[mid]! <= pos) lo = mid;
+      else hi = mid - 1;
+    }
+    return [nodes[lo]!, pos - starts[lo]!];
   };
   return findHits(all, q).map((h) => {
     const r = document.createRange();
