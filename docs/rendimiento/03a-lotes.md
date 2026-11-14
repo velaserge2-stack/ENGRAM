@@ -85,3 +85,32 @@ Crear el respaldo varía mucho entre corridas con el mismo código (6.7–8.2 s,
 ## Descartado
 - Paralelizar lecturas o escrituras (máx. 4): el Worker de OPFS ejecuta una operación a la vez (fase 1); pedir en paralelo solo encola. No se implementó.
 - Caché de listados en esta fase: ver 3b.
+
+## Tras la fase 3: lectura en lote y zip por entradas
+Chromium solo (no hay WebKit en el contenedor). Bóveda L, mediana de 5 corridas, cada estado en su propio worktree (`npm run build` aparte). Línea base = `9ddcbf4`.
+
+### A · `readMany` en el Worker de OPFS (conservado)
+Operación opcional `readMany(paths)` en `VaultAdapter`: un mensaje al Worker, varios archivos, búferes transferidos. La implementan el Worker/cliente OPFS y `MemoryBackend`; `SafeVault.readMany` la delega al backend crudo (solo lectura, sin diario) o lee uno a uno. `zipVault` lee por lotes de ≤ 32 archivos y ≤ 16 MB (lo grande va solo) y pide el lote siguiente antes de comprimir el actual. Mismo contenido de salida (`tests/zipvault.test.ts`).
+
+| Métrica (L) | Antes | Después | Cambio |
+|---|---|---|---|
+| `respaldo-crear` mediana (ms) | 7 404 (7 309–8 315) | 6 813 (6 530–7 115) | **−8 %**; los 5 «después» quedan por debajo de los 5 «antes» |
+| pico de memoria, mediana | 123 MB | 121 MB | sin cambio |
+| `respaldo-restaurar` (no tocado) | 19 058 | 18 481 | ruido |
+
+### B · zip por entradas con `Unzip` (descartado, revertido)
+Se implementó: directorio central con `unzip` y filtro que devuelve `false` (mismos límites y avisos, mismo orden), y descompresión de solo las entradas aceptadas con `Unzip` + `UnzipPassThrough`/`UnzipInflate`/`AsyncUnzipInflate` (por tamaño), con tope de bytes **reales** por entrada. Salió igual en 11 casos de equivalencia, pero:
+
+| Métrica | Antes | Después | Cambio |
+|---|---|---|---|
+| `importar-zip-500-archivos` mediana (ms) | 4 760 | 4 094 | −14 % |
+| `importar-zip-500-archivos` pico, mediana | 15.9 MB | 16.8 MB | sin ganancia |
+| `respaldo-restaurar` L mediana (ms) | 19 058 | 21 074 | **+10.6 %** |
+| `respaldo-restaurar` L pico, mediana | 25.3 MB | 45.4 MB | peor (variable: 24–57 MB) |
+| tarea larga máxima al restaurar | 0.24–0.29 s | 1.7–2.0 s | peor |
+
+Motivo: el objetivo era memoria y no bajó (el resultado sigue reteniendo todos los archivos, que es lo que domina el pico); las entradas del respaldo propio van con descriptor de datos (sin tamaño en la cabecera local), así que se inflan en el hilo principal y bloquean 2 s. Se revirtió `src/io/zip.ts` a la versión de `unzip` entero. Hallazgo útil: `Unzip.push` con el zip entero (2 607 entradas) desborda la pila; hay que alimentarlo por trozos.
+
+Se conserva `tests/parsezip-equiv.test.ts` (referencia `legacyParse` + 14 casos: normal, manifiesto, carpeta envolvente, `..`, absolutas, `\`, `\0`, profundidad, basura de sistema, tamaño y total excedidos, razón de compresión, más archivos que el límite, entradas en flujo y > 512 KB, 4 000 entradas, zip corrupto, cabecera que miente) como red de seguridad para cualquier cambio futuro de `parseZip`.
+
+**Revisión de seguridad (a mano, de la versión descartada; no está en el código):** rutas, `\0` y `..` seguían pasando por `normalizePath` después de descomprimir, sin cambios; límites de cantidad, tamaño, total y razón se aplicaban con los mismos datos del directorio central y el mismo orden de avisos; los bytes reales por entrada quedaban acotados a lo declarado (igual que `unzip`, que trunca); nombres duplicados y entradas locales no listadas en el directorio central se ignoraban. Sin hallazgos; el único defecto fue la pila de `Unzip.push` (corregido con trozos de 64 KB). Como no se integró, la versión en uso conserva el comportamiento ya auditado.
