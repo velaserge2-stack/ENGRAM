@@ -2,8 +2,9 @@
 // El documento es el texto de la nota: cada acción es una `Edit` que se aplica al texto y se escribe con
 // `onText` (NoteStore, en el padre). Aquí no hay estado del documento, solo selección, diálogos e historial.
 import type { JSX } from 'preact';
+import type { ComponentType } from 'preact';
 import { useMemo, useRef, useState } from 'preact/hooks';
-import { FileText, LayoutGrid, ListPlus, Eye, Redo2, Undo2 } from 'lucide-preact';
+import { Download, FileText, LayoutGrid, ListPlus, Eye, Redo2, Undo2 } from 'lucide-preact';
 import { DiagramCanvas, type DiagramSelection } from './canvas';
 import { layoutLayered, layoutTree } from './layout';
 import { parseDiagram } from './parse';
@@ -55,6 +56,7 @@ export function DiagramEditor({ kind, src, onText }: EditorProps): JSX.Element {
   const [, bump] = useState(0);
   const cur = useRef(src);
   cur.current = src;
+  const [Exp, setExp] = useState<ComponentType<{ doc: DiagramDoc; src: string; onClose: () => void }> | null>(null);
   const isMap = kind === 'mapa';
 
   const write = (next: string | null) => { if (next !== null && next !== cur.current) { cur.current = next; onText(next, 'action'); } bump((n) => n + 1); };
@@ -129,6 +131,9 @@ export function DiagramEditor({ kind, src, onText }: EditorProps): JSX.Element {
         <button type="button" class="btn ghost" aria-pressed={asText} onClick={() => setAsText(!asText)}>
           {asText ? <Eye size={20} aria-hidden="true" /> : <FileText size={20} aria-hidden="true" />} {asText ? tx('diag.ver_diagrama', 'Ver diagrama') : tx('diag.ver_texto', 'Ver/editar como texto')}
         </button>
+        <button type="button" class="btn ghost" disabled={!doc.nodes.length} onClick={() => void import('./export-ui').then((m) => setExp(() => m.ExportSheet))}>
+          <Download size={20} aria-hidden="true" /> {tx('diag.exportar', 'Exportar')}
+        </button>
       </div>
       {asText ? textBox : (
         <>
@@ -153,6 +158,7 @@ export function DiagramEditor({ kind, src, onText }: EditorProps): JSX.Element {
           }} />}
         </>
       )}
+      {Exp && <Exp doc={doc} src={src} onClose={() => setExp(null)} />}
       {ask && <AskDialog ask={ask} onClose={() => setAsk(null)} />}
     </div>
   );
