@@ -34,3 +34,6 @@ Si los documentos eran idénticos a los ya indexados, se saltaba `reset`. Abrir 
 
 ### Pendiente: abrir la nota de 5 MB (~3.9 s, tarea larga de ~2.1 s)
 Sanear y pintar por tramos en reposo (los primeros 80 bloques al abrir, el resto de a un tramo por hueco libre, reutilizando `renderMarkdownCached` y sin tocar la configuración de DOMPurify) no se hizo en esta fase: mientras falten tramos, «Buscar en esta nota» (`rangesIn` lee el DOM), imprimir (también con Cmd+P, `beforeprint`) y tocar un bloque aún sin pintar para editarlo verían la nota incompleta. Hay que forzar el pintado completo en esos tres casos y probarlo con `e2e:p14`, `e2e:notas-perf` y `e2e:pdf`; queda como el siguiente paso de este cuello.
+
+## Verificación
+`npm test` (475), `typecheck`, `build`; `e2e`, `e2e:flows`, `e2e:design`, `e2e:mejoras`, `e2e:mejoras2`, `e2e:p6`, `e2e:p10`, `e2e:p12`, `e2e:notaspro`, `e2e:intentos`, `e2e:share` en verde; `e2e:bancos` falló una vez («restaurar desde la papelera») y pasó entero al repetirlo (intermitente conocido, ver el prompt). `e2e:phone` contra `main`: **0 píxeles**.
