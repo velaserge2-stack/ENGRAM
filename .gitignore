@@ -7,3 +7,4 @@ e2e/out
 tests/fixtures/perf/
 tests/fixtures/notes/
 tests/fixtures/rendimiento/
+.claude/worktrees/
