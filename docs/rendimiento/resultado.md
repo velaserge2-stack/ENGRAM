@@ -75,3 +75,10 @@ La primera corrida completa mostró el arranque L +16–20 %, Mazos +113 % y Hoy
 | Estudio p95 ≤ 100 ms, ≤ 1 diario, 0 tareas largas | diarios y tareas largas sí; p95 279 ms: no |
 | Abrir Notas L < 1 s | 1.23 s: cerca, no |
 | Respaldo −4 s y −130 MB | −1.3 s y −84 a −104 MB: parcial |
+
+## Verificación final
+- `npm test` (476), `npm run typecheck`, `npm run build`.
+- Todos los E2E de `CLAUDE.md` → «Comandos» (24) en verde, más `e2e:barra`, sobre la rama: `e2e`, `flows`, `design`, `mejoras`, `mejoras2`, `bloquec`, `p5`, `p6`, `p7`, `p10`, `p12`, `p15`, `glass`, `adherencia`, `p14`, `reproductor`, `pdf`, `share`, `tasks`, `stickies`, `intentos`, `bancos`, `notaspro`.
+- `e2e:bloquec` falló **una vez de cuatro**: «antes de recargar: Semana muestra Clase 8:00–10:00 y Estudio 17:00–18:00». Las otras tres pasaron enteras. Es intermitente; probablemente la prueba lee la vista Semana antes de que termine la carga asíncrona del Calendario (que en esta rama lee las notas de la caché). Queda anotado.
+- `e2e:phone` contra `main`: **0 píxeles** en 36 capturas.
+- Determinismo e integridad: `verifyDeterminism` y la equivalencia bit a bit del punto de control (100 000 repasos, cuatro zonas horarias); recuperación de lotes y de añadidos con muerte en cada paso (también durante la recuperación); la integridad solo reporta.
