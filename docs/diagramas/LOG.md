@@ -1,0 +1,1 @@
+- Presupuesto de carga bajo demanda (Prompt 20, §1): el fragmento del motor pesa 31,99 KB gzip tras la ola 3 (vista + gramática + acomodo + lienzo). Límite del prompt: ~15 KB. Pendiente: reducirlo (revisar qué entra que no hace falta: iconos, duplicados, tablas) antes de cerrar.
