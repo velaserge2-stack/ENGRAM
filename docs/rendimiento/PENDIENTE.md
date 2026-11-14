@@ -3,7 +3,7 @@
 Fases 0–2 en `main` (PR #27); fase 3 en `main` (PR #28); fases 4–9 en la rama `rendimiento-2`. Resultado final: `resultado.md`. Informes: `03a-lotes.md`, `04-fsrs.md`, `05-busqueda.md`, `06-interfaz.md`, `07-memoria.md`.
 
 ## Lo que queda (no hecho, con su motivo)
-- **Restaurar e importar sin renombrar los archivos nuevos** (escribirlos directo con un diario que los borra si no se confirmó): ~1/3 menos de operaciones, pero cambia la recuperación.
+- ~~Restaurar e importar sin renombrar los archivos nuevos~~: hecho (diario v4), restaurar L 20.1 → 10.3 s (−49 %), zip de 500 4.5 → 2.5 s (−45 %) (`03a-lotes.md`, «Archivos nuevos sin renombrar»). Falta probar en el iPad cerrar la app a mitad de restaurar.
 - ~~Crear el respaldo con lectura en lote (`readMany`)~~: hecho, −8 % (`03a-lotes.md`, «Tras la fase 3»). ~~Descomprimir el zip por entradas (`Unzip`)~~: probado y descartado (restaurar L +10 %, tareas largas de 2 s, sin ganancia de memoria); para bajar el pico habría que no retener todos los archivos (importar por lotes), lo que cambia `ParsedZip`.
 - **`e2e/rendimiento-perfil.mjs`**: `vite preview` ignora `--outDir` y el perfil copiado trae el service worker de la semilla; arreglarlo antes de volver a usarlo (ver `06-interfaz.md`).
 - **Medición en el iPad**: arranque en frío, mover 100 notas, importar el zip grande, cerrar la app a mitad, memoria con fotos grandes, varias pestañas y almacenamiento lleno.

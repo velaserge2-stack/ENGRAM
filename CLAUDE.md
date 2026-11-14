@@ -26,7 +26,7 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 - Código mínimo (ponytail), pero nunca recortar: escritura segura, integridad, determinismo FSRS, sanitización, accesibilidad.
 
 ## Mapa del código
-- `src/vault/` VaultAdapter (OPFS en Worker, FS Access, memoria), `safe.ts` (diario v1, lotes v2 `vault.batch`, añadidos v3 `append`), `batch.ts` (vista de un lote), `integrity.ts`.
+- `src/vault/` VaultAdapter (OPFS en Worker, FS Access, memoria), `safe.ts` (diario v1, lotes v2 `vault.batch`, añadidos v3 `append`, lotes v4 con archivos nuevos sin renombrar), `batch.ts` (vista de un lote), `integrity.ts`.
 - `src/cards/parse.ts` parser de mazos · `src/srs/` FSRS, `replay`, cola · `src/data/` colección y operaciones.
 - `src/lib/` ajustes, días, estadísticas, exámenes/ritmo, pomodoro, `.ics`, consultas · `src/sim/` simulacros · `src/notes/` notas, Plaud, docx/pdf, `textcache.ts` (caché de textos en IndexedDB por firma del listado); fotos: `images.ts` (guarda el original), `thumbs.ts` (`mediaThumbUrl`, caché `.app/thumbs/`), `imgsize.ts`, `imagebar.tsx`.
 - `src/stickies/` add-on «Sticky notes» (`model.ts` frontmatter/orden, `tile.tsx` mosaico).

@@ -49,3 +49,4 @@ Rama `rendimiento-2` desde `main` 974174a con el WIP `04d6abe` (cherry-pick). **
 | Abrir nota de 5 MB por tramos | media | sonnet | ~60k | Abrir 3.9 s → 1.9 s (−51 %), tarea larga 2.1 s → 0.3 s; pintado completo al buscar/imprimir/editar (`05-busqueda.md`) |
 | Tras F3 · A `readMany` en el Worker (respaldo) | media | sonnet | ~90k | `respaldo-crear` L −8 % (7 404 a 6 813 ms), pico igual; conservado |
 | Tras F3 · B zip por entradas (`Unzip`) | media | sonnet | ~90k | Revertido: restaurar L +10 %, tareas largas 0.27 a 1.8 s, sin ganancia de memoria; se conserva `tests/parsezip-equiv.test.ts` y el security-review a mano |
+| Tras F3 · archivos nuevos sin renombrar (diario v4) | difícil | opus | ~120k | Conservado: restaurar L 20.1 → 10.3 s (−49 %), zip de 500 4.5 → 2.5 s (−45 %); recuperación revierte borrando solo los nuevos propios o vacíos; 9 pruebas nuevas |

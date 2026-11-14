@@ -79,7 +79,7 @@ Crear el respaldo varía mucho entre corridas con el mismo código (6.7–8.2 s,
 
 ### Lo que no llegó al objetivo, y por qué
 - **Mover 100 notas** sigue leyendo **todas** las notas y mazos (≈ 2 000 lecturas) para reescribir referencias. Saber qué notas enlazan a las movidas sin leerlas necesita el índice persistido de la fase 5; entonces bajará solo.
-- **Restaurar e importar** son 2 operaciones por archivo nuevo (temporal + renombrar) más la lectura del zip. Quitar el renombrado de los archivos nuevos (escribirlos directo con un diario de «deshacer» que los borra si no se confirmó) ahorraría ~1/3, pero cambia la recuperación: queda propuesto, no hecho.
+- **Restaurar e importar** eran 2 operaciones por archivo nuevo (temporal + renombrar) más la lectura del zip. Hecho después: ver «Archivos nuevos sin renombrar».
 - **Crear el respaldo** está limitado por las lecturas en serie: una operación `readMany` dentro del Worker (una petición para muchos archivos) es el siguiente paso.
 
 ## Descartado
@@ -114,3 +114,35 @@ Motivo: el objetivo era memoria y no bajó (el resultado sigue reteniendo todos 
 Se conserva `tests/parsezip-equiv.test.ts` (referencia `legacyParse` + 12 casos: normal, manifiesto, carpeta envolvente, `..`, absolutas, `\`, `\0`, profundidad, basura de sistema, tamaño y total excedidos, razón de compresión, más archivos que el límite, entradas en flujo y > 512 KB, 4 000 entradas, zip corrupto, cabecera que miente) como red de seguridad para cualquier cambio futuro de `parseZip`.
 
 **Revisión de seguridad (a mano, de la versión descartada; no está en el código):** rutas, `\0` y `..` seguían pasando por `normalizePath` después de descomprimir, sin cambios; límites de cantidad, tamaño, total y razón se aplicaban con los mismos datos del directorio central y el mismo orden de avisos; los bytes reales por entrada quedaban acotados a lo declarado (igual que `unzip`, que trunca); nombres duplicados y entradas locales no listadas en el directorio central se ignoraban. Sin hallazgos; el único defecto fue la pila de `Unzip.push` (corregido con trozos de 64 KB). Como no se integró, la versión en uso conserva el comportamiento ya auditado.
+
+## Archivos nuevos sin renombrar (diario v4)
+Chromium solo (no hay WebKit en el contenedor). Bóveda L, 5 corridas, cada estado en su worktree. Antes = `93a60db`, después = `6cf22ae`.
+
+### Diseño
+Confirmar un lote escribía cada archivo dos veces en operaciones: temporal en `.app/tmp/` y renombrado al destino (en `HandleFS`, `move` resuelve origen y destino, crea la carpeta y comprueba: el renombrado de un destino que no existe es la operación más cara). Ahora, para los destinos que **no existían**, no hay temporal:
+1. **Planear** (dentro del cerrojo): va directo una escritura con datos en memoria (un `Blob` grande de `writeStream` sigue por temporal), sin otra ruta del lote que solo difiera en mayúsculas o forma Unicode, y cuyo nombre no está en su carpeta (comparando con `NFC` + minúsculas, como un disco sin distinción) o cuya carpeta no existe. Una consulta por carpeta (`stat` o `list`), no por archivo. También se anotan las carpetas que no existen.
+2. Temporales de las demás escrituras (como antes; Cancelar aquí borra los temporales).
+3. **Un** diario: si hay nuevos, v4 = v2 + `fresh` (ruta, tamaño, suma) + `freshDirs`; si no, el mismo v2 de antes.
+4. Los nuevos se escriben con `create` (opcional en `VaultAdapter`: escribe solo si no hay nada ahí, según la búsqueda del propio sistema de archivos; sin él, `exists` + `write`). Si algo **apareció** en un destino nuevo, un error o Cancelar → se revierte el lote (sin pisar ni borrar lo que apareció) y se avisa «Apareció un archivo mientras se escribía… No se cambió nada».
+5. Aplicar como v2 (temporales → destino, movimientos, borrados, carpetas vacías) y quitar el diario.
+Un destino que existía **nunca** se escribe en sitio: sigue con temporal + renombrar.
+
+### Recuperación (regla)
+Los nuevos se escriben todos antes de aplicar nada; por eso:
+- Si a algún nuevo le falta su contenido (no está o su suma no casa), o a alguna escritura su temporal, **y nada se aplicó** → se **revierte**: se borra cada destino nuevo que sea el nuestro (misma suma) o esté vacío (creado y sin escribir: así queda un corte a mitad de la escritura en Safari), y las carpetas nuevas que quedaron sin archivos (de la más honda a la raíz). Cualquier otro contenido llegó de fuera y se conserva. Como esos destinos no existían, no se pierde nada del usuario.
+- Si se aplicó algo → ya estaban todos → se **completa** como v2.
+- Un diario v2 se recupera exactamente igual que antes (no tiene nuevos); un v4 con forma inválida se descarta sin tocar nada.
+- Sigue: un diario por operación, sin huérfanos en `.app/tmp/`, la recuperación misma puede morir y se repite, `checkIntegrity` solo reporta.
+- Riesgo residual: una versión anterior de la app no conoce v4 (lo descartaría y dejaría los nuevos sin el resto del lote). Solo importa si se vuelve a una versión vieja con un lote cortado a medias.
+
+### Pruebas (`tests/batch.test.ts`, 9 nuevas)
+Plan (qué va directo y qué por temporal, cada nuevo = 1 operación tras el diario); sin nuevos el diario es v2; muerte en **cada** operación y en cada paso de la recuperación, con nuevos y existentes mezclados (v4) y sin nuevos (v2) → antes o después exactos, sin diario, temporales ni carpetas vacías; destino que aparece a mitad (app viva) y con la app cerrada → no se pisa ni se borra; nuevo creado vacío → se borra al revertir; Cancelar mientras se escriben los nuevos; diario v4 plantado inválido. Las pruebas anteriores pasan sin cambios.
+
+### Medición
+| Métrica | Antes (mediana; rango) | Después (mediana; rango) | Cambio |
+|---|---|---|---|
+| `respaldo-restaurar` L | 20 101 ms (18 123–24 890) | 10 303 ms (10 269–10 388) | **−49 %** |
+| `importar-zip-500-archivos` | 4 485 ms (3 925–4 525) | 2 460 ms (2 403–3 109) | **−45 %** |
+| `importar-zip-boveda` L (1 corrida, la siembra) | 20 276 ms | 11 284 ms | **−44 %** |
+
+Las 5 corridas «después» quedan por debajo de las 5 «antes»; un diario por operación en todas; pico de memoria igual o menor. Se conserva.
