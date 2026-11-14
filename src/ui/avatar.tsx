@@ -8,7 +8,7 @@ import { mediaUrl } from './background';
 /** Perfil compartido por la barra superior, Hoy y la pantalla de perfil. */
 export function useProfile(): Profile {
   const app = useApp();
-  const { data } = useAsync(async () => parseProfile(await readTextOr(app.vault, PROFILE_PATH, '')), [app.version]);
+  const { data } = useAsync(async () => parseProfile(await readTextOr(app.vault, PROFILE_PATH, '')), [app.version, app.notesVersion]);
   return data ?? EMPTY_PROFILE;
 }
 

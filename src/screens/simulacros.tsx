@@ -157,7 +157,7 @@ function useDeleteBank(attempts: Attempt[]) {
 /** Papelera de bancos, plegada al final de Simulacros; solo aparece si tiene algo. */
 function BankTrash() {
   const app = useApp();
-  const { data: items } = useAsync(() => listBankTrash(app.vault), [app.version]);
+  const { data: items } = useAsync(() => listBankTrash(app.vault), [app.version, app.notesVersion]);
   const [open, setOpen] = useState(false);
   const [purge, setPurge] = useState<BankTrashEntry | null>(null);
   if (!items?.length) return null;
@@ -184,7 +184,7 @@ function BankTrash() {
 
 function SimHome() {
   const app = useApp();
-  const { data } = useAsync(async () => ({ banks: await loadBanks(app.vault), attempts: await loadAttempts(app.vault), current: JSON.parse((await readTextOr(app.vault, CURRENT, 'null')) || 'null') as Attempt | null }), [app.version]);
+  const { data } = useAsync(async () => ({ banks: await loadBanks(app.vault), attempts: await loadAttempts(app.vault), current: JSON.parse((await readTextOr(app.vault, CURRENT, 'null')) || 'null') as Attempt | null }), [app.version, app.notesVersion]);
   const [create, setCreate] = useState(false);
   const [all, setAll] = useState(false);
   const [discard, setDiscard] = useState(false);
@@ -427,7 +427,7 @@ function Runner() {
 function Results(props: { id: string }) {
   const simGo = useSimGo();
   const app = useApp();
-  const { data } = useAsync(() => loadAttempts(app.vault), [app.version]);
+  const { data } = useAsync(() => loadAttempts(app.vault), [app.version, app.notesVersion]);
   const [onlyBad, setOnlyBad] = useState(false);
   const del = useDeleteAttempt(() => simGo()); // al borrar, de vuelta a Simulacros
   const a = data?.find((x) => x.id === props.id);

@@ -16,6 +16,7 @@ import { readTextOr, walk } from '../vault/util';
 import { withSuffix } from '../vault/paths';
 import { loadAttempts } from './simulacros';
 import { LinkChips, LinkPicker, startBlock, useLinkIndex } from '../ui/links';
+import { noteTexts } from '../notes/textcache';
 import { type LinkIndex, resolveLink } from '../lib/links';
 import { Link2 } from 'lucide-preact';
 
@@ -35,9 +36,11 @@ async function loadBlocks(vault: ReturnType<typeof useApp>['vault']) {
   const imported: StudyBlock[] = [];
   for (const f of await walk(vault, 'calendar')) if (f.path !== CAL && f.path.endsWith('.ics')) imported.push(...fromICS(await readTextOr(vault, f.path, '').catch(() => ''), f.name)); // solo lectura
   const tasks: { date: string; text: string; note: string }[] = [];
-  for (const f of await walk(vault, 'notes')) {
-    if (!f.path.endsWith('.md')) continue;
-    const t = await readTextOr(vault, f.path, '').catch(() => ''); // solo lectura
+  // Prompt 21 · 6: textos de la caché por firma del listado (`textcache.ts`), solo lectura
+  const files = (await walk(vault, 'notes')).filter((f) => f.path.endsWith('.md'));
+  const texts = await noteTexts(vault, files);
+  for (const f of files) {
+    const t = texts.get(f.path) ?? '';
     for (const m of t.matchAll(/^\s*- \[ \] (.+?)\s+(?:📅|@)\s?(\d{4}-\d{2}-\d{2})/gm)) tasks.push({ date: m[2]!, text: m[1]!, note: f.path });
   }
   return { own, imported, tasks };
@@ -57,9 +60,9 @@ export function Calendar() {
   const [ask, setAsk] = useState<{ op: 'edit' | 'delete'; uid: string; date: string; next?: StudyBlock } | null>(null);
   const [plan, setPlan] = useState<StudyBlock[] | null>(null);
   const [showLayers, setShowLayers] = useState(false);
-  const { data } = useAsync(() => loadBlocks(app.vault), [app.version]);
+  const { data } = useAsync(() => loadBlocks(app.vault), [app.version, app.notesVersion]);
   const { data: ex } = useExtra();
-  const { data: attempts } = useAsync(() => loadAttempts(app.vault), [app.version]);
+  const { data: attempts } = useAsync(() => loadAttempts(app.vault), [app.version, app.notesVersion]);
   const fc = useMemo(() => (col ? new Map(forecast(col, Date.now(), s.timeZone, s.dayStartHour, 120).map((x) => [x.day, x.n])) : new Map<string, number>()), [col]);
   const act = activity(col?.log ?? [], ex?.extra ?? { pomodoro: [], exams: [] }, s.timeZone, s.dayStartHour);
   const avg = avgDaily(act, today);

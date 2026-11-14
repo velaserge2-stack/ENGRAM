@@ -94,6 +94,12 @@ function validEntry(e: Partial<JournalEntry> | null): e is JournalEntry {
   return e.op === 'move' || e.from === undefined;
 }
 
+/**
+ * Diario de un añadido (v3, Prompt 21 · 4): el archivo debe quedar con sus primeros `at` bytes y `data`
+ * detrás (con «\n» si hacía falta). Lleva los datos (pocos: líneas de `.jsonl`) y su suma: no hay temporal.
+ */
+interface AppendJournal { v: 3; ts: number; append: { path: string; at: number; size: number; hash: string; data: string } }
+
 /** Un diario de lote solo se ejecuta si tiene la forma que escribe `commitBatch`. */
 function validBatch(j: Partial<BatchJournal>): j is BatchJournal {
   const isTmp = (t: unknown) => typeof t === 'string' && TMP_RE.test(t);
@@ -338,6 +344,52 @@ export class SafeVault implements VaultAdapter {
     report.recovered.push(...j.moves.map((m) => m.to));
   }
 
+  /**
+   * Añade bytes al final de un archivo sin leerlo ni reescribirlo (Prompt 21 · 4, cuello #6: cada respuesta
+   * de estudio reescribía `reviews.jsonl` entero, 16.5 MB al Worker). Diario v3 con los datos → `appendAt`
+   * (trunca en `at` y escribe: repetirlo da lo mismo) → quitar el diario. Si el backend no sabe añadir,
+   * se lee y se reescribe entero con `commit`, como antes. Devuelve dónde empezó y los bytes que quedaron
+   * escritos (con el «\n» separador si se añadió): así quien lleva una suma del archivo la continúa.
+   */
+  append(path: string, data: Uint8Array): Promise<{ at: number; written: Uint8Array }> {
+    const p = normalizePath(path);
+    const withSep = (add: boolean) => (add ? Uint8Array.of(10, ...data) : data);
+    return this.serial(async () => {
+      const st = await this.raw.stat(p);
+      if (st?.kind === 'dir') throw new VaultError(`Es una carpeta: ${path}`, 'io', path);
+      const at = st?.size ?? 0;
+      if (!this.raw.appendAt) {
+        const prev = st ? await this.raw.read(p) : new Uint8Array();
+        const add = prev.length > 0 && prev[prev.length - 1] !== 10;
+        const out = new Uint8Array(prev.length + (add ? 1 : 0) + data.length);
+        out.set(prev);
+        out.set(withSep(add), prev.length);
+        await this.commit({ op: 'write', path: p }, out, () => this.raw.write(p, out));
+        return { at, written: withSep(add) };
+      }
+      const j: AppendJournal = { v: 3, ts: Date.now(), append: { path: p, at, size: data.length, hash: checksum(data), data: decodeText(data) } };
+      await this.raw.write(JOURNAL_PATH, JSON.stringify(j));
+      if (perf.on) perf.inc('journal');
+      let add = false;
+      await this.apply(async () => void (add = await this.raw.appendAt!(p, data, at, true)));
+      await this.raw.remove(JOURNAL_PATH);
+      return { at, written: withSep(add) };
+    });
+  }
+
+  /** Recuperar un añadido: si el diario es íntegro y el archivo llega al menos a `at`, se repite (idempotente). */
+  private async replayAppend(j: Partial<AppendJournal>, report: RecoveryReport) {
+    const a = j.append;
+    const path = safeTarget(a?.path);
+    if (!a || !path || !Number.isInteger(a.at) || a.at < 0 || typeof a.data !== 'string') return void report.discarded.push('?');
+    const bytes = toBytes(a.data);
+    const size = (await this.raw.stat(path))?.size ?? 0;
+    // datos que no casan con su suma, o un archivo más corto que donde empezaba el añadido: no se toca
+    if (bytes.length !== a.size || checksum(bytes) !== a.hash || size < a.at || !this.raw.appendAt) return void report.discarded.push(path);
+    await this.raw.appendAt(path, bytes, a.at, true);
+    report.recovered.push(path);
+  }
+
   remove(path: string) {
     return this.serial(() => this.raw.remove(path));
   }
@@ -374,9 +426,10 @@ export class SafeVault implements VaultAdapter {
     let entries: JournalEntry[] = [];
     try {
       const j = JSON.parse(decodeText(await this.raw.read(JOURNAL_PATH))) as { v?: number; entries?: JournalEntry[] };
-      if (j?.v === 2) {
+      if (j?.v === 2 || j?.v === 3) {
         try {
-          await this.replayBatch(j as Partial<BatchJournal>, report);
+          if (j.v === 2) await this.replayBatch(j as Partial<BatchJournal>, report);
+          else await this.replayAppend(j as Partial<AppendJournal>, report);
         } catch {
           this.stuck = true; // E/S: el diario se conserva y se reintenta
         }

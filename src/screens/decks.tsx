@@ -309,7 +309,7 @@ function DeleteDecks(props: { decks: Deck[]; onClose: () => void; onDone?: () =>
 
 function DeckTrash(props: { onClose: () => void }) {
   const app = useApp();
-  const { data: items } = useAsync(() => listTrash(app.vault), [app.version]);
+  const { data: items } = useAsync(() => listTrash(app.vault), [app.version, app.notesVersion]);
   const days = app.settings.deckTrashDays;
   const left = (e: TrashEntry) => Math.max(0, Math.ceil(days - (Date.now() - e.deletedAt) / 86_400_000));
   return (
@@ -345,7 +345,7 @@ export function Decks() {
   const [trash, setTrash] = useState(false);
   const [del, setDel] = useState<Deck[] | null>(null);
   const [moving, setMoving] = useState<MoveItems | null>(null);
-  const { data: trashN } = useAsync(async () => (await listTrash(app.vault)).length, [app.version]);
+  const { data: trashN } = useAsync(async () => (await listTrash(app.vault)).length, [app.version, app.notesVersion]);
   const toggle = (k: string) => setPicking((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   // selección → mazos (una carpeta se lleva todo lo que contiene; un mazo, sus submazos)
   const picked = (): Deck[] => {

@@ -66,5 +66,5 @@ async function loadExams(vault: VaultAdapter): Promise<Exam[]> {
 
 export function useExtra() {
   const app = useApp();
-  return useAsync(async () => ({ extra: await loadExtra(app.vault), exams: await loadExams(app.vault) }), [app.version, app.pomo.today]);
+  return useAsync(async () => ({ extra: await loadExtra(app.vault), exams: await loadExams(app.vault) }), [app.version, app.notesVersion, app.pomo.today]);
 }

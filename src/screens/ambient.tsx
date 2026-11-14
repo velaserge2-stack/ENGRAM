@@ -79,7 +79,7 @@ export function AmbientPlayer() {
     set({ levels });
     ambient.setLevels(levels);
   };
-  const { data: tracks } = useAsync(async () => (await walk(app.vault, MUSIC_DIR)).filter((f) => /\.(mp3|m4a|aac|wav|ogg)$/i.test(f.name)).map((f) => ({ path: f.path, title: f.name.replace(/\.[^.]+$/, '') })), [app.version]);
+  const { data: tracks } = useAsync(async () => (await walk(app.vault, MUSIC_DIR)).filter((f) => /\.(mp3|m4a|aac|wav|ogg)$/i.test(f.name)).map((f) => ({ path: f.path, title: f.name.replace(/\.[^.]+$/, '') })), [app.version, app.notesVersion]);
   const [dur, setDur] = useState<Record<string, number>>({});
   const playList = async (start: number) => {
     player.prime(); // en el mismo toque, antes de leer los archivos (Safari)

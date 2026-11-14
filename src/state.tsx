@@ -32,7 +32,14 @@ export interface AppCtx {
   replaceSettings(s: Settings): void;
   /** Sube cuando cambian los archivos: la colección se recarga. */
   version: number;
-  changed(): void;
+  /** Sube con `changed('notes')` (y no con los demás): las vistas lo escuchan junto a `version`. */
+  notesVersion: number;
+  /**
+   * Algo cambió en los archivos. Sin ámbito, se recarga todo (colección, integridad y vistas). Con
+   * `'notes'` (Prompt 21 · 6): la operación solo tocó `notes/` o `.app/bookmarks.json` (ni mazos ni
+   * historial): se recargan las vistas, no la colección ni la comprobación de integridad.
+   */
+  changed(scope?: 'notes'): void;
   /** Re-render sin recargar (cambios en memoria). */
   tick: number;
   refresh(): void;

@@ -69,12 +69,26 @@ export function serialFile<T>(vault: VaultAdapter, path: string, fn: () => Promi
  * duplicados). Devuelve cuántas líneas añadió.
  */
 export function appendLines(vault: VaultAdapter, path: string, lines: string[] | ((prev: string) => string[])): Promise<number> {
+  return appendLinesAt(vault, path, lines).then((r) => r.n);
+}
+
+type Appender = { append(path: string, data: Uint8Array): Promise<{ at: number; written: Uint8Array }> };
+const appender = (v: VaultAdapter): Appender | null => ('append' in v && typeof (v as Partial<Appender>).append === 'function' ? (v as unknown as Appender) : null);
+
+/**
+ * Como `appendLines`, y además dónde empezó lo añadido y sus bytes (Prompt 21 · 4: con `SafeVault.append`
+ * no se lee ni se reescribe el archivo; solo se lee si `lines` necesita ver lo que hay). Sin añadido real
+ * (otro backend), `at` = -1 y `written` = null.
+ */
+export function appendLinesAt(vault: VaultAdapter, path: string, lines: string[] | ((prev: string) => string[])): Promise<{ n: number; at: number; written: Uint8Array | null }> {
   return serialFile(vault, path, async () => {
-    const prev = await readTextOr(vault, path, '');
+    const ap = appender(vault);
+    const prev = typeof lines === 'function' || !ap ? await readTextOr(vault, path, '') : '';
     const add = typeof lines === 'function' ? lines(prev) : lines;
-    if (!add.length) return 0;
+    if (!add.length) return { n: 0, at: -1, written: null };
+    if (ap) return { n: add.length, ...(await ap.append(path, toBytes(`${add.join('\n')}\n`))) };
     await vault.write(path, `${prev && !prev.endsWith('\n') ? `${prev}\n` : prev}${add.join('\n')}\n`);
-    return add.length;
+    return { n: add.length, at: -1, written: null };
   });
 }
 

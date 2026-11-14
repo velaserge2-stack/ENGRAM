@@ -20,11 +20,12 @@ import { useKeyScope } from '../ui/keys';
 import { IMG_EXT, removeImageEmbed } from '../md/embed';
 import { convertForExport, swapToOriginals } from '../notes/thumbs';
 import { nthImageEmbed, rewriteImageEmbed, textBeside } from '../md/embed';
-import { buildPrompt, buildTree, coverage, DAILY, linkIndex, listNotes, newNoteText, type NoteMeta, noteMeta, notePath, outline, paragraphs, parseAiResponse, readVersion, restore, snapshot, TEMPLATES, trash, trashList, unlinkedMentions, versions, withOrigin } from '../notes/model';
+import { buildPrompt, buildTree, coverage, DAILY, linkIndex, newNoteText, type NoteMeta, noteMeta, notePath, outline, paragraphs, parseAiResponse, readVersion, restore, snapshot, TEMPLATES, trash, trashList, unlinkedMentions, versions, withOrigin } from '../notes/model';
 import { go, href, useApp, useAsync } from '../state';
 import { Empty, PageTitle, Segmented, Sheet } from '../ui/kit';
 import { Html, hydrateAllMedia } from '../ui/md';
-import { readTextOr } from '../vault/util';
+import { readTextOr, walk } from '../vault/util';
+import { noteTexts } from '../notes/textcache';
 import { mediaRefs, resolveMedia } from '../data/ops';
 import { NotePreview } from './deck';
 import { search as searchCards } from '../lib/query';
@@ -95,8 +96,10 @@ function setNotesFull(on: boolean) {
 function useNotes() {
   const app = useApp();
   return useAsync(async () => {
-    const notes = await listNotes(app.vault);
-    const { idx, texts } = await linkIndex(app.vault, notes);
+    // Prompt 21 · 5: los textos salen de la caché (firma del listado) y solo se lee del disco lo que cambió
+    const files = (await walk(app.vault, 'notes')).filter((f) => f.path.endsWith('.md'));
+    const notes = files.map((f) => noteMeta(f.path));
+    const { idx, texts } = await linkIndex(app.vault, notes, await noteTexts(app.vault, files));
     let bookmarks: string[] = [];
     try {
       bookmarks = JSON.parse(await readTextOr(app.vault, BOOKMARKS, '[]')) as string[];
@@ -104,7 +107,7 @@ function useNotes() {
       bookmarks = [];
     }
     return { notes, idx, texts, bookmarks };
-  }, [app.version]);
+  }, [app.version, app.notesVersion]);
 }
 
 export function Notes(props: { route: string[] }) {
@@ -119,7 +122,7 @@ export function Notes(props: { route: string[] }) {
       const path = notePath(DAILY, '', day);
       void (async () => {
         if (!(await app.vault.exists(path))) await app.vault.write(path, newNoteText(DAILY, '', day, 'Nota diaria', [], new Date(day + 'T12:00:00')));
-        app.changed();
+        app.changed('notes'); // solo una nota: la colección no se recarga
         location.replace(href('notas', ...path.split('/').slice(1)));
       })();
     }
@@ -342,12 +345,12 @@ function NoteTree(props: { data: NotesData; current: string | null; onNew: () =>
 
 function TrashSheet(props: { onClose: () => void }) {
   const app = useApp();
-  const { data } = useAsync(() => trashList(app.vault), [app.version]);
+  const { data } = useAsync(() => trashList(app.vault), [app.version, app.notesVersion]);
   return (
     <Sheet title={tr('notes.papelera')} onClose={props.onClose}>
       {!data?.length ? <p class="t2">{tr('notes.vacia')}</p> : data.map((t) => (
         <div class="row-i"><div class="k">{t.path}<small>{new Date(t.ts).toLocaleString(locale())}</small></div>
-          <button type="button" class="btn small" onClick={async () => { const p = await restore(app.vault, t.stored, t.path); app.changed(); app.toast(tr('notes.restaurada_en', { p })); }}>{tr('notes.restaurar')}</button>
+          <button type="button" class="btn small" onClick={async () => { const p = await restore(app.vault, t.stored, t.path); app.changed('notes'); app.toast(tr('notes.restaurada_en', { p })); }}>{tr('notes.restaurar')}</button>
         </div>
       ))}
     </Sheet>
@@ -416,7 +419,7 @@ function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { ma
         let path = notePath(materia, tema, title);
         for (let i = 2; await app.vault.exists(path); i++) path = notePath(materia, tema, `${title} (${i})`);
         await app.vault.write(path, newNoteText(materia, tema, title.trim(), tpl));
-        app.changed();
+        app.changed('notes');
         props.onClose();
         if (props.onCreated) props.onCreated(path);
         else go('notas', ...path.split('/').slice(1));
@@ -615,7 +618,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
     void noteStore.load(app.vault, props.path).then((t) => alive && setText(t));
     return () => { alive = false; un(); };
   }, [props.path]);
-  useEffect(() => { void noteStore.refresh(app.vault, props.path); }, [app.version]);
+  useEffect(() => { void noteStore.refresh(app.vault, props.path); }, [app.version, app.notesVersion]);
   if (text === null) return <p class="t2">{tr('deck.cargando')}</p>;
   const doc = parseFrontmatter(text);
   const meta = noteMeta(props.path);
@@ -805,13 +808,13 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
             <div {...keep}><Segmented label={tr('notes.ancho_de_linea')} value={props.ui.width} onChange={(w) => props.setUi({ width: w })} options={[['comodo', tr('notes.comodo')], ['ancho', tr('notes.ancho')], ['completo', tr('notes.completo')]]} /></div>
             {!props.embedded && <button type="button" class="btn icon" {...keep} aria-label={full ? tr('notes.salir_de_pantalla_completa') : tr('notes.pantalla_completa_de_notas')} aria-pressed={full} onClick={() => toggleFull(!full)}>{full ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button>}
             <Segmented label={tr('calendar.vista')} value={mode} onChange={(m) => (setMode(m), setEditing(null))} options={[['doc', tr('notes.documento')], ['md', tr('deck.ver_markdown')]]} />
-            <button type="button" class="btn icon" aria-label={bookmarked ? tr('notes.quitar_marcador') : tr('notes.marcar')} aria-pressed={bookmarked} onClick={async () => { const b = props.data?.bookmarks ?? []; await app.vault.write(BOOKMARKS, JSON.stringify(bookmarked ? b.filter((x) => x !== props.path) : [...b, props.path])); app.changed(); }}>{bookmarked ? <Star size={18} fill="currentColor" /> : <Bookmark size={18} />}</button>
+            <button type="button" class="btn icon" aria-label={bookmarked ? tr('notes.quitar_marcador') : tr('notes.marcar')} aria-pressed={bookmarked} onClick={async () => { const b = props.data?.bookmarks ?? []; await app.vault.write(BOOKMARKS, JSON.stringify(bookmarked ? b.filter((x) => x !== props.path) : [...b, props.path])); app.changed('notes'); }}>{bookmarked ? <Star size={18} fill="currentColor" /> : <Bookmark size={18} />}</button>
             <button type="button" class="btn icon" aria-label={tr('find.buscar_en_esta_nota')} aria-pressed={find !== null} onClick={() => (setMode('doc'), setEditing(null), setFind(find === null ? '' : null))}><Search size={18} /></button>
             <button type="button" class="btn icon" aria-label={tr('notes.crear_tarjetas_con_ia_copiar_prompt')} onClick={() => setSheet('prompt')}><Sparkles size={18} /></button>
             <button type="button" class="btn icon" aria-label={tr('notes.historial_de_versiones')} onClick={() => setSheet('history')}><History size={18} /></button>
             <button type="button" class="btn icon" aria-label={tr('notes.mover_a_otra_materia_o_tema')} onClick={() => setSheet('move')}><MoveRight size={18} /></button>
             <button type="button" class="btn icon" aria-label={tr('notes.compartir_o_exportar')} onClick={() => setSheet('share')}><Share size={18} /></button>
-            <button type="button" class="btn icon" aria-label={tr('notes.enviar_a_la_papelera')} onClick={async () => { if (!confirm(tr('notes.confirm_papelera'))) return; await saver.flush(); await trash(app.vault, props.path); await noteStore.forget(props.path); app.changed(); if (!props.embedded) go('notas'); }}><Trash2 size={18} /></button>
+            <button type="button" class="btn icon" aria-label={tr('notes.enviar_a_la_papelera')} onClick={async () => { if (!confirm(tr('notes.confirm_papelera'))) return; await saver.flush(); await trash(app.vault, props.path); await noteStore.forget(props.path); app.changed('notes'); if (!props.embedded) go('notas'); }}><Trash2 size={18} /></button>
           </div>
         </div>
         <EditorBar s={barState()} folded={!!props.ui.barFolded} onFold={(v) => props.setUi({ barFolded: v })} run={run} notes={props.data?.notes ?? []}

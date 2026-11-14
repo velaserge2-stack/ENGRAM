@@ -116,12 +116,13 @@ export interface LinkIndex {
   titles: Map<string, string>;
 }
 
-export async function linkIndex(vault: VaultAdapter, notes: NoteMeta[]): Promise<{ idx: LinkIndex; texts: Map<string, string> }> {
+/** `known`: textos ya leídos (p. ej. de la caché de `textcache.ts`); los que falten se leen del disco. */
+export async function linkIndex(vault: VaultAdapter, notes: NoteMeta[], known?: Map<string, string>): Promise<{ idx: LinkIndex; texts: Map<string, string> }> {
   const titles = new Map(notes.map((n) => [n.title.toLowerCase(), n.path]));
   const backlinks = new Map<string, string[]>();
   const texts = new Map<string, string>();
   for (const n of notes) {
-    const t = await readTextOr(vault, n.path, '').catch(() => ''); // solo lectura (lista, grafo, búsqueda)
+    const t = known?.get(n.path) ?? (await readTextOr(vault, n.path, '').catch(() => '')); // solo lectura (lista, grafo, búsqueda)
     texts.set(n.path, t);
     for (const l of wikilinks(t)) {
       const target = titles.get(l.toLowerCase().replace(/\.md$/, ''));

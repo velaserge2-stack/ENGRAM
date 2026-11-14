@@ -7,7 +7,7 @@ import { basename, splitPath } from './paths';
 import { type FileStat, VaultError } from './types';
 import { CHUNK, FNV_INIT, fnvHex, fnvUpdate } from './util';
 
-interface SyncAccess { truncate(size: number): unknown; write(buf: Uint8Array, opts: { at: number }): unknown; flush(): unknown; close(): unknown }
+interface SyncAccess { truncate(size: number): unknown; write(buf: Uint8Array, opts: { at: number }): unknown; read(buf: Uint8Array, opts: { at: number }): unknown; getSize(): unknown; flush(): unknown; close(): unknown }
 
 export type WriteStrategy = (fh: FileSystemFileHandle, data: Uint8Array) => Promise<void>;
 
@@ -187,6 +187,56 @@ export class HandleFS {
         if (!isNotFound(e2)) throw e2;
       }
     }
+  }
+
+  /** Ver `VaultAdapter.appendAt`: sin leer ni reescribir lo que ya hay. */
+  async appendAt(path: string, data: Uint8Array, at: number, sep = false): Promise<boolean> {
+    const parts = splitPath(path);
+    if (!parts.length) throw new VaultError('Ruta vacía', 'invalid-path');
+    const fh = await this.fresh(async () => (await this.dir(parts.slice(0, -1), true)).getFileHandle(this.codec.enc(parts[parts.length - 1]!), { create: true }));
+    const out = (add: boolean) => {
+      if (!add) return data;
+      const b = new Uint8Array(data.length + 1);
+      b[0] = 10;
+      b.set(data, 1);
+      return b;
+    };
+    if ('createSyncAccessHandle' in fh) {
+      const sh = await (fh as unknown as { createSyncAccessHandle(): Promise<SyncAccess> }).createSyncAccessHandle();
+      try {
+        if (at > Number(await sh.getSize())) throw new VaultError(`Desplazamiento fuera del archivo: ${path}`, 'io', path);
+        let add = false;
+        if (sep && at > 0) {
+          const last = new Uint8Array(1);
+          await sh.read(last, { at: at - 1 });
+          add = last[0] !== 10;
+        }
+        await sh.truncate(at);
+        const b = out(add);
+        for (let off = 0; off < b.length;) {
+          const n = Number(await sh.write(b.subarray(off), { at: at + off }));
+          if (!(n > 0)) throw new Error('Escritura incompleta');
+          off += n;
+        }
+        await sh.flush();
+        return add;
+      } finally {
+        await sh.close();
+      }
+    }
+    const f = await (fh as FileSystemFileHandle).getFile();
+    if (at > f.size) throw new VaultError(`Desplazamiento fuera del archivo: ${path}`, 'io', path);
+    const add = sep && at > 0 && new Uint8Array(await f.slice(at - 1, at).arrayBuffer())[0] !== 10;
+    const w = await (fh as FileSystemFileHandle & { createWritable(o: { keepExistingData: boolean }): Promise<FileSystemWritableFileStream> }).createWritable({ keepExistingData: true });
+    try {
+      await w.truncate(at);
+      await w.write({ type: 'write', position: at, data: out(add) as unknown as BufferSource });
+      await w.close();
+    } catch (e) {
+      await (w as unknown as { abort?: () => Promise<void> }).abort?.().catch(() => {});
+      throw e;
+    }
+    return add;
   }
 
   /** El archivo como File (las lecturas por rango usan `slice`). */

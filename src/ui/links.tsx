@@ -14,7 +14,7 @@ const CAL_PATH = 'calendar/estudio.ics';
 
 export function useLinkIndex() {
   const app = useApp();
-  return useAsync(async () => (app.col ? buildLinkIndex(app.vault, app.col.decks as never) : null), [app.version, app.col]);
+  return useAsync(async () => (app.col ? buildLinkIndex(app.vault, app.col.decks as never) : null), [app.version, app.notesVersion, app.col]);
 }
 
 const ICON: Record<LinkKind, preact.JSX.Element> = { deck: <BookOpen size={14} />, note: <FileText size={14} />, topic: <Folder size={14} />, tag: <Hash size={14} /> };
@@ -146,7 +146,7 @@ export function useLinkedEvents(path: string) {
     const to = day(now + 365 * 86_400_000);
     const occ = blocks.flatMap((b) => occurrences(b, from, to, day).map((o) => ({ ...o, b })));
     return { next: occ.filter((o) => o.end >= now).sort((a, b) => a.start - b.start).slice(0, 10), past: occ.filter((o) => o.end < now).sort((a, b) => b.start - a.start).slice(0, 10) };
-  }, [idx, path, app.version]);
+  }, [idx, path, app.version, app.notesVersion]);
 }
 
 export function LinkedEvents(p: { path: string }) {

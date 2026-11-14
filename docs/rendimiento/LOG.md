@@ -29,3 +29,19 @@ Rama `rendimiento-2` desde `main` 974174a con el WIP `04d6abe` (cherry-pick). **
 | F3b · caché de listados | media | — | — | Pasa a la fase 6 (ver `03a-lotes.md`) |
 | F3 · ajustes tras medir | media | opus (en línea) | ~30k | Caché sin vaciados por «no existe», `buildPlan` con un listado por raíz, respaldo con lectura solapada, progreso a un render por fotograma |
 | F3 · mediciones (11 estados × M/L × 5) | fácil | — (script en segundo plano) | ~15k | Tablas en `03a-lotes.md`: mover 100 notas −53 %/−49 %, zip 500 −35 %, restaurar L −49 %, respaldo −45 % de memoria; diarios 200/500/2 606 → 1 |
+| F4 · añadir sin reescribir (`appendAt`, diario v3) | difícil | opus (en línea) | ~40k | 4 operaciones pequeñas por respuesta en vez de reescribir 16.5 MB; recuperación idempotente |
+| F4 · punto de control de FSRS + `state.json` diferido | difícil | opus (en línea) | ~60k | Reconstrucción por tarjeta, idéntica bit a bit (100 k hostiles, 4 zonas horarias); estudio L −63 % mediana, −69 % p95, 0 tareas largas, 1 diario por respuesta (`04-fsrs.md`) |
+| F4 · replay en Worker, mazos en Worker | — | — | — | Descartados (ver `04-fsrs.md`) |
+| F5 · caché de textos de notas (IndexedDB, firma del listado) | media | opus (en línea) | ~30k | Abrir Notas L 6.2 → 1.2 s (−81 %), M 1.36 → 0.41 s (−70 %) desde la segunda visita (`05-busqueda.md`) |
+| F5 · buscar en la nota (búsqueda binaria) | media | opus (en línea) | ~10k | Nota de 5 MB 2.88 → 1.25 s (−57 %); 1 MB −25 % |
+| F5 · no reconstruir el índice al volver | media | opus (en línea) | ~5k | Revertido: sin mejora medible en la navegación (regla < 5 %) |
+| F5 · índice persistido en IndexedDB; abrir nota de 5 MB por tramos | — | — | — | Descartado el primero (el costo está en el Worker, no en el camino del usuario); el segundo queda pendiente por su efecto en buscar/imprimir |
+| F6 · `app.changed('notes')` | difícil | opus (en línea) | ~40k | «Marcar» 2 406 → 85 operaciones al Worker; todas las vistas escuchan los dos contadores (`06-interfaz.md`) |
+| F6 · caché de textos en vínculos, calendario y mover | media | opus (en línea) | ~30k | Calendario 4 170 → 170 operaciones; mover 100 notas L 6.6 → 2.6 s |
+| F6 · trampa de medición (SW y `vite preview --outDir`) | media | opus (en línea) | ~25k | Las dos primeras corridas de la fase 6 midieron la misma app; corregido en la traza propia |
+| F7 · memoria y ciclo de vida | media | opus (en línea) | ~15k | Auditoría sin cambios de código: sin fugas de `blob:`, cachés acotadas; respaldo −45 % de memoria (fase 3) (`07-memoria.md`) |
+| F8 · línea base completa (main vs rama) | fácil | — (script en segundo plano) | ~20k | `resultado.md`; encontró el punto de control atascado en 0 (corregido en `c1c9f94`) |
+| F8 · corrección del punto de control | difícil | opus (en línea) | ~20k | Arranque L de +16–20 % a −2/−6 %; prueba nueva |
+| F9 · limpieza y documentación | media | opus (en línea) | ~20k | Diff revisado (sin código muerto ni restos); `CLAUDE.md`, `DECISIONS.md`, `PROMPTS.md`, `PENDIENTE.md` |
+
+**Modelos y ahorro**: el prompt pedía un coordinador en Sonnet que delegara por dificultad. Esta sesión corrió entera en **Opus** y no delegó: todo se hizo en línea, y las mediciones (lo más largo) corrieron como scripts en segundo plano, sin modelo. Frente a usar un solo modelo **no hubo ahorro**: fue un solo modelo, el más caro. Con el reparto pedido, las fases 5–7 y la documentación (≈ 40 % de los tokens) podían ir a Sonnet, y las mediciones y tablas a Haiku.

@@ -19,6 +19,7 @@ import { batch } from '../vault/safe';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr, walk } from '../vault/util';
 import { DAILY, noteMeta } from './model';
+import { noteTexts } from './textcache';
 
 export type NoteClash = 'rename' | 'replace';
 const HISTORY = '.app/history';
@@ -159,9 +160,13 @@ async function moveNotesIn(vault: VaultAdapter, paths: string[], dest: string, c
   if (!moved.length) return { undo: log, moved };
   // referencias por ruta en notas y mazos (una expresión por forma para todo el lote)
   const rewrite = refsRewriter(moved);
-  for (const f of [...(await walk(vault, 'notes')), ...(await walk(vault, 'decks'))]) {
+  // Prompt 21 · 6: las notas salen de la caché por firma (`textcache.ts`); lo movido o reescrito en este
+  // lote tiene otra ruta o fecha y se lee del lote. Lectura estricta: un fallo aborta el movimiento.
+  const md = (await walk(vault, 'notes')).filter((f) => f.path.endsWith('.md'));
+  const known = await noteTexts(vault, md, true);
+  for (const f of [...md, ...(await walk(vault, 'decks'))]) {
     if (!f.path.endsWith('.md')) continue;
-    const t = await readTextOr(vault, f.path, '');
+    const t = known.get(f.path) ?? (await readTextOr(vault, f.path, ''));
     const next = rewrite(t);
     if (next !== t) await write(vault, log, f.path, next);
   }

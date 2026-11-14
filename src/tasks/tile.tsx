@@ -21,7 +21,7 @@ function useTasksText(): [string | null, (next: string) => void] {
     void noteStore.load(app.vault, TASKS_PATH).then((x) => alive && setText(x));
     const off = noteStore.subscribe(app.vault, TASKS_PATH, setText);
     return () => ((alive = false), off());
-  }, [app.version]);
+  }, [app.version, app.notesVersion]);
   return [text, (next) => noteStore.set(app.vault, TASKS_PATH, next)];
 }
 

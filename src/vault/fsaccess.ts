@@ -32,4 +32,5 @@ export class FSAccessBackend implements VaultAdapter {
   async writeBlob(p: string, blob: Blob, o: import('./types').BlobWriteOptions = {}) { return this.fs.writeBlob(normalizePath(p), blob, (n) => o.onProgress?.(n, blob.size), () => !!o.signal?.aborted); }
   async hash(p: string) { return this.fs.hash(normalizePath(p)); }
   async file(p: string) { return this.fs.file(normalizePath(p)); }
+  async appendAt(p: string, d: Uint8Array, at: number, sep?: boolean) { return this.fs.appendAt(normalizePath(p), d, at, sep); }
 }

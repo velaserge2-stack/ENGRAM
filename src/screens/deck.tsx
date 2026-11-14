@@ -178,7 +178,7 @@ export function DeckEditor(props: { path: string; onGear?: () => void }) {
       un();
     };
   }, [props.path]);
-  useEffect(() => { void noteStore.refresh(app.vault, props.path); }, [app.version]);
+  useEffect(() => { void noteStore.refresh(app.vault, props.path); }, [app.version, app.notesVersion]);
   if (text === null) return <p class="t2">{tr('deck.cargando')}</p>;
   const parsed = parseDeck(text);
   const name = typeof parsed.data.deck === 'string' ? parsed.data.deck : props.path.split('/').pop()!.replace(/\.md$/, '');

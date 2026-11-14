@@ -4,6 +4,7 @@
  * El `id` corto vive en el frontmatter y se genera la PRIMERA vez que se vincula
  * (sin migraciones). Sin `id`, se resuelve por nombre o ruta; si no se encuentra, es un enlace roto.
  */
+import { noteTexts } from '../notes/textcache';
 import { newId } from '../cards/parse';
 import { parseFrontmatter, setKeys } from './frontmatter';
 import type { VaultAdapter } from '../vault/types';
@@ -86,9 +87,12 @@ export async function ensureFileId(vault: VaultAdapter, path: string, taken: Set
 
 export async function buildLinkIndex(vault: VaultAdapter, decks: { path: string; full: string; folder: string; tags: string[]; data: Record<string, unknown> }[]): Promise<LinkIndex> {
   const notes: LinkTarget[] = [];
-  for (const f of await walk(vault, 'notes')) {
-    if (!f.path.endsWith('.md')) continue;
-    const fm = parseFrontmatter(await readTextOr(vault, f.path, '').catch(() => '')).data; // solo lectura
+  // Prompt 21 · 6: los textos salen de la caché por firma del listado (`textcache.ts`); antes, cada
+  // cambio leía las 2 000 notas solo para su `id:` (solo lectura)
+  const files = (await walk(vault, 'notes')).filter((f) => f.path.endsWith('.md'));
+  const texts = await noteTexts(vault, files);
+  for (const f of files) {
+    const fm = parseFrontmatter(texts.get(f.path) ?? '').data;
     notes.push({ kind: 'note', path: f.path, name: f.name.replace(/\.md$/, ''), ...(fm.id ? { id: String(fm.id) } : {}) });
   }
   const folders = new Set<string>();

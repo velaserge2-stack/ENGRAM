@@ -85,7 +85,7 @@ function Backgrounds() {
   const { data: images } = useAsync(async () => {
     const files = (await walk(app.vault, 'media/.app/fondos')).filter((f) => f.path.endsWith('-thumb.jpg'));
     return Promise.all(files.map(async (f) => ({ path: f.path.replace('-thumb.jpg', '.jpg'), thumb: await mediaUrl(app.vault, f.path) })));
-  }, [app.version]);
+  }, [app.version, app.notesVersion]);
   const choose = (bg: Background) => {
     if (!preview) setPreview({ prev: s.bg });
     app.update({ bg });
@@ -230,7 +230,7 @@ function PhotoStorage() {
   const { data } = useAsync(async () => {
     const sum = async (dir: string, ok: (p: string) => boolean = () => true) => (await walk(app.vault, dir).catch(() => [])).filter((f) => ok(f.path)).reduce((n, f) => n + f.size, 0);
     return { media: await sum('media', (p) => !p.startsWith('media/.app/')), thumbs: await sum(THUMBS_DIR) };
-  }, [tick, app.version]);
+  }, [tick, app.version, app.notesVersion]);
   return (
     <>
       <Row k={tr('settings.fotos_media')}><span class="v">{formatBytes(data?.media ?? null)}</span></Row>
@@ -252,7 +252,7 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
   const s = app.settings;
   const u = (p: Partial<Settings>) => app.update(p);
   const [tick, setTick] = useState(0);
-  const { data: info } = useAsync(storageInfo, [tick, app.version]);
+  const { data: info } = useAsync(storageInfo, [tick, app.version, app.notesVersion]);
   const [det, setDet] = useState<string | null>(null);
   const [storageOpen, setStorageOpen] = useState(false);
   const [paramsText, setParamsText] = useState(s.fsrsW?.join(', ') ?? '');

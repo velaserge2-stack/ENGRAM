@@ -112,7 +112,7 @@ async function intake(vault: ReturnType<typeof useApp>['vault'], files: File[], 
 
 export function Inbox() {
   const app = useApp();
-  const { data } = useAsync(async () => ({ items: await loadItems(app.vault), tree: buildTree(await listNotes(app.vault)).tree }), [app.version]);
+  const { data } = useAsync(async () => ({ items: await loadItems(app.vault), tree: buildTree(await listNotes(app.vault)).tree }), [app.version, app.notesVersion]);
   const [cur, setCur] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const take = async (list: FileList | null) => {
