@@ -31,3 +31,6 @@ Mover 100 notas en L queda en **−77 % contra `main`** (11.3 s); el objetivo er
 - **Estudio p95 ≤ 100 ms** (fase 4): quedan ~200 ms entre pintar la tarjeta siguiente y elegir de la cola. Sin perfil fino de esa parte no se tocó.
 - **Más ámbitos** (`'settings'`, `'extra'`…): el costo grande era la colección + integridad + las lecturas de notas; con `'notes'` y la caché de textos queda resuelto. Otros ámbitos ahorrarían poco y añaden riesgo de vistas viejas.
 - **Caché de `walk()`/listados** (pasada desde la fase 3): tras estos cambios, «Marcar» deja 85 listados y ninguna lectura. Con la carpeta del usuario (File System Access) otra app puede cambiar archivos por fuera y una caché de listados invalidada solo por nuestras operaciones serviría datos viejos. No se hizo.
+
+## Verificación
+`npm test` (475), `typecheck`, `build`; `e2e`, `e2e:flows`, `e2e:design`, `e2e:mejoras`, `e2e:mejoras2`, `e2e:p6`, `e2e:p10`, `e2e:p12`, `e2e:notaspro`, `e2e:intentos`, `e2e:bancos`, `e2e:share`, `e2e:tasks`, `e2e:stickies`, `e2e:p14` y `e2e:pdf` en verde. `e2e:phone` contra `main`: **0 píxeles**.
