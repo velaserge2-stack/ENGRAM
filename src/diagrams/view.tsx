@@ -71,7 +71,8 @@ export function DiagramView({ text, kind }: DiagramViewProps): JSX.Element {
     const w = Math.round(p.w), h = Math.max(MIN, Math.round(p.h));
     const lvl = isMap ? (n.depth <= 0 ? ' diag-root' : n.depth === 1 ? ' diag-l1' : ' diag-l2') : ' diag-l1';
     const cls = 'diag-node' + lvl + NODE_CLASS[n.shape] + (n.folded && hasKids.has(n.id) ? ' diag-folded' : '');
-    const style = { width: w, height: h, transform: `translate(${Math.round(p.x + ox - w / 2)}px, ${Math.round(p.y + oy - h / 2)}px)` };
+    // Preact 11 no añade px a los números en style: cadenas explícitas (CLAUDE.md)
+    const style = { width: `${w}px`, height: `${h}px`, transform: `translate(${Math.round(p.x + ox - w / 2)}px, ${Math.round(p.y + oy - h / 2)}px)` };
     const a11y = isMap ? { role: 'treeitem' as const, 'aria-level': n.depth + 1, tabIndex: 0 } : {};
     return <div key={n.id} class={cls} style={style} data-user-content {...a11y}><span class="diag-text">{inline(n.text)}</span></div>;
   });
@@ -100,7 +101,7 @@ export function DiagramView({ text, kind }: DiagramViewProps): JSX.Element {
   return (
     <div class="diag-host-view">
       <div class="diag-canvas glass" role={isMap ? 'tree' : 'img'} aria-label={label}>
-        <div class="diag-stage" style={{ width: W, height: H }} aria-hidden={isMap ? undefined : 'true'}>
+        <div class="diag-stage" style={{ width: `${W}px`, height: `${H}px` }} aria-hidden={isMap ? undefined : 'true'}>
           <svg class="diag-svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false">
             <defs>
               <marker id="diag-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
