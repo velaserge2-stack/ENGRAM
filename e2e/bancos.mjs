@@ -89,7 +89,8 @@ try {
   check((await trashBtn.textContent()).includes('(1)') && (await trashBtn.getAttribute('aria-expanded')) === 'false', 'la papelera aparece plegada con 1 banco');
   await trashBtn.click();
   await page.getByRole('button', { name: 'Restaurar' }).click();
-  await trashBtn.waitFor({ state: 'detached' });
+  // la papelera se va y la lista se repinta con los dos bancos: esperar a ambas cosas (era una carrera)
+  await page.waitForFunction(() => !document.querySelector('.bank-trash') && document.querySelectorAll('.bank-row').length === 2);
   check((await names()).join('|') === [A, B].sort().join('|'), 'restaurar desde la papelera lo devuelve');
 
   // con el banco en la papelera: el intento viejo y el simulacro en curso siguen
