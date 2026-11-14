@@ -482,19 +482,29 @@ function expandBlock(b: string, data: NotesData, col: ReturnType<typeof useApp>[
 
 /** Un bloque en vista de documento. `memo`: escribir en otro bloque no lo vuelve a pintar. */
 /** Vista de un diagrama dentro de la nota: carga `src/diagrams/mount` bajo demanda; mientras tanto (o si falla) se ve el texto. */
-function DiagramSlot(p: { kind: DiagramKind; src: string }) {
+function DiagramSlot(p: { kind: DiagramKind; src: string; onText?: (body: string, k?: 'type' | 'action') => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
+  // nota de diagrama completa: editor (carga perezosa, único `import()`); el fence dentro de una nota solo se ve
+  const [Ed, setEd] = useState<typeof import('../diagrams/editor').DiagramEditor | null>(null);
+  const edit = !!p.onText;
+  useEffect(() => {
+    if (!edit) return;
+    let alive = true;
+    void import('../diagrams/editor').then((m) => { if (alive) setEd(() => m.DiagramEditor); }).catch(() => {});
+    return () => { alive = false; };
+  }, [edit]);
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || edit) return;
     let off = () => {};
     let alive = true;
     el.dataset.kind = p.kind;
     el.dataset.src = p.src;
     void import('../diagrams/mount').then((m) => { if (alive) { off = m.mountDiagrams(el); setReady(true); } }).catch(() => {});
     return () => { alive = false; off(); setReady(false); };
-  }, [p.kind, p.src]);
+  }, [p.kind, p.src, edit]);
+  if (Ed && p.onText) return <Ed kind={p.kind} src={p.src} onText={p.onText} />;
   return (
     <div ref={ref} class="diag-host" data-user-content>
       {!ready && <pre><code>{p.src}</code></pre>}
@@ -868,7 +878,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
           {mode === 'md' ? (
             <textarea class="input code" style={{ minHeight: '70dvh', width: '100%', border: 0, background: 'transparent' }} value={text} onInput={(e) => set((e.target as HTMLTextAreaElement).value, 'type')} aria-label={tr('notes.markdown_de_la_nota')} spellcheck />
           ) : tipo !== 'nota' ? (
-            <DiagramSlot kind={tipo} src={doc.body} />
+            <DiagramSlot kind={tipo} src={doc.body} onText={setBody} />
           ) : (
             <div class={`stack-s${blocks.length > 2 * CHUNK ? ' doc-cv' : ''}`}>
               {/* «＋ Escribe…» abre un bloque vacío al final (en la misma lista, para no perder el foco) */}
