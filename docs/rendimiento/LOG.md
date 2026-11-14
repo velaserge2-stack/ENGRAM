@@ -29,3 +29,6 @@ Rama `rendimiento-2` desde `main` 974174a con el WIP `04d6abe` (cherry-pick). **
 | F3b · caché de listados | media | — | — | Pasa a la fase 6 (ver `03a-lotes.md`) |
 | F3 · ajustes tras medir | media | opus (en línea) | ~30k | Caché sin vaciados por «no existe», `buildPlan` con un listado por raíz, respaldo con lectura solapada, progreso a un render por fotograma |
 | F3 · mediciones (11 estados × M/L × 5) | fácil | — (script en segundo plano) | ~15k | Tablas en `03a-lotes.md`: mover 100 notas −53 %/−49 %, zip 500 −35 %, restaurar L −49 %, respaldo −45 % de memoria; diarios 200/500/2 606 → 1 |
+| F4 · añadir sin reescribir (`appendAt`, diario v3) | difícil | opus (en línea) | ~40k | 4 operaciones pequeñas por respuesta en vez de reescribir 16.5 MB; recuperación idempotente |
+| F4 · punto de control de FSRS + `state.json` diferido | difícil | opus (en línea) | ~60k | Reconstrucción por tarjeta, idéntica bit a bit (100 k hostiles, 4 zonas horarias); estudio L −63 % mediana, −69 % p95, 0 tareas largas, 1 diario por respuesta (`04-fsrs.md`) |
+| F4 · replay en Worker, mazos en Worker | — | — | — | Descartados (ver `04-fsrs.md`) |
