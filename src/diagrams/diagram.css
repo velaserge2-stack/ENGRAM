@@ -41,3 +41,32 @@
 
 .diag-node, .diag-label { transition: opacity .15s var(--ease); }
 @media (prefers-reduced-motion: reduce) { .diag-node, .diag-label { transition: none; } }
+
+/* Lienzo interactivo (canvas.tsx). `touch-action: none` SOLO aquí: fuera del lienzo la nota se desplaza normal. */
+.diag-board-wrap { position: relative; margin: 12px 0; }
+.diag-board {
+  position: relative; overflow: hidden; height: min(70vh, 640px); border-radius: var(--r-panel);
+  touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; cursor: grab; outline: none;
+}
+.diag-board:active { cursor: grabbing; }
+.diag-board:focus-visible { box-shadow: inset 0 0 0 2px var(--t1); }
+.diag-board-stage { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; }
+.diag-board .diag-node { cursor: pointer; transition: none; }
+.diag-board .diag-sel { outline: 2px solid var(--t1); outline-offset: 3px; }
+.diag-board .diag-dragging { box-shadow: var(--shadow); cursor: grabbing; }
+.diag-board .diag-target { outline: 2px dashed var(--t1); outline-offset: 3px; }
+.diag-edge-sel { stroke: var(--t1); stroke-width: 4px; }
+.diag-temp { stroke: var(--t1); stroke-dasharray: 6 6; }
+.diag-handle {
+  position: absolute; left: 0; top: 0; width: 44px; height: 44px; box-sizing: border-box; transform-origin: 0 0;
+  border-radius: var(--r-pill); pointer-events: none;
+  background: radial-gradient(circle, var(--inverse-bg) 0 9px, transparent 10px), var(--fill);
+  border: 1px solid var(--border-strong);
+}
+.diag-tools { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; padding: 4px; border-radius: var(--r-pill); z-index: var(--z-panel); }
+.diag-tools .btn { min-width: 44px; min-height: 44px; }
+
+/* Teléfono: ver y tocar (selección y paneo); sin asas ni arrastre libre (el JS lo trata como paneo). */
+html.is-phone .diag-board { height: 60vh; }
+html.is-phone .diag-handle { display: none; }
+html.is-phone .diag-board .diag-node { cursor: default; }
