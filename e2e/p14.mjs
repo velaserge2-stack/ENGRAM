@@ -208,6 +208,8 @@ try {
     await page.reload();
     await page.goto(URL_ + '#/notas/P14/Larga.md');
     await page.locator('.doc .doc-chunk').first().waitFor();
+    // lo editado está en el 6.º tramo: se pinta en reposo tras abrir (si se hubiera perdido, no aparece nunca)
+    await page.locator('.doc').getByText('añadido').waitFor({ timeout: 8000 }).catch(() => {});
     check(await page.locator('.doc').getByText('añadido').count() === 1, 'tras recargar, lo escrito sigue ahí');
     await ctx.close();
   }
