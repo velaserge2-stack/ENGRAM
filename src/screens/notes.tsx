@@ -26,6 +26,7 @@ import { Empty, PageTitle, Segmented, Sheet } from '../ui/kit';
 import { Html, hydrateAllMedia } from '../ui/md';
 import { readTextOr, walk } from '../vault/util';
 import { noteTexts } from '../notes/textcache';
+import { type DiagramKind, type NoteKind, diagramFence, diagramKindOf, newDiagramNote, newDiagramText } from '../notes/diagramtype';
 import { mediaRefs, resolveMedia } from '../data/ops';
 import { NotePreview } from './deck';
 import { search as searchCards } from '../lib/query';
@@ -127,7 +128,7 @@ export function Notes(props: { route: string[] }) {
       })();
     }
   }, [first]);
-  const [creating, setCreating] = useState(first === '+nueva');
+  const [creating, setCreating] = useState(!!first?.startsWith('+nueva'));
   const path = first && !first.startsWith('+') ? `notes/${props.route.join('/')}` : null;
   const resolved = useMemo(() => {
     if (!path || !data) return path;
@@ -191,7 +192,7 @@ export function Notes(props: { route: string[] }) {
         )}
         {resolved ? <NoteEditor key={resolved} path={resolved} data={data} ui={ui} setUi={setUi} overlay={overlay} /> : <NotesHome data={data} onNew={() => setCreating(true)} ui={ui} setUi={setUi} />}
       </div>)}
-      {creating && data && <NewNote notes={data.notes} onClose={() => setCreating(false)} />}
+      {creating && data && <NewNote notes={data.notes} onClose={() => setCreating(false)} initial={{ kind: first === '+nueva-mapa' ? 'mapa' : first === '+nueva-flujo' ? 'flujo' : first === '+nueva-diagrama' ? 'diagrama' : 'nota' }} />}
     </>
   );
 }
@@ -396,7 +397,7 @@ function NotesHome(props: { data: NotesData; onNew: () => void; ui: NotesUI; set
   );
 }
 
-function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { materia?: string; tema?: string; title?: string }; onCreated?: (path: string) => void }) {
+function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { materia?: string; tema?: string; title?: string; kind?: NoteKind }; onCreated?: (path: string) => void }) {
   const app = useApp();
   const tree = buildTree(props.notes).tree;
   // Prompt 12: solo el título es obligatorio; materia y tema empiezan vacíos salvo que el contexto los dé
@@ -404,6 +405,7 @@ function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { ma
   const [tema, setTema] = useState(props.initial?.tema ?? '');
   const [title, setTitle] = useState(props.initial?.title ?? '');
   const [tpl, setTpl] = useState('Clase');
+  const [kind, setKind] = useState<NoteKind>(props.initial?.kind ?? 'nota');
   // el título lleva el foco al abrir (después de que la hoja enfoque su contenedor), salvo que ya se
   // esté escribiendo en otro campo: robarle el foco a mitad de escribir mandaba el texto al título
   const titleRef = useRef<HTMLInputElement>(null);
@@ -418,7 +420,7 @@ function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { ma
         e.preventDefault();
         let path = notePath(materia, tema, title);
         for (let i = 2; await app.vault.exists(path); i++) path = notePath(materia, tema, `${title} (${i})`);
-        await app.vault.write(path, newNoteText(materia, tema, title.trim(), tpl));
+        await app.vault.write(path, kind === 'nota' ? newNoteText(materia, tema, title.trim(), tpl) : newDiagramNote(kind, materia, tema, title.trim()));
         app.changed('notes');
         props.onClose();
         if (props.onCreated) props.onCreated(path);
@@ -429,7 +431,8 @@ function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { ma
         <label class="field">{tr('notes.tema_opcional')}<input class="input" list="temas" value={tema} onInput={(e) => setTema((e.target as HTMLInputElement).value)} placeholder={tr('notes.opcional')} /><datalist id="temas">{temas.map((t) => <option value={t} />)}</datalist></label>
         {tema.trim() && !materia.trim() && <p class="foot" role="status">{tr('notes.tema_sin_materia')}</p>}
         {!materia.trim() && !tema.trim() && <p class="foot">{tr('notes.ira_a_sin_clasificar')}</p>}
-        <fieldset class="field" style={{ border: 0, padding: 0 }}><legend>{tr('notes.plantilla')}</legend>
+        <Segmented label={tr('notes.tipo_de_nota')} value={kind} onChange={(k) => setKind(k as NoteKind)} options={[['nota', tr('notes.tipo_nota')], ['mapa', tr('notes.tipo_mapa')], ['flujo', tr('notes.tipo_flujo')], ['diagrama', tr('notes.tipo_diagrama')]]} />
+        {kind === 'nota' && <fieldset class="field" style={{ border: 0, padding: 0 }}><legend>{tr('notes.plantilla')}</legend>
           <div class="bg-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
             {Object.keys(TEMPLATES).filter((t) => t !== 'Nota diaria').map((t) => (
               <button type="button" aria-pressed={tpl === t} onClick={() => setTpl(t)} style={{ aspectRatio: 'auto', padding: '10px', textAlign: 'left', minHeight: '92px' }}>
@@ -437,7 +440,7 @@ function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { ma
               </button>
             ))}
           </div>
-        </fieldset>
+        </fieldset>}
         <button class="btn primary" type="submit">{tr('decks.crear')}</button>
       </form>
     </Sheet>
@@ -478,11 +481,32 @@ function expandBlock(b: string, data: NotesData, col: ReturnType<typeof useApp>[
 }
 
 /** Un bloque en vista de documento. `memo`: escribir en otro bloque no lo vuelve a pintar. */
-const ViewBlock = memo(function ViewBlock(p: { html: string; i: number; onEdit: (i: number, img?: Element) => void }) {
+/** Vista de un diagrama dentro de la nota: carga `src/diagrams/mount` bajo demanda; mientras tanto (o si falla) se ve el texto. */
+function DiagramSlot(p: { kind: DiagramKind; src: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let off = () => {};
+    let alive = true;
+    el.dataset.kind = p.kind;
+    el.dataset.src = p.src;
+    void import('../diagrams/mount').then((m) => { if (alive) { off = m.mountDiagrams(el); setReady(true); } }).catch(() => {});
+    return () => { alive = false; off(); setReady(false); };
+  }, [p.kind, p.src]);
+  return (
+    <div ref={ref} class="diag-host" data-user-content>
+      {!ready && <pre><code>{p.src}</code></pre>}
+    </div>
+  );
+}
+
+const ViewBlock = memo(function ViewBlock(p: { html: string; i: number; onEdit: (i: number, img?: Element) => void; diagram?: { kind: DiagramKind; src: string } | null }) {
   // tocar (o Intro sobre) una imagen la selecciona para su barra (Notas-Pro · A4); el resto abre el bloque
   return (
     <div class="doc-block" data-block={p.i} role="button" tabIndex={0} onClick={(e) => { const im = (e.target as HTMLElement).closest('img[data-media]'); if (im) return p.onEdit(p.i, im); if ((e.target as HTMLElement).closest('a, summary, audio, input')) return; p.onEdit(p.i); }} onKeyDown={(e) => { if (e.key !== 'Enter') return; const im = (e.target as HTMLElement).closest('img[data-media]'); if (im) e.preventDefault(); p.onEdit(p.i, im ?? undefined); }} style={{ cursor: 'text', borderRadius: '10px' }} aria-label={tr('notes.editar_bloque')}>
-      <Html html={p.html} />
+      {p.diagram ? <DiagramSlot kind={p.diagram.kind} src={p.diagram.src} /> : <Html html={p.html} />}
     </div>
   );
 });
@@ -521,6 +545,7 @@ const SLASH = (): [string, string, string][] => ([
   ['h1', tr('calendar.titulo'), '# '], ['h2', tr('notes.subtitulo'), '## '], ['ul', tr('deck.lista'), '- '], ['ol', tr('notes.lista_numerada'), '1. '], ['task', tr('notes.tarea'), '- [ ] '],
   ['table', tr('notes.tabla'), tr('notes.columna_columna')], ['quote', tr('notes.cita'), '> '], ['callout', tr('notes.callout'), tr('notes.note_titulo')],
   ['img', tr('deck.imagen'), ''], ['draw', tr('draw.dibujo_manuscrito'), ''], ['notebook', tr('draw.pagina_cuaderno'), ''], ['card', tr('notes.tarjeta_de_estudio'), ''], ['code', tr('notes.codigo'), '```\n\n```'], ['link', tr('notes.enlace_a_nota'), '[['],
+  ['mapa', tr('notes.tipo_mapa'), '```mapa\n' + newDiagramText('mapa', tr('notes.tipo_mapa')) + '```'], ['flujo', tr('notes.tipo_flujo'), '```flujo\n' + newDiagramText('flujo', '') + '```'], ['diagrama', tr('notes.tipo_diagrama'), '```diagrama\n' + newDiagramText('diagrama', tr('notes.tipo_diagrama')) + '```'],
 ]);
 
 /** Editor que recibe los atajos (el último tocado o enfocado). */
@@ -648,6 +673,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
     for (const k of new Set([...Object.keys(doc.data), ...Object.keys(fm)])) if (JSON.stringify(fm[k]) !== JSON.stringify(doc.data[k])) patch[k] = k in fm ? fm[k] : undefined;
     set(setKeys(text, patch));
   };
+  const tipo = diagramKindOf(text);
   const blocks = splitBlocks(doc.body);
   const nChunks = Math.ceil(blocks.length / CHUNK);
   useEffect(() => {
@@ -841,6 +867,8 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
           <div class="doc-inner" style={{ maxWidth: LINE[props.ui.width] }}>
           {mode === 'md' ? (
             <textarea class="input code" style={{ minHeight: '70dvh', width: '100%', border: 0, background: 'transparent' }} value={text} onInput={(e) => set((e.target as HTMLTextAreaElement).value, 'type')} aria-label={tr('notes.markdown_de_la_nota')} spellcheck />
+          ) : tipo !== 'nota' ? (
+            <DiagramSlot kind={tipo} src={doc.body} />
           ) : (
             <div class={`stack-s${blocks.length > 2 * CHUNK ? ' doc-cv' : ''}`}>
               {/* «＋ Escribe…» abre un bloque vacío al final (en la misma lista, para no perder el foco) */}
@@ -854,7 +882,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
               ) : DRAW_RE.test(b.trim()) ? (
                 <DrawingBlock key={`d${i}`} id={DRAW_RE.exec(b.trim())![1]!} />
               ) : (
-                <ViewBlock key={i} i={i} onEdit={onEditBlock} html={renderMarkdownCached(expandBlock(b, props.data, app.col))} />
+                <ViewBlock key={i} i={i} onEdit={onEditBlock} html={renderMarkdownCached(expandBlock(b, props.data, app.col))} diagram={diagramFence(b)} />
               )))}
               <button type="button" class="btn ghost" style={{ justifySelf: 'start' }} onClick={() => setEditing(blocks.length)}>{tr('notes.escribe_o_usa_para_insertar')}</button>
             </div>
