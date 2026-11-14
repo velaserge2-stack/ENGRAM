@@ -36,3 +36,6 @@ Rama `rendimiento-2` desde `main` 974174a con el WIP `04d6abe` (cherry-pick). **
 | F5 · buscar en la nota (búsqueda binaria) | media | opus (en línea) | ~10k | Nota de 5 MB 2.88 → 1.25 s (−57 %); 1 MB −25 % |
 | F5 · no reconstruir el índice al volver | media | opus (en línea) | ~5k | Revertido: sin mejora medible en la navegación (regla < 5 %) |
 | F5 · índice persistido en IndexedDB; abrir nota de 5 MB por tramos | — | — | — | Descartado el primero (el costo está en el Worker, no en el camino del usuario); el segundo queda pendiente por su efecto en buscar/imprimir |
+| F6 · `app.changed('notes')` | difícil | opus (en línea) | ~40k | «Marcar» 2 406 → 85 operaciones al Worker; todas las vistas escuchan los dos contadores (`06-interfaz.md`) |
+| F6 · caché de textos en vínculos, calendario y mover | media | opus (en línea) | ~30k | Calendario 4 170 → 170 operaciones; mover 100 notas L 6.6 → 2.6 s |
+| F6 · trampa de medición (SW y `vite preview --outDir`) | media | opus (en línea) | ~25k | Las dos primeras corridas de la fase 6 midieron la misma app; corregido en la traza propia |
