@@ -50,9 +50,14 @@ function toSearchDoc(path: string, text: string): SearchDoc {
   return { id: path, title: m.title, body: doc.body.replace(/!\[\[dibujo-[\w-]+\.png\]\]/g, ' '), thumb: /!\[\[(dibujo-[\w-]+\.png)\]\]/.exec(doc.body)?.[1] ?? '', materia: m.materia, tema: m.tema, fecha: typeof doc.data.fecha === 'string' ? doc.data.fecha : '' };
 }
 
+const same = (a: SearchDoc | undefined, b: SearchDoc) => !!a && a.body === b.body && a.title === b.title && a.materia === b.materia && a.tema === b.tema && a.fecha === b.fecha && a.thumb === b.thumb;
+
 export const notesIndex = {
   reset: (texts: Map<string, string>) => {
     const docs = [...texts].map(([p, t]) => toSearchDoc(p, t));
+    // Prompt 21 · 5: volver a Notas sin cambios no reconstruye el índice (0.8 s en L); si algo cambió, se
+    // reconstruye entero como siempre (mismas respuestas que antes; lo de cada guardado ya va por `upsert`)
+    if (docs.length === mirror.size && docs.every((d) => same(mirror.get(d.id), d))) return Promise.resolve();
     mirror.clear();
     for (const d of docs) mirror.set(d.id, d);
     return call<void>('reset', docs);
