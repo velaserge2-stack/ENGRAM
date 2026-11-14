@@ -102,6 +102,17 @@ describe('punto de control de FSRS', () => {
     expect((await loadStates(v, { ...P, retention: 0.85 } as SrsParams)).rebuilt).toBe(true);
   });
 
+  it('historial escrito por fuera de appendLog (importar, restaurar, otra pestaña): el punto de control avanza al cargar', async () => {
+    const v = new SafeVault(new MemoryBackend());
+    expect((await loadStates(v, P)).rebuilt).toBe(true); // bóveda vacía: punto de control en 0
+    const text = hostileLog(800, 80, 13).join('\n') + '\n';
+    await v.write(REVIEWS, text); // como lo deja una importación (lote), sin pasar por appendLog
+    const r = await loadStates(v, P);
+    expect(dump(r.states)).toBe(dump(replay(r.log, P)));
+    const st = JSON.parse(decodeText(await v.read(STATE))) as { at: number };
+    expect(st.at).toBe(new TextEncoder().encode(text).length); // ya no se queda en 0
+  });
+
   it('estudiar: cada respuesta solo añade (sin reescribir) y el state.json diferido casa con el historial', async () => {
     const raw = new MemoryBackend();
     const v = new SafeVault(raw);

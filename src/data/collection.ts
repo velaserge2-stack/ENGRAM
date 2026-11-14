@@ -106,8 +106,14 @@ export async function loadStates(vault: VaultAdapter, params: SrsParams): Promis
       if (fnvHex(head) === cache.head) {
         const states = new Map(Object.entries(cache.cards).map(([k, v]) => [k, revive(v)]));
         const tail = parseLog(decodeText(bytes.subarray(at))).entries;
-        if (tail.length) rebuildCards(states, entries, new Set(tail.map((e) => e.id)), params);
-        return { states, log: entries, bad, rebuilt: false, at: bytes.length, fnv: fnvUpdate(head, bytes.subarray(at)) };
+        const fnv = fnvUpdate(head, bytes.subarray(at));
+        if (tail.length) {
+          rebuildCards(states, entries, new Set(tail.map((e) => e.id)), params);
+          // lo nuevo llegó por fuera de `appendLog` (importar, restaurar, otra pestaña): el punto de control
+          // avanza ya; si no, cada arranque volvería a reconstruir esas tarjetas
+          if (bytes[bytes.length - 1] === 10) await vault.write(STATE, serializeStates(states, key, bytes.length, fnv));
+        }
+        return { states, log: entries, bad, rebuilt: false, at: bytes.length, fnv };
       }
     }
   } catch {
