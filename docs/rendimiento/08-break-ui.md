@@ -19,4 +19,4 @@
 La barra superior (40 px de alto) y los controles de la bóveda de ejemplo salen en la auditoría de 44 px, pero no son nuevos.
 
 ## Verificación
-`npm run typecheck` y `npx vitest run` (58 archivos, 476 pruebas) en verde. `MODE=compare npm run e2e:phone` contra `origin/main`: 35 de 36 capturas con 0 píxeles. `1024×768 addons` difiere en 418 762 px **con y sin** estos cambios (probado con `git stash`): diferencia previa de la rama, ajena a este arreglo; queda por investigar.
+`npm run typecheck` y `npx vitest run` (58 archivos, 476 pruebas) en verde. `MODE=compare npm run e2e:phone` contra una línea base nueva de `origin/main` (d060e6a): **0 píxeles en las 36 capturas, dos corridas seguidas**. La diferencia de 418 762 px en `1024×768 addons` que vio la primera comparación venía de una línea base vieja, no de estos cambios.
