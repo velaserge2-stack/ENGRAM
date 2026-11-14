@@ -46,10 +46,13 @@ function scope(vault: VaultAdapter): string {
   return `${vault.kind}:${root.raw?.root?.name ?? root.root?.name ?? ''}|`;
 }
 
-/** Textos de `files` (notas `.md` de un `walk`): de la caché si su firma casa; si no, del disco. */
-export async function noteTexts(vault: VaultAdapter, files: FileStat[]): Promise<Map<string, string>> {
+/**
+ * Textos de `files` (notas `.md` de un `walk`): de la caché si su firma casa; si no, del disco. Con
+ * `strict`, un fallo al leer del disco se propaga (quien va a escribir no debe tomarlo por vacío).
+ */
+export async function noteTexts(vault: VaultAdapter, files: FileStat[], strict = false): Promise<Map<string, string>> {
   const out = new Map<string, string>();
-  const read = (p: string) => readTextOr(vault, p, '').catch(() => ''); // solo lectura, como antes
+  const read = (p: string) => (strict ? readTextOr(vault, p, '') : readTextOr(vault, p, '').catch(() => '')); // vistas de solo lectura: tolerante
   const db = await open().catch(() => null);
   if (!db) {
     for (const f of files) out.set(f.path, await read(f.path));
