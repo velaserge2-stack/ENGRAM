@@ -223,6 +223,19 @@ async function study(size) {
     await page.goto(URL_ + '?perf#/estudiar');
     const show = page.getByRole('button', { name: /Mostrar respuesta/ });
     await show.waitFor({ timeout: 120000 });
+    // Prompt 21-B · F6: además, la latencia DENTRO de la página (del timeStamp del clic al primer fotograma
+    // pintado con el resultado), sin las esperas de Playwright (~85 ms de «estable», sondeo y CDP)
+    await page.evaluate(() => {
+      window.__lat = { show: [], next: [] };
+      const rating = '.grades .grade[aria-label]';
+      const until = (ok, k, t0) => { const f = () => (ok() ? requestAnimationFrame(() => window.__lat[k].push(performance.now() - t0)) : requestAnimationFrame(f)); requestAnimationFrame(f); };
+      addEventListener('click', (e) => {
+        const b = e.target.closest?.('button');
+        if (!b) return;
+        if (/Mostrar respuesta/.test(b.textContent)) until(() => document.querySelectorAll(rating).length >= 4, 'show', e.timeStamp);
+        else if (b.matches(rating)) until(() => !document.querySelector(rating) && [...document.querySelectorAll('.grades button')].some((x) => /Mostrar respuesta/.test(x.textContent)), 'next', e.timeStamp);
+      }, true);
+    });
     const per = Math.ceil(40 / runsOf(size)) + 10;
     const batch = [];
     for (let run = 0; run < runsOf(size); run++) {
@@ -244,6 +257,9 @@ async function study(size) {
       });
       void j0;
       batch.push(...b);
+      const lat = await page.evaluate(() => { const l = window.__lat; window.__lat = { show: [], next: [] }; return l; });
+      rec('estudio-mostrar-en-pagina', size, { ...m, ms: median(lat.show), p95ms: p95(lat.show) });
+      rec('estudio-responder-siguiente-en-pagina', size, { ...m, ms: median(lat.next), p95ms: p95(lat.next) });
       rec('estudio-mostrar', size, { ...m, ms: median(a), p95ms: p95(a) });
       rec('estudio-responder-siguiente', size, { ...m, ms: median(b), p95ms: p95(b), journalPerCard: m.journal / per });
       extra('estudio-responder-siguiente', size, { p95: r1(p95(batch)), allMedian: r1(median(batch)), cards: batch.length });
