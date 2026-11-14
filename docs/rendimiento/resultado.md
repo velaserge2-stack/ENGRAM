@@ -60,7 +60,7 @@ Toda la línea base (`npm run perf`, todos los escenarios, bóvedas S/M/L, media
 - **Arranque**: −2 % a −11 % (la fase 2 ya lo había bajado; esta tanda no lo empeora).
 
 ## Regresiones que quedan
-- **«Mostrar respuesta»** en estudio: M 69 → 86 ms (+25 %), L 74 → 85 ms (+14 %; su p95 en L mejora, 102 → 90 ms). Son ~12–17 ms, por debajo de lo perceptible, y no hay causa confirmada: ese gesto no escribe ni lee. Queda anotado para perfilar.
+- **«Mostrar respuesta»** en estudio: M 69 → 86 ms, L 74 → 85 ms. Perfilado después (`06-interfaz.md`): es medio fotograma de este Chromium sin pantalla (33 ms por fotograma) más las esperas de Playwright; dentro de la página, mostrar la respuesta tarda 80–84 ms y calificar → siguiente 97 ms (`estudio-*-en-pagina`, `b1b3698`). No hay costo real que quitar.
 - **FSRS 100 k, reconstruir y verificar**: +6 % (2.12 → 2.24 s), dentro del ruido de esa métrica. Es la repetición completa sin caché, que ya no está en el camino normal (punto de control, fase 4).
 
 ## Un fallo encontrado por esta verificación (corregido)

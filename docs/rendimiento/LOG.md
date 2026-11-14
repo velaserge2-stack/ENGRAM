@@ -45,3 +45,4 @@ Rama `rendimiento-2` desde `main` 974174a con el WIP `04d6abe` (cherry-pick). **
 | F9 · limpieza y documentación | media | opus (en línea) | ~20k | Diff revisado (sin código muerto ni restos); `CLAUDE.md`, `DECISIONS.md`, `PROMPTS.md`, `PENDIENTE.md` |
 
 **Modelos y ahorro**: el prompt pedía un coordinador en Sonnet que delegara por dificultad. Esta sesión corrió entera en **Opus** y no delegó: todo se hizo en línea, y las mediciones (lo más largo) corrieron como scripts en segundo plano, sin modelo. Frente a usar un solo modelo **no hubo ahorro**: fue un solo modelo, el más caro. Con el reparto pedido, las fases 5–7 y la documentación (≈ 40 % de los tokens) podían ir a Sonnet, y las mediciones y tablas a Haiku.
+| F6 · estudio p95 (pendiente) | media | opus (en línea) | ~25k | Perfil: hilo ocioso, el costo era del método (Playwright); el banco mide dentro de la página: calificar → siguiente 97 ms, mostrar 80–84 ms (`06-interfaz.md`) |

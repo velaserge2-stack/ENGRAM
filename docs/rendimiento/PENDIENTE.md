@@ -4,7 +4,6 @@ Fases 0–2 en `main` (PR #27); fase 3 en `main` (PR #28); fases 4–9 en la ram
 
 ## Lo que queda (no hecho, con su motivo)
 - **Abrir una nota de 5 MB por tramos** (~4 s): hay que forzar el pintado completo al buscar en la nota, imprimir y editar un bloque aún sin pintar; ver `05-busqueda.md`.
-- **Estudio p95 ≤ 100 ms** (hoy ~280 ms) y la pequeña regresión de «Mostrar respuesta» (+12–17 ms): falta perfilar el pintado de la tarjeta y la cola.
 - **Restaurar e importar sin renombrar los archivos nuevos** (escribirlos directo con un diario que los borra si no se confirmó): ~1/3 menos de operaciones, pero cambia la recuperación.
 - **Crear el respaldo con una lectura en lote dentro del Worker** (`readMany`) y **descomprimir el zip por entradas** (`Unzip` de fflate) para bajar el pico al importar.
 - **`e2e/rendimiento-perfil.mjs`**: `vite preview` ignora `--outDir` y el perfil copiado trae el service worker de la semilla; arreglarlo antes de volver a usarlo (ver `06-interfaz.md`).
