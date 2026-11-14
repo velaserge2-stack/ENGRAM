@@ -20,11 +20,12 @@ import { useKeyScope } from '../ui/keys';
 import { IMG_EXT, removeImageEmbed } from '../md/embed';
 import { convertForExport, swapToOriginals } from '../notes/thumbs';
 import { nthImageEmbed, rewriteImageEmbed, textBeside } from '../md/embed';
-import { buildPrompt, buildTree, coverage, DAILY, linkIndex, listNotes, newNoteText, type NoteMeta, noteMeta, notePath, outline, paragraphs, parseAiResponse, readVersion, restore, snapshot, TEMPLATES, trash, trashList, unlinkedMentions, versions, withOrigin } from '../notes/model';
+import { buildPrompt, buildTree, coverage, DAILY, linkIndex, newNoteText, type NoteMeta, noteMeta, notePath, outline, paragraphs, parseAiResponse, readVersion, restore, snapshot, TEMPLATES, trash, trashList, unlinkedMentions, versions, withOrigin } from '../notes/model';
 import { go, href, useApp, useAsync } from '../state';
 import { Empty, PageTitle, Segmented, Sheet } from '../ui/kit';
 import { Html, hydrateAllMedia } from '../ui/md';
-import { readTextOr } from '../vault/util';
+import { readTextOr, walk } from '../vault/util';
+import { noteTexts } from '../notes/textcache';
 import { mediaRefs, resolveMedia } from '../data/ops';
 import { NotePreview } from './deck';
 import { search as searchCards } from '../lib/query';
@@ -95,8 +96,10 @@ function setNotesFull(on: boolean) {
 function useNotes() {
   const app = useApp();
   return useAsync(async () => {
-    const notes = await listNotes(app.vault);
-    const { idx, texts } = await linkIndex(app.vault, notes);
+    // Prompt 21 · 5: los textos salen de la caché (firma del listado) y solo se lee del disco lo que cambió
+    const files = (await walk(app.vault, 'notes')).filter((f) => f.path.endsWith('.md'));
+    const notes = files.map((f) => noteMeta(f.path));
+    const { idx, texts } = await linkIndex(app.vault, notes, await noteTexts(app.vault, files));
     let bookmarks: string[] = [];
     try {
       bookmarks = JSON.parse(await readTextOr(app.vault, BOOKMARKS, '[]')) as string[];
