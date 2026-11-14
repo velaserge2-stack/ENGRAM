@@ -50,3 +50,11 @@ describe('diagramas · seguridad', () => {
     for (const [t, k] of casos) expect(run(t, k)).toBeLessThan(2000);
   });
 });
+
+describe('coordenadas acotadas (hallazgo leve)', () => {
+  it('una coordenada enorme no se acepta como posición', () => {
+    const d = parseDiagram('[Inicio]{x=99999999999999999999,y=5}', 'flujo').doc;
+    // o la línea no es un nodo (se conserva literal) o, si lo es, no lleva esa coordenada
+    for (const n of d.nodes) expect(Math.abs(n.x ?? 0)).toBeLessThanOrEqual(100000);
+  });
+});

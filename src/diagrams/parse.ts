@@ -28,7 +28,8 @@ export function stripSuffixes(s: string): { rest: string; suf: Suffix } {
     let m = /\s*\{(recta|curva|orto)\}$/.exec(s);
     if (m) { suf.route ??= m[1] as Suffix['route']; s = s.slice(0, m.index); continue; }
     m = /\s*\{x=(-?\d+),y=(-?\d+)\}$/.exec(s);
-    if (m) { suf.x ??= Number(m[1]); suf.y ??= Number(m[2]); s = s.slice(0, m.index); continue; }
+    // coordenadas acotadas (hallazgo leve de seguridad): un valor enorme dejaría el lienzo y el SVG gigantes
+    if (m && Math.abs(Number(m[1])) <= 100000 && Math.abs(Number(m[2])) <= 100000) { suf.x ??= Number(m[1]); suf.y ??= Number(m[2]); s = s.slice(0, m.index); continue; }
     m = /\s*\{plegado\}$/.exec(s);
     if (m) { suf.folded = true; s = s.slice(0, m.index); continue; }
     return { rest: s, suf };
