@@ -309,7 +309,7 @@ function NoteTree(props: { data: NotesData; current: string | null; onNew: () =>
             </div>
           ) : (
             <div>
-              <button type="button" class={`ti lvl1${over(m.materia + '/' + t.tema)}${pd.drag?.item === m.materia + '/' + t.tema ? ' dragging' : ''}`} data-drop={m.materia + '/' + t.tema} aria-expanded={!closed.has(m.materia + '/' + t.tema)} onClick={() => tog(m.materia + '/' + t.tema)} {...(picking ? {} : pd.bind(m.materia + '/' + t.tema))}><ListTree size={16} /> {t.tema}</button>
+              <button type="button" class={`ti lvl1${over(m.materia + '/' + t.tema)}${pd.drag?.item === m.materia + '/' + t.tema ? ' dragging' : ''}`} data-drop={m.materia + '/' + t.tema} aria-expanded={!closed.has(m.materia + '/' + t.tema)} onClick={() => tog(m.materia + '/' + t.tema)} {...(picking ? {} : pd.bind(m.materia + '/' + t.tema))}><ListTree size={16} /> <span class="ellipsis">{t.tema}</span></button>
               {!closed.has(m.materia + '/' + t.tema) && t.notes.map((n) => link(n, 2))}
             </div>
           ))}
