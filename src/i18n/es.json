@@ -1947,5 +1947,8 @@
  "zip.mas_de_maxfiles_archivos_se_ignoro": "Más de {maxFiles} archivos: se ignoró el resto",
  "zip.name_compresion_sospechosa_omitido": "{name}: compresión sospechosa, omitido",
  "zip.name_demasiado_profundo_omitido": "{name}: demasiado profundo, omitido",
- "zip.name_ruta_no_permitida_omitido": "{name}: ruta no permitida, omitido"
+ "zip.name_ruta_no_permitida_omitido": "{name}: ruta no permitida, omitido",
+ "diag.embed_abrir": "Abrir",
+ "diag.embed_editar_aqui": "Editar aquí",
+ "diag.embed_listo": "Listo"
 }

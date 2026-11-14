@@ -70,3 +70,8 @@
 html.is-phone .diag-board { height: 60vh; }
 html.is-phone .diag-handle { display: none; }
 html.is-phone .diag-board .diag-node { cursor: default; }
+
+/* Embed ![[nota de diagrama]] dentro de otra nota */
+.diag-embed { margin: 12px 0; }
+.diag-embed-bar { gap: 8px; align-items: center; }
+.diag-embed-bar .btn { min-height: 44px; min-width: 44px; }

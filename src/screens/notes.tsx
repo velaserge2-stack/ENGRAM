@@ -9,6 +9,7 @@ import { addDays, dayKey } from '../lib/days';
 import { type Frontmatter, parseFrontmatter, setKeys } from '../lib/frontmatter';
 import { renderMarkdown, renderMarkdownCached } from '../md/render';
 import { memo } from 'preact/compat';
+import { type DiagramEmbed, embedName, resolveDiagramEmbed } from '../diagrams/embed';
 import { compatibleMarkdown, htmlToMarkdown, markdownToDocx } from '../notes/io';
 import { saveImage } from '../notes/images';
 import { ImageBar } from '../notes/imagebar';
@@ -34,7 +35,7 @@ import { Graph } from './graph';
 import { APP_VERSION } from './backup';
 import { LinkedEvents } from '../ui/links';
 import { modalOpen, Popover } from '../ui/overlay';
-import { FindBar, pendingFind } from '../notes/find';
+import { DIAGRAM_READY, FindBar, pendingFind } from '../notes/find';
 import { notesIndex } from '../notes/search-client';
 import { noteStore, onNoteSaved } from '../notes/store';
 import { createDrawing, DRAW_RE, DrawingBlock } from '../ink/DrawingBlock';
@@ -501,7 +502,7 @@ function DiagramSlot(p: { kind: DiagramKind; src: string; onText?: (body: string
     let alive = true;
     el.dataset.kind = p.kind;
     el.dataset.src = p.src;
-    void import('../diagrams/mount').then((m) => { if (alive) { off = m.mountDiagrams(el); setReady(true); } }).catch(() => {});
+    void import('../diagrams/mount').then((m) => { if (alive) { off = m.mountDiagrams(el); setReady(true); dispatchEvent(new Event(DIAGRAM_READY)); } }).catch(() => {});
     return () => { alive = false; off(); setReady(false); };
   }, [p.kind, p.src, edit]);
   if (Ed && p.onText) return <Ed kind={p.kind} src={p.src} onText={p.onText} />;
@@ -512,11 +513,44 @@ function DiagramSlot(p: { kind: DiagramKind; src: string; onText?: (body: string
   );
 }
 
-const ViewBlock = memo(function ViewBlock(p: { html: string; i: number; onEdit: (i: number, img?: Element) => void; diagram?: { kind: DiagramKind; src: string } | null }) {
+/** `![[Mi mapa]]` solo en su bloque: vista de solo lectura del diagrama, «Abrir» y «Editar aquí»; si falta, el chip de siempre. */
+function DiagramEmbedBlock(p: { e: Extract<NonNullable<DiagramEmbed>, { state: 'diagram' }> }) {
+  const app = useApp();
+  const [editing, setEditing] = useState(false);
+  const [live, setLive] = useState<string | null>(null);
+  // «Editar aquí»: el mismo documento de NoteStore que la pestaña; el cuerpo sustituye al de la nota embebida
+  const edit = async () => {
+    const full = await noteStore.load(app.vault, p.e.path);
+    setLive(parseFrontmatter(full).body);
+    setEditing(true);
+  };
+  const onText = (body: string) => {
+    const full = noteStore.peek(p.e.path) ?? '';
+    noteStore.set(app.vault, p.e.path, full.slice(0, full.length - parseFrontmatter(full).body.length) + body);
+    setLive(body);
+  };
+  return (
+    <div class="diag-embed" data-diagram-embed={p.e.title}>
+      <div class="row diag-embed-bar">
+        <span class="foot grow">{p.e.title}</span>
+        <button type="button" class="btn small" onClick={() => go('notas', ...p.e.path.split('/').slice(1))}>{tr('diag.embed_abrir')}</button>
+        <button type="button" class="btn small" aria-pressed={editing} onClick={() => (editing ? setEditing(false) : void edit())}>{editing ? tr('diag.embed_listo') : tr('diag.embed_editar_aqui')}</button>
+      </div>
+      <DiagramSlot kind={p.e.kind} src={editing && live !== null ? live : p.e.src} {...(editing ? { onText } : {})} />
+    </div>
+  );
+}
+
+function blockEmbed(b: string, data: NotesData): DiagramEmbed {
+  const name = data ? embedName(b) : null;
+  return name && data ? resolveDiagramEmbed(name, data.notes, data.texts) : null;
+}
+
+const ViewBlock = memo(function ViewBlock(p: { html: string; i: number; onEdit: (i: number, img?: Element) => void; diagram?: { kind: DiagramKind; src: string } | null; embed?: DiagramEmbed }) {
   // tocar (o Intro sobre) una imagen la selecciona para su barra (Notas-Pro · A4); el resto abre el bloque
   return (
     <div class="doc-block" data-block={p.i} role="button" tabIndex={0} onClick={(e) => { const im = (e.target as HTMLElement).closest('img[data-media]'); if (im) return p.onEdit(p.i, im); if ((e.target as HTMLElement).closest('a, summary, audio, input')) return; p.onEdit(p.i); }} onKeyDown={(e) => { if (e.key !== 'Enter') return; const im = (e.target as HTMLElement).closest('img[data-media]'); if (im) e.preventDefault(); p.onEdit(p.i, im ?? undefined); }} style={{ cursor: 'text', borderRadius: '10px' }} aria-label={tr('notes.editar_bloque')}>
-      {p.diagram ? <DiagramSlot kind={p.diagram.kind} src={p.diagram.src} /> : <Html html={p.html} />}
+      {p.embed?.state === 'diagram' ? <DiagramEmbedBlock e={p.embed} /> : p.embed?.state === 'missing' ? <span class="chip">{tr('md.falta_media', { media: p.embed.name })}</span> : p.diagram ? <DiagramSlot kind={p.diagram.kind} src={p.diagram.src} /> : <Html html={p.html} />}
     </div>
   );
 });
@@ -892,7 +926,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
               ) : DRAW_RE.test(b.trim()) ? (
                 <DrawingBlock key={`d${i}`} id={DRAW_RE.exec(b.trim())![1]!} />
               ) : (
-                <ViewBlock key={i} i={i} onEdit={onEditBlock} html={renderMarkdownCached(expandBlock(b, props.data, app.col))} diagram={diagramFence(b)} />
+                <ViewBlock key={i} i={i} onEdit={onEditBlock} html={renderMarkdownCached(expandBlock(b, props.data, app.col))} diagram={diagramFence(b)} embed={blockEmbed(b, props.data)} />
               )))}
               <button type="button" class="btn ghost" style={{ justifySelf: 'start' }} onClick={() => setEditing(blocks.length)}>{tr('notes.escribe_o_usa_para_insertar')}</button>
             </div>

@@ -1947,5 +1947,8 @@
  "zip.mas_de_maxfiles_archivos_se_ignoro": "Plus de {maxFiles} fichiers : le reste a été ignoré",
  "zip.name_compresion_sospechosa_omitido": "{name} : compression suspecte, ignoré",
  "zip.name_demasiado_profundo_omitido": "{name} : trop profond, ignoré",
- "zip.name_ruta_no_permitida_omitido": "{name} : chemin non autorisé, ignoré"
+ "zip.name_ruta_no_permitida_omitido": "{name} : chemin non autorisé, ignoré",
+ "diag.embed_abrir": "Ouvrir",
+ "diag.embed_editar_aqui": "Modifier ici",
+ "diag.embed_listo": "Terminé"
 }

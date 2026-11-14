@@ -6,6 +6,9 @@ import { findHits } from './search';
 /** Petición de abrir una nota en una coincidencia (desde los resultados del buscador). */
 export const pendingFind: { path: string | null; q: string } = { path: null, q: '' };
 
+/** Un diagrama terminó de montarse (carga perezosa): «Buscar en esta nota» vuelve a recorrer el texto, nodos incluidos. */
+export const DIAGRAM_READY = 'engrama:diagram-ready';
+
 type HL = { set(name: string, h: unknown): void; delete(name: string): void };
 const highlights = (): HL | null => (typeof CSS !== 'undefined' && 'highlights' in CSS && typeof (globalThis as { Highlight?: unknown }).Highlight === 'function' ? (CSS as unknown as { highlights: HL }).highlights : null);
 const Highlight = (globalThis as unknown as { Highlight?: new (...r: Range[]) => unknown }).Highlight;
@@ -67,6 +70,8 @@ export function FindBar(props: { root: () => HTMLElement | null; initial: string
   const [i, setI] = useState(0);
   const [n, setN] = useState(0);
   const input = useRef<HTMLInputElement>(null);
+  const [mounted, setMounted] = useState(0);
+  useEffect(() => { const f = () => setMounted((x) => x + 1); addEventListener(DIAGRAM_READY, f); return () => removeEventListener(DIAGRAM_READY, f); }, []);
   useEffect(() => { if (!props.initial) input.current?.focus(); }, []);
   useEffect(() => {
     const root = props.root();
@@ -85,7 +90,7 @@ export function FindBar(props: { root: () => HTMLElement | null; initial: string
     }
     const el = cur?.startContainer.parentElement;
     if (el) reveal(el);
-  }, [q, i, props.dep]);
+  }, [q, i, props.dep, mounted]);
   useEffect(() => () => { highlights()?.delete('engrama-find'); highlights()?.delete('engrama-find-cur'); }, []);
   const go = (d: number) => setI((x) => (n ? (((x + d) % n) + n) % n : 0));
   return (
