@@ -119,3 +119,6 @@ Orden: A y B en paralelo → C → D → E. Nadie edita tipos de `types.ts` sin 
 3. **Color por nodo diferido**: `{c=n}` no entra en esta ola; la gramática lo reserva pero el parser lo trata como línea desconocida hasta una ola posterior.
 4. **Tope de 300 nodos**: por encima se abre la nota solo como texto; el lienzo muestra un aviso y la edición visual queda desactivada. Nunca se rechaza la apertura ni se pierde contenido.
 5. **Sufijos solo al final de línea**: `{plegado}`, `{x=…,y=…}` y `{recta|curva|orto}` se reconocen únicamente tras el cierre del nodo o de la flecha, con esas claves exactas. Un texto de decisión `{…}` sin sufijo no se confunde con uno.
+
+## Cambio de contrato registrado (ola 4)
+- El tipo `Edit` del contrato §2 se sustituyó por el conjunto de la ola 4: `addChild`, `addSibling`, `rename`, `remove`, `connect`, `disconnect`, `move`, `fold`, `reparent`, `style`, `label` y el inverso interno `splice`. Motivo: las operaciones del editor (hijo, hermano, conectar, mover, plegar) son estas; `splice` existe para que deshacer sea exacto en texto.
