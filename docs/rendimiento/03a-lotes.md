@@ -146,3 +146,6 @@ Plan (qué va directo y qué por temporal, cada nuevo = 1 operación tras el dia
 | `importar-zip-boveda` L (1 corrida, la siembra) | 20 276 ms | 11 284 ms | **−44 %** |
 
 Las 5 corridas «después» quedan por debajo de las 5 «antes»; un diario por operación en todas; pico de memoria igual o menor. Se conserva.
+
+### Corrección tras la revisión del coordinador (escritura a medias en OPFS)
+En OPFS, `create` escribe con el *sync access handle* (vacía y escribe por trozos): un corte a mitad dejaba un archivo **parcial** en un destino nuevo, y la recuperación lo conservaba como «contenido de fuera» (no era todo o nada). Las pruebas no lo veían porque el backend en memoria escribe de una vez. Ahora, en OPFS, al revertir se borra también lo que haya en un destino nuevo con tamaño ≤ el nuestro: allí nadie más escribe y otra pestaña recupera el diario antes de escribir nada, así que solo puede ser nuestra escritura a medias. En una carpeta del usuario (`createWritable`, atómica; otra app sí puede crear el archivo) se mantiene la regla prudente. Prueba nueva: «escritura a medias de un archivo nuevo (OPFS)» en `tests/batch.test.ts`.

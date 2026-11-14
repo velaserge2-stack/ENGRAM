@@ -485,3 +485,35 @@ describe('SafeVault.batch: archivos nuevos sin renombrar (diario v4)', () => {
     }
   });
 });
+
+describe('SafeVault.batch v4: escritura a medias de un archivo nuevo (OPFS)', () => {
+  /** Como OPFS: `create` escribe con el sync access handle (vacía y escribe por trozos): un corte deja un parcial. */
+  class HalfOPFS extends MemoryBackend {
+    die = false;
+    constructor() {
+      super();
+      Object.defineProperty(this, 'kind', { value: 'opfs' }); // la regla de recuperación mira el tipo de backend
+    }
+    override async create(p: string, d: Uint8Array) {
+      if (await this.exists(p)) return false;
+      if (this.die) { await super.write(p, d.slice(0, Math.max(1, d.length >> 1))); throw new Error('muerte a mitad de escribir'); }
+      await super.write(p, d);
+      return true;
+    }
+  }
+  it('al reabrir se revierte entero: el parcial no queda en la bóveda', async () => {
+    const m = new HalfOPFS();
+    await m.write('notes/vieja.md', 'vieja');
+    const before = await snapshot(m);
+    m.die = true;
+    await new SafeVault(m).batch(async (tx) => {
+      await tx.write('notes/a.md', 'contenido largo de la nota a');
+      await tx.write('notes/b.md', 'contenido largo de la nota b');
+      await tx.write('notes/vieja.md', 'vieja editada');
+    }).catch(() => {});
+    m.die = false;
+    await new SafeVault(m).recover();
+    expect(await snapshot(m)).toEqual(before);
+    expect(await m.exists(JOURNAL_PATH)).toBe(false);
+  });
+});

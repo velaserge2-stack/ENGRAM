@@ -389,16 +389,21 @@ export class SafeVault implements VaultAdapter {
   }
 
   /**
-   * Revertir los destinos nuevos de un lote no confirmado. Se borra un destino listado solo si es el
-   * nuestro (misma suma) o quedó vacío (se creó y no llegó a escribirse); cualquier otro contenido llegó
-   * de fuera y se conserva. Las carpetas nuevas se quitan solo si quedaron sin archivos.
+   * Revertir los destinos nuevos de un lote no confirmado. Se borra un destino listado si es el nuestro
+   * (misma suma), si quedó vacío o, en OPFS, si es nuestra escritura a medias (ver abajo); otro contenido
+   * llegó de fuera y se conserva. Las carpetas nuevas se quitan solo si quedaron sin archivos.
    */
   private async undoFresh(j: BatchJournal) {
     const { fresh, dirs } = freshOf(j);
     for (const f of fresh) {
       const st = await this.raw.stat(f.path);
       if (st?.kind !== 'file') continue;
-      if (st.size === 0 || (st.size === f.size && (await this.sum(f.path)).hash === f.hash)) await this.raw.remove(f.path);
+      // En OPFS (privado) nadie más escribe y otra pestaña recupera este diario antes de escribir nada: lo que
+      // hay en un destino nuevo con tamaño ≤ el nuestro es NUESTRA escritura a medias (el sync access handle
+      // vacía y escribe por trozos) y se borra. En una carpeta del usuario la escritura es atómica
+      // (`createWritable`) y otra app sí puede crear el archivo: solo se borra lo nuestro o lo vacío.
+      const partial = this.raw.kind === 'opfs' && st.size <= f.size;
+      if (st.size === 0 || partial || (st.size === f.size && (await this.sum(f.path)).hash === f.hash)) await this.raw.remove(f.path);
     }
     for (const d of [...dirs].sort((a, b) => b.split('/').length - a.split('/').length)) if (!(await walk(this.raw, d)).length) await this.raw.remove(d);
   }
