@@ -39,3 +39,4 @@ Rama `rendimiento-2` desde `main` 974174a con el WIP `04d6abe` (cherry-pick). **
 | F6 · `app.changed('notes')` | difícil | opus (en línea) | ~40k | «Marcar» 2 406 → 85 operaciones al Worker; todas las vistas escuchan los dos contadores (`06-interfaz.md`) |
 | F6 · caché de textos en vínculos, calendario y mover | media | opus (en línea) | ~30k | Calendario 4 170 → 170 operaciones; mover 100 notas L 6.6 → 2.6 s |
 | F6 · trampa de medición (SW y `vite preview --outDir`) | media | opus (en línea) | ~25k | Las dos primeras corridas de la fase 6 midieron la misma app; corregido en la traza propia |
+| F7 · memoria y ciclo de vida | media | opus (en línea) | ~15k | Auditoría sin cambios de código: sin fugas de `blob:`, cachés acotadas; respaldo −45 % de memoria (fase 3) (`07-memoria.md`) |
