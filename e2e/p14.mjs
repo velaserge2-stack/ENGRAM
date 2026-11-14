@@ -162,6 +162,7 @@ try {
     console.log('Nota larga: buscar, imprimir, exportar, pestaña + panel y guardado');
     await page.goto(URL_ + '#/notas/P14/Larga.md');
     await page.locator('.doc .doc-chunk').first().waitFor();
+    await page.waitForFunction(() => document.querySelector('.doc .doc-chunk:nth-child(6) [aria-label="Editar bloque"]'), null, { timeout: 8000 }); // el pintado en reposo completa los tramos
     const nb = await page.locator('.doc [aria-label="Editar bloque"]').count(), nc = await page.locator('.doc .doc-chunk').count();
     check(nc === Math.ceil(nb / 40), `${nb} bloques en ${nc} tramos de 40 con content-visibility`);
     await page.waitForTimeout(500);
@@ -201,6 +202,7 @@ try {
     // la misma nota en un panel del lienzo ve el cambio
     await page.goto(URL_ + '#/espacios/abrir/' + encodeURIComponent('notes/P14/Larga.md'));
     await page.locator('.win .doc').first().waitFor();
+    await page.locator('.win .doc').first().getByText('añadido').waitFor({ timeout: 8000 }).catch(() => {}); // el panel pinta el resto en reposo
     check(await page.locator('.win .doc').first().getByText('añadido').count() === 1, 'pestaña y panel comparten el documento (el panel ve lo escrito)');
     await page.waitForTimeout(1200);
     await page.reload();

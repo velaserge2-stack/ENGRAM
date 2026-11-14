@@ -3,7 +3,6 @@
 Fases 0–2 en `main` (PR #27); fase 3 en `main` (PR #28); fases 4–9 en la rama `rendimiento-2`. Resultado final: `resultado.md`. Informes: `03a-lotes.md`, `04-fsrs.md`, `05-busqueda.md`, `06-interfaz.md`, `07-memoria.md`.
 
 ## Lo que queda (no hecho, con su motivo)
-- **Abrir una nota de 5 MB por tramos** (~4 s): hay que forzar el pintado completo al buscar en la nota, imprimir y editar un bloque aún sin pintar; ver `05-busqueda.md`.
 - **Restaurar e importar sin renombrar los archivos nuevos** (escribirlos directo con un diario que los borra si no se confirmó): ~1/3 menos de operaciones, pero cambia la recuperación.
 - **Crear el respaldo con una lectura en lote dentro del Worker** (`readMany`) y **descomprimir el zip por entradas** (`Unzip` de fflate) para bajar el pico al importar.
 - **`e2e/rendimiento-perfil.mjs`**: `vite preview` ignora `--outDir` y el perfil copiado trae el service worker de la semilla; arreglarlo antes de volver a usarlo (ver `06-interfaz.md`).
@@ -32,7 +31,7 @@ Hecha y medida: ver `03a-lotes.md`. **En pausa obligatoria** hasta la prueba en 
 Hecha y medida: ver `04-fsrs.md`. Falta del objetivo: p95 de estudio ≤ 100 ms (queda ~200 ms de interfaz → fase 6).
 
 ## Fase 5 (rama `rendimiento-2`)
-Hecha y medida: ver `05-busqueda.md`. Queda: abrir la nota de 5 MB por tramos (forzando el pintado completo al buscar, imprimir y editar).
+Hecha y medida: ver `05-busqueda.md` (incluye abrir la nota de 5 MB por tramos).
 
 ## Fase 6 (rama `rendimiento-2`)
 Hecha y medida: ver `06-interfaz.md`. Queda: estudio p95 ≤ 100 ms (~200 ms de interfaz).

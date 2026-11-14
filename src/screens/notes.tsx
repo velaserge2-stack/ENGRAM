@@ -496,7 +496,10 @@ const ViewBlock = memo(function ViewBlock(p: { html: string; i: number; onEdit: 
 const CHUNK = 40;
 /** Aviso suave de nota gigante (> ~1.5 MB o > 5 000 bloques). */
 const BIG_CHARS = 1_500_000, BIG_BLOCKS = 5000;
-const chunks = (items: preact.JSX.Element[]) => Array.from({ length: Math.ceil(items.length / CHUNK) }, (_, k) => <div key={`c${k}`} class="doc-chunk">{items.slice(k * CHUNK, (k + 1) * CHUNK)}</div>);
+/** Solo los primeros `painted` tramos se renderizan; el resto queda vacío (altura de `content-visibility`). */
+const chunks = (items: string[], painted: number, one: (b: string, i: number) => preact.JSX.Element) => Array.from({ length: Math.ceil(items.length / CHUNK) }, (_, k) => <div key={`c${k}`} class="doc-chunk">{k < painted ? items.slice(k * CHUNK, (k + 1) * CHUNK).map((b, j) => one(b, k * CHUNK + j)) : null}</div>);
+/** Evento que pide pintar la nota entera (imprimir lee el DOM completo). */
+const PAINT_ALL = 'engrama:paintall';
 
 /** Bloques del cuerpo (párrafos), respetando bloques de código. */
 function splitBlocks(body: string): string[] {
@@ -548,6 +551,10 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
   const saver = { flush: () => noteStore.flush(props.path) };
   const [find, setFind] = useState<string | null>(() => (pendingFind.path === props.path ? ((pendingFind.path = null), pendingFind.q) : null));
   const docRef = useRef<HTMLElement>(null);
+  // notas largas: al abrir solo 2 tramos; el resto se pinta en reposo (un tramo por hueco libre)
+  const [painted, setPainted] = useState(2);
+  useEffect(() => { setPainted(2); }, [props.path]);
+  useEffect(() => { const f = () => setPainted(1e9); addEventListener(PAINT_ALL, f); return () => removeEventListener(PAINT_ALL, f); }, []);
   // Notas-Pro · A4: imagen seleccionada (bloque y n-ésima imagen del bloque) y deshacer de la barra
   const [imgSel, setImgSelRaw] = useState<{ block: number; n: number; at: number } | null>(null);
   // `at`: una selección recién hecha espera a que el texto nuevo llegue de NoteStore (no se descarta al instante)
@@ -642,6 +649,14 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
     set(setKeys(text, patch));
   };
   const blocks = splitBlocks(doc.body);
+  const nChunks = Math.ceil(blocks.length / CHUNK);
+  useEffect(() => {
+    if (blocks.length <= 2 * CHUNK || painted >= nChunks) return;
+    const next = () => setPainted((n) => n + 1);
+    const ric = (window as { requestIdleCallback?: (f: () => void) => number }).requestIdleCallback;
+    const id = ric ? ric(next) : setTimeout(next, 16);
+    return () => (ric ? (window as { cancelIdleCallback?: (n: number) => void }).cancelIdleCallback?.(id as number) : clearTimeout(id));
+  }, [painted, nChunks, blocks.length > 2 * CHUNK]);
   /** Cambio desde la barra de imagen: una sola escritura, deshacible con ⌘Z. */
   const setBlocks = (next: string[]) => setBody(next.join('\n\n'));
   const imgEmbed = imgSel ? nthImageEmbed(blocks[imgSel.block] ?? '', imgSel.n) : null;
@@ -829,7 +844,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
           ) : (
             <div class={`stack-s${blocks.length > 2 * CHUNK ? ' doc-cv' : ''}`}>
               {/* «＋ Escribe…» abre un bloque vacío al final (en la misma lista, para no perder el foco) */}
-              {chunks((editing === blocks.length ? [...blocks, ''] : blocks).map((b, i) => (editing === i ? (
+              {chunks(editing === blocks.length ? [...blocks, ''] : blocks, blocks.length <= 2 * CHUNK || find !== null || (editing !== null && Math.floor(editing / CHUNK) >= painted) ? 1e9 : painted, (b, i) => (editing === i ? (
                 <BlockInput key={i} onMount={() => (lastBlock.current = i)} caretEnd={caretEnd} value={b} notes={props.data?.notes ?? []} onChange={(v) => setBody([...blocks.slice(0, i), v, ...blocks.slice(i + 1)].join('\n\n'), 'type')}
                   onDone={() => setEditing(null)} onSplit={(a, rest) => { setBody([...blocks.slice(0, i), a, rest, ...blocks.slice(i + 1)].join('\n\n')); setEditing(i + 1); }}
                   onCard={(sel, kind) => { setCardSeed({ text: sel, kind, para: i }); setSheet('card'); }}
@@ -840,7 +855,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
                 <DrawingBlock key={`d${i}`} id={DRAW_RE.exec(b.trim())![1]!} />
               ) : (
                 <ViewBlock key={i} i={i} onEdit={onEditBlock} html={renderMarkdownCached(expandBlock(b, props.data, app.col))} />
-              ))))}
+              )))}
               <button type="button" class="btn ghost" style={{ justifySelf: 'start' }} onClick={() => setEditing(blocks.length)}>{tr('notes.escribe_o_usa_para_insertar')}</button>
             </div>
           )}
@@ -1085,7 +1100,7 @@ function markPrint(el: HTMLElement | null) {
   document.documentElement.classList.add('printing-note');
 }
 if (typeof window !== 'undefined') {
-  addEventListener('beforeprint', () => { if (!document.querySelector('.print-target')) markPrint(document.querySelector<HTMLElement>('article.doc')); });
+  addEventListener('beforeprint', () => { dispatchEvent(new Event(PAINT_ALL)); if (!document.querySelector('.print-target')) markPrint(document.querySelector<HTMLElement>('article.doc')); });
   addEventListener('afterprint', () => { document.documentElement.classList.remove('printing-note'); document.querySelectorAll('.print-target').forEach((x) => x.classList.remove('print-target')); });
 }
 
@@ -1126,6 +1141,8 @@ function ShareNote(p: { path: string; title: string; text: string; doc: () => HT
           <button type="button" class="btn" disabled={busy} onClick={async () => {
             // A2: imprimir con los originales (de uno en uno), no con las miniaturas
             setBusy(true);
+            dispatchEvent(new Event(PAINT_ALL)); // imprimir lee la nota entera: pintar todos los tramos
+            await new Promise((r) => setTimeout(r, 50));
             await hydrateAllMedia(); // Prompt 14: también las que aún no se habían cargado
             const target = p.doc();
             const root = target ?? document.querySelector('.doc') ?? document;
