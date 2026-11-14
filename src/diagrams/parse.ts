@@ -22,7 +22,7 @@ const ESCAPABLE = '])}>/\\';
 interface Suffix { x?: number; y?: number; folded?: boolean; route?: DiagramEdge['route'] }
 
 // Sufijos solo al final de la línea, con estas claves exactas (decisión 5).
-function stripSuffixes(s: string): { rest: string; suf: Suffix } {
+export function stripSuffixes(s: string): { rest: string; suf: Suffix } {
   const suf: Suffix = {};
   for (;;) {
     let m = /\s*\{(recta|curva|orto)\}$/.exec(s);
@@ -35,9 +35,9 @@ function stripSuffixes(s: string): { rest: string; suf: Suffix } {
   }
 }
 
-interface Tok { shape: Shape; text: string; end: number }
+export interface Tok { shape: Shape; text: string; end: number }
 
-function readNode(s: string, i: number): Tok | null {
+export function readNode(s: string, i: number): Tok | null {
   for (const f of FORMS) {
     if (!s.startsWith(f.open, i)) continue;
     let text = '';
@@ -58,9 +58,9 @@ function readNode(s: string, i: number): Tok | null {
   return null;
 }
 
-interface Arrow { arrow: DiagramEdge['arrow']; label?: string; end: number }
+export interface Arrow { arrow: DiagramEdge['arrow']; label?: string; end: number }
 
-function readArrow(s: string, i: number, kind: DiagramKind): Arrow | null {
+export function readArrow(s: string, i: number, kind: DiagramKind): Arrow | null {
   const r = s.slice(i);
   if (r.startsWith('-->')) return { arrow: 'to', end: i + 3 };
   if (kind === 'diagrama' && r.startsWith('<-->')) return { arrow: 'both', end: i + 4 };
@@ -72,7 +72,7 @@ function readArrow(s: string, i: number, kind: DiagramKind): Arrow | null {
   return null;
 }
 
-const skipWs = (s: string, i: number) => { while (i < s.length && /\s/.test(s[i]!)) i++; return i; };
+export const skipWs = (s: string, i: number) => { while (i < s.length && /\s/.test(s[i]!)) i++; return i; };
 
 interface Flow { toks: Tok[]; arrows: Arrow[] }
 

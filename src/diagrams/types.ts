@@ -55,19 +55,22 @@ export interface ParseResult {
 export const MAX_NODES = 300;
 export const MAX_LINE = 1000;
 
+export type Route = NonNullable<DiagramEdge['route']>;
+
+// Ediciones puras e invertibles (applyEdit). `splice` es el inverso interno: reemplaza líneas del texto.
 export type Edit =
-  | { op: 'addNode'; shape?: Shape; text: string; parent?: string; x?: number; y?: number }
+  | { op: 'addChild'; parent: string; shape?: Shape; text: string }
+  | { op: 'addSibling'; id: string; shape?: Shape; text: string }
   | { op: 'rename'; id: string; text: string }
-  | { op: 'remove'; ids: string[] }
+  | { op: 'remove'; id: string }
+  | { op: 'connect'; from: string; to: string; route?: Route; arrow?: DiagramEdge['arrow'] }
+  | { op: 'disconnect'; id: string }
   | { op: 'move'; id: string; x: number; y: number }
-  | { op: 'moveMany'; items: { id: string; x: number; y: number }[] }
-  | { op: 'reparent'; id: string; parent: string }
   | { op: 'fold'; id: string; folded: boolean }
-  | { op: 'addEdge'; from: string; to: string; label?: string; arrow?: DiagramEdge['arrow'] }
-  | { op: 'editEdge'; id: string; label?: string; arrow?: DiagramEdge['arrow']; route?: DiagramEdge['route'] }
-  | { op: 'removeEdge'; id: string }
-  | { op: 'setColor'; ids: string[]; color?: DiagramNode['color'] }
-  | { op: 'clearPositions' };
+  | { op: 'reparent'; id: string; parent: string }
+  | { op: 'style'; id: string; route: Route }
+  | { op: 'label'; id: string; label: string }
+  | { op: 'splice'; at: number; remove: number; insert: string[] };
 
 export interface Applied {
   doc: DiagramDoc;
