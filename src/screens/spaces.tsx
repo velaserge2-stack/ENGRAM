@@ -90,7 +90,7 @@ async function loadSpaces(vault: ReturnType<typeof useApp>['vault']): Promise<Sp
 
 export function Spaces(props: { route: string[] }) {
   const app = useApp();
-  const { data: spaces } = useAsync(() => loadSpaces(app.vault), [app.version]);
+  const { data: spaces } = useAsync(() => loadSpaces(app.vault), [app.version, app.notesVersion]);
   const [creating, setCreating] = useState(false);
   const [sp, setSp] = useState<Space | null>(null);
   const isPhone = usePhone();
@@ -259,7 +259,7 @@ function restoreAll(sp: Space, save: (s: Space) => void) {
 /** Lee el simulacro en curso (para el cuadrito: tiempo restante). */
 function useSimLeft(active: boolean): string | null {
   const app = useApp();
-  const { data: cur } = useAsync(async () => (active ? (JSON.parse((await readTextOr(app.vault, SIM_CURRENT, 'null')) || 'null') as { endAt: number | null; finishedAt?: number } | null) : null), [app.version, active]);
+  const { data: cur } = useAsync(async () => (active ? (JSON.parse((await readTextOr(app.vault, SIM_CURRENT, 'null')) || 'null') as { endAt: number | null; finishedAt?: number } | null) : null), [app.version, app.notesVersion, active]);
   const [now, setNow] = useState(Date.now());
   const running = !!cur?.endAt && !cur.finishedAt && cur.endAt > now;
   useEffect(() => {
@@ -702,7 +702,7 @@ const Window = memo(function Window(p: { panel: Panel; api: WinApi; free?: boole
 
 function FilePicker(p: { exts: string[]; dir: string; onPick: (path: string) => void; label: string }) {
   const app = useApp();
-  const { data } = useAsync(async () => (await walk(app.vault, '')).filter((f) => p.exts.includes(extname(f.path)) && !f.path.startsWith('.app/') && !f.path.startsWith('inbox/')).map((f) => f.path), [app.version]);
+  const { data } = useAsync(async () => (await walk(app.vault, '')).filter((f) => p.exts.includes(extname(f.path)) && !f.path.startsWith('.app/') && !f.path.startsWith('inbox/')).map((f) => f.path), [app.version, app.notesVersion]);
   return (
     <div class="stack-s" style={{ padding: '14px' }}>
       <label class="btn" style={{ justifySelf: 'start' }}><Plus size={16} /> {p.label}<input type="file" hidden accept={p.exts.map((e) => '.' + e).join(',')} onChange={async (e) => {
@@ -751,7 +751,7 @@ function PanelBody(p: { panel: Panel; onArg: (a: string) => void }) {
 /** Elegir una nota existente (con buscador) o crear una nueva de verdad en la bóveda (E14). */
 function NotePick(p: { onPick: (a: string) => void; creating?: boolean }) {
   const app = useApp();
-  const { data } = useAsync(() => listNotes(app.vault), [app.version]);
+  const { data } = useAsync(() => listNotes(app.vault), [app.version, app.notesVersion]);
   const [q, setQ] = useState('');
   const [creating, setCreating] = useState(!!p.creating);
   const f = q.trim().toLowerCase();

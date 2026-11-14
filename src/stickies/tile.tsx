@@ -39,7 +39,7 @@ export function StickiesTile() {
       if (alive) setItems(out);
     }, () => alive && setItems([]));
     return () => void (alive = false);
-  }, [app.version]);
+  }, [app.version, app.notesVersion]);
 
   const all = sortStickies(items ?? []);
   const live = all.filter((s) => !s.archived);
@@ -64,7 +64,7 @@ export function StickiesTile() {
     const stored = await trash(app.vault, s.path);
     await noteStore.forget(s.path);
     setItems((xs) => (xs ?? []).filter((x) => x.path !== s.path));
-    app.toast(t('stickies.eliminada'), { label: t('stickies.deshacer'), run: () => void restore(app.vault, stored, s.path).then(() => app.changed()) });
+    app.toast(t('stickies.eliminada'), { label: t('stickies.deshacer'), run: () => void restore(app.vault, stored, s.path).then(() => app.changed('notes')) });
   };
   const toNote = async (s: Sticky) => {
     await noteStore.flush(s.path);
@@ -74,7 +74,7 @@ export function StickiesTile() {
     await app.vault.move(s.path, target);
     await app.vault.write(target, asNote(s));
     await noteStore.forget(s.path);
-    app.changed();
+    app.changed('notes'); // sticky → nota: solo notes/
     app.toast(t('stickies.convertida'), { label: t('stickies.abrir'), run: () => (location.hash = `#/notas/${encodeURI(target.slice(6))}`) });
   };
   const open = (s: Sticky) => (location.hash = `#/notas/${encodeURI(s.path.slice(6))}`);

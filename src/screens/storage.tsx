@@ -31,7 +31,7 @@ export function StorageSheet(props: { onClose: () => void }) {
     const docs = await Promise.all(all.filter((f) => CITES(f.path)).map(async (f) => ({ path: f.path, text: await readTextOr(app.vault, f.path, '') })));
     const files = all.filter((f) => DELETABLE(f.path));
     return { all, files, uses: countUses(files.map((f) => f.path), docs) };
-  }, [tick, app.version]);
+  }, [tick, app.version, app.notesVersion]);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<'size' | 'name'>('size');
   const byKind = useMemo(() => {

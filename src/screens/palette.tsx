@@ -31,7 +31,7 @@ export function Palette(props: { mode: string | null; onClose: () => void }) {
     const ms = new MiniSearch({ fields: ['title', 'body'], storeFields: ['title'], searchOptions: { prefix: true, fuzzy: 0.2, boost: { title: 3 }, processTerm: (t) => normalizeAnswer(t) }, processTerm: (t) => normalizeAnswer(t) || null });
     ms.addAll(docs);
     return { ms, docs };
-  }, [app.version]);
+  }, [app.version, app.notesVersion]);
   const close = (fn: () => void) => () => (props.onClose(), fn());
   const commands: Item[] = [
     { id: 'c-study', kind: tr('palette.k_cmd'), title: tr('decks.estudiar_todo'), run: close(() => go('estudiar')) },

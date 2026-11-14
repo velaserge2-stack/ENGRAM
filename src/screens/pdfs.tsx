@@ -98,7 +98,7 @@ function Thumb(p: { path: string; size: number }) {
 
 function Library() {
   const app = useApp();
-  const { data } = useAsync(() => listPdfs(app.vault), [app.version]);
+  const { data } = useAsync(() => listPdfs(app.vault), [app.version, app.notesVersion]);
   const [q, setQ] = useState('');
   const [folder, setFolder] = useState('');
   const [tag, setTag] = useState('');

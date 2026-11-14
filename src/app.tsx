@@ -47,6 +47,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const { vault } = props.opened;
   const [settings, setSettings] = useState(props.initialSettings);
   const [version, setVersion] = useState(0);
+  const [notesVersion, setNotesVersion] = useState(0);
   const [tick, setTick] = useState(0);
   const [col, setCol] = useState<Collection | null>(null);
   const [integrity, setIntegrity] = useState<IntegrityReport | null>(null);
@@ -203,7 +204,8 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       void saver.flush();
     },
     version,
-    changed: () => setVersion((v) => v + 1),
+    notesVersion,
+    changed: (scope) => (scope === 'notes' ? setNotesVersion((v) => v + 1) : setVersion((v) => v + 1)),
     tick,
     refresh: () => setTick((t) => t + 1),
     col,

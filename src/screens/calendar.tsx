@@ -57,9 +57,9 @@ export function Calendar() {
   const [ask, setAsk] = useState<{ op: 'edit' | 'delete'; uid: string; date: string; next?: StudyBlock } | null>(null);
   const [plan, setPlan] = useState<StudyBlock[] | null>(null);
   const [showLayers, setShowLayers] = useState(false);
-  const { data } = useAsync(() => loadBlocks(app.vault), [app.version]);
+  const { data } = useAsync(() => loadBlocks(app.vault), [app.version, app.notesVersion]);
   const { data: ex } = useExtra();
-  const { data: attempts } = useAsync(() => loadAttempts(app.vault), [app.version]);
+  const { data: attempts } = useAsync(() => loadAttempts(app.vault), [app.version, app.notesVersion]);
   const fc = useMemo(() => (col ? new Map(forecast(col, Date.now(), s.timeZone, s.dayStartHour, 120).map((x) => [x.day, x.n])) : new Map<string, number>()), [col]);
   const act = activity(col?.log ?? [], ex?.extra ?? { pomodoro: [], exams: [] }, s.timeZone, s.dayStartHour);
   const avg = avgDaily(act, today);
