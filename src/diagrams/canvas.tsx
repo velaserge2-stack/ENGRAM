@@ -301,6 +301,7 @@ export function DiagramCanvas({ text, kind, onEdit, onSelect, phone }: DiagramCa
   });
 
   const paths: JSX.Element[] = [];
+  const labels: JSX.Element[] = [];
   if (isMap) {
     for (const [id, d] of layout.paths) paths.push(<path key={id} data-path={id} class="diag-edge diag-w2" d={d} />);
   } else {
@@ -310,6 +311,11 @@ export function DiagramCanvas({ text, kind, onEdit, onSelect, phone }: DiagramCa
       const on = live?.type === 'edge' && live.id === e.id;
       paths.push(<path key={e.id} data-path={e.id} class={'diag-edge diag-w2' + (on ? ' diag-edge-sel' : '')} d={d}
         marker-end={e.arrow !== 'none' ? `url(#${arrowId})` : undefined} marker-start={e.arrow === 'both' ? `url(#${arrowId})` : undefined} />);
+      const a = layout.pos.get(e.from), c = layout.pos.get(e.to);
+      if (e.label && a && c) {
+        labels.push(<span key={e.id} class="diag-label" data-user-content
+          style={{ transform: `translate(${Math.round((a.x + c.x) / 2)}px, ${Math.round((a.y + c.y) / 2)}px) translate(-50%, -50%)` }}>{inline(e.label)}</span>);
+      }
     }
   }
 
@@ -330,6 +336,7 @@ export function DiagramCanvas({ text, kind, onEdit, onSelect, phone }: DiagramCa
             <path ref={temp} class="diag-edge diag-w2 diag-temp" d="" marker-end={`url(#${arrowId})`} />
           </svg>
           {nodes}
+          {labels}
           {selBox && (
             <div class="diag-handle" aria-hidden="true"
               style={{ transform: `translate(${Math.round(selBox.x + selBox.w / 2)}px, ${Math.round(selBox.y)}px) scale(var(--diag-inv, 1)) translate(0, -50%)` }} />
