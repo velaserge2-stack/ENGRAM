@@ -65,6 +65,14 @@ export class MemoryBackend implements VaultAdapter {
     this.files.set(p, { data: toBytes(data).slice(), mtime: Date.now() });
   }
 
+  async create(path: string, data: Uint8Array): Promise<boolean> {
+    const p = normalizePath(path);
+    if (!p) throw new VaultError('Ruta vacía', 'invalid-path');
+    if (await this.stat(p)) return false;
+    this.files.set(p, { data: data.slice(), mtime: Date.now() });
+    return true;
+  }
+
   async remove(path: string): Promise<void> {
     const p = normalizePath(path);
     this.files.delete(p);

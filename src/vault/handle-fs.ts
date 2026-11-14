@@ -165,6 +165,29 @@ export class HandleFS {
     await this.writeFile(fh, data);
   }
 
+  /** Ver `VaultAdapter.create`: escribe solo si el nombre no existe en la carpeta (la búsqueda es la del sistema). */
+  async create(path: string, data: Uint8Array): Promise<boolean> {
+    const parts = splitPath(path);
+    if (!parts.length) throw new VaultError('Ruta vacía', 'invalid-path');
+    const name = this.codec.enc(parts[parts.length - 1]!);
+    const fh = await this.fresh(async () => {
+      const d = await this.dir(parts.slice(0, -1), true);
+      try {
+        await d.getFileHandle(name);
+        return null; // ya hay un archivo
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === 'NotFoundError')) {
+          if (e instanceof DOMException && e.name === 'TypeMismatchError') return null; // ya hay una carpeta
+          throw e;
+        }
+      }
+      return d.getFileHandle(name, { create: true });
+    });
+    if (!fh) return false;
+    await this.writeFile(fh, data);
+    return true;
+  }
+
   async remove(path: string): Promise<void> {
     const parts = splitPath(path);
     if (!parts.length) {

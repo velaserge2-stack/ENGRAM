@@ -133,6 +133,10 @@ export class OPFSBackend implements VaultAdapter {
     const bytes = toBytes(data).slice(); // copia propia para poder transferirla
     await this.call({ op: 'write', path: normalizePath(path), data: bytes }, [bytes.buffer]);
   }
+  async create(path: string, data: Uint8Array) {
+    const bytes = data.slice();
+    return (await this.call({ op: 'create', path: normalizePath(path), data: bytes }, [bytes.buffer])) as boolean;
+  }
   async remove(path: string) {
     await this.call({ op: 'remove', path: normalizePath(path) });
   }

@@ -43,6 +43,12 @@ export interface VaultAdapter {
    * aplicarlo da el mismo resultado (la recuperación lo repite). Devuelve si añadió el separador.
    */
   appendAt?(path: string, data: Uint8Array, at: number, sep?: boolean): Promise<boolean>;
+  /**
+   * Opcional (Prompt 21-B): escribe `data` solo si en `path` no hay nada (ni archivo ni carpeta, según la
+   * búsqueda del propio sistema de archivos, con o sin distinción de mayúsculas). Devuelve false sin
+   * escribir si ya había algo. Crea las carpetas intermedias.
+   */
+  create?(path: string, data: Uint8Array): Promise<boolean>;
 }
 
 export interface BlobWriteOptions {

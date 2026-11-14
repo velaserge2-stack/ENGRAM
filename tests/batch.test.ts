@@ -15,10 +15,17 @@ class Mortal extends MemoryBackend {
     if (this.ops.length >= this.limit) throw new Error('muerte');
     this.ops.push(`${op} ${p}`);
   }
-  override async write(p: string, d: Uint8Array | string) { this.tick('write', p); return super.write(p, d); }
   override async move(a: string, b: string) { this.tick('move', `${a} → ${b}`); return super.move(a, b); }
   override async remove(p: string) { this.tick('remove', p); return super.remove(p); }
   override async writeBlob(p: string, b: Blob, o?: BlobWriteOptions) { this.tick('writeBlob', p); return super.writeBlob(p, b, o); }
+  override async create(p: string, d: Uint8Array) { this.tick('create', p); return super.create(p, d); }
+  /** Diarios escritos (para ver su versión y sus destinos nuevos). */
+  journals: { v: number; fresh?: { path: string }[]; freshDirs?: string[] }[] = [];
+  override async write(p: string, d: Uint8Array | string) {
+    this.tick('write', p);
+    if (p === JOURNAL_PATH) this.journals.push(JSON.parse(typeof d === 'string' ? d : decodeText(d)));
+    return super.write(p, d);
+  }
 }
 
 async function snapshot(m: MemoryBackend): Promise<Record<string, string>> {
@@ -287,5 +294,194 @@ describe('SafeVault.batch: recuperación tras morir en cada paso', () => {
     const s = await snapshot(m);
     delete s['notes/otra.md'];
     expect(s).toEqual(after);
+  });
+});
+
+// Prompt 21-B: archivos nuevos sin renombrar (diario v4). Un destino que no existía se escribe directo tras
+// el diario; si el lote no llega a aplicarse, la recuperación lo borra (nunca existió). Lo demás, como v2.
+type Work = (tx: SafeVault | import('../src/vault/types').VaultAdapter) => Promise<void>;
+
+/** Mezcla: nuevos en carpetas nuevas anidadas y en una existente, sobrescribir, blob, mayúsculas, mover y borrar. */
+const workMix: Work = async (tx) => {
+  for (let i = 0; i < 4; i++) await tx.write(`notes/Nueva/Sub${i % 2}/n${i}.md`, `nueva ${i}`);
+  await tx.write('notes/suelta.md', 'suelta');
+  await tx.write('notes/Dup.md', 'dup mayúscula');
+  await tx.write('notes/dup.md', 'dup minúscula');
+  await tx.write('notes/CASO.md', 'otro caso'); // existe «caso.md»: no se trata como nuevo
+  await tx.write('decks/d.md', 'D nuevo');
+  await (tx as unknown as { writeStream(p: string, b: Blob): Promise<void> }).writeStream('media/g.bin', new Blob(['blob en carpeta nueva']));
+  await tx.write('media/h.txt', 'junto al blob');
+  await tx.move('notes/a.md', 'notes/Nueva/a.md');
+  await tx.remove('notes/borrar.md');
+  await tx.remove('notes/vieja');
+};
+/** Sin destinos nuevos: el diario sigue siendo v2, idéntico al de antes. */
+const workOld: Work = async (tx) => {
+  await tx.write('decks/d.md', 'D nuevo');
+  await tx.write('notes/b.md', 'B editada');
+  await (tx as unknown as { writeStream(p: string, b: Blob): Promise<void> }).writeStream('media/f.bin', new Blob(['blob-bytes']));
+  await tx.move('notes/a.md', 'notes/vieja/a.md');
+  await tx.move('notes/caso.md', 'notes/Caso.md');
+  await tx.remove('notes/borrar.md');
+};
+
+async function outcome(w: Work) {
+  const m = new Mortal();
+  await seed(m);
+  const before = await snapshot(m);
+  m.ops = [];
+  await new SafeVault(m).batch(w);
+  return { before, after: await snapshot(m), ops: m.ops, journal: m.journals[0]! };
+}
+
+describe('SafeVault.batch: archivos nuevos sin renombrar (diario v4)', () => {
+  it('los nuevos se escriben directo (sin temporal ni renombrado); existentes, blobs y mayúsculas siguen por temporal', async () => {
+    const { ops, journal } = await outcome(workMix);
+    expect(journal.v).toBe(4);
+    const fresh = journal.fresh!.map((f) => f.path).sort();
+    expect(fresh).toEqual(['media/h.txt', 'notes/Nueva/Sub0/n0.md', 'notes/Nueva/Sub0/n2.md', 'notes/Nueva/Sub1/n1.md', 'notes/Nueva/Sub1/n3.md', 'notes/suelta.md']);
+    expect(journal.freshDirs!.sort()).toEqual(['media', 'notes/Nueva', 'notes/Nueva/Sub0', 'notes/Nueva/Sub1']);
+    // el diario va antes de cualquier destino nuevo; cada nuevo es UNA operación
+    const j = ops.indexOf(`write ${JOURNAL_PATH}`);
+    for (const p of fresh) {
+      expect(ops.indexOf(`create ${p}`)).toBeGreaterThan(j);
+      expect(ops.filter((o) => o.includes(p))).toEqual([`create ${p}`]);
+    }
+    for (const p of ['notes/Dup.md', 'notes/dup.md', 'notes/CASO.md', 'decks/d.md', 'media/g.bin']) expect(ops.some((o) => o.startsWith('move .app/tmp/') && o.endsWith(`→ ${p}`)), p).toBe(true);
+    expect(ops.filter((o) => o === `write ${JOURNAL_PATH}`)).toHaveLength(1);
+  });
+
+  it('sin destinos nuevos el diario es v2, como antes', async () => {
+    expect((await outcome(workOld)).journal.v).toBe(2);
+    expect(Object.keys((await outcome(workOld)).journal)).not.toContain('fresh');
+  });
+
+  for (const [name, w] of [['v4 (nuevos y existentes mezclados)', workMix], ['v2 (sin nuevos)', workOld]] as const) {
+    it(`${name}: muerte en cada operación y en cada paso de la recuperación → antes o después, sin diario ni temporales`, async () => {
+      const { before, after, ops } = await outcome(w);
+      const B = JSON.stringify(before), A = JSON.stringify(after);
+      const seen = new Set<string>();
+      const cut = async (k: number) => {
+        const m = new Mortal();
+        await seed(m);
+        m.ops = [];
+        m.limit = k;
+        await new SafeVault(m).batch(w).catch(() => {});
+        m.limit = Infinity;
+        return m;
+      };
+      for (let k = 0; k <= ops.length; k++) {
+        const m = await cut(k);
+        m.ops = [];
+        await new SafeVault(m).recover(); // «reabrir»
+        const rec = m.ops.length;
+        const st = JSON.stringify(await snapshot(m));
+        expect(st === A || st === B, `corte ${k} (${ops[k] ?? 'fin'})`).toBe(true);
+        seen.add(st === A ? 'after' : 'before');
+        expect(await m.exists(JOURNAL_PATH)).toBe(false);
+        expect(await m.exists(TMP_DIR)).toBe(false);
+        if (st === B) for (const d of ['notes/Nueva', 'media']) expect(await m.exists(d), `${d} tras revertir en ${k}`).toBe(false); // ni carpetas vacías
+        await checkIntegrity(m);
+        expect(JSON.stringify(await snapshot(m))).toBe(st); // la integridad solo reporta
+        for (let r = 0; r < rec; r++) {
+          const m2 = await cut(k);
+          m2.ops = [];
+          m2.limit = r; // la recuperación muere en su paso r
+          await new SafeVault(m2).recover().catch(() => {});
+          m2.limit = Infinity;
+          await new SafeVault(m2).recover();
+          const st2 = JSON.stringify(await snapshot(m2));
+          expect(st2 === A || st2 === B, `corte ${k}, recuperación cortada en ${r}`).toBe(true);
+          expect(await m2.exists(JOURNAL_PATH)).toBe(false);
+          expect(await m2.exists(TMP_DIR)).toBe(false);
+        }
+      }
+      expect([...seen].sort()).toEqual(['after', 'before']);
+    });
+  }
+
+  it('un destino que aparece a mitad (otro escritor) no se pisa ni se borra: el lote no cambia nada', async () => {
+    class Intruso extends Mortal {
+      override async create(p: string, d: Uint8Array) {
+        if (p === 'notes/Nueva/Sub1/n3.md') await MemoryBackend.prototype.write.call(this, p, 'de otro escritor');
+        return super.create(p, d);
+      }
+    }
+    const m = new Intruso();
+    await seed(m);
+    const before = await snapshot(m);
+    await expect(new SafeVault(m).batch(workMix)).rejects.toThrow(/Apareció un archivo/);
+    expect(await snapshot(m)).toEqual({ ...before, 'notes/Nueva/Sub1/n3.md': 'de otro escritor' });
+    expect(await m.exists(JOURNAL_PATH)).toBe(false);
+    expect(await m.exists(TMP_DIR)).toBe(false);
+  });
+
+  it('un destino que aparece mientras la app está cerrada tampoco se borra al revertir', async () => {
+    const { before, ops } = await outcome(workMix);
+    const m = new Mortal();
+    await seed(m);
+    m.ops = [];
+    m.limit = ops.indexOf(`write ${JOURNAL_PATH}`) + 2; // escribe un nuevo y muere
+    await new SafeVault(m).batch(workMix).catch(() => {});
+    m.limit = Infinity;
+    await m.write('notes/suelta.md', 'llegó de fuera'); // destino nuevo aún sin escribir
+    const rep = await new SafeVault(m).recover();
+    expect(await snapshot(m)).toEqual({ ...before, 'notes/suelta.md': 'llegó de fuera' });
+    expect(rep.recovered).toEqual([]);
+    expect(await m.exists(JOURNAL_PATH)).toBe(false);
+    expect(await m.exists(TMP_DIR)).toBe(false);
+  });
+
+  it('un nuevo creado vacío y sin escribir (muerte a mitad de la escritura) se borra al revertir', async () => {
+    class Corte extends Mortal {
+      override async create(p: string, d: Uint8Array) {
+        if (p === 'notes/Nueva/Sub0/n2.md') {
+          await MemoryBackend.prototype.write.call(this, p, '');
+          throw new Error('muerte');
+        }
+        return super.create(p, d);
+      }
+    }
+    const { before } = await outcome(workMix);
+    const m = new Corte();
+    await seed(m);
+    const v = new SafeVault(m);
+    m.limit = Infinity;
+    (m as unknown as { remove: unknown }).remove = async () => { throw new Error('muerta'); }; // tampoco puede revertir viva
+    await expect(v.batch(workMix)).rejects.toThrow('muerte');
+    expect(await m.exists(JOURNAL_PATH)).toBe(true);
+    delete (m as unknown as { remove?: unknown }).remove;
+    await new SafeVault(m).recover();
+    expect(await snapshot(m)).toEqual(before);
+    expect(await m.exists('notes/Nueva')).toBe(false);
+    expect(await m.exists(TMP_DIR)).toBe(false);
+  });
+
+  it('Cancelar mientras se escriben los nuevos: se revierte y no cambia nada', async () => {
+    const { before } = await outcome(workMix);
+    const m = new MemoryBackend();
+    await seed(m);
+    const ac = new AbortController();
+    await expect(new SafeVault(m).batch(workMix, { signal: ac.signal, onProgress: (d) => d === 6 && ac.abort() })).rejects.toThrow(/Cancelado/);
+    expect(await snapshot(m)).toEqual(before);
+    expect(await m.exists('notes/Nueva')).toBe(false);
+    expect(await m.exists(JOURNAL_PATH)).toBe(false);
+    expect(await m.exists(TMP_DIR)).toBe(false);
+  });
+
+  it('diario v4 plantado con rutas fuera de lugar o sin lista de nuevos: se descarta sin tocar nada', async () => {
+    const m = new MemoryBackend();
+    await seed(m);
+    const before = await snapshot(m);
+    const h = checksum(new TextEncoder().encode('A'));
+    for (const bad of [
+      { v: 4, ts: 1, writes: [], moves: [], removes: [], dirs: [], fresh: [{ path: '../a.md', size: 1, hash: h }], freshDirs: [] },
+      { v: 4, ts: 1, writes: [], moves: [], removes: [], dirs: [], fresh: [{ path: 'notes/a.md', size: 1, hash: h }], freshDirs: ['.app/tmp'] },
+      { v: 4, ts: 1, writes: [], moves: [], removes: [], dirs: [] },
+    ]) {
+      await m.write(JOURNAL_PATH, JSON.stringify(bad));
+      expect((await new SafeVault(m).recover()).discarded).toEqual(['?']);
+      expect(await snapshot(m)).toEqual(before);
+    }
   });
 });

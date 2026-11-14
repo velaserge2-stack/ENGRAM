@@ -24,6 +24,7 @@ export class FSAccessBackend implements VaultAdapter {
   async list(p: string) { return this.fs.list(normalizePath(p)); }
   async read(p: string) { return this.fs.read(normalizePath(p)); }
   async write(p: string, d: Uint8Array | string) { return this.fs.write(normalizePath(p), toBytes(d)); }
+  async create(p: string, d: Uint8Array) { return this.fs.create(normalizePath(p), d); }
   async remove(p: string) { return this.fs.remove(normalizePath(p)); }
   async move(a: string, b: string) { return this.fs.move(normalizePath(a), normalizePath(b)); }
   async exists(p: string) { return (await this.fs.stat(normalizePath(p))) !== null; }

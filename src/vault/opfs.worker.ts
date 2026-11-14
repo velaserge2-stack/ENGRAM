@@ -35,7 +35,7 @@ export type WorkerRequest =
   | { id: number; op: 'init' }
   | { id: number; op: 'list' | 'read' | 'remove' | 'exists' | 'stat'; path: string }
   | { id: number; op: 'readMany'; paths: string[] }
-  | { id: number; op: 'write'; path: string; data: Uint8Array }
+  | { id: number; op: 'write' | 'create'; path: string; data: Uint8Array }
   | { id: number; op: 'appendAt'; path: string; data: Uint8Array; at: number; sep: boolean }
   | { id: number; op: 'move'; from: string; to: string }
   // Prompt 11: archivos grandes por trozos (el Blob llega sin copiar sus bytes)
@@ -108,6 +108,9 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
         }
         case 'write':
           await fs.write(req.path, req.data);
+          break;
+        case 'create':
+          value = await fs.create(req.path, req.data);
           break;
         case 'remove':
           await fs.remove(req.path);
