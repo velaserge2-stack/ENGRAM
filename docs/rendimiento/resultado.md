@@ -82,3 +82,17 @@ La primera corrida completa mostró el arranque L +16–20 %, Mazos +113 % y Hoy
 - `e2e:bloquec` falló **una vez de cuatro**: «antes de recargar: Semana muestra Clase 8:00–10:00 y Estudio 17:00–18:00». Las otras tres pasaron enteras. Es intermitente; probablemente la prueba lee la vista Semana antes de que termine la carga asíncrona del Calendario (que en esta rama lee las notas de la caché). Queda anotado.
 - `e2e:phone` contra `main`: **0 píxeles** en 36 capturas.
 - Determinismo e integridad: `verifyDeterminism` y la equivalencia bit a bit del punto de control (100 000 repasos, cuatro zonas horarias); recuperación de lotes y de añadidos con muerte en cada paso (también durante la recuperación); la integridad solo reporta.
+
+## Cierre de pendientes (tras unir las fases 4–9)
+Coordinador en Opus; cada tarea a un subagente según su dificultad, una a la vez, revisada por el coordinador antes de seguir.
+
+| Tarea | Modelo | Resultado |
+|---|---|---|
+| Arreglar `e2e/rendimiento-perfil.mjs` (service worker de la semilla, `--outDir` ignorado) | haiku | Hecho |
+| break-ui con datos hostiles (fase 8) | sonnet | 4 fallos de diseño arreglados con CSS (nombres larguísimos desbordaban Hoy, Mazos y Notas); 3 menores documentados (`08-break-ui.md`); 0 píxeles |
+| Abrir la nota de 5 MB por tramos | sonnet | 3.9 → 1.9 s (−51 %), tarea larga 2.1 → 0.3 s; pinta todo al buscar, imprimir o editar |
+| Respaldo con lectura en lote (`readMany`) | sonnet | −8 %; el zip por entradas se **descartó** (restaurar +10.6 %); queda su prueba de equivalencia |
+| Archivos nuevos sin renombrar (diario v4) | opus | Restaurar L 20.1 → 10.3 s (−49 %), zip de 500 4.5 → 2.5 s (−45 %); el coordinador encontró y corrigió una escritura a medias en OPFS que la recuperación conservaba |
+| Bisecar `e2e:bloquec` | haiku | Falla también en `main`: la prueba dependía del día de la semana (el clic en el centro de la celda caía sobre un bloque); ahora pulsa el número del día |
+
+Verificación final: `npm test` (498), typecheck, build, los 24 E2E en verde (`p14` y `bloquec` tras ajustar dos pruebas frágiles a esperas y clics más precisos, sin aflojar comprobaciones) y `e2e:phone` con 0 píxeles.

@@ -32,8 +32,19 @@ Si los documentos eran idénticos a los ya indexados, se saltaba `reset`. Abrir 
 | Buscar en la nota de 5 MB | 2.88 s · tarea larga máx 2.5 s | **1.25 s (−57 %)** · máx 0.9 s |
 | Buscar en la nota de 1 MB | 413 ms | **310 ms (−25 %)** |
 
-### Pendiente: abrir la nota de 5 MB (~3.9 s, tarea larga de ~2.1 s)
-Sanear y pintar por tramos en reposo (los primeros 80 bloques al abrir, el resto de a un tramo por hueco libre, reutilizando `renderMarkdownCached` y sin tocar la configuración de DOMPurify) no se hizo en esta fase: mientras falten tramos, «Buscar en esta nota» (`rangesIn` lee el DOM), imprimir (también con Cmd+P, `beforeprint`) y tocar un bloque aún sin pintar para editarlo verían la nota incompleta. Hay que forzar el pintado completo en esos tres casos y probarlo con `e2e:p14`, `e2e:notas-perf` y `e2e:pdf`; queda como el siguiente paso de este cuello.
+### Abrir la nota de 5 MB: pintado progresivo (hecho)
+En notas de más de `2 * CHUNK` (80) bloques se renderizan y sanean solo los 2 primeros tramos de 40 al abrir; el resto se pinta en reposo (`requestIdleCallback`, o `setTimeout` si no existe), un tramo por hueco libre. Los tramos sin pintar van vacíos (la altura la da `contain-intrinsic-size` de `.doc-cv`, sin HTML sin sanear). Se reutiliza `renderMarkdownCached`; no se tocó DOMPurify ni `src/md/`. Se pinta TODO de inmediato cuando algo lee el DOM entero: «Buscar en esta nota» abierta (incluido `pendingFind`), imprimir (botón «PDF / imprimir» y `beforeprint` vía el evento `engrama:paintall`; Preact renderiza en microtarea, antes de imprimir) y editar un bloque de un tramo aún sin pintar. Las notas de ≤ 80 bloques no cambian.
+
+Chromium 5 corridas, banco `e2e/rendimiento.mjs` (solo hay Chromium en el contenedor; WebKit/iPad sin probar):
+
+| Métrica (mediana) | Antes | Después |
+|---|---|---|
+| `nota-abrir-5MB` | 3899 ms (2 tareas largas, máx ~2.1 s) | 1899 ms (1 tarea larga, máx ~0.3 s) |
+| `nota-abrir-1MB` | 1750 ms | 1642 ms |
+| `nota-buscar-en-nota-5MB` | 1199 ms | 1250 ms (igual: fuerza el pintado completo) |
+| `nota-buscar-en-nota-1MB` | 407 ms | 410 ms |
+
+Los e2e `p14` y `notas-perf` esperaban los tramos completos nada más abrir: se les añadió una espera al pintado en reposo.
 
 ## Verificación
 `npm test` (475), `typecheck`, `build`; `e2e`, `e2e:flows`, `e2e:design`, `e2e:mejoras`, `e2e:mejoras2`, `e2e:p6`, `e2e:p10`, `e2e:p12`, `e2e:notaspro`, `e2e:intentos`, `e2e:share` en verde; `e2e:bancos` falló una vez («restaurar desde la papelera») y pasó entero al repetirlo (intermitente conocido, ver el prompt). `e2e:phone` contra `main`: **0 píxeles**.

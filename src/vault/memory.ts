@@ -41,6 +41,10 @@ export class MemoryBackend implements VaultAdapter {
     return f.data.slice();
   }
 
+  async readMany(paths: string[]): Promise<Uint8Array[]> {
+    return Promise.all(paths.map((p) => this.read(p)));
+  }
+
   async appendAt(path: string, data: Uint8Array, at: number, sep = false): Promise<boolean> {
     const p = normalizePath(path);
     const prev = this.files.get(p)?.data ?? new Uint8Array();
@@ -59,6 +63,14 @@ export class MemoryBackend implements VaultAdapter {
     if (!p) throw new VaultError('Ruta vacía', 'invalid-path');
     if ((await this.stat(p))?.kind === 'dir') throw new VaultError(`Es una carpeta: ${path}`, 'io', path); // como HandleFS
     this.files.set(p, { data: toBytes(data).slice(), mtime: Date.now() });
+  }
+
+  async create(path: string, data: Uint8Array): Promise<boolean> {
+    const p = normalizePath(path);
+    if (!p) throw new VaultError('Ruta vacía', 'invalid-path');
+    if (await this.stat(p)) return false;
+    this.files.set(p, { data: data.slice(), mtime: Date.now() });
+    return true;
   }
 
   async remove(path: string): Promise<void> {

@@ -43,13 +43,21 @@ interface JournalEntry {
  * Cada paso es idempotente: el origen de un renombrado nunca es destino de otro paso del lote.
  */
 interface BatchJournal {
-  v: 2;
+  v: 2 | 4;
   ts: number;
   writes: { path: string; tmp: string; size: number; hash: string }[];
   moves: { from: string; to: string; via?: string }[];
   removes: string[];
   dirs: string[];
+  /**
+   * Solo v4 (Prompt 21-B): destinos que NO existían al planear; se escriben directo (sin temporal ni
+   * renombrado) DESPUÉS de este diario y ANTES de aplicar lo demás. `freshDirs`: carpetas que tampoco
+   * existían. Revertir = borrar esos destinos (si son los nuestros) y esas carpetas (si quedaron vacías).
+   */
+  fresh?: Fresh[];
+  freshDirs?: string[];
 }
+type Fresh = { path: string; size: number; hash: string };
 
 export interface RecoveryReport {
   recovered: string[];
@@ -103,6 +111,8 @@ interface AppendJournal { v: 3; ts: number; append: { path: string; at: number; 
 /** Un diario de lote solo se ejecuta si tiene la forma que escribe `commitBatch`. */
 function validBatch(j: Partial<BatchJournal>): j is BatchJournal {
   const isTmp = (t: unknown) => typeof t === 'string' && TMP_RE.test(t);
+  if (j.v === 4 && !(Array.isArray(j.fresh) && j.fresh.every((f) => f && typeof f.size === 'number' && typeof f.hash === 'string' && safeTarget(f.path)) &&
+    Array.isArray(j.freshDirs) && j.freshDirs.every((d) => safeTarget(d)))) return false;
   return Array.isArray(j.writes) && Array.isArray(j.moves) && Array.isArray(j.removes) && Array.isArray(j.dirs) &&
     j.writes.every((w) => w && isTmp(w.tmp) && typeof w.size === 'number' && typeof w.hash === 'string' && safeTarget(w.path)) &&
     j.moves.every((m) => m && safeTarget(m.from) && safeTarget(m.to) && (m.via === undefined || isTmp(m.via))) &&
@@ -116,6 +126,11 @@ function validBatch(j: Partial<BatchJournal>): j is BatchJournal {
  */
 export interface BatchOptions { onProgress?: (done: number, total: number) => void; signal?: AbortSignal }
 const aborted = () => new DOMException('Cancelado', 'AbortError');
+const parentOf = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
+/** Clave de comparación de nombres: un disco puede no distinguir mayúsculas ni formas Unicode. */
+const fold = (p: string) => p.normalize('NFC').toLowerCase();
+/** Los destinos nuevos de un diario (un v2 no tiene). */
+const freshOf = (j: BatchJournal) => (j.v === 4 ? { fresh: j.fresh!, dirs: j.freshDirs! } : { fresh: [], dirs: [] });
 
 /** Ejecuta `fn` en un lote de SafeVault (un diario para todo); dentro de otro lote, en ese mismo; sin SafeVault, directo. */
 export function batch<T>(vault: VaultAdapter, fn: (tx: VaultAdapter) => Promise<T>, opts?: BatchOptions): Promise<T> {
@@ -242,6 +257,8 @@ export class SafeVault implements VaultAdapter {
    * Lote (Prompt 21 · 3a): `fn` recibe una vista que acumula escrituras, movimientos y borrados (sus
    * lecturas ya ven el resultado) y al terminar se confirma TODO con un solo diario: temporales →
    * diario → renombrar temporales a su destino → renombrar movidos → borrar → quitar el diario.
+   * Destinos que no existían (Prompt 21-B, diario v4): sin temporal; se escriben directo DESPUÉS del diario
+   * y ANTES de renombrar nada, con `create` (si algo apareció ahí, se revierte el lote sin pisarlo).
    * Si `fn` lanza no se escribe nada. Recuperación: ver `replayBatch`.
    */
   async batch<T>(fn: (tx: Batch) => Promise<T>, opts: BatchOptions = {}): Promise<T> {
@@ -264,11 +281,12 @@ export class SafeVault implements VaultAdapter {
       moves.push(s.src.toLowerCase() === p.toLowerCase() ? { from: s.src, to: p, via: newTmp() } : { from: s.src, to: p });
     }
     for (const [p, s] of tx.st) if (s.k === 'gone' && !from.has(p)) removes.push(p);
+    const plan = await this.planFresh(tx);
     let n = 0;
     const total = [...tx.st.values()].filter((s) => s.k === 'data').length + moves.length;
     try {
       for (const [p, s] of tx.st) {
-        if (s.k !== 'data') continue;
+        if (s.k !== 'data' || plan.paths.has(p)) continue;
         if (opts.signal?.aborted) throw aborted(); // aún sin diario: se borran los temporales y no cambia nada
         opts.onProgress?.(n++, total);
         const w = { path: p, tmp: newTmp(), size: 0, hash: '' };
@@ -287,9 +305,33 @@ export class SafeVault implements VaultAdapter {
       for (const w of writes) await this.raw.remove(w.tmp).catch(() => {}); // sin diario: el destino no se tocó
       throw e;
     }
+    const fresh = [...plan.paths].map((path) => {
+      const data = (tx.st.get(path) as { data: Uint8Array }).data;
+      return { path, size: data.length, hash: checksum(data), data };
+    });
     const j: BatchJournal = { v: 2, ts: Date.now(), writes, moves, removes, dirs: [...tx.dirsGone] };
+    if (fresh.length) Object.assign(j, { v: 4, fresh: fresh.map(({ data: _, ...f }) => f), freshDirs: plan.dirs });
     await this.raw.write(JOURNAL_PATH, JSON.stringify(j));
     if (perf.on) perf.inc('journal');
+    // destinos nuevos: directo, sin temporal. Un fallo, Cancelar o un destino que apareció → se revierte todo
+    if (fresh.length) {
+      try {
+        for (const f of fresh) {
+          if (opts.signal?.aborted) throw aborted();
+          opts.onProgress?.(n++, total);
+          if (!(await this.createNew(f.path, f.data))) throw new VaultError(`Apareció un archivo mientras se escribía: ${f.path}. No se cambió nada.`, 'io', f.path);
+        }
+      } catch (e) {
+        try {
+          await this.undoFresh(j);
+          await this.raw.remove(JOURNAL_PATH);
+          for (const w of writes) await this.raw.remove(w.tmp).catch(() => {});
+        } catch {
+          this.stuck = true; // el diario sigue: la recuperación termina de revertir
+        }
+        throw e;
+      }
+    }
     let again = false;
     await this.apply(async () => {
       const check = again; // el reintento comprueba qué quedó hecho (cada paso es idempotente)
@@ -298,6 +340,72 @@ export class SafeVault implements VaultAdapter {
     });
     await this.raw.remove(JOURNAL_PATH);
     opts.onProgress?.(total, total);
+  }
+
+  /** Escribe solo si no hay nada en `p` (con `create` del backend; si no, comprobando antes). */
+  private async createNew(p: string, data: Uint8Array): Promise<boolean> {
+    if (this.raw.create) return this.raw.create(p, data);
+    if (await this.raw.exists(p)) return false;
+    await this.raw.write(p, data);
+    return true;
+  }
+
+  /**
+   * Qué escrituras del lote van directo a su destino: datos en memoria (un Blob grande sigue por temporal),
+   * sin otra ruta del lote que solo difiera en mayúsculas, y cuyo nombre no está en su carpeta (comparando
+   * sin mayúsculas ni forma Unicode) o cuya carpeta no existe. Una consulta por carpeta, no por archivo.
+   * `dirs`: carpetas que no existen (se quitan al revertir si quedan vacías).
+   */
+  private async planFresh(tx: Batch): Promise<{ paths: Set<string>; dirs: string[] }> {
+    const paths = new Set<string>();
+    const count = new Map<string, number>();
+    for (const p of tx.st.keys()) count.set(fold(p), (count.get(fold(p)) ?? 0) + 1);
+    const byDir = new Map<string, string[]>();
+    for (const [p, s] of tx.st) {
+      if (s.k !== 'data' || !(s.data instanceof Uint8Array) || count.get(fold(p)) !== 1) continue;
+      const d = parentOf(p);
+      byDir.set(d, [...(byDir.get(d) ?? []), p]);
+    }
+    const known = new Map<string, 'dir' | 'none' | 'file'>([['', 'dir']]);
+    const kind = async (d: string): Promise<'dir' | 'none' | 'file'> => {
+      let k = known.get(d);
+      if (k) return k;
+      const up = await kind(parentOf(d));
+      if (up !== 'dir') k = up;
+      else {
+        const st = await this.raw.stat(d);
+        k = !st ? 'none' : st.kind === 'dir' ? 'dir' : 'file';
+      }
+      known.set(d, k);
+      return k;
+    };
+    for (const [d, ps] of byDir) {
+      const k = await kind(d);
+      if (k === 'file') continue; // escribir ahí fallará igual que antes, por temporal
+      const names = k === 'dir' ? new Set((await this.raw.list(d)).map((e) => fold(e.name))) : null;
+      for (const p of ps) if (!names?.has(fold(p.slice(d ? d.length + 1 : 0)))) paths.add(p);
+    }
+    return { paths, dirs: [...known].filter(([, k]) => k === 'none').map(([d]) => d) };
+  }
+
+  /**
+   * Revertir los destinos nuevos de un lote no confirmado. Se borra un destino listado si es el nuestro
+   * (misma suma), si quedó vacío o, en OPFS, si es nuestra escritura a medias (ver abajo); otro contenido
+   * llegó de fuera y se conserva. Las carpetas nuevas se quitan solo si quedaron sin archivos.
+   */
+  private async undoFresh(j: BatchJournal) {
+    const { fresh, dirs } = freshOf(j);
+    for (const f of fresh) {
+      const st = await this.raw.stat(f.path);
+      if (st?.kind !== 'file') continue;
+      // En OPFS (privado) nadie más escribe y otra pestaña recupera este diario antes de escribir nada: lo que
+      // hay en un destino nuevo con tamaño ≤ el nuestro es NUESTRA escritura a medias (el sync access handle
+      // vacía y escribe por trozos) y se borra. En una carpeta del usuario la escritura es atómica
+      // (`createWritable`) y otra app sí puede crear el archivo: solo se borra lo nuestro o lo vacío.
+      const partial = this.raw.kind === 'opfs' && st.size <= f.size;
+      if (st.size === 0 || partial || (st.size === f.size && (await this.sum(f.path)).hash === f.hash)) await this.raw.remove(f.path);
+    }
+    for (const d of [...dirs].sort((a, b) => b.split('/').length - a.split('/').length)) if (!(await walk(this.raw, d)).length) await this.raw.remove(d);
   }
 
   /** Aplica un lote. Con `check`, salta lo que ya está hecho (reintento o recuperación). */
@@ -321,11 +429,14 @@ export class SafeVault implements VaultAdapter {
    *   - si alguna no se puede completar y nada se aplicó aún → se REVIERTE (se descarta: ningún destino
    *     se tocó, los temporales se borran);
    *   - si ya se aplicó algo (solo con el disco dañado) → se completa lo posible y se reporta lo perdido.
+   * v4: los destinos nuevos se escriben antes de aplicar nada; si a alguno le falta su contenido y nada se
+   * aplicó → se REVIERTE y se borran (`undoFresh`: solo los nuestros o vacíos; nunca existieron).
+   * Si se aplicó algo, ya estaban todos → se completa.
    * Nunca queda a medias por la recuperación misma: cada paso es idempotente y el diario no se borra
    * hasta terminar (un fallo de E/S lo conserva para reintentar).
    */
   private async replayBatch(j: Partial<BatchJournal>, report: RecoveryReport) {
-    const all = (b: BatchJournal) => [...b.writes.map((w) => w.path), ...b.moves.map((m) => m.to)];
+    const all = (b: BatchJournal) => [...freshOf(b).fresh.map((f) => f.path), ...b.writes.map((w) => w.path), ...b.moves.map((m) => m.to)];
     if (!validBatch(j)) return void report.discarded.push('?');
     for (const m of j.moves) if ((await this.raw.stat(m.from))?.kind === 'dir') return void report.discarded.push(...all(j)); // nunca mover carpetas desde el diario
     const bad = new Set<string>();
@@ -338,8 +449,18 @@ export class SafeVault implements VaultAdapter {
       if (!s || s.size !== w.size || s.hash !== w.hash) bad.add(w.tmp);
     }
     for (const m of j.moves) if (!(await this.raw.exists(m.from)) && !(m.via && (await this.raw.exists(m.via)))) touched = true;
-    if (bad.size && !touched) return void report.discarded.push(...all(j));
+    // v4: los destinos nuevos se escriben antes de aplicar nada, así que si se aplicó algo ya estaban todos
+    const missing = new Set<string>();
+    for (const f of freshOf(j).fresh) {
+      const s = (await this.raw.exists(f.path)) ? await this.sum(f.path) : null;
+      if (!s || s.size !== f.size || s.hash !== f.hash) missing.add(f.path);
+    }
+    if ((bad.size || missing.size) && !touched) {
+      await this.undoFresh(j);
+      return void report.discarded.push(...all(j));
+    }
     await this.applyBatch(j, true, bad);
+    for (const f of freshOf(j).fresh) (missing.has(f.path) ? report.discarded : report.recovered).push(f.path);
     for (const w of j.writes) (bad.has(w.tmp) ? report.discarded : report.recovered).push(w.path);
     report.recovered.push(...j.moves.map((m) => m.to));
   }
@@ -399,6 +520,10 @@ export class SafeVault implements VaultAdapter {
   read(path: string) {
     return this.raw.read(path);
   }
+  /** Lectura en lote (solo lectura: sin diario); si el backend no la tiene, una por una. */
+  readMany(paths: string[]): Promise<Uint8Array[]> {
+    return this.raw.readMany ? this.raw.readMany(paths) : Promise.all(paths.map((p) => this.raw.read(p)));
+  }
   exists(path: string) {
     return this.raw.exists(path);
   }
@@ -426,9 +551,9 @@ export class SafeVault implements VaultAdapter {
     let entries: JournalEntry[] = [];
     try {
       const j = JSON.parse(decodeText(await this.raw.read(JOURNAL_PATH))) as { v?: number; entries?: JournalEntry[] };
-      if (j?.v === 2 || j?.v === 3) {
+      if (j?.v === 2 || j?.v === 3 || j?.v === 4) {
         try {
-          if (j.v === 2) await this.replayBatch(j as Partial<BatchJournal>, report);
+          if (j.v !== 3) await this.replayBatch(j as Partial<BatchJournal>, report);
           else await this.replayAppend(j as Partial<AppendJournal>, report);
         } catch {
           this.stuck = true; // E/S: el diario se conserva y se reintenta

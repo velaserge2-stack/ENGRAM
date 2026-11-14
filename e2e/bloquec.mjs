@@ -416,7 +416,8 @@ try {
     await page.getByRole('group', { name: 'Vista' }).getByRole('button', { name: 'Mes' }).click();
     await page.getByRole('button', { name: 'Hoy', exact: true }).click();
     if (!(await dayCell(mon1).count())) await page.getByRole('button', { name: 'Siguiente' }).click();
-    await dayCell(mon1).click();
+    // el número del día (arriba): el centro de la celda puede caer sobre la etiqueta de un bloque y abrir su hoja
+    await dayCell(mon1).locator('.n').click();
     const side = page.getByRole('region', { name: 'Día seleccionado' });
     check((await side.innerText()).includes('Cardiología') && (await side.getByRole('button', { name: 'Iniciar bloque' }).count()) >= 1, 'el bloque de estudio muestra el mazo vinculado y «Iniciar»');
     // cuadrícula: tocar una franja crea 1 h; arrastrar la entrada la mueve de hora

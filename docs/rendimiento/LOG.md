@@ -46,3 +46,9 @@ Rama `rendimiento-2` desde `main` 974174a con el WIP `04d6abe` (cherry-pick). **
 
 **Modelos y ahorro**: el prompt pedía un coordinador en Sonnet que delegara por dificultad. Esta sesión corrió entera en **Opus** y no delegó: todo se hizo en línea, y las mediciones (lo más largo) corrieron como scripts en segundo plano, sin modelo. Frente a usar un solo modelo **no hubo ahorro**: fue un solo modelo, el más caro. Con el reparto pedido, las fases 5–7 y la documentación (≈ 40 % de los tokens) podían ir a Sonnet, y las mediciones y tablas a Haiku.
 | F6 · estudio p95 (pendiente) | media | opus (en línea) | ~25k | Perfil: hilo ocioso, el costo era del método (Playwright); el banco mide dentro de la página: calificar → siguiente 97 ms, mostrar 80–84 ms (`06-interfaz.md`) |
+| Abrir nota de 5 MB por tramos | media | sonnet | ~60k | Abrir 3.9 s → 1.9 s (−51 %), tarea larga 2.1 s → 0.3 s; pintado completo al buscar/imprimir/editar (`05-busqueda.md`) |
+| Tras F3 · A `readMany` en el Worker (respaldo) | media | sonnet | ~90k | `respaldo-crear` L −8 % (7 404 a 6 813 ms), pico igual; conservado |
+| Tras F3 · B zip por entradas (`Unzip`) | media | sonnet | ~90k | Revertido: restaurar L +10 %, tareas largas 0.27 a 1.8 s, sin ganancia de memoria; se conserva `tests/parsezip-equiv.test.ts` y el security-review a mano |
+| Tras F3 · archivos nuevos sin renombrar (diario v4) | difícil | opus | ~120k | Conservado: restaurar L 20.1 → 10.3 s (−49 %), zip de 500 4.5 → 2.5 s (−45 %); recuperación revierte borrando solo los nuevos propios o vacíos; 9 pruebas nuevas |
+| Cierre · bisecar `e2e:bloquec` | fácil | haiku | ~95k | También fallaba en `main`: dependía del día de la semana; la prueba pulsa ahora el número del día |
+| Cierre · revisión de la tarea 5 | difícil | opus (coordinador) | ~30k | Escritura a medias de un archivo nuevo en OPFS que la recuperación conservaba: corregido con prueba |

@@ -33,6 +33,8 @@ export interface VaultAdapter {
   hash?(path: string): Promise<{ size: number; hash: string }>;
   /** Opcional: operaciones en vuelo hacia el almacenamiento (OPFS). Las tareas de fondo la usan para no competir con el usuario. */
   queued?(): number;
+  /** Opcional: varios archivos en una sola petición al backend (solo lectura; mismo orden que `paths`; falla si falta alguno). */
+  readMany?(paths: string[]): Promise<Uint8Array[]>;
   /** Opcional: el archivo como `File` (lectura por rangos con `slice`, sin cargarlo entero). */
   file?(path: string): Promise<File>;
   /**
@@ -41,6 +43,12 @@ export interface VaultAdapter {
    * aplicarlo da el mismo resultado (la recuperación lo repite). Devuelve si añadió el separador.
    */
   appendAt?(path: string, data: Uint8Array, at: number, sep?: boolean): Promise<boolean>;
+  /**
+   * Opcional (Prompt 21-B): escribe `data` solo si en `path` no hay nada (ni archivo ni carpeta, según la
+   * búsqueda del propio sistema de archivos, con o sin distinción de mayúsculas). Devuelve false sin
+   * escribir si ya había algo. Crea las carpetas intermedias.
+   */
+  create?(path: string, data: Uint8Array): Promise<boolean>;
 }
 
 export interface BlobWriteOptions {

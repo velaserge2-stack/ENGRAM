@@ -1,11 +1,12 @@
 // Prompt 21 · Fase 1: perfilado de los escenarios más costosos de la línea base (solo mide; no optimiza).
 //   npx vite build --minify false --outDir <dir>/dist-prof --emptyOutDir      (nombres de funciones legibles)
-//   DIST=<dir>/dist-prof OUTDIR=<dir>/perfiles [ONLY=arranque,notas,ciclo,mover,zip500,restaurar,respaldo,nota5mb,estudio,fsrs] node e2e/rendimiento-perfil.mjs
+//   DIST=<dir>/dist-prof OUTDIR=<dir>/perfiles   (DIST= REEMPLAZA dist/: vite preview ignora --outDir y sirve siempre ./dist) [ONLY=arranque,notas,ciclo,mover,zip500,restaurar,respaldo,nota5mb,estudio,fsrs] node e2e/rendimiento-perfil.mjs
 // Por escenario: perfil de CPU del hilo principal (CDP Profiler, 0.2 ms), tiempo propio y total por función de src/
 // y de dependencias, nº y tiempo acumulado de operaciones al Worker de OPFS (por tipo), tareas largas y pico de memoria.
 // Los .cpuprofile crudos (abribles en DevTools) se guardan en OUTDIR; el resumen en OUTDIR/resumen.json.
 import { spawn } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 
@@ -14,6 +15,12 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
 const ROOT = new URL('../', import.meta.url).pathname;
 const FIX = ROOT + 'tests/fixtures/rendimiento/';
 const DIST = process.env.DIST || ROOT + 'dist';
+// vite preview ignora --outDir: si DIST apunta a otra compilación, se copia sobre dist/ antes de servir.
+if (process.env.DIST && resolve(DIST) !== resolve(ROOT + 'dist')) {
+  console.log(`Aviso: DIST=${DIST} reemplaza ${ROOT}dist/ (vite preview sirve siempre dist/)`);
+  rmSync(ROOT + 'dist', { recursive: true, force: true });
+  cpSync(DIST, ROOT + 'dist', { recursive: true });
+}
 const OUTDIR = process.env.OUTDIR || tmpdir() + '/engrama-perfiles';
 const PROF = (process.env.PROFILES || tmpdir() + '/engrama-perf') + '/';
 const PORT = Number(process.env.PORT) || 4196;
@@ -22,7 +29,7 @@ const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
 const want = (k) => !only || only.includes(k);
 mkdirSync(OUTDIR, { recursive: true });
 
-const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--outDir', DIST, '--port', String(PORT), '--strictPort'], { stdio: 'pipe', cwd: ROOT });
+const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'pipe', cwd: ROOT });
 await new Promise((res, rej) => { server.stdout.on('data', (d) => String(d).includes('localhost') && res()); server.on('exit', (c) => rej(new Error('preview ' + c))); });
 const ARGS = ['--enable-precise-memory-info'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -72,8 +79,12 @@ async function open(dir = null) {
 const withCopy = async (size, fn) => {
   const dir = PROF + 'perfil-' + size + '-' + Date.now();
   cpSync(PROF + 'seed-' + size, dir, { recursive: true });
+  // La semilla trae el service worker y la caché de la compilación que la sembró: se borran para servir la compilación pedida.
+  for (const d of ['Service Worker', 'Cache', 'Code Cache']) rmSync(`${dir}/Default/${d}`, { recursive: true, force: true });
   const s = await open(dir);
-  try { await s.page.goto(URL_ + '?perf'); await s.page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor(); await sleep(1500); return await fn(s); } finally { await s.close(); rmSync(dir, { recursive: true, force: true }); }
+  try { await s.page.goto(URL_ + `?perf&fresh=${Date.now()}`); await s.page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor(); await sleep(1500);
+    console.log('  compilación: ' + await s.page.evaluate(() => [...document.scripts].map((x) => x.src.split('/').pop()).join(',')));
+    return await fn(s); } finally { await s.close(); rmSync(dir, { recursive: true, force: true }); }
 };
 const waitIn = (page, fn, arg, timeout = 600000) => page.waitForFunction(fn, arg, { timeout, polling: 'raf' });
 

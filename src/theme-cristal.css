@@ -173,7 +173,7 @@ button.pill, a.pill { border: var(--hair) solid var(--border); }
 .kv .k { color: var(--t2); }
 .kv.attempt-row { align-items: center; } /* fila de intento: enlace + botón Borrar al lado */
 .kv.bank-row { align-items: center; gap: 4px; } .kv.bank-row > .k { flex: 1; min-width: 0; } .kv.bank-row > .v { margin-right: 8px; } /* banco: nombre, cifras, editar y borrar; un nombre largo se parte */
-.kv .v { font-variant-numeric: tabular-nums; font-weight: 600; }
+.kv .v { font-variant-numeric: tabular-nums; font-weight: 600; flex: none; white-space: nowrap; }
 .kv .v.zero { color: var(--t3); font-weight: 400; }
 .big { font-size: clamp(2.5rem, 6vw, 3.5rem); font-weight: 700; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
 .big small { font-size: var(--t-3); font-weight: 500; letter-spacing: 0; color: var(--t2); margin-left: 4px; }
@@ -193,7 +193,7 @@ button.pill, a.pill { border: var(--hair) solid var(--border); }
 .decks .zero { color: var(--t3); font-weight: 400; }
 .decks .due-pos { font-weight: 800; }
 .decks .name { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.decks .name a { text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.decks .name a { text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 28rem; } /* un nombre larguísimo no ensancha la tabla (en teléfono la tabla es fija) */
 .tog { width: 28px; height: 28px; border-radius: 8px; border: var(--hair) solid var(--border); background: var(--fill-2); display: grid; place-items: center; padding: 0; flex: none; font-size: 15px; line-height: 1; }
 .swipe-row { touch-action: pan-y; }
 
@@ -251,6 +251,7 @@ button.pill, a.pill { border: var(--hair) solid var(--border); }
 .seg button[aria-pressed="true"] { background: var(--inverse-bg); color: var(--inverse-fg); }
 input[type="range"] { accent-color: var(--t1); width: 170px; }
 select, .input, textarea.input { min-height: 40px; border-radius: 10px; border: var(--hair) solid var(--border-strong); background: var(--fill-2); padding: 6px 12px; color: var(--t1); }
+select { max-width: 100%; } /* una opción larguísima no ensancha la fila */
 select option { color: #000; }
 textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 .input::placeholder { color: var(--t3); }
@@ -477,6 +478,7 @@ body.notes-full .app { padding-top: calc(env(safe-area-inset-top) + 64px); }
 .notes-exit { position: fixed; z-index: var(--z-dock); top: calc(env(safe-area-inset-top) + 10px); right: calc(env(safe-area-inset-right) + 12px); }
 .tree a, .tree button.ti { display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border-radius: 10px; text-decoration: none; font-size: .9375rem; width: 100%; text-align: left; border: 0; background: none; }
 .tree a[aria-current="page"] { background: var(--inverse-bg); color: var(--inverse-fg); }
+.tree button.ti > b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .tree .ti > svg { flex: none; }
 .tree .lvl1 { padding-left: 22px; } .tree .lvl2 { padding-left: 38px; }
 .doc { padding: 26px 30px; min-height: 70dvh; }
 /* Prompt 14: en notas largas (> 80 bloques), los tramos fuera de pantalla no se maquetan ni se pintan (siguen en el DOM: buscar,
