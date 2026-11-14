@@ -1,0 +1,43 @@
+/* Vista de diagramas (CONTRATO §5). Solo tokens de Cristal; sin color nuevo; nodos sin backdrop-filter. */
+.diag-host-view { margin: 12px 0; max-width: 100%; }
+.diag-canvas { overflow: auto; max-width: 100%; max-height: 70vh; border-radius: var(--r-panel); -webkit-overflow-scrolling: touch; }
+.diag-stage { position: relative; }
+.diag-svg { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.diag-edge { fill: none; stroke: var(--t2); stroke-linecap: round; stroke-linejoin: round; }
+.diag-w1 { stroke-width: 1px; }
+.diag-w2 { stroke-width: 2px; }
+.diag-head { fill: var(--t2); }
+
+.diag-node {
+  position: absolute; left: 0; top: 0; box-sizing: border-box; min-height: 44px;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 6px 12px; color: var(--t1); background: var(--fill-2);
+  border: 1px solid var(--border); border-radius: var(--r-row);
+  font-size: 14px; line-height: 20px; overflow-wrap: anywhere;
+}
+.diag-text { display: block; max-width: 100%; }
+.diag-root { background: var(--inverse-bg); color: var(--inverse-fg); border: 2px solid var(--inverse-bg); font-weight: 600; font-size: 16px; }
+.diag-l1 { background: var(--fill); border: 2px solid var(--border-strong); font-weight: 600; }
+.diag-l2 { background: var(--fill-2); border: 1px solid var(--border); font-weight: 400; }
+.diag-round { border-radius: var(--r-pill); }
+.diag-io { border-radius: var(--r-row); border-style: dashed; }
+.diag-decision { border-radius: var(--r-row); border-width: 3px; border-style: double; }
+.diag-note { background: transparent; border-style: dotted; color: var(--t2); }
+.diag-folded::after { content: '…'; margin-inline-start: 6px; color: var(--t2); }
+.diag-root.diag-folded::after { color: inherit; }
+.diag-node:focus-visible, .diag-wiki:focus-visible { outline: 2px solid var(--t1); outline-offset: 2px; }
+.diag-wiki { text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+
+.diag-label {
+  position: absolute; left: 0; top: 0; padding: 2px 8px; font-size: 12px; line-height: 16px;
+  color: var(--t1); background: var(--fill); border: 1px solid var(--border); border-radius: var(--r-pill);
+  white-space: nowrap; pointer-events: none;
+}
+.diag-warn { margin: 0 0 8px; color: var(--t1); font-weight: 600; }
+.diag-src { margin: 0; overflow: auto; font-family: var(--mono); font-size: 13px; color: var(--t1); white-space: pre-wrap; }
+
+/* Lista alternativa (flujos): legible por lector de pantalla, fuera de la vista. */
+.diag-alt { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; list-style: none; }
+
+.diag-node, .diag-label { transition: opacity .15s var(--ease); }
+@media (prefers-reduced-motion: reduce) { .diag-node, .diag-label { transition: none; } }
