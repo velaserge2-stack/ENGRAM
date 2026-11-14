@@ -1,5 +1,6 @@
 // break-ui con datos hostiles (Prompt 21 · fase 8). Chromium sin opciones.
 //   npm run build && node e2e/break-ui.mjs      (PORT=4177; capturas e informe JSON en e2e/out/break-ui/)
+import { spawn } from 'node:child_process';
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { strToU8, unzipSync, zipSync } from 'fflate';
