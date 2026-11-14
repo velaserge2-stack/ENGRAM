@@ -41,6 +41,10 @@ export class MemoryBackend implements VaultAdapter {
     return f.data.slice();
   }
 
+  async readMany(paths: string[]): Promise<Uint8Array[]> {
+    return Promise.all(paths.map((p) => this.read(p)));
+  }
+
   async appendAt(path: string, data: Uint8Array, at: number, sep = false): Promise<boolean> {
     const p = normalizePath(path);
     const prev = this.files.get(p)?.data ?? new Uint8Array();

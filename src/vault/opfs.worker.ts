@@ -34,6 +34,7 @@ const writeWithSyncHandle: WriteStrategy = async (fh, data) => {
 export type WorkerRequest =
   | { id: number; op: 'init' }
   | { id: number; op: 'list' | 'read' | 'remove' | 'exists' | 'stat'; path: string }
+  | { id: number; op: 'readMany'; paths: string[] }
   | { id: number; op: 'write'; path: string; data: Uint8Array }
   | { id: number; op: 'appendAt'; path: string; data: Uint8Array; at: number; sep: boolean }
   | { id: number; op: 'move'; from: string; to: string }
@@ -98,6 +99,13 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
           value = bytes;
           break;
         }
+        case 'readMany': {
+          const out: Uint8Array[] = [];
+          for (const p of req.paths) out.push(await fs.read(p));
+          for (const b of out) transfer.push(b.buffer);
+          value = out;
+          break;
+        }
         case 'write':
           await fs.write(req.path, req.data);
           break;
@@ -143,7 +151,7 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
       (self as unknown as Worker).postMessage({
         id: req.id,
         ok: false,
-        error: `${req.op} ${'path' in req ? req.path : 'from' in req ? `${req.from} → ${req.to}` : ''}: ${err?.message ?? String(e)}`,
+        error: `${req.op} ${'path' in req ? req.path : 'paths' in req ? `${req.paths.length} archivos` : 'from' in req ? `${req.from} → ${req.to}` : ''}: ${err?.message ?? String(e)}`,
         // VaultError trae `code` de texto; DOMException.code es numérico (22): entonces vale el nombre
         code: typeof err?.code === 'string' ? err.code : err?.name,
       } satisfies WorkerResponse);

@@ -122,6 +122,9 @@ export class OPFSBackend implements VaultAdapter {
   async read(path: string) {
     return this.call({ op: 'read', path: normalizePath(path) }) as Promise<Uint8Array>;
   }
+  async readMany(paths: string[]) {
+    return this.call({ op: 'readMany', paths: paths.map(normalizePath) }) as Promise<Uint8Array[]>;
+  }
   async appendAt(path: string, data: Uint8Array, at: number, sep = false) {
     const bytes = data.slice(); // se transfiere: no se le quita el búfer a quien llama
     return (await this.call({ op: 'appendAt', path: normalizePath(path), data: bytes, at, sep }, [bytes.buffer])) as boolean;

@@ -53,6 +53,8 @@ export async function collectVault(vault: VaultAdapter, root = ''): Promise<Vaul
   return out;
 }
 
+const READ_BATCH_FILES = 32;
+const READ_BATCH_BYTES = 16 * 1024 * 1024;
 const ALREADY_COMPRESSED = /\.(png|jpe?g|gif|webp|heic|mp3|m4a|wav|mp4|mov|pdf|zip|docx|xlsx)$/i;
 
 export function buildZip(files: VaultFile[], appVersion: string, now = new Date()): Promise<Uint8Array> {
@@ -93,14 +95,30 @@ export async function zipVault(vault: VaultAdapter, appVersion: string, now = ne
     f.push(data, true);
   };
   add(MANIFEST, strToU8(JSON.stringify(manifest, null, 2)), false);
-  // la lectura del siguiente archivo (en el Worker) se pide antes de comprimir el actual (aquí): se solapan
-  const read = (i: number) => (i < stats.length ? vault.read(stats[i]!.path) : null);
+  // la lectura del siguiente lote (en el Worker) se pide antes de comprimir el actual (aquí): se solapan.
+  // Con `readMany`, una petición por lote (≤ READ_BATCH_FILES archivos y ≤ READ_BATCH_BYTES; lo grande va solo).
+  const batches: number[][] = [];
+  for (let i = 0, cur: number[] = [], bytes = 0; i < stats.length; i++) {
+    const sz = stats[i]!.size;
+    if (cur.length && (!vault.readMany || cur.length >= READ_BATCH_FILES || bytes + sz > READ_BATCH_BYTES)) (batches.push(cur), (cur = []), (bytes = 0));
+    cur.push(i);
+    bytes += sz;
+    if (i === stats.length - 1) batches.push(cur);
+  }
+  const read = (b: number): Promise<Uint8Array[]> | null => {
+    if (b >= batches.length) return null;
+    const paths = batches[b]!.map((i) => stats[i]!.path);
+    return vault.readMany ? vault.readMany(paths) : Promise.all(paths.map((p) => vault.read(p)));
+  };
   let next = read(0);
-  for (let i = 0; i < stats.length && !fail; i++) {
-    const data = await next!;
-    next = read(i + 1);
-    add(stats[i]!.path, data, ALREADY_COMPRESSED.test(stats[i]!.path));
-    onProgress?.(i + 1, stats.length);
+  let done = 0;
+  for (let b = 0; b < batches.length && !fail; b++) {
+    const datas = await next!;
+    next = read(b + 1);
+    for (let k = 0; k < datas.length; k++) {
+      add(stats[batches[b]![k]!]!.path, datas[k]!, ALREADY_COMPRESSED.test(stats[batches[b]![k]!]!.path));
+      onProgress?.(++done, stats.length);
+    }
   }
   await next?.catch(() => {}); // si se cortó por un error, la lectura pendiente no queda sin atender
   z.end();

@@ -399,6 +399,10 @@ export class SafeVault implements VaultAdapter {
   read(path: string) {
     return this.raw.read(path);
   }
+  /** Lectura en lote (solo lectura: sin diario); si el backend no la tiene, una por una. */
+  readMany(paths: string[]): Promise<Uint8Array[]> {
+    return this.raw.readMany ? this.raw.readMany(paths) : Promise.all(paths.map((p) => this.raw.read(p)));
+  }
   exists(path: string) {
     return this.raw.exists(path);
   }
