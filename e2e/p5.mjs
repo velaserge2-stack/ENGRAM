@@ -133,8 +133,17 @@ try {
     await page.locator('.pdf-page[data-page="1"] .textLayer span').first().waitFor({ timeout: 20000 });
     check(true, 'el visor abre un PDF de 120 páginas con capa de texto');
     await page.getByRole('button', { name: 'Anotar', exact: true }).click();
+    // la barra de «Anotar» se monta después del clic: su atajo se registra en un
+    // efecto que corre tras pintar; si la tecla llega antes, se pierde (era la carrera)
+    const hl = page.getByRole('button', { name: /^Resaltador/ });
+    await hl.waitFor();
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 50)))); // los atajos se registran en un efecto, tras pintar
     await page.keyboard.press('h');
+    check(await hl.evaluate((b) => new Promise((ok) => { const t = Date.now(); (function w() { if (b.getAttribute('aria-pressed') === 'true') ok(true); else if (Date.now() - t > 3000) ok(false); else requestAnimationFrame(w); })(); })), 'atajo H: resaltador');
     const pg1 = page.locator('.pdf-page[data-page="1"]');
+    // la capa de texto se llena por partes y la capa de tinta se monta al pasar a «Anotar»:
+    // esperar a las dos antes de trazar (era una carrera)
+    await page.waitForFunction(() => { const p = document.querySelector('.pdf-page[data-page="1"]'); return p?.querySelector('.ink-live') && p.querySelectorAll('.textLayer span').length >= 30; });
     // cinco trazos de resaltador con Pencil, cada uno sobre una línea (un poco torcidos y cortos)
     for (let l = 0; l < 5; l++) {
       await pg1.locator('.ink-live').evaluate((el, l) => {
