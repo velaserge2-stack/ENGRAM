@@ -32,3 +32,7 @@ Rama `rendimiento-2` desde `main` 974174a con el WIP `04d6abe` (cherry-pick). **
 | F4 · añadir sin reescribir (`appendAt`, diario v3) | difícil | opus (en línea) | ~40k | 4 operaciones pequeñas por respuesta en vez de reescribir 16.5 MB; recuperación idempotente |
 | F4 · punto de control de FSRS + `state.json` diferido | difícil | opus (en línea) | ~60k | Reconstrucción por tarjeta, idéntica bit a bit (100 k hostiles, 4 zonas horarias); estudio L −63 % mediana, −69 % p95, 0 tareas largas, 1 diario por respuesta (`04-fsrs.md`) |
 | F4 · replay en Worker, mazos en Worker | — | — | — | Descartados (ver `04-fsrs.md`) |
+| F5 · caché de textos de notas (IndexedDB, firma del listado) | media | opus (en línea) | ~30k | Abrir Notas L 6.2 → 1.2 s (−81 %), M 1.36 → 0.41 s (−70 %) desde la segunda visita (`05-busqueda.md`) |
+| F5 · buscar en la nota (búsqueda binaria) | media | opus (en línea) | ~10k | Nota de 5 MB 2.88 → 1.25 s (−57 %); 1 MB −25 % |
+| F5 · no reconstruir el índice al volver | media | opus (en línea) | ~5k | Revertido: sin mejora medible en la navegación (regla < 5 %) |
+| F5 · índice persistido en IndexedDB; abrir nota de 5 MB por tramos | — | — | — | Descartado el primero (el costo está en el Worker, no en el camino del usuario); el segundo queda pendiente por su efecto en buscar/imprimir |

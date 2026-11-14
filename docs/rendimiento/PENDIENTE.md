@@ -17,6 +17,9 @@ Hecha y medida: ver `03a-lotes.md`. **En pausa obligatoria** hasta la prueba en 
 ## Fase 4 (rama `rendimiento-2`)
 Hecha y medida: ver `04-fsrs.md`. Falta del objetivo: p95 de estudio ≤ 100 ms (queda ~200 ms de interfaz → fase 6).
 
+## Fase 5 (rama `rendimiento-2`)
+Hecha y medida: ver `05-busqueda.md`. Queda: abrir la nota de 5 MB por tramos (forzando el pintado completo al buscar, imprimir y editar).
+
 ## Interrumpido (resuelto en la fase 3)
 - **Fase 3a · diario por lotes en SafeVault** (cuello #1). Trabajo a medias, **sin medición ni E2E**, guardado en la rama `rendimiento-3a-wip` (commit 04d6abe). **No unir así.** Toca `src/vault/safe.ts`, `src/vault/batch.ts` (nuevo), `src/notes/move.ts`, `src/data/move.ts`, `src/io/import.ts`, `src/screens/move.tsx`, `src/screens/notemove.tsx` y `tests/batch.test.ts`. Retomarla con Opus: revisar el diff, completar las pruebas de recuperación con fallos inyectados en cada paso (todo o nada, diario v1 compatible), medir y correr la batería.
 
