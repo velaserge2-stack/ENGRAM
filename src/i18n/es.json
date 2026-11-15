@@ -2033,5 +2033,7 @@
  "diag.pdf_err_fallo": "No se pudo crear el PDF. Aquí está el texto fuente del diagrama; cópialo para no perderlo.",
  "diag.pdf_paginas.one": "Saldrá {n} página",
  "diag.pdf_paginas.other": "Saldrán {n} páginas",
- "diag.pdf_preparando": "Preparando el PDF…"
+ "diag.pdf_preparando": "Preparando el PDF…",
+ "notes.eliminar_definitivamente": "Eliminar definitivamente",
+ "notes.confirm_definitivo": "¿Eliminar «{p}» definitivamente? No se puede deshacer."
 }

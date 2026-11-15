@@ -2033,5 +2033,7 @@
  "diag.pdf_err_fallo": "The PDF could not be created. Here is the diagram's source text; copy it so you don't lose it.",
  "diag.pdf_paginas.one": "{n} page will be created",
  "diag.pdf_paginas.other": "{n} pages will be created",
- "diag.pdf_preparando": "Preparing the PDF…"
+ "diag.pdf_preparando": "Preparing the PDF…",
+ "notes.eliminar_definitivamente": "Delete permanently",
+ "notes.confirm_definitivo": "Delete “{p}” permanently? This can’t be undone."
 }

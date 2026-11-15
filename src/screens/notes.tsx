@@ -21,7 +21,7 @@ import { useKeyScope } from '../ui/keys';
 import { IMG_EXT, removeImageEmbed } from '../md/embed';
 import { convertForExport, swapToOriginals } from '../notes/thumbs';
 import { nthImageEmbed, rewriteImageEmbed, textBeside } from '../md/embed';
-import { buildPrompt, buildTree, coverage, DAILY, linkIndex, newNoteText, type NoteMeta, noteMeta, notePath, outline, paragraphs, parseAiResponse, readVersion, restore, snapshot, TEMPLATES, trash, trashList, unlinkedMentions, versions, withOrigin } from '../notes/model';
+import { buildPrompt, buildTree, coverage, DAILY, linkIndex, newNoteText, type NoteMeta, noteMeta, notePath, outline, paragraphs, parseAiResponse, readVersion, purge, restore, snapshot, TEMPLATES, trash, trashList, unlinkedMentions, versions, withOrigin } from '../notes/model';
 import { go, href, useApp, useAsync } from '../state';
 import { Empty, PageTitle, Segmented, Sheet } from '../ui/kit';
 import { Html, hydrateAllMedia } from '../ui/md';
@@ -353,9 +353,10 @@ function TrashSheet(props: { onClose: () => void }) {
   const { data } = useAsync(() => trashList(app.vault), [app.version, app.notesVersion]);
   return (
     <Sheet title={tr('notes.papelera')} onClose={props.onClose}>
-      {!data?.length ? <p class="t2">{tr('notes.vacia')}</p> : data.map((t) => (
+      {!data ? <p class="t2">{tr('deck.cargando')}</p> : !data.length ? <p class="t2">{tr('notes.vacia')}</p> : data.map((t) => (
         <div class="row-i"><div class="k">{t.path}<small>{new Date(t.ts).toLocaleString(locale())}</small></div>
-          <button type="button" class="btn small" onClick={async () => { const p = await restore(app.vault, t.stored, t.path); app.changed('notes'); app.toast(tr('notes.restaurada_en', { p })); }}>{tr('notes.restaurar')}</button>
+          <button type="button" class="btn" onClick={async () => { const p = await restore(app.vault, t.stored, t.path); app.changed('notes'); app.toast(tr('notes.restaurada_en', { p })); }}>{tr('notes.restaurar')}</button>
+          <button type="button" class="btn danger" onClick={async () => { if (!confirm(tr('notes.confirm_definitivo', { p: t.path }))) return; await purge(app.vault, t.stored); app.changed('notes'); }}><Trash2 size={14} />{' '}{tr('notes.eliminar_definitivamente')}</button>
         </div>
       ))}
     </Sheet>

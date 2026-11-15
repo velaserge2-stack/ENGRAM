@@ -40,7 +40,8 @@
     "e2e:notas-perf": "node e2e/notes-perf.mjs",
     "e2e:share": "node e2e/share.mjs",
     "e2e:tasks": "node e2e/tasks.mjs",
-    "e2e:stickies": "node e2e/stickies.mjs"
+    "e2e:stickies": "node e2e/stickies.mjs",
+    "e2e:papelera": "node e2e/papelera.mjs"
   },
   "dependencies": {
     "docx": "^9.15.3",

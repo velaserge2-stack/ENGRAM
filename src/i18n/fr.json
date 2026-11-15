@@ -2033,5 +2033,7 @@
  "diag.pdf_err_fallo": "Impossible de créer le PDF. Voici le texte source du diagramme ; copiez-le pour ne rien perdre.",
  "diag.pdf_paginas.one": "{n} page sera créée",
  "diag.pdf_paginas.other": "{n} pages seront créées",
- "diag.pdf_preparando": "Préparation du PDF…"
+ "diag.pdf_preparando": "Préparation du PDF…",
+ "notes.eliminar_definitivamente": "Supprimer définitivement",
+ "notes.confirm_definitivo": "Supprimer « {p} » définitivement ? Impossible d’annuler."
 }
