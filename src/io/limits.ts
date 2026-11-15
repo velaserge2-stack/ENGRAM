@@ -10,5 +10,9 @@ export const LIMITS = {
   maxUnzstdBytes: 1024 * 1024 * 1024,
   /** Tope de notas en un paquete de Anki. */
   maxApkgNotes: 300_000,
+  /** Paquete de Anki (se lee por trozos, no entero): tamaño del archivo, de cada entrada y total declarado. */
+  maxApkgBytes: 4 * 1024 * 1024 * 1024,
+  maxApkgEntryBytes: 300 * 1024 * 1024,
+  maxApkgTotalBytes: 4 * 1024 * 1024 * 1024,
 };
 export type Limits = typeof LIMITS;

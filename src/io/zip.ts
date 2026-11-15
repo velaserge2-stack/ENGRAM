@@ -27,6 +27,10 @@ export interface VaultFile {
   data: Uint8Array;
   /** Prompt 11: archivo grande que se escribe por trozos desde el File (sin leerlo antes); `data` va vacío. */
   blob?: Blob;
+  /** Entrada que se produce al aplicar el plan, de una en una (medios de un .apkg leído por trozos); `data` va vacío. */
+  lazy?: () => Promise<Blob>;
+  /** Tamaño aproximado de una entrada `lazy` (para la vista previa y el progreso). */
+  size?: number;
 }
 
 /** No se exportan transitorios del diario ni cachés. */

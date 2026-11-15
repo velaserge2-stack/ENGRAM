@@ -13,7 +13,8 @@ import { type FileStat, type VaultAdapter, VaultError } from './types';
 import { checksum, toBytes, walk } from './util';
 
 export type Staged =
-  | { k: 'data'; data: Uint8Array | Blob }
+  /** `load`: el Blob se produce al confirmar (de uno en uno), no antes; `data` es solo un marcador vacío. */
+  | { k: 'data'; data: Uint8Array | Blob; load?: () => Promise<Blob>; size?: number }
   | { k: 'moved'; src: string; size: number; mtime: number }
   | { k: 'gone' };
 
@@ -71,7 +72,7 @@ export class Batch implements VaultAdapter {
   async read(path: string): Promise<Uint8Array> {
     const p = normalizePath(path);
     const s = this.st.get(p);
-    if (s?.k === 'data') return s.data instanceof Uint8Array ? s.data.slice() : new Uint8Array(await s.data.arrayBuffer());
+    if (s?.k === 'data') return s.data instanceof Uint8Array ? s.data.slice() : new Uint8Array(await (s.load ? await s.load() : s.data).arrayBuffer());
     if (s?.k === 'moved') return this.raw.read(s.src);
     if (s?.k === 'gone' || this.hidden(p)) throw notFound(p);
     return this.raw.read(p);
@@ -82,7 +83,7 @@ export class Batch implements VaultAdapter {
     const s = this.st.get(p);
     const file = (size: number, mtime: number): FileStat => ({ path: p, name: basename(p), kind: 'file', size, mtime });
     const dir = (): FileStat => ({ path: p, name: p ? basename(p) : '', kind: 'dir', size: 0, mtime: 0 });
-    if (s?.k === 'data') return file(s.data instanceof Uint8Array ? s.data.length : s.data.size, Date.now());
+    if (s?.k === 'data') return file(s.size ?? (s.data instanceof Uint8Array ? s.data.length : s.data.size), Date.now());
     if (s?.k === 'moved') return file(s.size, s.mtime);
     if (s?.k !== 'gone' && !this.hidden(p)) {
       const r = await this.raw.stat(p);
@@ -130,6 +131,13 @@ export class Batch implements VaultAdapter {
     const p = normalizePath(path);
     if (!p) throw new VaultError('Ruta vacía', 'invalid-path');
     await this.put(p, { k: 'data', data: blob });
+  }
+
+  /** Como `writeStream`, pero el Blob se produce al confirmar el lote (no se retiene mientras tanto). */
+  async writeLazy(path: string, size: number, load: () => Promise<Blob>): Promise<void> {
+    const p = normalizePath(path);
+    if (!p) throw new VaultError('Ruta vacía', 'invalid-path');
+    await this.put(p, { k: 'data', data: new Blob([]), load, size });
   }
 
   async move(from: string, to: string): Promise<void> {

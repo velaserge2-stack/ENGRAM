@@ -1,7 +1,7 @@
 import { errMsg, locale, t } from '../i18n';
 import { CircleAlert, FileUp, FolderUp, Layers, LoaderCircle, Undo2 } from 'lucide-preact';
 import { useRef, useState } from 'preact/hooks';
-import { type ApplyResult, applyPlan, buildPlan, fromFileList, gather, mergeLog, type PlanItem, type Resolution, runApkgWorker, undoImport } from '../io/import';
+import { type ApplyResult, applyPlan, buildPlan, fromFileList, gather, mergeLog, type PlanItem, type Resolution, runApkgFile, runApkgWorker, undoImport } from '../io/import';
 import type { LogEntry } from '../srs/engine';
 import { loadSettings, SETTINGS_PATH } from '../lib/settings';
 import { go, useApp } from '../state';
@@ -34,7 +34,7 @@ export function ImportSheet(props: { onClose: () => void }) {
     if (!list || !list.length) return;
     setBusy(true);
     try {
-      const g = await gather(fromFileList(list), { apkg: (b, name) => runApkgWorker(b, true, name) });
+      const g = await gather(fromFileList(list), { apkg: (b, name) => runApkgWorker(b, true, name), apkgFile: (f, name) => runApkgFile(f, true, name) });
       setWarnings(g.warnings);
       setLog(g.log);
       setFailures(g.failures);
@@ -70,7 +70,10 @@ export function ImportSheet(props: { onClose: () => void }) {
       }
       setDone(res);
     } catch (e) {
-      if ((e as Error)?.name !== 'AbortError') throw e;
+      if ((e as Error)?.name !== 'AbortError') {
+        app.toast(t('import.no_se_pudo_leer_message', { message: errMsg(e) })); // p. ej. un medio dañado: no se escribió nada
+        return;
+      }
       app.toast(t('import.cancelada')); // el lote no llegó a escribir su diario: la bóveda no cambió
     } finally {
       cancelAnimationFrame(frame);
@@ -108,7 +111,7 @@ export function ImportSheet(props: { onClose: () => void }) {
         <div style={{ display: 'grid', gap: '12px' }}>
           <button type="button" class="btn small" style={{ justifySelf: 'start' }} onClick={() => setPreview(null)}>{t('import.volver')}</button>
           <b style={{ wordBreak: 'break-all' }}>{preview.path}</b>
-          {preview.preview ? <pre class="preview">{preview.preview}</pre> : <p>{((preview.blob?.size ?? preview.data.length) / 1024).toFixed(1)}{' '}{t('import.kb_sin_vista_previa')}</p>}
+          {preview.preview ? <pre class="preview">{preview.preview}</pre> : <p>{((preview.blob?.size ?? preview.size ?? preview.data.length) / 1024).toFixed(1)}{' '}{t('import.kb_sin_vista_previa')}</p>}
         </div>
       ) : plan && plan.length === 0 ? (
         <div style={{ display: 'grid', gap: '12px' }}>
