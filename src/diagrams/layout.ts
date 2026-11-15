@@ -3,6 +3,9 @@
 // `paths` va por id de arista (flujo/diagrama) o por id del nodo hijo (mapa: conector padre → hijo).
 import type { DiagramDoc, DiagramEdge, DiagramNode, Dir, Layout } from './types';
 
+/** Tamaños medidos por id (measure.ts). Si falta un id se usa `nodeSize`. */
+export type SizeMap = Map<string, { w: number; h: number }>;
+
 type Box = { x: number; y: number; w: number; h: number };
 type Pt = { x: number; y: number };
 type Ori = 'v' | 'h';
@@ -93,12 +96,12 @@ function crossingsBetween(row: number[], down: number[][], pos: Int32Array, size
  * 4. Coordenadas: filas empacadas y alineadas hacia el promedio de vecinos, sin solaparse ni cambiar el orden.
  * Componentes lado a lado; nodos sin aristas en una franja aparte; `x/y` manuales mandan.
  */
-export function layoutLayered(doc: DiagramDoc, dir: Dir | 'tb' | 'lr'): Layout {
+export function layoutLayered(doc: DiagramDoc, dir: Dir | 'tb' | 'lr', sizes?: SizeMap): Layout {
   const tb = dir === 'TB' || dir === 'tb';
   const nodes = doc.nodes, N = nodes.length;
   const idx = new Map<string, number>();
   nodes.forEach((n, i) => { if (!idx.has(n.id)) idx.set(n.id, i); });
-  const size = nodes.map(nodeSize);
+  const size = nodes.map(n => sizes?.get(n.id) ?? nodeSize(n));
 
   // Aristas válidas (extremos existentes).
   const es: { e: DiagramEdge; u: number; v: number }[] = [];
@@ -307,11 +310,11 @@ const H_GAP = 48, V_GAP = 12, TREE_GAP = 40, RADIAL_SPACING = 56;
  * Ramas plegadas = sin hijos (los descendientes no reciben posición). `x/y` manuales son relativos a la raíz
  * (en 0,0) y arrastran a sus descendientes sin posición propia. Varias raíces (texto anómalo): árboles en fila.
  */
-export function layoutTree(doc: DiagramDoc, mode: 'horizontal' | 'radial' = 'horizontal'): Layout {
+export function layoutTree(doc: DiagramDoc, mode: 'horizontal' | 'radial' = 'horizontal', sizes?: SizeMap): Layout {
   const nodes = doc.nodes, N = nodes.length;
   const idx = new Map<string, number>();
   nodes.forEach((n, i) => { if (!idx.has(n.id)) idx.set(n.id, i); });
-  const size = nodes.map(nodeSize);
+  const size = nodes.map(n => sizes?.get(n.id) ?? nodeSize(n));
   const kids: number[][] = Array.from({ length: N }, () => []);
   const roots: number[] = [];
   nodes.forEach((n, i) => {

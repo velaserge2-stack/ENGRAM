@@ -20,7 +20,7 @@ Fuente de verdad para todos los subagentes. Cubre la «Fase K» entera. Sin depe
 - Cadenas: `A --> B --> C` = dos aristas.
 - Posición/plegado como en §1.1, tras el nodo: `[Triaje]{x=40,y=0}`. Con varias apariciones del nodo, vale la primera posición escrita; `applyEdit` escribe la posición en la primera aparición.
 - Enlace `[[nota]]` dentro del texto: nodo clicable (abre la nota); no cambia la identidad.
-- Atributo de trazo de arista (recta/curva/ortogonal): sufijo `{recta}` | `{curva}` | `{orto}` tras el destino; por defecto curva. Color de nodo (opcional, apagado por defecto): sufijo `{c=1..6}`, índice de una paleta fija pequeña (contenido del usuario, contraste ≥ 4.5:1 garantizado al pintar).
+- Atributo de trazo de arista (recta/curva/ortogonal): sufijo `{recta}` | `{curva}` | `{orto}` tras el destino; por defecto curva. Color de nodo (opcional, apagado por defecto): sufijo `{c=1..6}` *(reemplazado por §P22.1: clave `color`, 1–8)*, índice de una paleta fija pequeña (contenido del usuario, contraste ≥ 4.5:1 garantizado al pintar).
 
 ### 1.3 Ejemplo mínimo
 ```mapa
@@ -116,9 +116,78 @@ Orden: A y B en paralelo → C → D → E. Nadie edita tipos de `types.ts` sin 
 ## Decisiones confirmadas por el usuario (Prompt 20)
 1. **Nodos sin id**: un nodo se identifica por forma y texto. Se aceptan textos repetidos (si ocurren, se avisa; no se añade `#id`).
 2. **Cuerpo de la nota = gramática directa**: en una nota de tipo `mapa`, `flujo` o `diagrama`, el cuerpo es el texto de diagrama, sin fence. Las notas normales que insertan un diagrama usan el bloque de código ```mapa``` / ```flujo```.
-3. **Color por nodo diferido**: `{c=n}` no entra en esta ola; la gramática lo reserva pero el parser lo trata como línea desconocida hasta una ola posterior.
+3. **Color por nodo diferido** *(reemplazado por §P22.1)*: `{c=n}` no entra en esta ola; la gramática lo reserva pero el parser lo trata como línea desconocida hasta una ola posterior.
 4. **Tope de 300 nodos**: por encima se abre la nota solo como texto; el lienzo muestra un aviso y la edición visual queda desactivada. Nunca se rechaza la apertura ni se pierde contenido.
 5. **Sufijos solo al final de línea**: `{plegado}`, `{x=…,y=…}` y `{recta|curva|orto}` se reconocen únicamente tras el cierre del nodo o de la flecha, con esas claves exactas. Un texto de decisión `{…}` sin sufijo no se confunde con uno.
 
 ## Cambio de contrato registrado (ola 4)
 - El tipo `Edit` del contrato §2 se sustituyó por el conjunto de la ola 4: `addChild`, `addSibling`, `rename`, `remove`, `connect`, `disconnect`, `move`, `fold`, `reparent`, `style`, `label` y el inverso interno `splice`. Motivo: las operaciones del editor (hijo, hermano, conectar, mover, plegar) son estas; `splice` existe para que deshacer sea exacto en texto.
+
+
+---
+# §P22 · Prompt 22 (rama `fix-diagramas`): estilo, medición, flechas, PDF, edición en el sitio
+Todo es retrocompatible y perezoso: nada se reescribe hasta que el usuario edita esa línea; `serialize(parse(t)) === t` sigue valiendo. Las firmas de abajo son el contrato; quien las implementa no las cambia sin pasar por el Arquitecto.
+
+## §P22.1 Formato
+**Grupo de sufijos** = `{item,item,…}` al final de la línea; `item` = `clave=valor` o bandera. Cualquier orden, una o varias llaves (`{x=1,y=2} {plegado}` y `{x=1,y=2,plegado,color=3}` valen igual). Un grupo cuenta como sufijo solo si contiene ≥ 1 clave **conocida** (si no, es texto/decisión, como hoy). Claves desconocidas o con valor fuera de rango se conservan literales en su sitio y no se aplican; x/y fuera de ±100 000 invalidan ambos (como hoy).
+- Nodo: `x`,`y` (enteros) · `color` 1–8 (ninguno = ausente) · `w`,`h` enteros 24–2000 (mínimo efectivo = medido: `max(medido, manual)`) · `maxw` 80–600 (ancho de ajuste de línea; defecto 220) · `fs` `s|m|l` (13/15/18 px; defecto `m`) · bandera `plegado`.
+- Flecha, tras el destino (con o sin etiqueta; alcance = el de `{recta|curva|orto}` hoy): `A -- sí --> B {color=2,w=3,dash,fin=ambos}` · `color` 1–8 · `w` 1–8 (grosor, defecto 2) · bandera `dash` · `fin` = `sin|flecha|ambos|circulo|rombo` (extremo del destino; `ambos` = punta en los dos; sin `fin` se deriva de `arrow`: to→flecha, none→sin, both→ambos) · banderas `recta|curva|orto` (siguen valiendo sueltas).
+- **Escritura**: nunca se fusionan grupos ya escritos. `applyEdit` sobre una línea reemplaza o quita ítems dentro de su grupo original (grupo vacío = se quita); las claves nuevas entran en el **último** grupo de la línea, o en un grupo nuevo `{…}` si no había; orden de las nuevas: x,y,color,w,h,maxw,fs,plegado. Un lector antiguo verá `{plegado,color=3}` como texto: aceptado.
+- **Fondo** (`type Backdrop = 'cristal'|'claro'|'gris'|'oscuro'|'cuadricula'|'puntos'`, defecto `cristal` = sin marca): nota de diagrama → frontmatter `fondo:`; bloque ```` ```flujo ```` → primera línea no vacía `# fondo: puntos` (comentario `#` ya existente, legible por versiones antiguas). Prevalece el frontmatter. `readBackdrop(text: string, fm?: string): Backdrop` en `parse.ts`; valor desconocido = `cristal` y la línea queda literal.
+- **Alto recordado**: bloque en nota normal → info del fence ```` ```mapa alto=420 ```` (el contenedor vuelve a mostrarlo así); nota de diagrama y `![[Mi mapa]]` → frontmatter `alto: 420` de la nota de diagrama. Entero 160–2000; fuera de rango = ignorado y literal. `readHeight(info?: string, fm?: string): number | undefined` en `parse.ts`.
+- **Sufijo a mitad de línea**: un grupo `{…}` que no está al final de la línea (p. ej. `[A] {w=0} --> [B]`) no cuenta como sufijo. La línea entera queda literal con error `forma`: no se crean nodos ni flecha, y no se pierde texto.
+
+## §P22.2 Tipos (los aplica Lógica en `types.ts`; sustituyen lo anterior)
+```ts
+type Color = 1|2|3|4|5|6|7|8;  type FontSize = 's'|'m'|'l';  type EdgeEnd = 'sin'|'flecha'|'ambos'|'circulo'|'rombo';
+interface NodeAttrs { color?: Color; w?: number; h?: number; maxw?: number; fs?: FontSize; folded?: boolean; x?: number; y?: number }
+interface EdgeAttrs { color?: Color; w?: number; dash?: boolean; fin?: EdgeEnd; route?: Route }
+// DiagramNode += NodeAttrs (color pasa de 1..6 a Color) + extra?: string[]  // ítems literales no entendidos
+// DiagramEdge += EdgeAttrs + extra?: string[]
+interface TreeItem { text: string; depth: number /* 0 = hijo directo; sube como mucho +1 */; shape?: Shape }
+type Edit = /* existentes */ | { op: 'attrs'; ids: string[]; set?: NodeAttrs; unset?: (keyof NodeAttrs)[] }
+  | { op: 'edgeAttrs'; ids: string[]; set?: EdgeAttrs; unset?: (keyof EdgeAttrs)[] }
+  | { op: 'addTree'; parent: string; items: TreeItem[] }        // «pegar lista»: un solo paso, solo mapa
+  | { op: 'backdrop'; value?: Backdrop };                       // fence: escribe/quita `# fondo:`; ausente = cristal
+```
+`style` (solo `route`) se mantiene como alias de `edgeAttrs`. Inverso de `attrs`/`edgeAttrs`/`addTree`/`backdrop` = un `splice` exacto. `addTree` inválido (>300 nodos, parent inexistente, saltos de profundidad, no-mapa) = no-op. `parseOutline(text: string): TreeItem[]` (puro, en `edit.ts`): viñetas `-`,`*`,`•`, numeración `1.`/`1)`, sangría relativa (tab = 2 espacios), líneas vacías fuera; sin viñetas = una línea por hijo.
+
+## §P22.3 Medición (`src/diagrams/measure.ts`, nuevo, puro salvo el medidor por defecto)
+```ts
+type Measurer = (text: string, font: string) => number;          // ancho en px; `font` = CSS shorthand
+interface MeasureIn { text: string; shape: Shape; fontSize: number; maxW: number; manualW?: number; manualH?: number }
+interface Measured { w: number; h: number; lines: string[] }
+function measureNode(i: MeasureIn, m?: Measurer): Measured;
+function measureDoc(doc: DiagramDoc, m?: Measurer): Map<string, Measured>;   // por id; aplica fs/maxw/w/h del nodo
+function setMeasurer(m: Measurer | null): void; function clearMeasureCache(): void;   // pruebas
+type SizeMap = Map<string, { w: number; h: number }>;
+```
+Texto sin marcas `**`,`*`,`[[ ]]`; tope 5 000 caracteres (el resto no se mide ni se pinta; no se recorta el archivo); ajuste por palabras, palabra sin espacios más ancha que el área = corte por caracteres. Relleno 12×8 px, interlínea 1.3×fontSize; rombo: caja de texto √2 en cada eje; `io` +16 px laterales; `round` radio = h/2 y relleno lateral +8. Memo por `font|maxW|shape|text`. Medidor por defecto = `canvas.measureText` (feature detection) con respaldo `0.55×fontSize×n`. `layoutTree(doc, mode?, sizes?: SizeMap)` y `layoutLayered(doc, dir, sizes?: SizeMap)`: `sizes` opcional; falta un id = `nodeSize` actual (se conserva, sus pruebas no cambian). `CHAR_W` y `MAX_TEXT=200` de `export.ts` se eliminan: SVG/PNG/PDF pintan `Measured.lines`.
+
+## §P22.4 Flechas y paleta
+```ts
+type Box = { x: number; y: number; w: number; h: number };       // x,y = centro (como `Layout.pos`)
+function edgeGeometry(from: Box, to: Box, route: Route, opts: { width: number; ends: EdgeEnd; gap?: number /* 4 */ }):
+  { d: string; head?: { d: string }; tail?: { d: string }; labelAt: { x: number; y: number } };   // `src/diagrams/edges.ts`
+```
+Ancla en el borde (rombo: sobre el rombo, no su caja) del lado más cercano con hueco 4 px; la línea termina en la base de la punta; punta ≈ 5×grosor (mín. 10 px): `flecha` triángulo, `rombo` rombo, `circulo` círculo (polígono en `<path>`), siempre `fill` relleno sin trazo. Misma función en pantalla (`view`/`canvas`) y exportación; `Layout.paths` queda como respaldo y para `hitEdge`.
+Paleta (`src/diagrams/palette.ts`, nuevo): `PALETTE_LIGHT`, `PALETTE_DARK: readonly string[8]` (hex) e `inkOn(bg: string): '#ffffff'|'#000000'` (el de mayor contraste, ≥ 4.5:1 garantizado por prueba). `diagram.css` define `--diag-c1..c8`, `--diag-c1-fg..c8-fg` en claro y oscuro (mecanismo de tema de `theme-cristal.css`) y `--diag-ink` = color opaco derivado de `--t1` (flechas); una prueba compara los tokens del CSS con `palette.ts`.
+
+## §P22.5 PDF (`src/diagrams/export-pdf.ts`, nuevo)
+```ts
+interface PdfOpts { page: 'ajustar'|'a4'|'carta'; fit: 'una'|'varias'; margin: number /* pt */; title?: string; date?: string }
+function exportPdf(doc: DiagramDoc, layout: Layout, measured: Map<string, Measured>, opts: PdfOpts): Promise<{ blob: Blob; mode: 'vector'|'raster' }>;
+```
+`pdf-lib` con `import()` (confirmar que está en `package.json`; si no, es la única dependencia a pedir al usuario). Vectorial con Helvetica solo si todo el texto cabe en WinAnsi; si no, o si falla, `raster` (PNG por mosaicos, canvas ≤ 16 M px por mosaico en Safari). Lado máximo 14 400 pt (`ajustar` escala; `varias` pagina). Usa `edgeGeometry`, `measured.lines` y la paleta clara fija (fondo `oscuro` → `PALETTE_DARK`). Fondo `cuadricula`/`puntos` se dibujan en SVG, PNG y PDF.
+
+## §P22.6 Edición en el sitio y crear sin modal (estado en `canvas.tsx`, puro en `inline.ts` si hace falta)
+```ts
+type Inline = { mode: 'edit'; id: string; text: string }
+  | { mode: 'new'; parent?: string; after?: string; shape: Shape; x?: number; y?: number; text: string };  // «fantasma»
+```
+Un nodo nuevo **no entra en el documento** hasta confirmar: el lienzo pinta un fantasma con el `<textarea>`; confirmar con texto = un único `addChild`/`addSibling` (con `attrs` si ya eligió color) = un paso de historial; vacío o Esc = se descarta sin escribir nada. `edit`: confirmar = `rename` solo si cambió; vacío = se restaura el texto (nunca borra). Enter confirma, Mayús+Enter salto de línea, Tab = confirmar y crear hijo, Esc cancela. Pegar varias líneas en un fantasma = `addTree` con `parseOutline`.
+
+## §P22.7 Propiedad de archivos (olas 2–5); nadie edita un archivo que no es suyo
+- **Ola 2 (paralelo, sin solapes)**: *Lógica* = `types.ts`, `parse.ts`, `serialize.ts`, `edit.ts`, `tests/diagrams-parse*`, `tests/diagrams-edit*`. *Lógica 2* = `measure.ts`, `palette.ts`, `edges.ts`, `layout.ts`, `tests/diagrams-{measure,edges,layout,palette}*`. *CSS/i18n* = `diagram.css` (tokens §P22.4 y **tres bloques vacíos** `/* ==A== */…/* ==/A== */`, `==B==`, `==C==`), `src/i18n/{es,en,fr}.json` (todas las claves `diag.*` nuevas de las olas 3–4, para que nadie más toque i18n).
+- **Ola 3**: *A* (lienzo grande, Ajustar) = `gestures.ts` (`fitView`, `FIT_MAX`), `editor.tsx`, contenedor en `src/screens/notes*.tsx`, bloque CSS `==A==`. *B* (flechas, chips «+», edición en el sitio, pintar color/tamaño en vista y lienzo) = `canvas.tsx`, `view.tsx`, bloque `==B==`; usa `edgeGeometry`/`measureDoc`; no borra `exitPoint`/`straight` de `gestures.ts` (A lo posee). *C* (colores, tamaños, asas) = `toolbar.tsx`, nuevo `handles.tsx`, bloque `==C==`; **C empieza cuando B termina** y es el único que puede añadir un montaje en `canvas.tsx` (sólo tras B). A y B corren en paralelo; los bloques CSS se editan con Edit, nunca con Write del archivo entero.
+- **Ola 4**: *Exportar* = `export.ts`, `export-pdf.ts`, `export-ui.tsx`, `tests/diagrams-export*`. **Ola 5**: *Integración* = `src/md/render.ts` (`alto=` del fence), `src/notes/{model,diagramtype}.ts` (`fondo:`/`alto:`), `mount.ts`, `e2e/diagramas.mjs`, `package.json`, `CLAUDE.md`, `docs/DECISIONS.md`.

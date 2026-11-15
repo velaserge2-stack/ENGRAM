@@ -1611,6 +1611,12 @@ Tres tipos de nota nuevos en Notas (`tipo: mapa | flujo | diagrama`), cada uno u
 
 ---
 
+# PROMPT 22: Mejoras del editor de diagramas (lienzo, escritura, estilo, flechas y exportación)
+
+Mejoras sobre las notas de diagramas del Prompt 20, en la rama `fix-diagramas`, hechas por olas con subagentes (plan en `docs/diagramas/PLAN-22.md`, estado por pieza en `docs/diagramas/estado-p22-*.md`, contrato en `docs/diagramas/CONTRATO.md` §P22). El lienzo usa todo el espacio y «Ajustar» llena el tablero. Se escribe en el sitio: doble clic o toque, Tab encadena nodos y pegar una lista crea ramas. Cada nodo tiene color (1–8), tamaño (S/M/L, automático o a mano con asas) y tamaño de letra; las flechas tienen color, grosor, punteado y extremos, y son opacas. La nota y el bloque tienen fondo (`fondo:`) y alto recordado (`alto=`). El texto se mide con el navegador, así que nada se corta, y PNG, SVG y PDF usan la misma medición (el PDF es vectorial, con imagen solo si hay caracteres fuera de WinAnsi). Reglas: el archivo sigue siendo la fuente de verdad, tema Cristal, todo por `t()` y sin red. Pendiente: pruebas en iPad, iPhone, Safari y Apple Pencil reales, y `npm run e2e:diagramas`.
+
+---
+
 # PROMPT 21: Optimización de rendimiento de Engrama (arranque, mover/importar, datos, búsqueda y memoria)
 
 Que la app arranque y responda más rápido y que mover, importar y exportar muchos archivos cueste mucho menos, sin cambiar lo que hace ni cómo se ve, y sin sacrificar escritura segura, integridad, determinismo de FSRS, sanitización ni accesibilidad. Coordinador en Sonnet con subagentes por dificultad (`haiku` fácil, `sonnet` media, `opus` difícil); skills: ponytail, superpowers, webapp-testing, break-ui, security-review y, en la fase 9, code-simplifier y deslop.

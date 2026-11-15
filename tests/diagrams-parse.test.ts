@@ -91,8 +91,10 @@ describe('flujo y diagrama', () => {
   it('ruta de la arista y {c=n} desconocido', () => {
     const { doc, errors } = parseDiagram('[A] --> [B] {orto}\n[A] --> [B]{c=2}\n', 'flujo');
     expect(doc.edges[0]!.route).toBe('orto');
-    expect(errors.length).toBe(1);
-    expect(doc.lines[1]!.t).toBe('raw');
+    // P22: la clave desconocida queda en `extra` y la línea se dibuja (antes se descartaba)
+    expect(errors.length).toBe(0);
+    expect(doc.edges[1]!.extra).toEqual(['c=2']);
+    expect(doc.lines[1]!.t).toBe('edge');
   });
   it('decisión {plegado} sin sufijo sigue siendo nodo', () => {
     const { doc } = parseDiagram('(A) --> {plegado}\n', 'flujo');
@@ -141,8 +143,8 @@ describe('límites y seguridad', () => {
     expect(f.doc.nodes.map((n) => n.text)).toEqual(['<script>alert(1)</script>', 'javascript:alert(1)']);
     expect(serializeDiagram(f.doc)).toBe('[<script>alert(1)</script>] --> [javascript:alert(1)]\n');
   });
-  it('línea de más de 1000 caracteres: conservada, no dibujada', () => {
-    const t = `R\n- ${'x'.repeat(1001)}\n`;
+  it('texto de nodo de más de 5000 caracteres: conservado, no dibujado', () => {
+    const t = `R\n- ${'x'.repeat(5001)}\n`;
     const { doc, errors } = parseDiagram(t, 'mapa');
     expect(doc.nodes.length).toBe(1);
     expect(errors.length).toBe(1);

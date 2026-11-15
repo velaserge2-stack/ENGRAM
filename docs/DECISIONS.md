@@ -872,3 +872,21 @@ Detalle y cifras en `docs/rendimiento/03a-lotes.md` a `07-memoria.md`.
 - **Caché de carpetas** en el Worker de OPFS (no en la carpeta del usuario): se invalida al borrar y se reintenta sin caché ante `NotFoundError`.
 - **Archivos nuevos sin renombrar** (diario v4): un destino que no existía se escribe directo con `create` (solo si no hay nada) tras el diario y antes de aplicar; si el lote no llegó a aplicarse, la recuperación borra esos destinos (solo los nuestros o vacíos) y sus carpetas vacías. Los existentes siguen con temporal + renombrar; sin nuevos el diario es v2. Restaurar L −49 %, zip de 500 −45 %.
 - **Descartado**: paralelizar operaciones (el Worker de OPFS hace una a la vez); índice de búsqueda persistido (su costo está en el Worker, no en el camino del usuario); no reconstruir el índice al volver a Notas (sin mejora medible: revertido); replay y mazos en Worker (el replay completo ya no está en el camino normal; parsear mazos cuesta ~140 ms); caché de listados (con una carpeta del usuario, otra app cambia archivos por fuera); virtualizar listas (no son cuello).
+
+## Prompt 22 · mejoras del editor de diagramas
+Plan y estados en `docs/diagramas/PLAN-22.md` y `docs/diagramas/estado-p22-*.md`; contrato en `docs/diagramas/CONTRATO.md` §P22.
+- **Nodo «fantasma»**: un nodo nuevo no entra en el documento hasta confirmar con texto. Confirmar es un solo paso de deshacer; vacío o Esc no escribe nada.
+- **⇧Intro se guarda como espacio**: el formato tiene una línea por nodo, así que un salto de línea no cabe en el archivo. En pantalla el texto sí salta de línea.
+- **Una sola medición**: pantalla, SVG, PNG y PDF usan `measureDoc`. Lo que se ve es lo que se exporta, y se quitó el recorte de 200 caracteres.
+- **PDF vectorial con Helvetica**: el texto se puede seleccionar y cada línea se ajusta al ancho. Si hay caracteres fuera de WinAnsi (emoji, CJK), la página se hace como imagen por mosaicos, y la hoja avisa.
+- **Asas frente a chips**: las asas cambian el tamaño de un nodo arrastrando; los chips «+» añaden un hijo. Son controles distintos y no se mezclan.
+- **`w` de un nodo que es destino de flecha va en línea propia**: en la línea de la flecha, `w` es el grosor de la flecha. Por eso el ancho de ese nodo se escribe como `[B] {w=240}`.
+- **Pegar una lista**: tope de 500 líneas. En un mapa es un solo `addTree` (hasta 300 nodos, un paso de deshacer); en un flujo es una cadena de `addChild` en una sola edición.
+- **Lienzo grande**: `FIT_MAX` pasa de 1,5 a 3, y «Ajustar» centra el contenido si ocupa al menos el 85 % del tablero.
+- **Flechas opacas**: el trazo y la punta usan la tinta del tema con opacidad 1. Antes tenían alfa 0,6, así que se veían transparentes.
+- **Colores**: 8 colores con texto de contraste ≥ 4,5:1 (prueba). Los hex de `diagram.css` y de `palette.ts` son los mismos (una prueba los compara).
+- **Fondo y alto solo al cambiarlos**: `fondo:` y `alto` se escriben cuando el usuario los cambia; «cristal» no deja marca. El alto solo reescribe la línea de apertura del bloque.
+- **Correcciones de seguridad** (revisión de `estado-p22-seguridad.md`): `readArrow` sin regex cúbica (una línea con 5 000 espacios tardaba unos 14 s); rejilla de puntos acotada a 20 000 elementos; texto de nodo con tope en la edición; medidor que devuelve NaN cae a la estimación.
+- **Quedó fuera**: selección múltiple; las flechas no siguen al nodo mientras se arrastra un asa (se mueven al soltar); un sufijo de nodo a mitad de línea deja la línea literal (error `forma`); imprimir una nota de diagrama completa no pasa por `print.ts` (sí los bloques).
+- **Rendimiento medido solo en Chromium sin pantalla**: 300 nodos, arrastre con 49–62 ms por fotograma. No hay cifra de iPad.
+- **Sin probar**: iPad, iPhone, Safari, Apple Pencil, teclado virtual e IME reales. `e2e/diagramas.mjs` tiene fallos conocidos en la sección 2 y se corrige en la ola de integración.

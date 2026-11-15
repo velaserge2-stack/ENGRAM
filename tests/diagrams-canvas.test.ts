@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { h, render } from 'preact';
 import { DiagramCanvas, type DiagramSelection } from '../src/diagrams/canvas';
 import { parseDiagram } from '../src/diagrams/parse';
-import { layoutLayered, layoutTree } from '../src/diagrams/layout';
+import { buildModel } from '../src/diagrams/view';
 import { applyEdit } from '../src/diagrams/edit';
 import type { DiagramKind, Edit } from '../src/diagrams/types';
 
@@ -22,8 +22,8 @@ function setup(text: string, kind: DiagramKind, phone = false) {
   const sels: DiagramSelection[] = [];
   const draw = (tx: string) => render(h(DiagramCanvas, { text: tx, kind, phone, onEdit: (e) => edits.push(e), onSelect: (s) => sels.push(s) }), host!);
   draw(text);
-  const doc = parseDiagram(text, kind).doc;
-  const L = kind === 'mapa' ? layoutTree(doc) : layoutLayered(doc, 'TB');
+  const { doc, layout: L } = buildModel(text, kind); // el lienzo acomoda con las medidas reales (P22)
+  if (!L) throw new Error('sin acomodo');
   const scr = (wx: number, wy: number) => ({ x: wx + PAD - L.bounds.x, y: wy + PAD - L.bounds.y });
   const at = (id: string) => { const b = L.pos.get(id)!; return scr(b.x, b.y); };
   const board = host.querySelector<HTMLElement>('.diag-board')!;
@@ -71,15 +71,17 @@ describe('DiagramCanvas', () => {
     expect(next.nodes.find((n) => n.id === id)).toMatchObject({ x: b.x + 60, y: b.y + 30 });
   });
 
-  it('conectar: asa del nodo seleccionado → otro nodo = una connect', async () => {
+  it('conectar: chip «+» del nodo seleccionado (reemplaza al asa .diag-handle de antes de P22) → otro nodo = una connect', async () => {
     const s = setup('[A]\n[B]', 'flujo');
     const [a, b] = s.doc.nodes.map((n) => n.id) as [string, string];
     s.fire('pointerdown', s.at(a)); s.fire('pointerup', s.at(a));
     await flush();
-    expect(s.host.querySelector('.diag-handle')).not.toBeNull();
+    const chip = s.host.querySelector<HTMLElement>('[data-chip="derecha"]')!;
+    expect(chip).not.toBeNull();
     const box = s.L.pos.get(a)!;
-    const hp = s.scr(box.x + box.w / 2 + 22, box.y);
-    s.fire('pointerdown', hp);
+    const hp = s.scr(box.x + box.w / 2 + 23, box.y);
+    // el evento nace en el chip (burbujea al lienzo, que lo reconoce por data-chip)
+    chip.dispatchEvent(new PointerEvent('pointerdown', { clientX: hp.x, clientY: hp.y, pointerId: 1, pointerType: 'touch', bubbles: true, button: 0 }));
     s.fire('pointermove', { x: hp.x + 20, y: hp.y + 20 });
     s.fire('pointermove', s.at(b));
     expect(s.host.querySelector(`[data-id="${b}"]`)?.classList.contains('diag-target')).toBe(true);

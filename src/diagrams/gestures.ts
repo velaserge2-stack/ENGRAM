@@ -11,7 +11,16 @@ export type Box = { x: number; y: number; w: number; h: number };
 export const DRAG_SLOP = 8;
 /** Radio táctil (px de pantalla): 22 → objetivo de 44 px. */
 export const TOUCH_R = 22;
-export const FIT_MAX = 1.5;
+/** Tope de ampliación de «Ajustar» (300 %); el zoom manual llega a `ZOOM_MAX` (canvaszoom). */
+export const FIT_MAX = 3;
+/** Alto (px) permitido del lienzo en un bloque o embed (CONTRATO §P22.1: 160–2000). */
+export const H_MIN = 160, H_MAX = 2000;
+/** Alto mínimo del lienzo de una nota de diagrama completa. */
+export const FILL_MIN = 360;
+
+export const clampHeight = (h: number) => Math.min(H_MAX, Math.max(H_MIN, Math.round(h)));
+/** Alto del lienzo de una nota completa: lo que queda de la ventana desde el borde superior del tablero. */
+export const fillHeight = (innerH: number, top: number, bottom = 16) => Math.max(FILL_MIN, Math.floor(innerH - Math.max(0, top) - bottom));
 
 export const isDrag = (a: Pt, b: Pt, slop = DRAG_SLOP) => Math.hypot(b.x - a.x, b.y - a.y) >= slop;
 
@@ -40,14 +49,19 @@ export function wheel(v: View, dx: number, dy: number, zoom: boolean, at: Pt): V
   return { ...v, x: v.x - dx, y: v.y - dy };
 }
 
-/** Botones ± : factor fijo anclado en el centro del lienzo. */
-export const zoomBy = (v: View, f: number, w: number, h: number): View => zoomAt(v, f, w / 2, h / 2);
-
-/** Vista que encuadra `b` en un lienzo de w × h con margen; sin tamaño (sin acomodar aún) → escala 1 centrada en 0. */
+/**
+ * Vista que encuadra `b` en un lienzo de w × h con margen `pad`; sin tamaño aún → escala 1 en el margen.
+ * Escala hasta `FIT_MAX`. En cada eje, si el contenido llena ≥ 85 % se centra; si queda mucho más chico se
+ * alinea arriba-izquierda con margen (no flota en el centro).
+ */
 export function fitView(b: Box, w: number, h: number, pad = 24): View {
   if (!(w > 0 && h > 0)) return { k: 1, x: pad - b.x, y: pad - b.y };
   const k = clampZoom(Math.min(FIT_MAX, (w - pad * 2) / Math.max(1, b.w), (h - pad * 2) / Math.max(1, b.h)));
-  return { k, x: w / 2 - (b.x + b.w / 2) * k, y: h / 2 - (b.y + b.h / 2) * k };
+  const place = (size: number, o: number, len: number) => {
+    const free = size - len * k;
+    return (free < size * 0.15 ? free / 2 : pad) - o * k;
+  };
+  return { k, x: place(w, b.x, b.w), y: place(h, b.y, b.h) };
 }
 
 const inBox = (b: Box, p: Pt, m = 0) => Math.abs(p.x - b.x) <= b.w / 2 + m && Math.abs(p.y - b.y) <= b.h / 2 + m;
