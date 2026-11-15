@@ -69,17 +69,25 @@ Tokens = total que informó cada subagente al terminar (entrada + salida). La co
 | 6 | Seguridad | security-review del diff | media | sonnet | 0 graves, 2 medios, 3 leves | 167 k |
 | 6 | Corrector | Hallazgos de seguridad + NaN | media | sonnet | 6 corregidos | 110 k |
 | 7 | Docs | `CLAUDE.md`, SPEC, DECISIONS, PROMPTS | fácil | haiku | — | 128 k |
-| 7 | Limpiador | code-simplifier/deslop del diff | media | sonnet | ver `estado-p22-limpieza.md` | (al cierre) |
+| 7 | Limpiador | code-simplifier/deslop del diff | media | sonnet | 3 restos quitados; rama ya limpia | 93 k |
 
 Ningún subagente necesitó subir de modelo (ninguno falló dos veces).
 
 ## Costo frente a un solo modelo (estimación)
-Mismos supuestos que en el Prompt 20: precios de lista (USD por millón, entrada / salida) haiku 5.5 0,10 / 0,50 · sonnet 5.5 2 / 10 · opus 5.5 4 / 20, con 90 % entrada y 10 % salida (tarifa mezclada: 0,14 · 2,80 · 5,60 por millón). Sin contar al Limpiador ni a la coordinadora.
+Mismos supuestos que en el Prompt 20: precios de lista (USD por millón, entrada / salida) haiku 5.5 0,10 / 0,50 · sonnet 5.5 2 / 10 · opus 5.5 4 / 20, con 90 % entrada y 10 % salida (tarifa mezclada: 0,14 · 2,80 · 5,60 por millón). Sin contar a la coordinadora.
 
 | Reparto | Tokens | Costo aprox. |
 |---|---|---|
-| Real: haiku 0,54 M · sonnet 1,57 M · opus 0,41 M | 2,52 M | **≈ 6,7 USD** |
-| Todo en opus | 2,52 M | ≈ 14,1 USD |
-| Todo en sonnet | 2,52 M | ≈ 7,1 USD |
+| Real: haiku 0,54 M · sonnet 1,66 M · opus 0,41 M | 2,62 M | **≈ 7,0 USD** |
+| Todo en opus | 2,62 M | ≈ 14,7 USD |
+| Todo en sonnet | 2,62 M | ≈ 7,3 USD |
 
-Ahorro ≈ 52 % frente a usar solo opus y ≈ 6 % frente a usar solo sonnet. Plan: ≈ 2,1 M estimados; real ≈ 2,5 M (1,2×, dentro del freno de 1,5×).
+Ahorro ≈ 52 % frente a usar solo opus y ≈ 4 % frente a usar solo sonnet (casi todo el trabajo era de dificultad media). Plan: ≈ 2,1 M estimados; real ≈ 2,6 M (1,25×, dentro del freno de 1,5×).
+
+## Fragmentos (gzip)
+| Pieza | Prompt 20 | Prompt 22 |
+|---|---|---|
+| Ver un diagrama (mount + vista + gramática/acomodo/medición + CSS) | ≈ 8,4 KB | ≈ 12,6 KB (límite ~15 KB) |
+| Editar | 11,9 KB | 19,7 KB |
+| Exportar PDF | — | aparte, con `pdf-lib` (bajo demanda) |
+| Pantalla de Notas | 33,6 KB | 38,8 KB (marco, «Expandir», asa de alto) |
