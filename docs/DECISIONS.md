@@ -890,3 +890,4 @@ Plan y estados en `docs/diagramas/PLAN-22.md` y `docs/diagramas/estado-p22-*.md`
 - **Quedó fuera**: selección múltiple; las flechas no siguen al nodo mientras se arrastra un asa (se mueven al soltar); un sufijo de nodo a mitad de línea deja la línea literal (error `forma`); imprimir una nota de diagrama completa no pasa por `print.ts` (sí los bloques).
 - **Rendimiento medido solo en Chromium sin pantalla**: 300 nodos, arrastre con 49–62 ms por fotograma. No hay cifra de iPad.
 - **Sin probar**: iPad, iPhone, Safari, Apple Pencil, teclado virtual e IME reales. `e2e/diagramas.mjs` tiene fallos conocidos en la sección 2 y se corrige en la ola de integración.
+- Importar: el selector de archivos va sin `accept`; en iOS/iPadOS `.apkg` no tiene UTI conocido y con `accept` quedaba en gris. La validación es posterior (extensión, `isAnkiZip`, `LIMITS`); lo desconocido va a `docs/` y se confirma antes de escribir.
