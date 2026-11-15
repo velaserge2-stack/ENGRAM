@@ -5,8 +5,7 @@ import { Download, Share2 } from 'lucide-preact';
 import { t, tn } from '../i18n';
 import { Sheet } from '../ui/kit';
 import { diagramToPngBlob, diagramToSvg, exportLayout } from './export';
-import { layoutLayered, layoutTree } from './layout';
-import type { DiagramDoc } from './types';
+import type { Backdrop, DiagramDoc } from './types';
 
 function download(file: File) {
   const url = URL.createObjectURL(file);
@@ -20,13 +19,13 @@ function download(file: File) {
 type PdfPrep = { file: File; pages: number; mode: 'vector' | 'raster' } | { error: 'paginas' | 'tamano' | 'fallo' } | null;
 type PdfOpts = { page: 'ajustar' | 'a4' | 'carta'; fit: 'una' | 'varias'; margin: number; title: string; date: boolean };
 
-// `title`: título de la nota (opcional). El editor aún no lo pasa; `backdrop` no existe en la hoja, así que no se envía.
-export function ExportSheet(props: { doc: DiagramDoc; src: string; onClose: () => void; title?: string }) {
+// `title`: título de la nota (opcional); `backdrop`: fondo resuelto por el editor (frontmatter `fondo:` o `# fondo:`).
+export function ExportSheet(props: { doc: DiagramDoc; src: string; onClose: () => void; title?: string; backdrop?: Backdrop }) {
   const { doc } = props;
   const [tab, setTab] = useState<'img' | 'pdf'>('img');
   const [o, setO] = useState<PdfOpts>({ page: 'ajustar', fit: 'una', margin: 12, title: props.title ?? '', date: false });
   const [pdf, setPdf] = useState<PdfPrep>(null);
-  const svg = useMemo(() => diagramToSvg(doc, doc.kind === 'mapa' ? layoutTree(doc) : layoutLayered(doc, 'TB')), [doc]);
+  const svg = useMemo(() => diagramToSvg(doc, undefined, undefined, { backdrop: props.backdrop }), [doc, props.backdrop]);
   const svgFile = useMemo(() => new File([svg], 'diagrama.svg', { type: 'image/svg+xml' }), [svg]);
   const [png, setPng] = useState<File | null>(null);
   const [failed, setFailed] = useState(false);
@@ -51,7 +50,7 @@ export function ExportSheet(props: { doc: DiagramDoc; src: string; onClose: () =
       try {
         const { layout, measured } = exportLayout(doc, {});
         const r = await exportPdf(doc, layout, measured, {
-          page: o.page, fit: o.fit, margin: o.margin, title: o.title.trim() || undefined, date: o.date ? new Date().toLocaleDateString() : undefined,
+          page: o.page, fit: o.fit, margin: o.margin, backdrop: props.backdrop, title: o.title.trim() || undefined, date: o.date ? new Date().toLocaleDateString() : undefined,
         });
         const name = (o.title.trim() || props.title || 'diagrama').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 80);
         if (live) setPdf({ file: new File([r.blob], `${name}.pdf`, { type: 'application/pdf' }), pages: r.pages, mode: r.mode });
@@ -61,7 +60,7 @@ export function ExportSheet(props: { doc: DiagramDoc; src: string; onClose: () =
       }
     })();
     return () => { live = false; };
-  }, [tab, doc, o.page, o.fit, o.margin, o.title, o.date]);
+  }, [tab, doc, props.backdrop, o.page, o.fit, o.margin, o.title, o.date]);
 
   const deliver = (file: File | null) => {
     if (!file) return;

@@ -2,6 +2,7 @@
 // el render de nota solo si el HTML contiene `diag-host`. Nadie más importa este módulo ni `view.tsx`.
 import { h, render } from 'preact';
 import { DiagramView } from './view';
+import { readBackdrop } from './parse';
 import type { DiagramKind } from './types';
 
 const KINDS: readonly string[] = ['mapa', 'flujo', 'diagrama'];
@@ -18,7 +19,8 @@ export function mountDiagrams(root: HTMLElement): () => void {
     const text = host.dataset.src ?? host.textContent ?? '';
     host.dataset.mounted = '1';
     host.textContent = '';
-    render(h(DiagramView, { text, kind: kind as DiagramKind }), host);
+    // `data-backdrop` = `fondo:` del frontmatter de la nota de diagrama (embed); si falta, `# fondo:` del texto
+    render(h(DiagramView, { text, kind: kind as DiagramKind, backdrop: readBackdrop(text, host.dataset.backdrop) }), host);
     done.push(host);
   }
   return () => { for (const host of done) { render(null, host); delete host.dataset.mounted; } };

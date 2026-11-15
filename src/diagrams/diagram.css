@@ -240,3 +240,12 @@ html.is-phone .diag-handles { display: none; }
 .exp-pdf input[type=checkbox] { width: 22px; height: 22px; }
 .exp-prev { display: grid; gap: 6px; }
 /* ==/E== */
+
+/* ==F== impresión de diagramas en notas normales (print.ts pone una imagen SVG completa junto a la vista) */
+.diag-print { display: none; }
+@media print {
+  .diag-print { display: block; max-width: 100%; height: auto; margin: 8pt 0; break-inside: avoid; }
+  .diag-host.diag-printed, .diag-frame .diag-expand, .diag-frame .diag-grip, .diag-embed-bar { display: none !important; }
+  .diag-frame-body { height: auto !important; overflow: visible !important; }
+}
+/* ==/F== */

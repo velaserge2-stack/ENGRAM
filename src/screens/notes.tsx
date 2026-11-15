@@ -27,7 +27,9 @@ import { Empty, PageTitle, Segmented, Sheet } from '../ui/kit';
 import { Html, hydrateAllMedia } from '../ui/md';
 import { readTextOr, walk } from '../vault/util';
 import { noteTexts } from '../notes/textcache';
-import { type DiagramKind, type NoteKind, diagramFence, diagramKindOf, newDiagramNote, newDiagramText } from '../notes/diagramtype';
+import { type DiagramKind, type NoteKind, diagramFence, diagramKindOf, newDiagramNote, newDiagramText, setFenceAlto } from '../notes/diagramtype';
+import { readBackdrop, readHeight } from '../diagrams/parse';
+import type { Backdrop } from '../diagrams/types';
 import { mediaRefs, resolveMedia } from '../data/ops';
 import { NotePreview } from './deck';
 import { search as searchCards } from '../lib/query';
@@ -484,7 +486,7 @@ function expandBlock(b: string, data: NotesData, col: ReturnType<typeof useApp>[
 
 /** Un bloque en vista de documento. `memo`: escribir en otro bloque no lo vuelve a pintar. */
 /** Vista de un diagrama dentro de la nota: carga `src/diagrams/mount` bajo demanda; mientras tanto (o si falla) se ve el texto. */
-function DiagramView(p: { kind: DiagramKind; src: string; onText?: (body: string, k?: 'type' | 'action') => void; fill?: boolean; height?: number }) {
+function DiagramView(p: { kind: DiagramKind; src: string; onText?: (body: string, k?: 'type' | 'action') => void; fill?: boolean; height?: number; backdrop?: Backdrop; onBackdrop?: (b: Backdrop) => void; title?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
   // nota de diagrama completa: editor (carga perezosa, único `import()`); el fence dentro de una nota solo se ve
@@ -503,10 +505,11 @@ function DiagramView(p: { kind: DiagramKind; src: string; onText?: (body: string
     let alive = true;
     el.dataset.kind = p.kind;
     el.dataset.src = p.src;
+    if (p.backdrop) el.dataset.backdrop = p.backdrop; else delete el.dataset.backdrop;
     void import('../diagrams/mount').then((m) => { if (alive) { off = m.mountDiagrams(el); setReady(true); dispatchEvent(new Event(DIAGRAM_READY)); } }).catch(() => {});
     return () => { alive = false; off(); setReady(false); };
-  }, [p.kind, p.src, edit]);
-  if (Ed && p.onText) return <Ed kind={p.kind} src={p.src} onText={p.onText} {...(p.fill ? { fill: true } : {})} {...(p.height ? { height: p.height } : {})} />;
+  }, [p.kind, p.src, p.backdrop, edit]);
+  if (Ed && p.onText) return <Ed kind={p.kind} src={p.src} onText={p.onText} {...(p.fill ? { fill: true } : {})} {...(p.height ? { height: p.height } : {})} {...(p.backdrop ? { backdrop: p.backdrop } : {})} {...(p.onBackdrop ? { onBackdrop: p.onBackdrop } : {})} {...(p.title ? { title: p.title } : {})} />;
   return (
     <div ref={ref} class="diag-host" data-user-content>
       {!ready && <pre><code>{p.src}</code></pre>}
@@ -518,14 +521,14 @@ function DiagramView(p: { kind: DiagramKind; src: string; onText?: (body: string
 const FRAME_H = 320;
 
 /** Pantalla completa del diagrama (por `overlay.tsx`): Esc o el botón la cierran. */
-function DiagramFull(p: { kind: DiagramKind; src: string; onText?: (body: string, k?: 'type' | 'action') => void; onClose: () => void }) {
+function DiagramFull(p: { kind: DiagramKind; src: string; onText?: (body: string, k?: 'type' | 'action') => void; backdrop?: Backdrop; title?: string; onClose: () => void }) {
   const el = useRef<HTMLDivElement>(null);
   useLayer(p.onClose, { modal: true, el: () => el.current });
   return (
     <Portal>
       <div ref={el} class="diag-full glass strong" role="dialog" aria-modal="true" aria-label={tr('diag.expandir')} tabIndex={-1}>
         <div class="diag-full-bar"><button type="button" class="btn icon" aria-label={tr('diag.contraer')} onClick={p.onClose}><Minimize2 size={20} aria-hidden="true" /></button></div>
-        <div class="diag-full-body"><DiagramView kind={p.kind} src={p.src} {...(p.onText ? { onText: p.onText } : {})} /></div>
+        <div class="diag-full-body"><DiagramView kind={p.kind} src={p.src} {...(p.onText ? { onText: p.onText } : {})} {...(p.backdrop ? { backdrop: p.backdrop } : {})} {...(p.title ? { title: p.title } : {})} /></div>
       </div>
     </Portal>
   );
@@ -533,32 +536,35 @@ function DiagramFull(p: { kind: DiagramKind; src: string; onText?: (body: string
 
 /**
  * Diagrama en la nota. Nota de diagrama completa (`full`): lienzo a todo el alto restante. Bloque o embed: alto
- * compacto con «Expandir» y asa en el borde inferior (arrastrar o flechas). El alto se recuerda solo en memoria:
- * el bloque es de solo lectura y `alto=` del fence/frontmatter lo escribe la integración (§P22.1, ola 5).
+ * compacto con «Expandir» y asa en el borde inferior (arrastrar o flechas). Al soltar el asa se avisa con `onAlto`
+ * (el padre escribe `alto=` del fence o `alto:` del frontmatter, §P22.1); sin `onAlto` queda solo en memoria.
  */
-function DiagramSlot(p: { kind: DiagramKind; src: string; onText?: (body: string, k?: 'type' | 'action') => void; full?: boolean; alto?: number }) {
+function DiagramSlot(p: { kind: DiagramKind; src: string; onText?: (body: string, k?: 'type' | 'action') => void; onBackdrop?: (b: Backdrop) => void; backdrop?: Backdrop; title?: string; full?: boolean; alto?: number; onAlto?: (h: number) => void }) {
   const [h, setH] = useState(p.alto ?? FRAME_H);
   const [big, setBig] = useState(false);
-  if (p.full) return <DiagramView kind={p.kind} src={p.src} {...(p.onText ? { onText: p.onText } : {})} fill />;
+  const vp = { ...(p.backdrop ? { backdrop: p.backdrop } : {}), ...(p.title ? { title: p.title } : {}) };
+  if (p.full) return <DiagramView kind={p.kind} src={p.src} {...(p.onText ? { onText: p.onText } : {})} {...(p.onBackdrop ? { onBackdrop: p.onBackdrop } : {})} {...vp} fill />;
   const set = (v: number) => setH(clampHeight(v));
+  const commit = (v: number) => { const c = clampHeight(v); setH(c); if (c !== h && p.onAlto) p.onAlto(c); };
   const down = (e: PointerEvent) => {
     const t = e.currentTarget as HTMLElement, y0 = e.clientY, h0 = h;
+    let last = h0;
     try { t.setPointerCapture(e.pointerId); } catch { /* sin captura */ }
-    const move = (m: PointerEvent) => set(h0 + m.clientY - y0);
-    const up = () => { t.removeEventListener('pointermove', move); t.removeEventListener('pointerup', up); t.removeEventListener('pointercancel', up); };
+    const move = (m: PointerEvent) => { last = clampHeight(h0 + m.clientY - y0); setH(last); };
+    const up = () => { if (last !== h0 && p.onAlto) p.onAlto(last); t.removeEventListener('pointermove', move); t.removeEventListener('pointerup', up); t.removeEventListener('pointercancel', up); };
     t.addEventListener('pointermove', move); t.addEventListener('pointerup', up); t.addEventListener('pointercancel', up);
   };
   const key = (e: KeyboardEvent) => {
     const d = e.key === 'ArrowDown' ? 40 : e.key === 'ArrowUp' ? -40 : 0;
-    if (d) { e.preventDefault(); set(h + d); }
+    if (d) { e.preventDefault(); commit(h + d); }
   };
   return (
     <div class="diag-frame" style={{ '--diag-fh': h + 'px' }}>
       <button type="button" class="btn icon glass diag-expand" aria-label={tr('diag.expandir')} onClick={() => setBig(true)}><Maximize2 size={20} aria-hidden="true" /></button>
-      <div class={`diag-frame-body${p.onText ? ' edit' : ''}`}><DiagramView kind={p.kind} src={p.src} {...(p.onText ? { onText: p.onText, height: h } : {})} /></div>
+      <div class={`diag-frame-body${p.onText ? ' edit' : ''}`}><DiagramView kind={p.kind} src={p.src} {...(p.onText ? { onText: p.onText, height: h } : {})} {...vp} /></div>
       <div class="diag-grip" role="slider" tabIndex={0} aria-orientation="vertical" aria-label={tr('diag.alto_lienzo')} aria-valuemin={H_MIN} aria-valuemax={H_MAX} aria-valuenow={h}
         onPointerDown={down} onKeyDown={key} />
-      {big && <DiagramFull kind={p.kind} src={p.src} {...(p.onText ? { onText: p.onText } : {})} onClose={() => setBig(false)} />}
+      {big && <DiagramFull kind={p.kind} src={p.src} {...(p.onText ? { onText: p.onText } : {})} {...vp} onClose={() => setBig(false)} />}
     </div>
   );
 }
@@ -579,6 +585,10 @@ function DiagramEmbedBlock(p: { e: Extract<NonNullable<DiagramEmbed>, { state: '
     noteStore.set(app.vault, p.e.path, full.slice(0, full.length - parseFrontmatter(full).body.length) + body);
     setLive(body);
   };
+  // alto recordado: `alto:` en el frontmatter de la nota de diagrama, por NoteStore y solo cuando el usuario suelta el asa
+  const onAlto = (h: number) => {
+    void noteStore.load(app.vault, p.e.path).then((full) => { const next = setKeys(full, { alto: h }); if (next !== full) noteStore.set(app.vault, p.e.path, next); });
+  };
   return (
     <div class="diag-embed" data-diagram-embed={p.e.title}>
       <div class="row diag-embed-bar">
@@ -586,7 +596,8 @@ function DiagramEmbedBlock(p: { e: Extract<NonNullable<DiagramEmbed>, { state: '
         <button type="button" class="btn small" onClick={() => go('notas', ...p.e.path.split('/').slice(1))}>{tr('diag.embed_abrir')}</button>
         <button type="button" class="btn small" aria-pressed={editing} onClick={() => (editing ? setEditing(false) : void edit())}>{editing ? tr('diag.embed_listo') : tr('diag.embed_editar_aqui')}</button>
       </div>
-      <DiagramSlot kind={p.e.kind} src={editing && live !== null ? live : p.e.src} {...(editing ? { onText } : {})} />
+      <DiagramSlot kind={p.e.kind} src={editing && live !== null ? live : p.e.src} backdrop={readBackdrop(editing && live !== null ? live : p.e.src, p.e.fondo)} title={p.e.title}
+        {...(readHeight(undefined, p.e.alto) ? { alto: readHeight(undefined, p.e.alto)! } : {})} onAlto={onAlto} {...(editing ? { onText } : {})} />
     </div>
   );
 }
@@ -596,11 +607,11 @@ function blockEmbed(b: string, data: NotesData): DiagramEmbed {
   return name && data ? resolveDiagramEmbed(name, data.notes, data.texts) : null;
 }
 
-const ViewBlock = memo(function ViewBlock(p: { html: string; i: number; onEdit: (i: number, img?: Element) => void; diagram?: { kind: DiagramKind; src: string } | null; embed?: DiagramEmbed }) {
+const ViewBlock = memo(function ViewBlock(p: { html: string; i: number; onEdit: (i: number, img?: Element) => void; diagram?: { kind: DiagramKind; src: string; alto?: number } | null; embed?: DiagramEmbed; onAlto?: (i: number, h: number) => void }) {
   // tocar (o Intro sobre) una imagen la selecciona para su barra (Notas-Pro · A4); el resto abre el bloque
   return (
-    <div class="doc-block" data-block={p.i} role="button" tabIndex={0} onClick={(e) => { const im = (e.target as HTMLElement).closest('img[data-media]'); if (im) return p.onEdit(p.i, im); if ((e.target as HTMLElement).closest('a, summary, audio, input')) return; p.onEdit(p.i); }} onKeyDown={(e) => { if (e.key !== 'Enter') return; const im = (e.target as HTMLElement).closest('img[data-media]'); if (im) e.preventDefault(); p.onEdit(p.i, im ?? undefined); }} style={{ cursor: 'text', borderRadius: '10px' }} aria-label={tr('notes.editar_bloque')}>
-      {p.embed?.state === 'diagram' ? <DiagramEmbedBlock e={p.embed} /> : p.embed?.state === 'missing' ? <span class="chip">{tr('md.falta_media', { media: p.embed.name })}</span> : p.diagram ? <DiagramSlot kind={p.diagram.kind} src={p.diagram.src} /> : <Html html={p.html} />}
+    <div class="doc-block" data-block={p.i} role="button" tabIndex={0} onClick={(e) => { const im = (e.target as HTMLElement).closest('img[data-media]'); if (im) return p.onEdit(p.i, im); if ((e.target as HTMLElement).closest('a, summary, audio, input, [role=slider]')) return; p.onEdit(p.i); }} onKeyDown={(e) => { if (e.key !== 'Enter') return; const im = (e.target as HTMLElement).closest('img[data-media]'); if (im) e.preventDefault(); p.onEdit(p.i, im ?? undefined); }} style={{ cursor: 'text', borderRadius: '10px' }} aria-label={tr('notes.editar_bloque')}>
+      {p.embed?.state === 'diagram' ? <DiagramEmbedBlock e={p.embed} /> : p.embed?.state === 'missing' ? <span class="chip">{tr('md.falta_media', { media: p.embed.name })}</span> : p.diagram ? <DiagramSlot kind={p.diagram.kind} src={p.diagram.src} {...(p.diagram.alto ? { alto: p.diagram.alto } : {})} {...(p.onAlto ? { onAlto: (h: number) => p.onAlto!(p.i, h) } : {})} /> : <Html html={p.html} />}
     </div>
   );
 });
@@ -691,6 +702,8 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
   const edId = useMemo(() => Symbol(props.path), []);
   const pickRef = useRef<(i: number, im: Element) => void>(() => {});
   /** Estable (no rompe el `memo` de los bloques): editar el bloque o, si se tocó una imagen, seleccionarla. */
+  const altoRef = useRef<(i: number, h: number) => void>(() => {});
+  const onAlto = useCallback((i: number, h: number) => altoRef.current(i, h), []);
   const onEditBlock = useCallback((i: number, im?: Element) => (im ? pickRef.current(i, im) : setEditing(i)), []);
   const runRef = useRef<(a: Action) => void>(() => {});
   const [said, setSaid] = useState('');
@@ -769,6 +782,13 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
   };
   const tipo = diagramKindOf(text);
   const blocks = splitBlocks(doc.body);
+  altoRef.current = (i, h) => { const b = blocks[i]; if (b !== undefined) { const n = setFenceAlto(b, h); if (n !== b) setBody(blocks.map((x, k) => (k === i ? n : x)).join('\n\n')); } };
+  /** Fondo de la nota de diagrama: `fondo:` del frontmatter (manda sobre `# fondo:`), solo cuando el usuario lo cambia. */
+  const setBackdrop = (b: Backdrop) => {
+    const explicit = b !== 'cristal' || readBackdrop(doc.body) !== 'cristal'; // 'cristal' explícito solo si el cuerpo trae otro `# fondo:`
+    const next = setKeys(text, { fondo: explicit ? b : undefined });
+    if (next !== text) set(next);
+  };
   const nChunks = Math.ceil(blocks.length / CHUNK);
   useEffect(() => {
     if (blocks.length <= 2 * CHUNK || painted >= nChunks) return;
@@ -962,7 +982,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
           {mode === 'md' ? (
             <textarea class="input code" style={{ minHeight: '70dvh', width: '100%', border: 0, background: 'transparent' }} value={text} onInput={(e) => set((e.target as HTMLTextAreaElement).value, 'type')} aria-label={tr('notes.markdown_de_la_nota')} spellcheck />
           ) : tipo !== 'nota' ? (
-            <DiagramSlot kind={tipo} src={doc.body} onText={setBody} full />
+            <DiagramSlot kind={tipo} src={doc.body} onText={setBody} full title={meta.title} backdrop={readBackdrop(doc.body, typeof doc.data.fondo === 'string' ? doc.data.fondo : undefined)} onBackdrop={setBackdrop} />
           ) : (
             <div class={`stack-s${blocks.length > 2 * CHUNK ? ' doc-cv' : ''}`}>
               {/* «＋ Escribe…» abre un bloque vacío al final (en la misma lista, para no perder el foco) */}
@@ -976,7 +996,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
               ) : DRAW_RE.test(b.trim()) ? (
                 <DrawingBlock key={`d${i}`} id={DRAW_RE.exec(b.trim())![1]!} />
               ) : (
-                <ViewBlock key={i} i={i} onEdit={onEditBlock} html={renderMarkdownCached(expandBlock(b, props.data, app.col))} diagram={diagramFence(b)} embed={blockEmbed(b, props.data)} />
+                <ViewBlock key={i} i={i} onEdit={onEditBlock} html={renderMarkdownCached(expandBlock(b, props.data, app.col))} diagram={diagramFence(b)} embed={blockEmbed(b, props.data)} onAlto={onAlto} />
               )))}
               <button type="button" class="btn ghost" style={{ justifySelf: 'start' }} onClick={() => setEditing(blocks.length)}>{tr('notes.escribe_o_usa_para_insertar')}</button>
             </div>
@@ -1221,9 +1241,13 @@ function markPrint(el: HTMLElement | null) {
   el.classList.add('print-target');
   document.documentElement.classList.add('printing-note');
 }
+// Diagramas en la nota: `beforeprint` es síncrono, así que el módulo de impresión se precarga al montar la primera vista
+let diagPrint: typeof import('../diagrams/print') | null = null;
+const loadDiagPrint = () => { if (!diagPrint) void import('../diagrams/print').then((m) => { diagPrint = m; }).catch(() => {}); };
 if (typeof window !== 'undefined') {
-  addEventListener('beforeprint', () => { dispatchEvent(new Event(PAINT_ALL)); if (!document.querySelector('.print-target')) markPrint(document.querySelector<HTMLElement>('article.doc')); });
-  addEventListener('afterprint', () => { document.documentElement.classList.remove('printing-note'); document.querySelectorAll('.print-target').forEach((x) => x.classList.remove('print-target')); });
+  addEventListener(DIAGRAM_READY, loadDiagPrint);
+  addEventListener('beforeprint', () => { diagPrint?.printDiagrams(); dispatchEvent(new Event(PAINT_ALL)); if (!document.querySelector('.print-target')) markPrint(document.querySelector<HTMLElement>('article.doc')); });
+  addEventListener('afterprint', () => { diagPrint?.unprintDiagrams(); document.documentElement.classList.remove('printing-note'); document.querySelectorAll('.print-target').forEach((x) => x.classList.remove('print-target')); });
 }
 
 function ShareNote(p: { path: string; title: string; text: string; doc: () => HTMLElement | null; onClose: () => void }) {

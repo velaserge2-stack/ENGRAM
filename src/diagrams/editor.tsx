@@ -29,6 +29,8 @@ export interface EditorProps {
   /** Fondo resuelto por quien guarda (frontmatter `fondo:` de una nota de diagrama). Con `onBackdrop` el selector lo escribe allí en vez de en el bloque (`# fondo:`). */
   backdrop?: Backdrop;
   onBackdrop?: (b: Backdrop) => void;
+  /** Título de la nota (encabezado por defecto del PDF). */
+  title?: string;
 }
 
 /** «Ordenar»: acomodo automático sin posiciones fijadas, escrito como `move` por nodo. */
@@ -46,7 +48,7 @@ export function orderEdits(doc: DiagramDoc): Edit[] {
 const hasKids = (doc: DiagramDoc, n: DiagramNode) =>
   doc.kind === 'mapa' ? doc.nodes.some((k) => k.parent === n.id) : doc.edges.some((e) => e.from === n.id || e.to === n.id);
 
-export function DiagramEditor({ kind, src, onText, fill, height, backdrop, onBackdrop }: EditorProps): JSX.Element {
+export function DiagramEditor({ kind, src, onText, fill, height, backdrop, onBackdrop, title }: EditorProps): JSX.Element {
   const parsed = useMemo(() => parseDiagram(src, kind), [src, kind]);
   const { doc } = parsed;
   const [asText, setAsText] = useState(false);
@@ -56,7 +58,7 @@ export function DiagramEditor({ kind, src, onText, fill, height, backdrop, onBac
   const [, bump] = useState(0);
   const cur = useRef(src);
   cur.current = src;
-  const [Exp, setExp] = useState<ComponentType<{ doc: DiagramDoc; src: string; onClose: () => void }> | null>(null);
+  const [Exp, setExp] = useState<ComponentType<{ doc: DiagramDoc; src: string; onClose: () => void; title?: string; backdrop?: Backdrop }> | null>(null);
   const isMap = kind === 'mapa';
   const root = useRef<HTMLDivElement>(null);
   const ctl = useRef<CanvasControl | null>(null);
@@ -157,7 +159,7 @@ export function DiagramEditor({ kind, src, onText, fill, height, backdrop, onBac
       </div>
       {asText ? textBox : (
         <>
-          <DiagramCanvas text={src} kind={kind} onEdit={(e) => apply([e])} onEdits={apply} onSelect={setSel} control={ctl} />
+          <DiagramCanvas text={src} kind={kind} onEdit={(e) => apply([e])} onEdits={apply} onSelect={setSel} control={ctl} {...(backdrop ? { backdrop } : {})} />
           <ul class="sr-only" role={isMap ? 'tree' : 'list'} aria-label={tx('diag.lista', 'Lista alternativa del diagrama')}>
             {doc.nodes.map((n) => isMap ? (
               <li key={n.id} role="treeitem" tabIndex={-1} aria-level={n.depth + 1} aria-selected={sel?.type === 'node' && sel.id === n.id}
@@ -185,7 +187,7 @@ export function DiagramEditor({ kind, src, onText, fill, height, backdrop, onBac
           }} />}
         </>
       )}
-      {Exp && <Exp doc={doc} src={src} onClose={() => setExp(null)} />}
+      {Exp && <Exp doc={doc} src={src} onClose={() => setExp(null)} backdrop={backdrop ?? readBackdrop(src)} {...(title ? { title } : {})} />}
       {ask && <AskDialog ask={ask} onClose={() => setAsk(null)} />}
     </div>
   );

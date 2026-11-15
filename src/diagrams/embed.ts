@@ -11,7 +11,7 @@ export function embedName(block: string): string | null {
 }
 
 export type DiagramEmbed =
-  | { state: 'diagram'; kind: DiagramKind; path: string; title: string; src: string }
+  | { state: 'diagram'; kind: DiagramKind; path: string; title: string; src: string; fondo?: string; alto?: string }
   | { state: 'missing'; name: string }
   | null; // la nota existe y no es de diagrama: comportamiento de siempre
 
@@ -24,5 +24,7 @@ export function resolveDiagramEmbed(name: string, notes: { path: string; title: 
   if (!n) return { state: 'missing', name };
   const text = texts.get(n.path) ?? '';
   const kind = diagramKindOf(text);
-  return kind === 'nota' ? null : { state: 'diagram', kind, path: n.path, title: n.title, src: parseFrontmatter(text).body };
+  if (kind === 'nota') return null;
+  const fm = parseFrontmatter(text); // `fondo:` y `alto:` de la nota de diagrama (§P22.1); sin ellos, el objeto es el de siempre
+  return { state: 'diagram', kind, path: n.path, title: n.title, src: fm.body, ...(fm.data.fondo != null ? { fondo: String(fm.data.fondo) } : {}), ...(fm.data.alto != null ? { alto: String(fm.data.alto) } : {}) };
 }

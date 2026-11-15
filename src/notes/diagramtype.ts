@@ -27,8 +27,30 @@ export function newDiagramNote(kind: DiagramKind, materia: string, tema: string,
   return stringifyFrontmatter(fm, newDiagramText(kind, title));
 }
 
-/** Bloque ```mapa|flujo|diagrama dentro de una nota normal: devuelve tipo y fuente, o null. */
-export function diagramFence(block: string): { kind: DiagramKind; src: string } | null {
-  const m = /^```(mapa|flujo|diagrama)[ \t]*\r?\n([\s\S]*?)\r?\n?```[ \t]*$/.exec(block.trim());
-  return m ? { kind: m[1] as DiagramKind, src: m[2]! } : null;
+const FENCE = /^```(mapa|flujo|diagrama)([ \t][^\r\n]*)?\r?\n([\s\S]*?)\r?\n?```[ \t]*$/;
+
+/** `alto=420` de la info del fence (160–2000); fuera de rango o ausente = undefined (§P22.1; mismo criterio que `readHeight`). */
+export function fenceAlto(info: string): number | undefined {
+  const v = /(?:^|\s)alto=(\S+)/.exec(info)?.[1];
+  const n = v !== undefined && /^\d+$/.test(v) ? Number(v) : NaN;
+  return n >= 160 && n <= 2000 ? n : undefined;
+}
+
+/** Bloque ```mapa|flujo|diagrama [alto=N] dentro de una nota normal: devuelve tipo, fuente y `alto` (si la info lo trae), o null. */
+export function diagramFence(block: string): { kind: DiagramKind; src: string; alto?: number } | null {
+  const m = FENCE.exec(block.trim());
+  if (!m) return null;
+  const info = (m[2] ?? '').trim();
+  const alto = fenceAlto(info);
+  return { kind: m[1] as DiagramKind, src: m[3]!, ...(alto !== undefined ? { alto } : {}) };
+}
+
+/** Reescribe SOLO la línea de apertura del fence con `alto=h`; el resto del bloque queda byte a byte. Sin cambio real = el mismo texto. */
+export function setFenceAlto(block: string, h: number): string {
+  const f = diagramFence(block);
+  if (!f || !Number.isInteger(h) || h < 160 || h > 2000 || f.alto === h) return block;
+  return block.replace(/^(\s*```(?:mapa|flujo|diagrama))([ \t][^\r\n]*)?/, (_m, a: string, info: string | undefined) => {
+    const rest = (info ?? '').replace(/(?:^|[ \t]+)alto=\S*/, '').trimEnd();
+    return `${a}${rest ? (rest.startsWith(' ') || rest.startsWith('\t') ? rest : ' ' + rest) : ''} alto=${h}`;
+  });
 }
