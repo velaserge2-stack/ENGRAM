@@ -29,6 +29,8 @@ export interface VaultFile {
   blob?: Blob;
   /** Entrada que se produce al aplicar el plan, de una en una (medios de un .apkg leído por trozos); `data` va vacío. */
   lazy?: () => Promise<Blob>;
+  /** Tamaño exacto de la entrada `lazy` sin producirla (null = solo se sabe al producirla). */
+  exactSize?: () => Promise<number | null>;
   /** Tamaño aproximado de una entrada `lazy` (para la vista previa y el progreso). */
   size?: number;
 }

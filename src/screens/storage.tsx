@@ -2,7 +2,7 @@ import { locale, t } from '../i18n';
 import { Archive, Eraser, Trash2 } from 'lucide-preact';
 import { useMemo, useState } from 'preact/hooks';
 import { formatBytes, storageInfo } from '../lib/storage';
-import { countUses, DELETABLE, KINDS, kindOf, orphans, REGENERABLE, type Kind } from '../lib/usage';
+import { countUses, DELETABLE, folderBreakdown, KINDS, kindOf, orphans, REGENERABLE, type Kind } from '../lib/usage';
 import { useApp, useAsync } from '../state';
 import { forgetMediaUrl } from '../ui/background';
 import { Bar, Sheet } from '../ui/kit';
@@ -30,7 +30,7 @@ export function StorageSheet(props: { onClose: () => void }) {
     const all = await walk(app.vault, '');
     const docs = await Promise.all(all.filter((f) => CITES(f.path)).map(async (f) => ({ path: f.path, text: await readTextOr(app.vault, f.path, '') })));
     const files = all.filter((f) => DELETABLE(f.path));
-    return { all, files, uses: countUses(files.map((f) => f.path), docs) };
+    return { all, files, uses: countUses(files.map((f) => f.path), docs), journal: await app.vault.exists('.app/journal.json') };
   }, [tick, app.version, app.notesVersion]);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<'size' | 'name'>('size');
@@ -43,6 +43,16 @@ export function StorageSheet(props: { onClose: () => void }) {
   const list = [...(data?.files ?? [])].sort((a, b) => (sort === 'size' ? b.size - a.size : a.path.localeCompare(b.path, locale())));
   const orph = data ? orphans(data.uses) : [];
   const cacheBytes = (data?.all ?? []).filter((f) => REGENERABLE(f.path)).reduce((n, f) => n + f.size, 0);
+  const folders = useMemo(() => folderBreakdown(data?.all ?? []), [data]);
+  const tmpBytes = (data?.all ?? []).filter((f) => f.path.startsWith('.app/tmp/')).reduce((n, f) => n + f.size, 0);
+  const folderLabel = (k: string) => (k === 'raiz' ? t('storage.carpeta_raiz') : k === '.app/otras' ? t('storage.carpeta_otras') : k);
+  const freeTmp = async () => {
+    if (!confirm(t('storage.confirmar_tmp', { size: formatBytes(tmpBytes) }))) return;
+    const v = app.vault as typeof app.vault & { freeTmp?: () => Promise<boolean> };
+    const ok = v.freeTmp ? await v.freeTmp() : (await app.vault.remove('.app/tmp'), true);
+    setTick((n) => n + 1);
+    app.toast(ok ? t('storage.tmp_liberados', { size: formatBytes(tmpBytes) }) : t('storage.tmp_pendiente'));
+  };
   const toggle = (p: string) => setSel((s) => { const n = new Set(s); n.has(p) ? n.delete(p) : n.add(p); return n; });
   const selBytes = list.filter((f) => sel.has(f.path)).reduce((n, f) => n + f.size, 0);
 
@@ -78,6 +88,16 @@ export function StorageSheet(props: { onClose: () => void }) {
             </div>
           ))}
         </div>
+
+        <div class="stack-s" role="list" aria-label={t('storage.por_carpeta')}>
+          <div class="foot">{t('storage.por_carpeta')}</div>
+          {folders.map((f) => (
+            <div role="listitem" class="kv"><span class="k" data-user-content>{folderLabel(f.key)}</span><span class="v num">{formatBytes(f.size)}</span></div>
+          ))}
+        </div>
+        {tmpBytes > 0 && (data?.journal
+          ? <p class="foot">{t('storage.tmp_pendiente')}</p>
+          : <button type="button" class="btn" onClick={() => void freeTmp()}><Eraser size={16} />{' '}{t('storage.liberar_tmp', { size: formatBytes(tmpBytes) })}</button>)}
 
         <div class="row wrap">
           <button type="button" class="btn small" disabled={!orph.length} onClick={() => setSel(new Set(orph))}>{t('storage.seleccionar_huerfanos', { n: orph.length })}</button>

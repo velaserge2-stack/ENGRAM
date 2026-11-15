@@ -140,6 +140,8 @@ export function batch<T>(vault: VaultAdapter, fn: (tx: VaultAdapter) => Promise<
 export class SafeVault implements VaultAdapter {
   /** Hay un diario sin aplicar (apply fallido con la app viva): recuperarlo antes de la siguiente operación. */
   private stuck = false;
+  /** Temporales que cita el diario pendiente (los únicos que `recover` conserva si queda atascado). */
+  private keep = new Set<string>();
   constructor(readonly raw: VaultAdapter) {}
 
   get kind() {
@@ -515,6 +517,14 @@ export class SafeVault implements VaultAdapter {
   remove(path: string) {
     return this.serial(() => this.raw.remove(path));
   }
+  /** Borra `.app/tmp` solo si no hay diario pendiente (comprobado dentro de la cola: nada a medias). Devuelve si borró. */
+  freeTmp(): Promise<boolean> {
+    return this.serial(async () => {
+      if (await this.raw.exists(JOURNAL_PATH)) return false;
+      await this.raw.remove(TMP_DIR);
+      return true;
+    });
+  }
   list(path: string): Promise<FileStat[]> {
     return this.raw.list(path);
   }
@@ -536,7 +546,11 @@ export class SafeVault implements VaultAdapter {
   recover(): Promise<RecoveryReport> {
     return this.serial(async () => {
       const report = await this.replay();
-      if (!this.stuck) await this.raw.remove(TMP_DIR); // con un diario pendiente, su temporal se conserva
+      if (!this.stuck) await this.raw.remove(TMP_DIR);
+      else {
+        // con un diario pendiente solo se conservan los temporales que ese diario cita; el resto es huérfano
+        for (const e of await this.raw.list(TMP_DIR).catch(() => [])) if (!this.keep.has(`${TMP_DIR}/${e.name}`)) await this.raw.remove(`${TMP_DIR}/${e.name}`);
+      }
       return report;
     });
   }
@@ -548,18 +562,25 @@ export class SafeVault implements VaultAdapter {
   private async replay(): Promise<RecoveryReport> {
     const report: RecoveryReport = { recovered: [], discarded: [], journalCorrupt: false };
     this.stuck = false;
+    this.keep = new Set();
     if (!(await this.raw.exists(JOURNAL_PATH))) return report;
     let entries: JournalEntry[] = [];
     try {
       const j = JSON.parse(decodeText(await this.raw.read(JOURNAL_PATH))) as { v?: number; entries?: JournalEntry[] };
       if (j?.v === 2 || j?.v === 3 || j?.v === 4) {
+        const b = j as Partial<BatchJournal>;
+        for (const w of Array.isArray(b.writes) ? b.writes : []) if (typeof w?.tmp === 'string') this.keep.add(w.tmp);
+        for (const m of Array.isArray(b.moves) ? b.moves : []) if (typeof m?.via === 'string') this.keep.add(m.via);
         try {
           if (j.v !== 3) await this.replayBatch(j as Partial<BatchJournal>, report);
           else await this.replayAppend(j as Partial<AppendJournal>, report);
         } catch {
           this.stuck = true; // E/S: el diario se conserva y se reintenta
         }
-      } else entries = Array.isArray(j.entries) ? j.entries : []; // v1: una entrada por escritura
+      } else {
+        entries = Array.isArray(j.entries) ? j.entries : []; // v1: una entrada por escritura
+        for (const e of entries) if (typeof e?.tmp === 'string') this.keep.add(e.tmp);
+      }
     } catch {
       report.journalCorrupt = true; // el diario se escribió a medias: el destino no se tocó
     }

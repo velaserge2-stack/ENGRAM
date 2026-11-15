@@ -56,3 +56,15 @@ export function countUses(targets: string[], docs: { path: string; text: string 
 export function orphans(uses: Map<string, string[]>): string[] {
   return [...uses].filter(([p, u]) => p.startsWith('media/') && !u.length).map(([p]) => p);
 }
+
+/** Desglose por carpeta de primer nivel; `.app/` por subcarpeta conocida (tmp, trash, history, thumbs, cache) y el resto como `.app/otras`. Por tamaño. */
+const APP_SUB = new Set(['tmp', 'trash', 'history', 'thumbs', 'cache']);
+export function folderBreakdown(files: { path: string; size: number }[]): { key: string; size: number }[] {
+  const m = new Map<string, number>();
+  for (const f of files) {
+    const [a, b] = f.path.split('/');
+    const key = !f.path.includes('/') ? 'raiz' : a === '.app' ? (f.path.split('/').length > 2 && APP_SUB.has(b!) ? `.app/${b}` : '.app/otras') : a!;
+    m.set(key, (m.get(key) ?? 0) + f.size);
+  }
+  return [...m].map(([key, size]) => ({ key, size })).sort((x, y) => y.size - x.size || x.key.localeCompare(y.key));
+}

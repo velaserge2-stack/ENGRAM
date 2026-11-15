@@ -344,15 +344,28 @@ export class HandleFS {
       const dest = await this.resolve(to);
       if (dest?.kind === 'directory') throw new VaultError(`El destino es una carpeta: ${to}`, 'io', to);
       const fh = h as FileSystemFileHandle & { move?: (dir: FileSystemDirectoryHandle, name: string) => Promise<void> };
+      let src = h as FileSystemFileHandle;
       if (typeof fh.move === 'function') {
         try {
           if (dest) await this.remove(to); // un destino que no existe no se borra (un viaje menos)
           await fh.move(await this.fresh(() => this.dir(parts.slice(0, -1), true)), this.codec.enc(parts[parts.length - 1]!));
-          // comprobar con la caché basta: el origen se acaba de resolver por ella
-          if ((await this.resolve(to)) && !(await this.resolveOnce(from, true))) return;
-        } catch { /* sin move fiable: se copia */ }
+          // se vuelve a resolver sin caché origen y destino (un `move` sin error no garantiza el resultado)
+          const [d2, o2] = [await this.resolveOnce(to, false), await this.resolveOnce(from, false)];
+          if (d2 && !o2) return;
+          if (d2 && o2) {
+            const [ds, os] = [(await (d2 as FileSystemFileHandle).getFile()).size, (await (o2 as FileSystemFileHandle).getFile()).size];
+            if (ds !== os) throw new VaultError(`El movimiento dejó origen y destino distintos: ${from} → ${to}`, 'io', to);
+            await this.remove(from);
+            return;
+          }
+          if (!o2) throw new VaultError(`Se perdió el origen al mover: ${from}`, 'io', from);
+          src = o2 as FileSystemFileHandle; // el destino no existe: se copia desde el origen re-resuelto
+        } catch (e) {
+          if (e instanceof VaultError) throw e;
+          /* sin move fiable: se copia */
+        }
       }
-      await this.writeBlob(to, await (h as FileSystemFileHandle).getFile(), onChunk);
+      await this.writeBlob(to, await src.getFile(), onChunk);
     } else {
       for (const e of await this.list(from, onChunk)) await this.move(e.path, `${splitPath(to).join('/')}/${e.name}`, onChunk);
     }
