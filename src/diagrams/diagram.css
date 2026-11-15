@@ -187,7 +187,30 @@ html.is-phone .diag-chips { display: none; }
   background-size: 24px 24px; }
 .diag-board.diag-bd-puntos, .diag-canvas.diag-bd-puntos {
   background-image: radial-gradient(color-mix(in srgb, var(--diag-ink) 22%, transparent) 1.2px, transparent 1.6px); background-size: 24px 24px; }
+
+/* Edición en el sitio (canvas.tsx): el <textarea> va DENTRO del nodo (hereda fondo, color y fuente) y se escala con el
+   lienzo; su font-size calculado es ≥ 16 px y se compensa con scale(1/s) en línea. Sin paneo ni pellizco encima. */
+.diag-board .diag-editing { cursor: text; outline: 2px solid var(--t1); outline-offset: 3px; z-index: 1; }
+.diag-board .diag-decision.diag-editing { --nb: var(--t1); outline: none; }
+.diag-editing > .diag-text { visibility: hidden; }
+.diag-ghost { border-style: dashed; }
+.diag-inline { position: absolute; left: 0; top: 0; margin: 0; box-sizing: border-box; border: 0; border-radius: inherit;
+  background: transparent; color: inherit; font-family: inherit; font-weight: 400; line-height: 1.3; text-align: center;
+  resize: none; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; transform-origin: 0 0; outline: none;
+  touch-action: manipulation; -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; caret-color: currentColor; }
+.diag-inline::selection { background: color-mix(in srgb, currentColor 25%, transparent); }
+/* Etiqueta de flecha en edición: píldora opaca centrada en la flecha. */
+.diag-inline[data-edge] { transform-origin: 50% 50%; background: var(--diag-pill); color: var(--t1); border: 1px solid var(--t1);
+  border-radius: var(--r-pill); line-height: 1.4; z-index: 2; }
+/* Espacio sostenido (ratón): el arrastre panea. */
+.diag-board.diag-space, .diag-board.diag-space .diag-node { cursor: grab; }
 /* ==/B== */
 
 /* ==C== colores y tamaños */
 /* ==/C== */
+
+/* ==E== exportar */
+.exp-pdf select, .exp-pdf input[type=text], .exp-pdf .input { width: 100%; }
+.exp-pdf input[type=checkbox] { width: 22px; height: 22px; }
+.exp-prev { display: grid; gap: 6px; }
+/* ==/E== */

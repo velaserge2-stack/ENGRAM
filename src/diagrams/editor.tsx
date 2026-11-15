@@ -1,17 +1,19 @@
 // Editor de diagramas (mapa, flujo, diagrama): lienzo + barra flotante + deshacer exacto + modo texto.
 // El documento es el texto de la nota: cada acción es una `Edit` que se aplica al texto y se escribe con
 // `onText` (NoteStore, en el padre). Aquí no hay estado del documento, solo selección, diálogos e historial.
+// Crear, renombrar y etiquetar se hacen en el sitio dentro del lienzo (§P22.6), sin cuadro modal: la barra solo
+// se lo pide al lienzo (`CanvasControl`). Quedan como hoja la confirmación de eliminar y «Conectar con…».
 import type { JSX } from 'preact';
 import type { ComponentType } from 'preact';
 import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Download, FileText, LayoutGrid, ListPlus, Eye, Redo2, Undo2 } from 'lucide-preact';
-import { DiagramCanvas, type DiagramSelection } from './canvas';
+import { DiagramCanvas, type CanvasControl, type DiagramSelection } from './canvas';
 import { layoutLayered, layoutTree } from './layout';
 import { parseDiagram } from './parse';
 import { History } from './history';
 import { fillHeight } from './gestures';
 import { AskDialog, FloatBar, tx, type Ask } from './toolbar';
-import type { DiagramDoc, DiagramKind, DiagramNode, Edit, Route, Shape } from './types';
+import type { DiagramDoc, DiagramKind, DiagramNode, Edit, Route } from './types';
 
 export interface EditorProps {
   kind: DiagramKind;
@@ -22,18 +24,6 @@ export interface EditorProps {
   fill?: boolean;
   /** Bloque o embed: alto fijo del lienzo (px). */
   height?: number;
-}
-
-const CLOSE: Record<Shape, string> = { rect: ']', round: ')', diamond: '}', io: ']', note: '>' };
-const OPEN: Record<Shape, string> = { rect: '[', round: '(', diamond: '{', io: '[/', note: '<<' };
-const CLOSE2: Record<Shape, string> = { rect: ']', round: ')', diamond: '}', io: '/]', note: '>>' };
-
-/** «+ Nodo» sin selección en un flujo: línea suelta al final (antes de la línea vacía final). */
-function looseNode(doc: DiagramDoc, shape: Shape, text: string): Edit {
-  const n = doc.lines.length;
-  const at = n > 1 && doc.lines[n - 1]!.raw === '' ? n - 1 : n;
-  const body = text.replace(/\s*[\r\n]+\s*/g, ' ').trim().replace(/\\/g, '\\\\').split(CLOSE[shape]).join('\\' + CLOSE[shape]);
-  return { op: 'splice', at, remove: 0, insert: [OPEN[shape] + body + CLOSE2[shape]] };
 }
 
 /** «Ordenar»: acomodo automático sin posiciones fijadas, escrito como `move` por nodo. */
@@ -64,6 +54,7 @@ export function DiagramEditor({ kind, src, onText, fill, height }: EditorProps):
   const [Exp, setExp] = useState<ComponentType<{ doc: DiagramDoc; src: string; onClose: () => void }> | null>(null);
   const isMap = kind === 'mapa';
   const root = useRef<HTMLDivElement>(null);
+  const ctl = useRef<CanvasControl | null>(null);
   // alto del lienzo en nota completa: ventana − borde superior del tablero; sin re-render (variable CSS)
   useLayoutEffect(() => {
     const el = root.current;
@@ -90,10 +81,10 @@ export function DiagramEditor({ kind, src, onText, fill, height }: EditorProps):
   const edge = sel?.type === 'edge' ? doc.edges.find((e) => e.id === sel.id) : undefined;
   const nodeName = (n: DiagramNode) => n.text || n.id;
 
-  const newText = tx('diag.nuevo_nodo', 'Nuevo nodo');
-  const addChild = (n: DiagramNode) => setAsk({ t: 'text', title: tx('diag.hijo', 'Añadir hijo (Tab)'), initial: '', shapes: !isMap, ok: (text, shape) => apply([{ op: 'addChild', parent: n.id, text, ...(isMap ? {} : { shape }) }]) });
-  const addSibling = (n: DiagramNode) => setAsk({ t: 'text', title: tx('diag.hermano', 'Añadir hermano (Intro)'), initial: '', shapes: !isMap, ok: (text, shape) => apply([{ op: 'addSibling', id: n.id, text, ...(isMap ? {} : { shape }) }]) });
-  const rename = (n: DiagramNode) => setAsk({ t: 'text', title: tx('diag.renombrar', 'Renombrar (F2)'), initial: n.text, ok: (text) => apply([{ op: 'rename', id: n.id, text }]) });
+  // En el sitio (sin modal): el nodo nuevo aparece ya colocado, en edición, y entra al archivo al confirmar.
+  const addChild = (n: DiagramNode) => ctl.current?.addChild(n.id);
+  const addSibling = (n: DiagramNode) => ctl.current?.addSibling(n.id);
+  const rename = (n: DiagramNode) => ctl.current?.edit(n.id);
   const remove = (n: DiagramNode) => {
     if (isMap && n.depth === 0) return;
     const go = () => apply([{ op: 'remove', id: n.id }]);
@@ -101,26 +92,15 @@ export function DiagramEditor({ kind, src, onText, fill, height }: EditorProps):
     else go();
   };
   const connect = (n: DiagramNode) => setAsk({ t: 'pick', title: tx('diag.conectar', 'Conectar con…'), options: doc.nodes.filter((k) => k.id !== n.id).map((k) => [k.id, nodeName(k)]), ok: (to) => apply([{ op: 'connect', from: n.id, to }]) });
-  const addFree = () => {
-    if (node) return addChild(node);
-    setAsk({ t: 'text', title: tx('diag.nuevo_nodo', newText), initial: '', shapes: true, ok: (text, shape) => apply([looseNode(doc, shape, text)]) });
-  };
+  const addFree = () => (node ? addChild(node) : ctl.current?.addFree());
 
   const onKey = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement;
     if (el.closest('textarea, input, select')) return;
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.stopPropagation(); return e.shiftKey ? redo() : undo(); }
     if (!node || el.dataset?.id !== node.id) return; // solo con el foco en el nodo seleccionado
-    const stop = () => { e.preventDefault(); e.stopPropagation(); };
-    if (e.key === 'Tab' && !e.shiftKey && !e.altKey) { stop(); addChild(node); }
-    else if (e.key === 'Enter' && !(isMap && node.depth === 0)) { stop(); addSibling(node); }
-    else if (e.key === 'F2') { stop(); rename(node); }
-    else if (e.key === 'Delete' || e.key === 'Backspace') { stop(); remove(node); }
-  };
-  const onDbl = (e: MouseEvent) => {
-    const id = (e.target as HTMLElement).closest<HTMLElement>('.diag-node')?.dataset.id;
-    const n = id ? doc.nodes.find((x) => x.id === id) : undefined;
-    if (n) rename(n);
+    // Tab (hijo), Intro (editar / hermano al encadenar) y F2 (editar) los atiende el lienzo, en el sitio.
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); e.stopPropagation(); remove(node); }
   };
 
   const canUndo = hist.current.canUndo(src), canRedo = hist.current.canRedo(src);
@@ -144,7 +124,7 @@ export function DiagramEditor({ kind, src, onText, fill, height }: EditorProps):
   };
 
   return (
-    <div ref={root} class={`stack-s diag-editor${fill ? ' diag-fill' : height ? ' diag-sized' : ''}`} onKeyDownCapture={asText ? undefined : onKey} onDblClick={asText ? undefined : onDbl}>
+    <div ref={root} class={`stack-s diag-editor${fill ? ' diag-fill' : height ? ' diag-sized' : ''}`} onKeyDownCapture={asText ? undefined : onKey}>
       <div class="row wrap glass" style={{ padding: '6px', borderRadius: '18px' }} role="toolbar" aria-label={tx('diag.herramientas', 'Herramientas del diagrama')}>
         <button type="button" class="btn icon ghost" aria-label={tx('bar.deshacer', 'Deshacer')} disabled={!canUndo || asText} onClick={undo}><Undo2 size={20} aria-hidden="true" /></button>
         <button type="button" class="btn icon ghost" aria-label={tx('bar.rehacer', 'Rehacer')} disabled={!canRedo || asText} onClick={redo}><Redo2 size={20} aria-hidden="true" /></button>
@@ -159,7 +139,7 @@ export function DiagramEditor({ kind, src, onText, fill, height }: EditorProps):
       </div>
       {asText ? textBox : (
         <>
-          <DiagramCanvas text={src} kind={kind} onEdit={(e) => apply([e])} onSelect={setSel} />
+          <DiagramCanvas text={src} kind={kind} onEdit={(e) => apply([e])} onEdits={apply} onSelect={setSel} control={ctl} />
           <ul class="sr-only" role={isMap ? 'tree' : 'list'} aria-label={tx('diag.lista', 'Lista alternativa del diagrama')}>
             {doc.nodes.map((n) => isMap ? (
               <li key={n.id} role="treeitem" tabIndex={-1} aria-level={n.depth + 1} aria-selected={sel?.type === 'node' && sel.id === n.id}
@@ -175,7 +155,7 @@ export function DiagramEditor({ kind, src, onText, fill, height }: EditorProps):
           }} />}
           {edge && <FloatBar edge={{
             edge, route: (r: Route) => apply([{ op: 'style', id: edge.id, route: r }]),
-            label: () => setAsk({ t: 'text', title: tx('diag.etiqueta', 'Etiqueta de la flecha'), initial: edge.label ?? '', empty: true, ok: (label) => apply([{ op: 'label', id: edge.id, label }]) }),
+            label: () => ctl.current?.editLabel(edge.id),
             disconnect: () => { apply([{ op: 'disconnect', id: edge.id }]); setSel(null); },
           }} />}
         </>
