@@ -8,9 +8,9 @@ const rt = (t: string, k: DiagramKind) => serializeDiagram(parseDiagram(t, k).do
 const finite = (l: Layout) => [...l.pos.values()].every((p) => [p.x, p.y, p.w, p.h].every(Number.isFinite));
 const dump = (l: Layout) => JSON.stringify([...l.pos.entries()]);
 
-describe('1. etiqueta de 2 000 caracteres', () => {
-  const big = 'x'.repeat(2000);
-  it('línea > 1000: se conserva literal, sin lanzar (§1.4)', () => {
+describe('1. etiqueta de 6 000 caracteres', () => {
+  const big = 'x'.repeat(6000);
+  it('texto > 5000: se conserva literal, sin lanzar (§1.4)', () => {
     for (const [t, k] of [[`Raíz\n- ${big}\n`, 'mapa'], [`[${big}] --> [B]\n`, 'flujo']] as const) {
       const r = parseDiagram(t, k);
       expect(r.errors.length).toBeGreaterThan(0);

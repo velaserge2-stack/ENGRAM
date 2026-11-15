@@ -1,8 +1,8 @@
 // Geometría de aristas (CONTRATO §P22.4): una sola función para pantalla y exportación. Pura.
 import type { Route, Shape } from './types';
 
-/** Declarado aquí hasta que `types.ts` exporte `EdgeEnd` (§P22.2). */
-export type EdgeEnd = 'sin' | 'flecha' | 'ambos' | 'circulo' | 'rombo';
+import type { EdgeEnd } from './types';
+export type { EdgeEnd };
 
 type Box = { x: number; y: number; w: number; h: number; shape?: Shape }; // x,y = centro
 type P = { x: number; y: number };

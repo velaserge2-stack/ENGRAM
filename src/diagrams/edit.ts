@@ -1,19 +1,15 @@
 // Ediciones puras del texto de un diagrama (CONTRATO §3). Cada edición reescribe solo las líneas que
 // toca (sangría de 2 espacios, un espacio antes de cada sufijo), conserva el resto literal y se
 // reanaliza; el inverso es un `splice` de líneas, así que deshacer devuelve el mismo texto.
-import { readArrow, readNode, skipWs, stripSuffixes, parseDiagram, type Arrow, type Tok } from './parse';
+import { NODE_ONLY, ROUTES, ENDS, itemKey, readArrow, readNode, skipWs, stripSuffixes, suffixCandidates, parseDiagram, type Arrow, type Tok } from './parse';
 import {
-  MAX_LINE, MAX_NODES,
-  type Applied, type DiagramDoc, type DiagramKind, type DiagramNode, type Edit, type Shape,
+  BACKDROPS, MAX_LINE, MAX_NODES, MAX_TEXT,
+  type Applied, type DiagramDoc, type DiagramKind, type DiagramNode, type Edit, type EdgeAttrs, type NodeAttrs, type Shape, type TreeItem,
 } from './types';
 
 const WRAP: Record<Shape, [string, string, string]> = {
   rect: ['[', ']', ']'], round: ['(', ')', ')'], diamond: ['{', '}', '}'], io: ['[/', '/]', ']'], note: ['<<', '>>', '>'],
 };
-const ROUTE = /\{(recta|curva|orto)\}/;
-const POS = /\{x=-?\d+,y=-?\d+\}/;
-const FOLD = /\{plegado\}/;
-
 const clean = (t: string) => t.replace(/\s*[\r\n]+\s*/g, ' ').trim();
 const key = (shape: Shape, text: string) => `${shape}\u0000${text}`;
 
@@ -23,16 +19,113 @@ function esc(shape: Shape, text: string): string {
   return text.split(/(\[\[.*?\]\])/).map((p, i) => (i % 2 ? p : p.replace(/\\/g, '\\\\').split(c).join('\\' + c))).join('');
 }
 const render = (shape: Shape, text: string) => WRAP[shape][0] + esc(shape, text) + WRAP[shape][1];
-const sfx = (x?: number, y?: number, folded?: boolean) =>
-  (x !== undefined && y !== undefined ? ` {x=${x},y=${y}}` : '') + (folded ? ' {plegado}' : '');
-const mapaLine = (depth: number, text: string, x?: number, y?: number, folded?: boolean) =>
-  (depth ? ' '.repeat(2 * (depth - 1)) + '- ' : '') + text + sfx(x, y, folded);
+const mapaLine = (depth: number, text: string) => (depth ? ' '.repeat(2 * (depth - 1)) + '- ' : '') + text;
+// Texto + sufijos de una línea de mapa, sin sangría ni viñeta.
+const mapaCore = (raw: string, depth: number) => {
+  const b = raw.trimEnd().replace(/^[ \t]*/, '');
+  return depth ? b.slice(2).trim() : b;
+};
 
 // Texto de nodo de mapa: sin saltos, que no se lea como sufijo y la raíz no parezca viñeta o comentario.
 function mapaText(text: string, root: boolean): string | null {
   const t = clean(text);
-  if (!t || stripSuffixes(t).rest !== t || (root && /^[-#]/.test(t))) return null;
+  if (!t || t.length > MAX_TEXT || stripSuffixes(t).rest !== t || (root && /^[-#]/.test(t))) return null;
   return t;
+}
+
+// --- Ítems de grupo `{…}`: se edita dentro del grupo original; lo nuevo va al último grupo o a uno nuevo ---
+const lookKey = (k: string) => ((ROUTES as readonly string[]).includes(k) ? 'route' : k); // clave lógica
+// f: nuevo texto del ítem, null = quitarlo, undefined = dejarlo. `add` = ítems nuevos.
+function editItems(tail: string, f: (item: string, key: string) => string | null | undefined, add: string[]): string {
+  const gs: { ws: string; items: string[]; hit: boolean }[] = [];
+  const re = /(\s*)\{([^{}]*)\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(tail))) {
+    let hit = false;
+    const items: string[] = [];
+    for (const it of m[2]!.split(',')) {
+      const r = f(it, lookKey(itemKey(it)));
+      if (r === undefined) items.push(it);
+      else { hit = true; if (r !== null) items.push(r); }
+    }
+    gs.push({ ws: m[1]!, items, hit });
+  }
+  if (add.length) {
+    const last = [...gs].reverse().find((g) => g.items.length);
+    if (last) { last.items.push(...add); last.hit = true; } else gs.push({ ws: ' ', items: add, hit: true });
+  }
+  if (!gs.some((g) => g.hit)) return tail;
+  return gs.filter((g) => g.items.length).map((g) => `${g.ws}{${g.items.join(',')}}`).join('');
+}
+const tailHas = (tail: string, own: (k: string) => boolean, key: string) =>
+  [...tail.matchAll(/\{([^{}]*)\}/g)].some((m) => m[1]!.split(',').some((it) => lookKey(itemKey(it)) === key && own(key)));
+// Aplica `set` (clave lógica → ítem) y `unset` sobre los ítems que `own` reclama.
+function patchTail(tail: string, own: (k: string) => boolean, set: [string, string][], unset: string[]): string {
+  const todo = new Map(set);
+  const out = editItems(tail, (_, k) => {
+    if (!own(k)) return undefined;
+    if (todo.has(k)) { const v = todo.get(k)!; todo.delete(k); return v; }
+    return set.some(([sk]) => sk === k) || unset.includes(k) ? null : undefined; // repetido o quitado
+  }, []);
+  const add = set.filter(([k]) => todo.has(k)).map(([, v]) => v);
+  return add.length ? editItems(out, () => undefined, add) : out;
+}
+const nodeTail = (tail: string) => editItems(tail, (_, k) => (NODE_ONLY.has(k) ? undefined : null), []);
+
+// Valida y ordena los atributos a escribir (x,y,color,w,h,maxw,fs,plegado). null = inválido.
+const okInt = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isInteger(v) && v >= lo && v <= hi;
+type Items = { set: [string, string][]; unset: string[] };
+function nodeItems(a: NodeAttrs, unset: string[] = []): Items | null {
+  const set: [string, string][] = [];
+  const un = unset.map((k) => (k === 'folded' ? 'plegado' : k));
+  if ((a.x === undefined) !== (a.y === undefined)) return null;
+  if (a.x !== undefined) {
+    if (!Number.isFinite(a.x) || !Number.isFinite(a.y!)) return null;
+    const x = Math.round(a.x), y = Math.round(a.y!);
+    if (Math.abs(x) > 100000 || Math.abs(y) > 100000) return null;
+    set.push(['x', `x=${x}`], ['y', `y=${y}`]);
+  }
+  const lim = { color: [1, 8], w: [24, 2000], h: [24, 2000], maxw: [80, 600] } as const;
+  for (const k of ['color', 'w', 'h', 'maxw'] as const) {
+    if (a[k] === undefined) continue;
+    if (!okInt(a[k], lim[k][0], lim[k][1])) return null;
+    set.push([k, `${k}=${a[k]}`]);
+  }
+  if (a.fs !== undefined) { if (!['s', 'm', 'l'].includes(a.fs)) return null; set.push(['fs', `fs=${a.fs}`]); }
+  if (a.folded === true) set.push(['plegado', 'plegado']);
+  else if (a.folded === false) un.push('plegado');
+  if (un.some((k) => !['x', 'y', 'color', 'w', 'h', 'maxw', 'fs', 'plegado'].includes(k))) return null;
+  return { set, unset: un };
+}
+function edgeItems(a: EdgeAttrs, unset: string[] = []): Items | null {
+  const set: [string, string][] = [];
+  const un = [...unset];
+  if (a.color !== undefined) { if (!okInt(a.color, 1, 8)) return null; set.push(['color', `color=${a.color}`]); }
+  if (a.w !== undefined) { if (!okInt(a.w, 1, 8)) return null; set.push(['w', `w=${a.w}`]); }
+  if (a.dash === true) set.push(['dash', 'dash']); else if (a.dash === false) un.push('dash');
+  if (a.fin !== undefined) { if (!ENDS.includes(a.fin)) return null; set.push(['fin', `fin=${a.fin}`]); }
+  if (a.route !== undefined) { if (!(ROUTES as readonly string[]).includes(a.route)) return null; set.push(['route', a.route]); }
+  if (un.some((k) => !['color', 'w', 'dash', 'fin', 'route'].includes(k))) return null;
+  return { set, unset: un };
+}
+
+// «Pegar lista» (§P22.2): viñetas -, *, •, 1. 1), sangría relativa (tab = 2 espacios); sin viñetas, una línea por hijo.
+export function parseOutline(text: string): TreeItem[] {
+  const rows = text.split(/\r\n|\r|\n/).map((l) => l.replace(/\t/g, '  ')).filter((l) => l.trim());
+  const bullet = /^(?:[-*•]|\d+[.)])(?:\s+|$)/;
+  const any = rows.some((l) => bullet.test(l.trim()));
+  const out: TreeItem[] = [];
+  const stack: number[] = [];
+  for (const l of rows) {
+    const body = any ? l.trim().replace(bullet, '').trim() : l.trim();
+    if (!body) continue;
+    if (!any) { out.push({ text: body, depth: 0 }); continue; }
+    const ind = l.length - l.trimStart().length;
+    while (stack.length && stack[stack.length - 1]! > ind) stack.pop();
+    if (!stack.length || stack[stack.length - 1]! < ind) stack.push(ind);
+    out.push({ text: body, depth: stack.length - 1 });
+  }
+  return out;
 }
 
 const view = (doc: DiagramDoc) => (doc.lines.length ? doc.lines.map((l) => l.raw) : ['']);
@@ -73,18 +166,32 @@ function scan(raw: string, kind: DiagramKind): Sc | null {
   if (!body) return null;
   const lead = raw.slice(0, raw.length - raw.trimStart().length);
   const trail = raw.slice(lead.length + body.length);
-  const st = stripSuffixes(body);
-  const w = st.rest ? walk(st.rest, kind) : null; // misma regla que el parser (`{plegado}` como decisión)
-  if (w) return { lead, trail, body, rest: st.rest, tail: body.slice(st.rest.length), ...w };
-  const w2 = walk(body, kind);
-  return w2 ? { lead, trail, body, rest: body, tail: '', ...w2 } : null;
+  for (const c of suffixCandidates(body)) { // misma regla que el parser
+    const w = c.rest ? walk(c.rest, kind) : null;
+    if (w) return { lead, trail, body, rest: c.rest, tail: c.tail, ...w };
+  }
+  return null;
 }
 
 const solo = (sc: Sc, i: number, j: number, extra = '') => {
   const m = sc.toks.length - 1;
-  const tail = j === m ? (j > i ? sc.tail : sc.tail.replace(/\s*\{(recta|curva|orto)\}/g, '')) : '';
+  // un nodo suelto al final de una línea con flechas solo conserva lo que es del nodo
+  const tail = j === m ? (j > i || sc.toks.length === 1 ? sc.tail : nodeTail(sc.tail)) : '';
   return sc.lead + sc.body.slice(sc.toks[i]!.s, sc.toks[j]!.e) + tail + extra + sc.trail;
 };
+
+// Una edición de varios ids = una por id, en cadena sobre el texto ya cambiado (los ids no se mueven).
+function many(doc: DiagramDoc, _e: Edit, ids: string[], one: (id: string) => Edit): string[] | null {
+  let cur = doc;
+  let L = view(doc);
+  for (const id of ids) {
+    const next = plan(cur, one(id));
+    if (!next) return null;
+    L = next;
+    cur = parseDiagram(L.join(doc.eol), doc.kind).doc;
+  }
+  return L;
+}
 
 function plan(doc: DiagramDoc, e: Edit): string[] | null {
   const L = view(doc);
@@ -120,7 +227,7 @@ function plan(doc: DiagramDoc, e: Edit): string[] | null {
       if (j > k) { out.push(solo(sc, k, j)); k = j + 1; continue; }
       const n = byKey.get(key(sc.toks[k]!.t.shape, sc.toks[k]!.t.text));
       const elsewhere = n && [...refs(n)].some((r) => !rewritten.has(r));
-      const keepsTail = k === m && /\{(x=|plegado)/.test(sc.tail);
+      const keepsTail = k === m && (sc.toks.length > 1 ? nodeTail(sc.tail) : sc.tail).trim() !== '';
       if (!elsewhere || keepsTail) out.push(solo(sc, k, k));
       k++;
     }
@@ -143,15 +250,24 @@ function plan(doc: DiagramDoc, e: Edit): string[] | null {
         const t = mapaText(e.text, false);
         if (!t || (e.op === 'addSibling' && ref.depth === 0)) return null;
         const depth = e.op === 'addChild' ? ref.depth + 1 : ref.depth;
-        L.splice(subtreeEnd(doc, ref) + 1, 0, mapaLine(depth, t));
+        const it = e.attrs && nodeItems(e.attrs);
+        if (e.attrs && !it) return null;
+        const g = it && it.set.length ? ` {${it.set.map(([, v]) => v).join(',')}}` : '';
+        L.splice(subtreeEnd(doc, ref) + 1, 0, mapaLine(depth, t + g));
         return L;
       }
       const t = clean(e.text);
       if (!t) return null;
       const tok = render(e.shape ?? 'rect', t);
       const parents = e.op === 'addChild' ? [ref] : [...new Set(doc.edges.filter((d) => d.to === ref.id && d.from !== ref.id && d.arrow === 'to').map((d) => d.from))].map((id) => byId.get(id)!);
-      if (!parents.length) append(L, tok);
-      for (const p of parents) append(L, `${render(p.shape, p.text)} --> ${tok}`);
+      const it = e.attrs && nodeItems(e.attrs);
+      if (e.attrs && !it) return null;
+      const g = it && it.set.length ? ` {${it.set.map(([, v]) => v).join(',')}}` : '';
+      if (!parents.length) append(L, tok + g);
+      else {
+        for (const p of parents) append(L, `${render(p.shape, p.text)} --> ${tok}`);
+        if (g) append(L, tok + g); // color/w en una línea con flechas serían de la flecha
+      }
       return L;
     }
     case 'rename': {
@@ -160,7 +276,8 @@ function plan(doc: DiagramDoc, e: Edit): string[] | null {
       if (mapa) {
         const t = mapaText(e.text, n.depth === 0);
         if (!t) return null;
-        L[n.line] = mapaLine(n.depth, t, n.x, n.y, n.folded);
+        const core = mapaCore(L[n.line]!, n.depth);
+        L[n.line] = mapaLine(n.depth, t + core.slice(stripSuffixes(core).rest.length));
         return L;
       }
       const t = clean(e.text);
@@ -195,8 +312,31 @@ function plan(doc: DiagramDoc, e: Edit): string[] | null {
       append(L, `${render(f.shape, f.text)} ${a} ${render(t.shape, t.text)}${e.route ? ` {${e.route}}` : ''}`);
       return L;
     }
-    case 'disconnect':
     case 'style':
+      return plan(doc, { op: 'edgeAttrs', ids: [e.id], set: { route: e.route } });
+    case 'edgeAttrs': {
+      const it = edgeItems(e.set ?? {}, (e.unset ?? []) as string[]);
+      if (!it || !e.ids.length) return null;
+      if (e.ids.length > 1) return many(doc, e, e.ids, (id) => ({ ...e, ids: [id] }));
+      const ed = doc.edges.find((x) => x.id === e.ids[0]);
+      const line = ed && doc.lines[ed.line];
+      if (!ed || !line || line.t !== 'edge') return null;
+      const sc = scan(L[ed.line]!, doc.kind);
+      const idx = line.edges.indexOf(ed.id);
+      if (!sc || idx < 0 || idx >= sc.arrows.length) return null;
+      const m = sc.toks.length - 1;
+      const own = (k: string) => !NODE_ONLY.has(k);
+      if (idx === m - 1) {
+        L[ed.line] = sc.lead + sc.rest + patchTail(sc.tail, own, it.set, it.unset) + sc.trail;
+      } else { // los atributos solo cuelgan del último tramo: se separa la flecha en su línea
+        const mark = patchTail('', own, it.set, it.unset);
+        const parts = [solo(sc, idx, idx + 1, mark), solo(sc, idx + 1, m)];
+        if (idx > 0) parts.unshift(solo(sc, 0, idx));
+        L.splice(ed.line, 1, ...parts);
+      }
+      return L;
+    }
+    case 'disconnect':
     case 'label': {
       const ed = doc.edges.find((x) => x.id === e.id);
       const line = ed && doc.lines[ed.line];
@@ -210,19 +350,6 @@ function plan(doc: DiagramDoc, e: Edit): string[] | null {
         L.splice(ed.line, 1, ...rebuild(sc, keepE, sc.toks.map(() => false), new Set([ed.line])));
         return L;
       }
-      if (e.op === 'style') {
-        if (!['recta', 'curva', 'orto'].includes(e.route)) return null;
-        const mark = ` {${e.route}}`;
-        if (idx === m - 1) {
-          const tail = ROUTE.test(sc.tail) ? sc.tail.replace(ROUTE, `{${e.route}}`) : sc.tail + mark;
-          L[ed.line] = sc.lead + sc.rest + tail + sc.trail;
-        } else { // la ortogonal/recta solo cuelga del último tramo: se separa la flecha en su línea
-          const parts = [solo(sc, idx, idx + 1, mark), solo(sc, idx + 1, m)];
-          if (idx > 0) parts.unshift(solo(sc, 0, idx));
-          L.splice(ed.line, 1, ...parts);
-        }
-        return L;
-      }
       const l = clean(e.label);
       if (l.includes('-->') || l.includes('---') || (ed.arrow === 'both' && l)) return null;
       const arrow = sc.arrows[idx]!;
@@ -231,29 +358,65 @@ function plan(doc: DiagramDoc, e: Edit): string[] | null {
       return L;
     }
     case 'move':
-    case 'fold': {
-      const n = withNode(e.id);
+      if (!(Number.isFinite(e.x) && Number.isFinite(e.y))) return null;
+      return plan(doc, { op: 'attrs', ids: [e.id], set: { x: e.x, y: e.y } });
+    case 'fold':
+      return plan(doc, { op: 'attrs', ids: [e.id], set: { folded: e.folded } });
+    case 'attrs': {
+      const it = nodeItems(e.set ?? {}, (e.unset ?? []) as string[]);
+      if (!it || !e.ids.length) return null;
+      if (e.ids.length > 1) return many(doc, e, e.ids, (id) => ({ ...e, ids: [id] }));
+      const n = withNode(e.ids[0]!);
       if (!n) return null;
-      if (e.op === 'move' && !(Number.isFinite(e.x) && Number.isFinite(e.y))) return null;
-      const x = e.op === 'move' ? Math.round(e.x) : 0;
-      const y = e.op === 'move' ? Math.round(e.y) : 0;
       if (mapa) {
-        L[n.line] = e.op === 'move' ? mapaLine(n.depth, n.text, x, y, n.folded) : mapaLine(n.depth, n.text, n.x, n.y, e.folded);
+        const core = mapaCore(L[n.line]!, n.depth);
+        const rest = stripSuffixes(core).rest;
+        L[n.line] = mapaLine(n.depth, rest + patchTail(core.slice(rest.length), () => true, it.set, it.unset));
         return L;
       }
-      const us = uses(n);
-      const lasts = us.filter((u) => matches(u.sc.toks[u.sc.toks.length - 1]!.t, n));
-      const set = (u: { i: number; sc: Sc }, tail: string) => { L[u.i] = u.sc.lead + u.sc.rest + tail + u.sc.trail; };
-      if (e.op === 'fold' && !e.folded) {
-        for (const u of lasts) set(u, u.sc.tail.replace(/\s*\{plegado\}/g, ''));
-        return L;
+      const lasts = uses(n).filter((u) => matches(u.sc.toks[u.sc.toks.length - 1]!.t, n));
+      const accepts = (u: { sc: Sc }, k: string) => u.sc.toks.length === 1 || NODE_ONLY.has(k);
+      const ownOf = (u: { sc: Sc }) => (k: string) => accepts(u, k);
+      const per = new Map<number, [string, string][]>();
+      const loose: [string, string][] = [];
+      for (const [k, v] of it.set) {
+        const holder = lasts.find((u) => tailHas(u.sc.tail, ownOf(u), k)) ?? lasts.find((u) => accepts(u, k));
+        if (!holder) loose.push([k, v]);
+        else per.set(holder.i, [...(per.get(holder.i) ?? []), [k, v]]);
       }
-      const re = e.op === 'move' ? POS : FOLD;
-      const mark = e.op === 'move' ? `{x=${x},y=${y}}` : '{plegado}';
-      const has = lasts.find((u) => re.test(u.sc.tail));
-      if (has) { set(has, has.sc.tail.replace(re, mark)); return L; }
-      if (lasts[0]) set(lasts[0], `${lasts[0].sc.tail} ${mark}`);
-      else if (us[0]) L.splice(us[0].i + 1, 0, `${render(n.shape, n.text)} ${mark}`);
+      for (const u of lasts) {
+        const set = per.get(u.i) ?? [];
+        const tail = patchTail(u.sc.tail, ownOf(u), set, it.unset);
+        if (tail !== u.sc.tail) L[u.i] = u.sc.lead + u.sc.rest + tail + u.sc.trail;
+      }
+      if (loose.length) { // sin línea donde escribirlo: línea propia del nodo tras su primer uso
+        const first = uses(n)[0]!;
+        L.splice(first.i + 1, 0, `${render(n.shape, n.text)} {${loose.map(([, v]) => v).join(',')}}`);
+      }
+      return L;
+    }
+    case 'addTree': {
+      const p = withNode(e.parent);
+      if (!mapa || !p || !e.items.length || doc.nodes.length + e.items.length > MAX_NODES) return null;
+      const lines: string[] = [];
+      let prev = -1;
+      for (const it of e.items) {
+        const t = mapaText(it.text, false);
+        if (!t || !Number.isInteger(it.depth) || it.depth < 0 || it.depth > prev + 1) return null;
+        prev = it.depth;
+        lines.push(mapaLine(p.depth + 1 + it.depth, t));
+      }
+      L.splice(subtreeEnd(doc, p) + 1, 0, ...lines);
+      return L;
+    }
+    case 'backdrop': {
+      if (e.value !== undefined && !BACKDROPS.includes(e.value)) return null;
+      const want = e.value && e.value !== 'cristal' ? `# fondo: ${e.value}` : null;
+      const first = doc.lines.findIndex((l) => l.raw.trim() !== '');
+      const has = first >= 0 && /^#\s*fondo:/.test(L[first]!);
+      if (want) { if (has) L[first] = want; else if (doc.lines.length) L.unshift(want); else L[0] = want; }
+      else if (has) L.splice(first, 1);
+      else return null;
       return L;
     }
     case 'reparent': {
@@ -267,7 +430,7 @@ function plan(doc: DiagramDoc, e: Edit): string[] | null {
       const moved = L.slice(s, end + 1).map((raw, k) => {
         const ln = doc.lines[s + k]!;
         const d = ln.t === 'node' ? byId.get(ln.node) : undefined;
-        return d ? mapaLine(d.depth + delta, d.text, d.x, d.y, d.folded) : raw;
+        return d ? mapaLine(d.depth + delta, mapaCore(raw, d.depth)) : raw;
       });
       let at = subtreeEnd(doc, p) + 1;
       L.splice(s, end - s + 1);

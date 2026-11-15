@@ -37,7 +37,7 @@ describe('applyEdit · mapa', () => {
     expect(check(d, { op: 'rename', id: id(d, 'Ciclo'), text: 'Latido' })).toContain('  - Latido');
     expect(check(d, { op: 'move', id: id(d, 'Cámaras'), x: 5.4, y: -2 })).toContain('  - Cámaras {x=5,y=-2}');
     expect(check(d, { op: 'move', id: id(d, 'Fisiología'), x: 1, y: 2 })).toContain('- Fisiología {x=1,y=2}');
-    expect(check(d, { op: 'fold', id: id(d, 'Fisiología'), folded: true })).toContain('- Fisiología {x=120,y=-40} {plegado}');
+    expect(check(d, { op: 'fold', id: id(d, 'Fisiología'), folded: true })).toContain('- Fisiología {x=120,y=-40,plegado}');
     expect(check(d, { op: 'fold', id: id(d, 'Anatomía'), folded: false })).toContain('- Anatomía\n');
   });
   it('remove borra la rama', () => {
@@ -88,7 +88,7 @@ describe('applyEdit · flujo y diagrama', () => {
     expect(applyEdit(d, { op: 'connect', from: 'n0', to: 'zz' }).inverse).toEqual([]);
   });
   it('style y label', () => {
-    expect(check(d, { op: 'style', id: 'e3', route: 'recta' })).toContain('[Alta] {x=3,y=4} {recta}');
+    expect(check(d, { op: 'style', id: 'e3', route: 'recta' })).toContain('[Alta] {x=3,y=4,recta}');
     expect(check(d, { op: 'style', id: 'e1', route: 'curva' })).toContain('{curva}');
     expect(check(d, { op: 'style', id: 'e0', route: 'orto' })).toContain('(Inicio) --> [Triaje] {orto}\n[Triaje] --> {¿Inestable?}');
     expect(check(d, { op: 'label', id: 'e0', label: 'ingresa' })).toContain('(Inicio) -- ingresa --> [Triaje]');
@@ -99,7 +99,7 @@ describe('applyEdit · flujo y diagrama', () => {
     expect(check(d, { op: 'move', id: id(d, 'Alta'), x: 9, y: 9 })).toContain('{x=9,y=9}');
     expect(check(d, { op: 'move', id: id(d, 'Triaje'), x: 1, y: 2 })).toContain('[Triaje] {x=1,y=2}');
     expect(check(d, { op: 'move', id: id(d, 'Solo'), x: 1, y: 2 })).toContain('[Solo] {x=1,y=2}');
-    expect(check(d, { op: 'fold', id: id(d, 'Alta'), folded: true })).toContain('{plegado}');
+    expect(check(d, { op: 'fold', id: id(d, 'Alta'), folded: true })).toContain('{x=3,y=4,plegado}');
   });
   it('diagrama: flechas sin punta y con etiqueta', () => {
     const g = P(DIAG, 'diagrama');
