@@ -165,11 +165,14 @@ export function readArrow(s: string, i: number, kind: DiagramKind): Arrow | null
   if (r.startsWith('-->')) return { arrow: 'to', end: i + 3 };
   if (kind === 'diagrama' && r.startsWith('<-->')) return { arrow: 'both', end: i + 4 };
   if (kind === 'diagrama' && r.startsWith('---')) return { arrow: 'none', end: i + 3 };
-  const m = /^--\s+(.*?)\s*(-->|---)/.exec(r);
-  if (m && (m[2] === '-->' || kind === 'diagrama')) {
-    return { arrow: m[2] === '-->' ? 'to' : 'none', label: m[1] || undefined, end: i + m[0].length };
-  }
-  return null;
+  if (!/^--\s/.test(r)) return null;
+  // Cierre más cercano (`-->` o `---`), sin regex perezosa (evita el retroceso cúbico con muchos espacios).
+  const a = r.indexOf('-->', 3), b = r.indexOf('---', 3);
+  const end = a < 0 ? b : b < 0 ? a : Math.min(a, b);
+  if (end < 0) return null;
+  const to = r.startsWith('-->', end);
+  if (!to && kind !== 'diagrama') return null;
+  return { arrow: to ? 'to' : 'none', label: r.slice(2, end).trim() || undefined, end: i + end + 3 };
 }
 
 export const skipWs = (s: string, i: number) => { while (i < s.length && /\s/.test(s[i]!)) i++; return i; };

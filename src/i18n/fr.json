@@ -2007,6 +2007,7 @@
  "diag.pegar_lista": "Coller une liste",
  "diag.pegar_creadas.one": "{n} branche créée",
  "diag.pegar_creadas.other": "{n} branches créées",
+ "diag.pegar_tope": "Trop de lignes : le maximum au collage est de {n}.",
  "diag.texto_largo": "Texte trop long : le maximum est de {n} caractères.",
  "diag.exportar_pdf": "Exporter en PDF",
  "diag.pdf": "PDF",

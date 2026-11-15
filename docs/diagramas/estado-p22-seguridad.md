@@ -19,3 +19,12 @@ Alcance: diff `origin/main...HEAD` de `src/diagrams`, `diagramtype.ts`, `notes.t
 - **4d · leve** · `edit.ts` (`addChild`/`rename` de flujo): sin `MAX_TEXT`; 5 200 caracteres se «aplican» y el parser los descarta como `tope` (el nodo desaparece; el archivo conserva el texto).
 - **5a · leve** · `notes.tsx:785`: guardar el alto hace `blocks.join('\n\n')` con `splitBlocks`, que normaliza líneas en blanco y no cubre `~~~`: arrastrar el asa reescribe todo el espaciado de la nota, contra lo prometido por `setFenceAlto`. Arreglo: reemplazar solo el bloque en el texto original (por desplazamiento).
 Observación (sin prueba): el respaldo de descarga revoca el blob a los 4 s; un PDF muy grande podría no haber empezado a leerse en Safari.
+
+## Correcciones
+- **4a** `readArrow` (`parse.ts`): cierre con `indexOf` en lugar de regex perezosa; mismas líneas aceptadas; 5 000 espacios < 50 ms.
+- **4b** `gridPath` (`export.ts`): tope de 20 000 elementos subiendo el paso (múltiplo de 24, alineado a 0); vale para SVG, PNG, PDF y `print.ts` (todos la usan).
+- **4c** `pasteEdits` (`inline.ts`): flujo/diagrama rechaza > `MAX_PASTE` = 500 líneas; el lienzo avisa con `diag.pegar_tope` (es/en/fr).
+- **4d** `edit.ts`: `addChild`/`addSibling`/`rename`/`label` de flujo rechazan texto > `MAX_TEXT`; el lienzo muestra `diag.texto_largo`.
+- **5a** `replaceBlockAt` (`diagramtype.ts`) + `notes.tsx`: el alto se escribe solo en el bloque dentro del texto crudo; resto byte a byte (CRLF, líneas en blanco, `~~~`).
+- **NaN** `measure.ts`: un medidor no finito cae a `estimate`.
+- Los 6 `it.fails` pasan a `it`. tsc, vitest (771) y build verdes.

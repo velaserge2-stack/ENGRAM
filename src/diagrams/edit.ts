@@ -257,7 +257,7 @@ function plan(doc: DiagramDoc, e: Edit): string[] | null {
         return L;
       }
       const t = clean(e.text);
-      if (!t) return null;
+      if (!t || t.length > MAX_TEXT) return null;
       const tok = render(e.shape ?? 'rect', t);
       const parents = e.op === 'addChild' ? [ref] : [...new Set(doc.edges.filter((d) => d.to === ref.id && d.from !== ref.id && d.arrow === 'to').map((d) => d.from))].map((id) => byId.get(id)!);
       const it = e.attrs && nodeItems(e.attrs);
@@ -281,7 +281,7 @@ function plan(doc: DiagramDoc, e: Edit): string[] | null {
         return L;
       }
       const t = clean(e.text);
-      if (!t) return null;
+      if (!t || t.length > MAX_TEXT) return null;
       const tok = render(n.shape, t);
       for (const { i, sc } of uses(n)) {
         let body = sc.body;
@@ -351,6 +351,7 @@ function plan(doc: DiagramDoc, e: Edit): string[] | null {
         return L;
       }
       const l = clean(e.label);
+      if (l.length > MAX_TEXT) return null;
       if (l.includes('-->') || l.includes('---') || (ed.arrow === 'both' && l)) return null;
       const arrow = sc.arrows[idx]!;
       const a = ed.arrow === 'both' ? '<-->' : `${l ? `-- ${l} ` : ''}${ed.arrow === 'to' ? '-->' : '---'}`;

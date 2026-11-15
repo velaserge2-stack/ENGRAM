@@ -2007,6 +2007,7 @@
  "diag.pegar_lista": "Paste list",
  "diag.pegar_creadas.one": "Created {n} branch",
  "diag.pegar_creadas.other": "Created {n} branches",
+ "diag.pegar_tope": "Too many lines: the paste limit is {n}.",
  "diag.texto_largo": "Text too long: the maximum is {n} characters.",
  "diag.exportar_pdf": "Export PDF",
  "diag.pdf": "PDF",

@@ -255,7 +255,7 @@ describe('P22 extremos · salida (SVG y PDF)', () => {
 
 describe('P22 extremos · medidor inyectado', () => {
   // FALLO REAL (menor, hipotético): un medidor que devuelve NaN contamina w/h. El canvas real no lo devuelve, así que no es un fallo de uso.
-  it.fails('setMeasurer con medidor que devuelve NaN no rompe la medida (queda finita)', () => {
+  it('setMeasurer con medidor que devuelve NaN no rompe la medida (queda finita)', () => {
     setMeasurer(() => NaN);
     try {
       clearMeasureCache();

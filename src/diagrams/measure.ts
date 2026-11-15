@@ -94,7 +94,8 @@ function wrap(text: string, px: number, area: number, m: Measurer): { lines: str
 }
 
 export function measureNode(i: MeasureIn, m?: Measurer): Measured {
-  const meter = m ?? injected ?? defaultMeasurer();
+  const base = m ?? injected ?? defaultMeasurer();
+  const meter: Measurer = (t, f) => { const v = base(t, f); return Number.isFinite(v) ? v : estimate(t, f); };
   const text = i.text.length > MAX_TEXT ? i.text.slice(0, MAX_TEXT) : i.text;
   const key = m ? '' : `${i.fontSize}|${i.maxW}|${i.shape}|${text}`;
   let res = key ? cache.get(key) : undefined;

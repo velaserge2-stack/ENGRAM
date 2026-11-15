@@ -2007,6 +2007,7 @@
  "diag.pegar_lista": "Pegar lista",
  "diag.pegar_creadas.one": "Creada {n} rama",
  "diag.pegar_creadas.other": "Creadas {n} ramas",
+ "diag.pegar_tope": "Demasiadas líneas: el máximo al pegar es {n}.",
  "diag.texto_largo": "Texto demasiado largo: el máximo es {n} caracteres.",
  "diag.exportar_pdf": "Exportar PDF",
  "diag.pdf": "PDF",

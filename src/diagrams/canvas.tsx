@@ -16,10 +16,11 @@ import {
   startDrag, toWorld, type Box, type Drag, type Link, type Pt, type View,
 } from './gestures';
 import {
-  commitInline, ensureVisible, isDoubleTap, neighbor, pasteEdits, pinch4, previewText, wheel4, zoomBy4, type Inline, type Tap,
+  commitInline, ensureVisible, MAX_PASTE, isDoubleTap, neighbor, pasteEdits, pinch4, previewText, wheel4, zoomBy4, type Inline, type Tap,
 } from './inline';
 import { Handles, nodeMin, sizeEdit } from './handles';
 import type { Backdrop, DiagramKind, DiagramNode, Edit } from './types';
+import { MAX_TEXT } from './types';
 import './diagram.css';
 
 export type DiagramSelection = { type: 'node' | 'edge'; id: string } | null;
@@ -267,7 +268,8 @@ export function DiagramCanvas({ text, kind, onEdit, onEdits, control, onSelect, 
     if (!ok) { chain.current = origin; focusNext.current = origin ?? '@board'; return; }
     const c = commitInline(textRef.current, kind, cur);
     if (!c.edits.length) {
-      if (cur.mode === 'edit' && then) { chain.current = cur.id; startNew('child', cur.id); return; }
+      if (cur.text.length > MAX_TEXT) setSay(t('diag.texto_largo', { n: MAX_TEXT }));
+      else if (cur.mode === 'edit' && then) { chain.current = cur.id; startNew('child', cur.id); return; }
       chain.current = origin;
       focusNext.current = origin ?? '@board';
       return;
@@ -278,7 +280,10 @@ export function DiagramCanvas({ text, kind, onEdit, onEdits, control, onSelect, 
   };
   const pasteInto = (txt: string, base: { parent?: string; after?: string; shape?: DiagramNode['shape'] }): boolean => {
     const r = pasteEdits(textRef.current, kind, base, txt);
-    if (!r) return false;
+    if (!r) {
+      if (kind !== 'mapa' && txt.split(/\r?\n/).filter((l) => l.trim()).length > MAX_PASTE) setSay(t('diag.pegar_tope', { n: MAX_PASTE }));
+      return false;
+    }
     setSay(tn('diag.pegar_creadas', r.count));
     emit(r.edits);
     return true;

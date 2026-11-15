@@ -27,7 +27,7 @@ import { Empty, PageTitle, Segmented, Sheet } from '../ui/kit';
 import { Html, hydrateAllMedia } from '../ui/md';
 import { readTextOr, walk } from '../vault/util';
 import { noteTexts } from '../notes/textcache';
-import { type DiagramKind, type NoteKind, diagramFence, diagramKindOf, newDiagramNote, newDiagramText, setFenceAlto } from '../notes/diagramtype';
+import { type DiagramKind, type NoteKind, diagramFence, diagramKindOf, newDiagramNote, newDiagramText, replaceBlockAt, setFenceAlto } from '../notes/diagramtype';
 import { readBackdrop, readHeight } from '../diagrams/parse';
 import type { Backdrop } from '../diagrams/types';
 import { mediaRefs, resolveMedia } from '../data/ops';
@@ -782,7 +782,15 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
   };
   const tipo = diagramKindOf(text);
   const blocks = splitBlocks(doc.body);
-  altoRef.current = (i, h) => { const b = blocks[i]; if (b !== undefined) { const n = setFenceAlto(b, h); if (n !== b) setBody(blocks.map((x, k) => (k === i ? n : x)).join('\n\n')); } };
+  altoRef.current = (i, h) => {
+    const b = blocks[i];
+    if (b === undefined) return;
+    const n = setFenceAlto(b, h);
+    if (n === b) return;
+    let k = 0; // cuántos bloques iguales hay antes: la k-ésima aparición
+    for (let j = 0; j < i; j++) if (blocks[j] === b) k++;
+    setBody(replaceBlockAt(doc.body, b, k, n));
+  };
   /** Fondo de la nota de diagrama: `fondo:` del frontmatter (manda sobre `# fondo:`), solo cuando el usuario lo cambia. */
   const setBackdrop = (b: Backdrop) => {
     const explicit = b !== 'cristal' || readBackdrop(doc.body) !== 'cristal'; // 'cristal' explícito solo si el cuerpo trae otro `# fondo:`

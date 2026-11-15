@@ -54,3 +54,12 @@ export function setFenceAlto(block: string, h: number): string {
     return `${a}${rest ? (rest.startsWith(' ') || rest.startsWith('\t') ? rest : ' ' + rest) : ''} alto=${h}`;
   });
 }
+
+/** Cambia solo el bloque `block` (su `nth` aparición a inicio de línea) por `next` en el texto crudo; el resto queda byte a byte. */
+export function replaceBlockAt(body: string, block: string, nth: number, next: string): string {
+  for (let at = body.indexOf(block); at >= 0; at = body.indexOf(block, at + 1)) {
+    if (at > 0 && body[at - 1] !== '\n') continue;
+    if (nth-- === 0) return body.slice(0, at) + next + body.slice(at + block.length);
+  }
+  return body;
+}

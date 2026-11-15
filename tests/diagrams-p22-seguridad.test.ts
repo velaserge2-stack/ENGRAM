@@ -1,5 +1,5 @@
 // Prompt 22 · revisión de seguridad de diagramas (rama fix-diagramas). Los `it` normales demuestran los PASA;
-// cada `it.fails` documenta un HALLAZGO abierto (cuando se arregle, Vitest avisará: quitar `.fails`). No arregla nada.
+// los antiguos HALLAZGOS están arreglados (ver «Correcciones» en estado-p22-seguridad.md).
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,7 +12,7 @@ import { PALETTE_DARK, PALETTE_LIGHT } from '../src/diagrams/palette';
 import { parseDiagram, readBackdrop, readHeight } from '../src/diagrams/parse';
 import { MAX_NODES, MAX_TEXT } from '../src/diagrams/types';
 import { EdgeG, nodeClass } from '../src/diagrams/view';
-import { diagramFence, fenceAlto, setFenceAlto } from '../src/notes/diagramtype';
+import { diagramFence, fenceAlto, replaceBlockAt, setFenceAlto } from '../src/notes/diagramtype';
 
 beforeEach(() => setMeasurer((t, f) => t.length * parseFloat(/(\d+)px/.exec(f)![1]!) * 0.55));
 afterEach(() => setMeasurer(null));
@@ -165,15 +165,15 @@ describe('P22 · (4) límites de recursos', () => {
   // HALLAZGO (medio): `readArrow` usa /^--\s+(.*?)\s*(-->|---)/ (parse.ts:69): `.*?` y `\s*` compiten por los mismos
   // espacios → coste cúbico. MAX_LINE subió de 1 000 a 5 500 en esta rama: `[a] --` + 4 000 espacios + `x` tarda ~7 s,
   // 5 000 espacios ~14 s, y se repite en cada render/pulsación (parseDiagram, walk de edit.ts) y al abrir la nota.
-  it.fails('HALLAZGO: una línea de flujo `[a] --` + 3 000 espacios se analiza en < 1 s', () => {
-    const { ms } = time(() => parseDiagram('[a] --' + ' '.repeat(3000) + 'x', 'flujo'));
-    expect(ms).toBeLessThan(1000);
+  it('ARREGLADO 4a: `[a] --` + 5 000 espacios + x se analiza en < 50 ms', () => {
+    const { ms } = time(() => parseDiagram('[a] --' + ' '.repeat(5000) + 'x', 'flujo'));
+    expect(ms).toBeLessThan(50);
   }, 60000);
 
   // HALLAZGO (leve): pegar una lista de N líneas en flujo/diagrama aplica N `addChild`, cada uno reanaliza todo el
   // documento (inline.ts:106-116) y no hay tope de elementos (en mapa `addTree` sí lo tiene). 3 000 líneas ≈ 5 s con el
   // hilo principal bloqueado; con 10 000, ≈ 1 min. Con textos repetidos los nodos se fusionan y no se llega a MAX_NODES.
-  it.fails('HALLAZGO: pegar 2 000 líneas en flujo se rechaza o termina en < 1 s', () => {
+  it('ARREGLADO 4c: pegar 2 000 líneas en flujo se rechaza o termina en < 1 s', () => {
     const { r, ms } = time(() => pasteEdits('[a]', 'flujo', { parent: 'n0' }, Array(2000).fill('- x').join('\n')));
     expect(r === null || ms < 1000).toBe(true);
     expect(ms).toBeLessThan(1000);
@@ -182,17 +182,18 @@ describe('P22 · (4) límites de recursos', () => {
   // HALLAZGO (medio): `gridPath('puntos')` (export.ts, usado por sceneToSvg/print/PDF con `view = bounds`) genera una
   // cadena por punto cada 24 px sin tope. Con x/y = ±100 000 (válidos) y `# fondo: puntos`, el SVG tendría ~69 M puntos
   // (varios GB): cuelga o tumba la pestaña al exportar o imprimir (print.ts lo llama síncrono en `beforeprint`).
-  it.fails('HALLAZGO: la rejilla de puntos de un área de 20 000 × 20 000 px no pasa de 5 MB', () => {
+  it('ARREGLADO 4b: la rejilla de puntos de un área de 20 000 × 20 000 px no pasa de 5 MB', () => {
     expect(gridPath('puntos', { x: 0, y: 0, w: 20000, h: 20000 }).length).toBeLessThan(5_000_000);
   });
 
   // HALLAZGO (leve): `addChild`/`rename`/`looseLine` en flujo no comprueban MAX_TEXT (solo `mapaText` lo hace): un texto
   // de 5 200 caracteres cabe en MAX_LINE (5 500), la edición se «aplica» pero el parser lo descarta como `tope`
   // y el nodo desaparece de la vista (el texto queda en el archivo, sin pérdida de datos).
-  it.fails('HALLAZGO: addChild en flujo con texto de 5 200 caracteres se rechaza o produce un nodo', () => {
+  it('ARREGLADO 4d: addChild en flujo con texto de 5 200 caracteres se rechaza o produce un nodo', () => {
     const doc = parseDiagram('[a]', 'flujo').doc;
     const r = applyEdit(doc, { op: 'addChild', parent: 'n0', text: 'x'.repeat(5200) });
-    if (r.inverse.length) expect(r.doc.nodes.some((n) => n.text.length === 5200)).toBe(true);
+    expect(r.inverse.length).toBe(0);
+    expect(r.doc).toBe(doc);
   });
 });
 
@@ -226,22 +227,13 @@ describe('P22 · (5) alto= del fence y setFenceAlto', () => {
   // HALLAZGO (leve): notes.tsx:785 guarda el alto con `blocks.map(...).join('\n\n')` donde `blocks = splitBlocks(doc.body)`
   // descarta líneas en blanco repetidas/finales/solo-espacios y deja de proteger los bloques `~~~`: arrastrar el asa de UN diagrama
   // normaliza el espaciado de TODA la nota (el comentario de `setFenceAlto` promete «solo la línea de apertura»).
-  it.fails('HALLAZGO: cambiar el alto de un diagrama no reescribe otras líneas de la nota', () => {
-    // copia fiel de splitBlocks (src/screens/notes.tsx:634)
-    const split = (body: string) => {
-      const out: string[] = []; let cur: string[] = []; let fence = false;
-      for (const l of body.split('\n')) {
-        if (/^```/.test(l)) fence = !fence;
-        if (!fence && l.trim() === '') { if (cur.length) out.push(cur.join('\n')); cur = []; } else cur.push(l);
-      }
-      if (cur.length) out.push(cur.join('\n'));
-      return out;
-    };
+  it('ARREGLADO 5a: cambiar el alto no reescribe otras líneas de la nota', () => {
     const body = 'Uno\n\n\n\nDos\n   \nTres\n\n```mapa\nRaíz\n- a\n```\n\n~~~\nx\n\n\ny\n~~~\n';
-    const blocks = split(body);
-    const i = blocks.findIndex((b) => b.startsWith('```mapa'));
-    const after = blocks.map((b, k) => (k === i ? setFenceAlto(b, 420) : b)).join('\n\n');
+    const blk = '```mapa\nRaíz\n- a\n```';
+    const after = replaceBlockAt(body, blk, 0, setFenceAlto(blk, 420));
     expect(after).toBe(body.replace('```mapa', '```mapa alto=420'));
+    const crlf = 'a\r\n\r\n\r\n```flujo\r\n[a]\r\n```\r\n';
+    expect(replaceBlockAt(crlf, '```flujo\r\n[a]\r\n```', 0, '```flujo alto=300\r\n[a]\r\n```')).toBe(crlf.replace('```flujo', '```flujo alto=300'));
   });
 });
 

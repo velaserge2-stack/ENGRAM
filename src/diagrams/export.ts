@@ -7,7 +7,7 @@ import { measureDoc, type Measured } from './measure';
 import { inkOn, PALETTE_DARK, PALETTE_LIGHT } from './palette';
 import type { Backdrop, DiagramDoc, Dir, EdgeEnd, Layout, Shape } from './types';
 
-const PAD = 24, GRID = 24, PAD_X = 12, LABEL_FS = 12;
+const PAD = 24, GRID = 24, GRID_MAX = 20000, PAD_X = 12, LABEL_FS = 12;
 const FS = { s: 13, m: 15, l: 18 } as const;
 export const SVG_FONT = "system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif";
 
@@ -131,12 +131,15 @@ export function buildScene(doc: DiagramDoc, layout: Layout, measured?: Map<strin
 /** Cuadrícula o puntos (cada 24 px, alineados a 0) dentro de `r`, como un solo `d`. */
 export function gridPath(kind: 'lineas' | 'puntos', r: { x: number; y: number; w: number; h: number }): string {
   const out: string[] = [];
-  const x0 = Math.ceil(r.x / GRID) * GRID, y0 = Math.ceil(r.y / GRID) * GRID;
+  // Tope de elementos: si el área daría más, el paso crece (múltiplo de GRID, sigue alineado a 0).
+  const cells = (r.w / GRID + 1) * (r.h / GRID + 1);
+  const step = GRID * Math.max(1, Math.ceil(Math.sqrt(cells / GRID_MAX)));
+  const x0 = Math.ceil(r.x / step) * step, y0 = Math.ceil(r.y / step) * step;
   if (kind === 'lineas') {
-    for (let x = x0; x <= r.x + r.w; x += GRID) out.push(`M ${num(x)} ${num(r.y)} L ${num(x)} ${num(r.y + r.h)}`);
-    for (let y = y0; y <= r.y + r.h; y += GRID) out.push(`M ${num(r.x)} ${num(y)} L ${num(r.x + r.w)} ${num(y)}`);
+    for (let x = x0; x <= r.x + r.w; x += step) out.push(`M ${num(x)} ${num(r.y)} L ${num(x)} ${num(r.y + r.h)}`);
+    for (let y = y0; y <= r.y + r.h; y += step) out.push(`M ${num(r.x)} ${num(y)} L ${num(r.x + r.w)} ${num(y)}`);
   } else {
-    for (let x = x0; x <= r.x + r.w; x += GRID) for (let y = y0; y <= r.y + r.h; y += GRID) out.push(`M ${x - 1} ${y - 1} L ${x + 1} ${y - 1} L ${x + 1} ${y + 1} L ${x - 1} ${y + 1} Z`);
+    for (let x = x0; x <= r.x + r.w; x += step) for (let y = y0; y <= r.y + r.h; y += step) out.push(`M ${x - 1} ${y - 1} L ${x + 1} ${y - 1} L ${x + 1} ${y + 1} L ${x - 1} ${y + 1} Z`);
   }
   return out.join(' ');
 }

@@ -13,6 +13,9 @@ export type Inline =
   | { mode: 'new'; parent?: string; after?: string; shape: Shape; x?: number; y?: number; text: string; attrs?: NodeAttrs }
   | { mode: 'label'; id: string; text: string; orig: string };
 
+/** Tope de líneas pegadas en flujo/diagrama (cada una reanaliza el documento). */
+export const MAX_PASTE = 500;
+
 /** Relleno invisible del fantasma vacío: lo acepta el formato y mide el mínimo (no se escribe nunca). */
 const GHOST = '​';
 const clean = (s: string) => s.replace(/\s*[\r\n]+\s*/g, ' ').trim();
@@ -94,7 +97,7 @@ export function commitInline(text: string, kind: DiagramKind, inl: Inline): Comm
 export function pasteEdits(text: string, kind: DiagramKind, base: { parent?: string; after?: string; shape?: Shape }, pasted: string): { edits: Edit[]; count: number } | null {
   if (!/\r|\n/.test(pasted.trim())) return null;
   const items = parseOutline(pasted);
-  if (items.length < 2) return null;
+  if (items.length < 2 || (kind !== 'mapa' && items.length > MAX_PASTE)) return null;
   let doc = parseDiagram(text, kind).doc;
   if (kind === 'mapa') {
     const parent = base.parent ?? doc.nodes.find((n) => n.id === base.after)?.parent;
