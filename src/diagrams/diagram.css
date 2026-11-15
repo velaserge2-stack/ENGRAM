@@ -1,3 +1,21 @@
+/* Tokens de color de diagrama (CONTRATO §P22.4). Mismo mecanismo que theme-cristal.css: :root = oscuro, [data-glass="light"] = claro.
+   Mismos valores que src/diagrams/palette.ts (PALETTE_LIGHT / PALETTE_DARK). Texto de cada relleno: #000 o #fff, contraste ≥ 4.5:1.
+   Tinta de flechas (--diag-ink): --t1 sin alfa (oscuro 0.94 blanco ≈ #f0f0f0; claro 0.9 negro ≈ #1a1a1a). */
+:root {
+  --diag-c1: #c62a2f; --diag-c2: #cc4e00; --diag-c3: #e2a336; --diag-c4: #218358;
+  --diag-c5: #0d7d6c; --diag-c6: #0b68cb; --diag-c7: #6e3f99; --diag-c8: #b2357f;
+  --diag-c1-fg: #ffffff; --diag-c2-fg: #000000; --diag-c3-fg: #000000; --diag-c4-fg: #ffffff;
+  --diag-c5-fg: #ffffff; --diag-c6-fg: #ffffff; --diag-c7-fg: #ffffff; --diag-c8-fg: #ffffff;
+  --diag-ink: #f0f0f0;
+}
+[data-glass="light"] {
+  --diag-c1: #e5484d; --diag-c2: #f76b15; --diag-c3: #ffc53d; --diag-c4: #30a46c;
+  --diag-c5: #12a594; --diag-c6: #0090ff; --diag-c7: #8e4ec6; --diag-c8: #d6409f;
+  --diag-c1-fg: #000000; --diag-c2-fg: #000000; --diag-c3-fg: #000000; --diag-c4-fg: #000000;
+  --diag-c5-fg: #000000; --diag-c6-fg: #000000; --diag-c7-fg: #ffffff; --diag-c8-fg: #000000;
+  --diag-ink: #1a1a1a;
+}
+
 /* Vista de diagramas (CONTRATO §5). Solo tokens de Cristal; sin color nuevo; nodos sin backdrop-filter. */
 .diag-host-view { margin: 12px 0; max-width: 100%; }
 .diag-canvas { overflow: auto; max-width: 100%; max-height: 70vh; border-radius: var(--r-panel); -webkit-overflow-scrolling: touch; }
@@ -75,3 +93,12 @@ html.is-phone .diag-board .diag-node { cursor: default; }
 .diag-embed { margin: 12px 0; }
 .diag-embed-bar { gap: 8px; align-items: center; }
 .diag-embed-bar .btn { min-height: 44px; min-width: 44px; }
+
+/* ==A== lienzo grande */
+/* ==/A== */
+
+/* ==B== flechas, chips, edición */
+/* ==/B== */
+
+/* ==C== colores y tamaños */
+/* ==/C== */
