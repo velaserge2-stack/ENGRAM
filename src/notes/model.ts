@@ -185,6 +185,16 @@ export async function trashList(vault: VaultAdapter): Promise<{ ts: number; path
   return out.sort((a, b) => b.ts - a.ts);
 }
 
+/** Borra una nota de la papelera para siempre; quita las carpetas que queden vacías dentro de `.app/trash/`. */
+export async function purge(vault: VaultAdapter, stored: string): Promise<void> {
+  if (!stored.startsWith(`${TRASH}/`)) throw new Error(`No está en la papelera: ${stored}`);
+  await vault.remove(stored);
+  for (let d = dirname(stored); d.startsWith(`${TRASH}/`); d = dirname(d)) {
+    if ((await vault.list(d).catch(() => [])).length) break;
+    await vault.remove(d).catch(() => {});
+  }
+}
+
 export async function restore(vault: VaultAdapter, stored: string, path: string): Promise<string> {
   let target = path;
   for (let i = 2; await vault.exists(target); i++) target = path.replace(/\.md$/, ` (${i}).md`);
