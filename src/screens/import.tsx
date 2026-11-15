@@ -196,7 +196,7 @@ export function ImportSheet(props: { onClose: () => void }) {
           </div>
           <p class="foot" style={{ padding: 0 }}>{t('import.mazos_md_con')}{' '}<code>deck:</code>{t('import.y_paquetes_de_anki_apkg_van')}</p>
           <p class="foot" style={{ padding: 0 }}>{t('import.ayuda_anki')}</p>
-          <input ref={fileRef} type="file" multiple hidden accept=".md,.markdown,.zip,.txt,.apkg,image/*,audio/*,application/zip" onChange={(e) => void take((e.target as HTMLInputElement).files)} />
+          <input ref={fileRef} type="file" multiple hidden onChange={(e) => void take((e.target as HTMLInputElement).files)} />
           <input ref={dirRef} type="file" multiple hidden {...{ webkitdirectory: '' }} onChange={(e) => void take((e.target as HTMLInputElement).files)} />
         </div>
       )}

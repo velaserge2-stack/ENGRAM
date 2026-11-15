@@ -125,6 +125,35 @@ try {
     await ctx.close();
   }
 
+  console.log('Selector sin accept, subida sin conexión y archivo no admitido');
+  {
+    const { ctx, page } = await fresh();
+    await page.evaluate(() => navigator.serviceWorker?.ready);
+    await page.reload();
+    await page.evaluate(() => navigator.serviceWorker?.ready);
+    await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
+    await openImport(page);
+    check(await page.locator('.sheet input[type=file]').first().getAttribute('accept') === null, 'el selector de Importar no limita por tipo (iOS deja elegir .apkg)');
+    await page.locator('.sheet').getByRole('button', { name: 'Cerrar' }).first().click().catch(() => {});
+    await ctx.setOffline(true);
+    await openImport(page);
+    await upload(page, 'compat.apkg');
+    await page.locator('.sheet .import-sum').waitFor({ timeout: 30000 });
+    check(/2 mazos · 6 tarjetas/.test(await page.locator('.sheet .import-sum').innerText()), 'sin conexión: el .apkg se lee (Worker y WASM desde el precaché)');
+    await ctx.setOffline(false);
+    await ctx.close();
+  }
+  {
+    const { ctx, page } = await fresh();
+    await openImport(page);
+    await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'programa.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('MZ\u0000\u0000') });
+    await page.locator('.sheet .plan-list').waitFor({ timeout: 20000 });
+    const li = await page.locator('.sheet .plan-list').innerText();
+    check(/docs\/programa\.exe/.test(li) && !/decks\//.test(li), 'un archivo no admitido solo se ofrece como documento suelto (docs/), sin tocar mazos ni notas');
+    check(await page.locator('.sheet').getByRole('button', { name: 'Elegir otros' }).count() === 1, 'y se puede cancelar antes de escribir nada');
+    await ctx.close();
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   console.log('\nOK');
 } catch (e) {
