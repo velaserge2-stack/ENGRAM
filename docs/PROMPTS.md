@@ -1605,6 +1605,12 @@ Misma función 1 del Prompt 19 (Sticky notes y Tareas fuera). Rama `compartir-es
 
 ---
 
+# PROMPT 20: Notas de diagramas (mapa mental, diagrama de flujo, diagrama libre)
+
+Tres tipos de nota nuevos en Notas (`tipo: mapa | flujo | diagrama`), cada uno un `.md` con una gramática de texto plano legible (sangría para el mapa; `[ ]`, `( )`, `{ }`, `[/ /]`, `<< >>` y `-->` para flujos). El mismo motor dibuja la nota completa, un bloque ```` ```mapa ````/```` ```flujo ```` dentro de una nota normal y un `![[Mi mapa]]`. Editor visual con paneo y zoom, hijo/hermano, renombrar, eliminar, plegar, conectar, «Ordenar», deshacer y rehacer, y «Ver/editar como texto»; exportar a PNG y SVG. Reglas: tema Cristal sin color, todo por `t()`, sin dependencias nuevas ni red, carga bajo demanda (≤ ~15 KB gzip), 300 nodos como tope, 0 píxeles en `e2e:phone`. Coordinadora con subagentes por dificultad (`haiku` fácil, `sonnet` media, `opus` difícil) en 7 olas, con contrato (`docs/diagramas/CONTRATO.md`), estado por pieza y registro de modelo y tokens (`docs/diagramas/LOG.md`).
+
+---
+
 # PROMPT 21: Optimización de rendimiento de Engrama (arranque, mover/importar, datos, búsqueda y memoria)
 
 Que la app arranque y responda más rápido y que mover, importar y exportar muchos archivos cueste mucho menos, sin cambiar lo que hace ni cómo se ve, y sin sacrificar escritura segura, integridad, determinismo de FSRS, sanitización ni accesibilidad. Coordinador en Sonnet con subagentes por dificultad (`haiku` fácil, `sonnet` media, `opus` difícil); skills: ponytail, superpowers, webapp-testing, break-ui, security-review y, en la fase 9, code-simplifier y deslop.

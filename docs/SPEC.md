@@ -98,6 +98,12 @@ IO: ![[ecg-bloqueo.png]] <!-- io: 10,20,30,12; 55,40,20,10 --> ^c03c
   - Tamaño relativo con la misma sintaxis de clase que el color: `[texto]{.pequeno}`, `{.grande}`, `{.muygrande}`; se combinan con el color en una sola marca: `[texto]{.rojo .grande}`. Una clase fuera de la lista deja todo literal.
   - Alineación de un párrafo o título con una marca al final: `Texto {.centro}`, `## Título {.der}`, `{.justificado}` (izquierda = sin marca). En listas, tablas y código la marca queda literal.
   - Imágenes: `![[foto.jpg|300|izq|alt Texto]]` (Notas-Pro · A3).
+- **Diagramas** (Prompt 20; detalle en `docs/diagramas/CONTRATO.md` §1). Una nota con `tipo: mapa | flujo | diagrama` en el frontmatter es un diagrama: todo su cuerpo es la gramática. `tipo` solo se escribe al crearla; una nota sin `tipo` (o con uno desconocido) es nota normal. En una nota normal, el mismo texto va en un bloque ```` ```mapa ````, ```` ```flujo ```` o ```` ```diagrama ````, y `![[Mi mapa]]` solo en su párrafo inserta otra nota de diagrama.
+  - `mapa`: árbol por sangría. La primera línea es la raíz; los hijos son `- texto` con 2 espacios por nivel.
+  - `flujo` y `diagrama`: nodos `[rectángulo]`, `(inicio/fin)`, `{decisión}`, `[/entrada-salida/]`, `<<nota>>`; flechas `A --> B`, `A -- etiqueta --> B` y cadenas `A --> B --> C`. Solo en `diagrama`: `---` (línea sin flecha) y `<-->`. Un nodo se identifica por su forma y su texto exacto (sin ids).
+  - Sufijos al final de la línea, con claves exactas: `{x=120,y=-40}` (posición puesta a mano, enteros de ±100 000 como máximo), `{plegado}`, `{recta}`/`{curva}`/`{orto}` (trazo de la flecha). Sin posición, el acomodo es automático.
+  - Texto de nodo: texto plano con `**negrita**`, `*cursiva*` y `[[nota]]`; nunca HTML.
+  - Una línea desconocida o mal formada se ignora al dibujar y se conserva tal cual al guardar. Con más de 300 nodos, el diagrama se muestra y se edita solo como texto.
 
 ---
 
