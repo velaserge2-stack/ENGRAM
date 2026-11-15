@@ -2003,6 +2003,7 @@
  "diag.asa_abajo_izquierda": "Asa de la esquina inferior izquierda",
  "diag.asa_abajo_derecha": "Asa de la esquina inferior derecha",
  "diag.asa_lado_derecho": "Asa del lado derecho",
+ "diag.todas_flechas": "Aplicar a todas las flechas",
  "diag.pegar_lista": "Pegar lista",
  "diag.pegar_creadas.one": "Creada {n} rama",
  "diag.pegar_creadas.other": "Creadas {n} ramas",

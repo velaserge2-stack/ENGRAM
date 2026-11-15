@@ -18,6 +18,7 @@ import {
 import {
   commitInline, ensureVisible, isDoubleTap, neighbor, pasteEdits, pinch4, previewText, wheel4, zoomBy4, type Inline, type Tap,
 } from './inline';
+import { Handles, nodeMin, sizeEdit } from './handles';
 import type { Backdrop, DiagramKind, DiagramNode, Edit } from './types';
 import './diagram.css';
 
@@ -674,6 +675,9 @@ export function DiagramCanvas({ text, kind, onEdit, onEdits, control, onSelect, 
     }
   }
 
+  // Asas de redimensionar: solo el nodo seleccionado, sin editar en el sitio y fuera del teléfono.
+  const handleNode = !inl && live?.type === 'node' ? byId.get(live.id) : undefined;
+
   // Chips «+»: nodo seleccionado o con hover (ratón); nunca en teléfono. Mapa: solo hacia afuera de la rama.
   const chipNodes = tel || inl ? [] : [...new Set([live?.type === 'node' ? live.id : null, hover].filter((x): x is string => !!x))];
   const sidesOf = (id: string): ChipSide[] => {
@@ -722,6 +726,11 @@ export function DiagramCanvas({ text, kind, onEdit, onEdits, control, onSelect, 
           </svg>
           {nodes}
           {labels}
+          {handleNode && !tel && (
+            <Handles key={handleNode.id} id={handleNode.id} box={layout.pos.get(handleNode.id)!} min={nodeMin(handleNode, kind)} scale={() => view.current.k}
+              nodeEl={() => stage.current?.querySelector<HTMLElement>(`.diag-node[data-id="${handleNode.id}"]`) ?? null}
+              onCommit={(id, s) => emit([sizeEdit(id, s)])} />
+          )}
           {chips.length > 0 && <div class="diag-chips">{chips}</div>}
         </div>
       </div>

@@ -2003,6 +2003,7 @@
  "diag.asa_abajo_izquierda": "Poignée du coin inférieur gauche",
  "diag.asa_abajo_derecha": "Poignée du coin inférieur droit",
  "diag.asa_lado_derecho": "Poignée du côté droit",
+ "diag.todas_flechas": "Appliquer à toutes les flèches",
  "diag.pegar_lista": "Coller une liste",
  "diag.pegar_creadas.one": "{n} branche créée",
  "diag.pegar_creadas.other": "{n} branches créées",

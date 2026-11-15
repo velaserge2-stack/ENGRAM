@@ -207,6 +207,32 @@ html.is-phone .diag-chips { display: none; }
 /* ==/B== */
 
 /* ==C== colores y tamaños */
+/* Barra: filas; el color solo está en las muestras (contenido del usuario). */
+.diag-frow { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px; }
+.diag-fpanel { display: grid; gap: 2px; justify-items: center; }
+.diag-sw { width: 44px; height: 44px; margin: 0; padding: 0; border: 0; background: transparent; display: grid; place-items: center; cursor: pointer; color: var(--t1); }
+.diag-sw > span { width: 24px; height: 24px; box-sizing: border-box; border-radius: 50%; border: 1px solid var(--border-strong); display: grid; place-items: center; }
+.diag-sw[aria-pressed="true"] > span { outline: 2px solid var(--t1); outline-offset: 2px; }
+.diag-sw:focus-visible { outline: none; }
+.diag-sw:focus-visible > span { outline: 2px solid var(--t1); outline-offset: 2px; }
+.diag-num { display: grid; gap: 2px; font-size: 12px; color: var(--t2); }
+.diag-fbar input.input, .diag-bd-pick select { font-size: 16px; min-height: 44px; }
+.diag-fbar input.input { width: 84px; }
+.diag-all { min-height: 44px; gap: 8px; }
+.diag-all input { width: 22px; height: 22px; }
+.diag-bd-pick select { width: auto; }
+/* Asas de redimensionar: punto de 10 px, zona de 44 px (no escalan con el zoom). Fuera del teléfono. */
+.diag-handles { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.diag-handle { position: absolute; left: 0; top: 0; width: 44px; height: 44px; margin: 0; padding: 0; border: 0; background: transparent; display: grid; place-items: center;
+  touch-action: none; cursor: nwse-resize; color: var(--t1); }
+.diag-handle[data-handle="ne"], .diag-handle[data-handle="sw"] { cursor: nesw-resize; }
+.diag-handle[data-handle="e"] { cursor: ew-resize; }
+.diag-handle-dot { width: 10px; height: 10px; box-sizing: border-box; border-radius: 3px; background: var(--diag-pill); border: 1.5px solid var(--t1); }
+.diag-handle[data-handle="e"] .diag-handle-dot { transform: translateX(12px); }
+.diag-handle:focus-visible { outline: none; }
+.diag-handle:focus-visible .diag-handle-dot { outline: 2px solid var(--t1); outline-offset: 2px; }
+.diag-busy .diag-handles { opacity: 0; pointer-events: none; }
+html.is-phone .diag-handles { display: none; }
 /* ==/C== */
 
 /* ==E== exportar */

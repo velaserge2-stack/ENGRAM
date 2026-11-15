@@ -2003,6 +2003,7 @@
  "diag.asa_abajo_izquierda": "Bottom-left corner handle",
  "diag.asa_abajo_derecha": "Bottom-right corner handle",
  "diag.asa_lado_derecho": "Right side handle",
+ "diag.todas_flechas": "Apply to all arrows",
  "diag.pegar_lista": "Paste list",
  "diag.pegar_creadas.one": "Created {n} branch",
  "diag.pegar_creadas.other": "Created {n} branches",

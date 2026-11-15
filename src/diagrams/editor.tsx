@@ -9,11 +9,13 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Download, FileText, LayoutGrid, ListPlus, Eye, Redo2, Undo2 } from 'lucide-preact';
 import { DiagramCanvas, type CanvasControl, type DiagramSelection } from './canvas';
 import { layoutLayered, layoutTree } from './layout';
-import { parseDiagram } from './parse';
+import { parseDiagram, readBackdrop } from './parse';
 import { History } from './history';
 import { fillHeight } from './gestures';
-import { AskDialog, FloatBar, tx, type Ask } from './toolbar';
-import type { DiagramDoc, DiagramKind, DiagramNode, Edit, Route } from './types';
+import { AskDialog, BackdropPicker, FloatBar, colorEdit, edgeStyleEdit, fsEdit, maxwEdit, presetEdit, sizeFieldEdit, tx, type Ask } from './toolbar';
+import { keyResize, nodeMin, sizeEdit } from './handles';
+import { measureDoc } from './measure';
+import type { Backdrop, DiagramDoc, DiagramKind, DiagramNode, Edit, Route } from './types';
 
 export interface EditorProps {
   kind: DiagramKind;
@@ -24,6 +26,9 @@ export interface EditorProps {
   fill?: boolean;
   /** Bloque o embed: alto fijo del lienzo (px). */
   height?: number;
+  /** Fondo resuelto por quien guarda (frontmatter `fondo:` de una nota de diagrama). Con `onBackdrop` el selector lo escribe allí en vez de en el bloque (`# fondo:`). */
+  backdrop?: Backdrop;
+  onBackdrop?: (b: Backdrop) => void;
 }
 
 /** «Ordenar»: acomodo automático sin posiciones fijadas, escrito como `move` por nodo. */
@@ -41,7 +46,7 @@ export function orderEdits(doc: DiagramDoc): Edit[] {
 const hasKids = (doc: DiagramDoc, n: DiagramNode) =>
   doc.kind === 'mapa' ? doc.nodes.some((k) => k.parent === n.id) : doc.edges.some((e) => e.from === n.id || e.to === n.id);
 
-export function DiagramEditor({ kind, src, onText, fill, height }: EditorProps): JSX.Element {
+export function DiagramEditor({ kind, src, onText, fill, height, backdrop, onBackdrop }: EditorProps): JSX.Element {
   const parsed = useMemo(() => parseDiagram(src, kind), [src, kind]);
   const { doc } = parsed;
   const [asText, setAsText] = useState(false);
@@ -79,6 +84,12 @@ export function DiagramEditor({ kind, src, onText, fill, height }: EditorProps):
 
   const node = sel?.type === 'node' ? doc.nodes.find((n) => n.id === sel.id) : undefined;
   const edge = sel?.type === 'edge' ? doc.edges.find((e) => e.id === sel.id) : undefined;
+  const [allEdges, setAllEdges] = useState(false);
+  const branchOf = (n: DiagramNode) => {
+    const ids = [n.id];
+    for (const k of doc.nodes) if (k.parent && ids.includes(k.parent) && !ids.includes(k.id)) ids.push(k.id);
+    return ids;
+  };
   const nodeName = (n: DiagramNode) => n.text || n.id;
 
   // En el sitio (sin modal): el nodo nuevo aparece ya colocado, en edición, y entra al archivo al confirmar.
@@ -99,6 +110,12 @@ export function DiagramEditor({ kind, src, onText, fill, height }: EditorProps):
     if (el.closest('textarea, input, select')) return;
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.stopPropagation(); return e.shiftKey ? redo() : undo(); }
     if (!node || el.dataset?.id !== node.id) return; // solo con el foco en el nodo seleccionado
+    if (e.altKey && e.key.startsWith('Arrow')) { // ⌥+flechas: tamaño del cuadro (8 px), no mover
+      const cur = measureDoc(doc).get(node.id), r = cur && keyResize(cur, nodeMin(node, kind), e.key);
+      e.preventDefault(); e.stopPropagation();
+      if (r) apply([sizeEdit(node.id, e.key === 'ArrowLeft' || e.key === 'ArrowRight' ? { w: r.w } : { h: r.h })]);
+      return;
+    }
     // Tab (hijo), Intro (editar / hermano al encadenar) y F2 (editar) los atiende el lienzo, en el sitio.
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); e.stopPropagation(); remove(node); }
   };
@@ -130,6 +147,7 @@ export function DiagramEditor({ kind, src, onText, fill, height }: EditorProps):
         <button type="button" class="btn icon ghost" aria-label={tx('bar.rehacer', 'Rehacer')} disabled={!canRedo || asText} onClick={redo}><Redo2 size={20} aria-hidden="true" /></button>
         {!isMap && <button type="button" class="btn icon ghost" aria-label={tx('diag.nuevo_nodo', 'Nuevo nodo')} disabled={asText} onClick={addFree}><ListPlus size={20} aria-hidden="true" /></button>}
         <button type="button" class="btn icon ghost" aria-label={tx('diag.ordenar', 'Ordenar')} disabled={asText || !doc.nodes.length} onClick={() => apply(orderEdits(doc))}><LayoutGrid size={20} aria-hidden="true" /></button>
+        {!asText && <BackdropPicker value={backdrop ?? readBackdrop(src)} onPick={(b) => (onBackdrop ? onBackdrop(b) : apply([{ op: 'backdrop', value: b === 'cristal' ? undefined : b }]))} />}
         <button type="button" class="btn ghost" aria-pressed={asText} onClick={() => setAsText(!asText)}>
           {asText ? <Eye size={20} aria-hidden="true" /> : <FileText size={20} aria-hidden="true" />} {asText ? tx('diag.ver_diagrama', 'Ver diagrama') : tx('diag.ver_texto', 'Ver/editar como texto')}
         </button>
@@ -147,7 +165,13 @@ export function DiagramEditor({ kind, src, onText, fill, height }: EditorProps):
             ) : <li key={n.id} data-user-content>{n.text}</li>)}
             {!isMap && doc.edges.map((e) => <li key={e.id} data-user-content>{nodeName(doc.nodes.find((n) => n.id === e.from)!)} → {e.label ? e.label + ' → ' : ''}{nodeName(doc.nodes.find((n) => n.id === e.to)!)}</li>)}
           </ul>
-          {node && <FloatBar node={{
+          {node && <FloatBar style={{
+            node, min: nodeMin(node, kind), cur: measureDoc(doc).get(node.id) ?? nodeMin(node, kind), branch: isMap && hasKids(doc, node),
+            setColor: (c) => apply([colorEdit([node.id], c)]), applyBranch: () => apply([colorEdit(branchOf(node), node.color)]),
+            preset: (pr) => apply([presetEdit(node.id, pr, nodeMin(node, kind))]),
+            setSize: (w, h) => { const ed = sizeFieldEdit(node.id, w, h, nodeMin(node, kind)); if (ed) apply([ed]); },
+            setFs: (f) => apply([fsEdit(node.id, f)]), setMaxw: (v) => apply([maxwEdit(node.id, v)]),
+          }} node={{
             child: () => addChild(node), sibling: isMap && node.depth === 0 ? null : () => addSibling(node), rename: () => rename(node),
             remove: isMap && node.depth === 0 ? null : () => remove(node), folded: !!node.folded,
             fold: isMap && hasKids(doc, node) ? () => apply([{ op: 'fold', id: node.id, folded: !node.folded }]) : null,
@@ -156,6 +180,7 @@ export function DiagramEditor({ kind, src, onText, fill, height }: EditorProps):
           {edge && <FloatBar edge={{
             edge, route: (r: Route) => apply([{ op: 'style', id: edge.id, route: r }]),
             label: () => ctl.current?.editLabel(edge.id),
+            style: { all: allEdges, setAll: setAllEdges, set: (patch) => apply([edgeStyleEdit(allEdges ? doc.edges.map((x) => x.id) : [edge.id], patch)]) },
             disconnect: () => { apply([{ op: 'disconnect', id: edge.id }]); setSel(null); },
           }} />}
         </>
