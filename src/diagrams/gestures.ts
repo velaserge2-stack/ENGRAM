@@ -49,9 +49,6 @@ export function wheel(v: View, dx: number, dy: number, zoom: boolean, at: Pt): V
   return { ...v, x: v.x - dx, y: v.y - dy };
 }
 
-/** Botones ± : factor fijo anclado en el centro del lienzo. */
-export const zoomBy = (v: View, f: number, w: number, h: number): View => zoomAt(v, f, w / 2, h / 2);
-
 /**
  * Vista que encuadra `b` en un lienzo de w × h con margen `pad`; sin tamaño aún → escala 1 en el margen.
  * Escala hasta `FIT_MAX`. En cada eje, si el contenido llena ≥ 85 % se centra; si queda mucho más chico se

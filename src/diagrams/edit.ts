@@ -344,7 +344,6 @@ function plan(doc: DiagramDoc, e: Edit): string[] | null {
       const sc = scan(L[ed.line]!, doc.kind);
       const idx = line.edges.indexOf(ed.id);
       if (!sc || idx < 0 || idx >= sc.arrows.length) return null;
-      const m = sc.toks.length - 1;
       if (e.op === 'disconnect') {
         const keepE = sc.arrows.map((_, k) => k !== idx);
         L.splice(ed.line, 1, ...rebuild(sc, keepE, sc.toks.map(() => false), new Set([ed.line])));

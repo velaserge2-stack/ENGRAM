@@ -21,7 +21,6 @@
 .diag-canvas { overflow: auto; max-width: 100%; max-height: 70vh; border-radius: var(--r-panel); -webkit-overflow-scrolling: touch; }
 .diag-stage { position: relative; }
 .diag-svg { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
-/* .diag-edge / .diag-head / .diag-handle / .diag-edge-sel / .diag-temp: ahora en ==B== */
 .diag-w1 { stroke-width: 1px; }
 .diag-w2 { stroke-width: 2px; }
 
@@ -107,7 +106,7 @@ html.is-phone .diag-board .diag-node { cursor: default; }
 /* ==/A== */
 
 /* ==B== flechas, chips, edición */
-/* Flechas: línea + punta con --diag-ink OPACO (el color/ancho van en línea desde view.tsx). Reemplaza las reglas viejas de .diag-edge/.diag-head/.diag-edge-sel/.diag-temp/.diag-handle. */
+/* Flechas: línea + punta con --diag-ink OPACO (el color/ancho van en línea desde view.tsx). */
 .diag-edge { fill: none; stroke: var(--diag-ink); stroke-opacity: 1; stroke-width: var(--sw, 2px); stroke-linecap: round; stroke-linejoin: round; }
 .diag-svg > .diag-edge.diag-w1 { stroke-width: 1px; }
 .diag-head { stroke-linejoin: round; }
