@@ -2022,5 +2022,11 @@
  "diag.pdf_guardar": "Save",
  "diag.pdf_imagen_aviso": "An image was used because some characters are not supported by the PDF font.",
  "diag.nodo_creado": "Node created",
- "diag.texto_guardado": "Text saved"
+ "diag.texto_guardado": "Text saved",
+ "diag.pdf_err_paginas": "The diagram would take too many pages. Use \"Fit to diagram\" or \"One page\".",
+ "diag.pdf_err_tamano": "The PDF would be too large. Try another page size or export SVG.",
+ "diag.pdf_err_fallo": "The PDF could not be created. Here is the diagram's source text; copy it so you don't lose it.",
+ "diag.pdf_paginas.one": "{n} page will be created",
+ "diag.pdf_paginas.other": "{n} pages will be created",
+ "diag.pdf_preparando": "Preparing the PDF…"
 }

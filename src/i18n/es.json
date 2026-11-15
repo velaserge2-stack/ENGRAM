@@ -2022,5 +2022,11 @@
  "diag.pdf_guardar": "Guardar",
  "diag.pdf_imagen_aviso": "Se usó imagen porque hay caracteres que la fuente del PDF no admite.",
  "diag.nodo_creado": "Nodo creado",
- "diag.texto_guardado": "Texto guardado"
+ "diag.texto_guardado": "Texto guardado",
+ "diag.pdf_err_paginas": "El diagrama ocuparía demasiadas páginas. Usa «Ajustar al diagrama» o «Una página».",
+ "diag.pdf_err_tamano": "El PDF resultaría demasiado pesado. Prueba con otro tamaño de página o exporta SVG.",
+ "diag.pdf_err_fallo": "No se pudo crear el PDF. Aquí está el texto fuente del diagrama; cópialo para no perderlo.",
+ "diag.pdf_paginas.one": "Saldrá {n} página",
+ "diag.pdf_paginas.other": "Saldrán {n} páginas",
+ "diag.pdf_preparando": "Preparando el PDF…"
 }

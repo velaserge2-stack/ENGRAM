@@ -2022,5 +2022,11 @@
  "diag.pdf_guardar": "Enregistrer",
  "diag.pdf_imagen_aviso": "Une image a été utilisée, car certains caractères ne sont pas pris en charge par la police du PDF.",
  "diag.nodo_creado": "Nœud créé",
- "diag.texto_guardado": "Texte enregistré"
+ "diag.texto_guardado": "Texte enregistré",
+ "diag.pdf_err_paginas": "Le diagramme occuperait trop de pages. Utilisez « Ajuster au diagramme » ou « Une page ».",
+ "diag.pdf_err_tamano": "Le PDF serait trop volumineux. Essayez une autre taille de page ou exportez en SVG.",
+ "diag.pdf_err_fallo": "Impossible de créer le PDF. Voici le texte source du diagramme ; copiez-le pour ne rien perdre.",
+ "diag.pdf_paginas.one": "{n} page sera créée",
+ "diag.pdf_paginas.other": "{n} pages seront créées",
+ "diag.pdf_preparando": "Préparation du PDF…"
 }
