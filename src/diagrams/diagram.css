@@ -21,10 +21,9 @@
 .diag-canvas { overflow: auto; max-width: 100%; max-height: 70vh; border-radius: var(--r-panel); -webkit-overflow-scrolling: touch; }
 .diag-stage { position: relative; }
 .diag-svg { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
-.diag-edge { fill: none; stroke: var(--t2); stroke-linecap: round; stroke-linejoin: round; }
+/* .diag-edge / .diag-head / .diag-handle / .diag-edge-sel / .diag-temp: ahora en ==B== */
 .diag-w1 { stroke-width: 1px; }
 .diag-w2 { stroke-width: 2px; }
-.diag-head { fill: var(--t2); }
 
 .diag-node {
   position: absolute; left: 0; top: 0; box-sizing: border-box; min-height: 44px;
@@ -73,20 +72,11 @@
 .diag-board .diag-sel { outline: 2px solid var(--t1); outline-offset: 3px; }
 .diag-board .diag-dragging { box-shadow: var(--shadow); cursor: grabbing; }
 .diag-board .diag-target { outline: 2px dashed var(--t1); outline-offset: 3px; }
-.diag-edge-sel { stroke: var(--t1); stroke-width: 4px; }
-.diag-temp { stroke: var(--t1); stroke-dasharray: 6 6; }
-.diag-handle {
-  position: absolute; left: 0; top: 0; width: 44px; height: 44px; box-sizing: border-box; transform-origin: 0 0;
-  border-radius: var(--r-pill); pointer-events: none;
-  background: radial-gradient(circle, var(--inverse-bg) 0 9px, transparent 10px), var(--fill);
-  border: 1px solid var(--border-strong);
-}
 .diag-tools { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; padding: 4px; border-radius: var(--r-pill); z-index: var(--z-panel); }
 .diag-tools .btn { min-width: 44px; min-height: 44px; }
 
 /* Teléfono: ver y tocar (selección y paneo); sin asas ni arrastre libre (el JS lo trata como paneo). */
 html.is-phone .diag-board { height: 60vh; }
-html.is-phone .diag-handle { display: none; }
 html.is-phone .diag-board .diag-node { cursor: default; }
 
 /* Embed ![[nota de diagrama]] dentro de otra nota */
@@ -95,9 +85,108 @@ html.is-phone .diag-board .diag-node { cursor: default; }
 .diag-embed-bar .btn { min-height: 44px; min-width: 44px; }
 
 /* ==A== lienzo grande */
+/* Nota de diagrama completa: alto medido por editor.tsx (--diag-h). Mismo selector y más específico que html.is-phone .diag-board. */
+.diag-editor.diag-fill .diag-board, .diag-editor.diag-sized .diag-board { height: var(--diag-h, 70vh); }
+.diag-editor.diag-fill .diag-board-wrap { margin-bottom: 0; }
+/* Bloque o embed compacto: marco con alto recordado, «Expandir» y asa del borde inferior. */
+.diag-frame { position: relative; margin: 12px 0; }
+.diag-frame-body { height: var(--diag-fh, 320px); overflow: auto; border-radius: var(--r-panel); }
+.diag-frame-body.edit { height: auto; overflow: visible; }
+.diag-frame-body .diag-canvas { max-height: none; }
+.diag-frame-body .diag-host-view { margin: 0; }
+.diag-expand { position: absolute; top: 6px; left: 6px; min-width: 44px; min-height: 44px; z-index: var(--z-panel); }
+.diag-grip { display: flex; align-items: center; justify-content: center; height: 44px; margin-top: -10px; cursor: ns-resize; touch-action: none; border-radius: var(--r-row); }
+.diag-grip::before { content: ''; width: 48px; height: 4px; border-radius: var(--r-pill); background: var(--border-strong); }
+.diag-grip:focus-visible { outline: 2px solid var(--t1); outline-offset: -2px; }
+.diag-full { position: fixed; inset: 0; z-index: var(--z-modal, 60); display: flex; flex-direction: column; gap: 8px; padding: 12px; box-sizing: border-box; }
+.diag-full-bar { display: flex; justify-content: flex-end; }
+.diag-full-body { flex: 1; min-height: 0; overflow: auto; }
+.diag-full .diag-editor { --diag-h: calc(100dvh - 140px); }
+.diag-full .diag-editor .diag-board { height: calc(100dvh - 140px); }
+.diag-full-body .diag-canvas { max-height: none; }
 /* ==/A== */
 
 /* ==B== flechas, chips, edición */
+/* Flechas: línea + punta con --diag-ink OPACO (el color/ancho van en línea desde view.tsx). Reemplaza las reglas viejas de .diag-edge/.diag-head/.diag-edge-sel/.diag-temp/.diag-handle. */
+.diag-edge { fill: none; stroke: var(--diag-ink); stroke-opacity: 1; stroke-width: var(--sw, 2px); stroke-linecap: round; stroke-linejoin: round; }
+.diag-svg > .diag-edge.diag-w1 { stroke-width: 1px; }
+.diag-head { stroke-linejoin: round; }
+.diag-edge-hit { fill: none; stroke: transparent; stroke-width: 44px; vector-effect: non-scaling-stroke; pointer-events: stroke; cursor: pointer; }
+.diag-eg:hover .diag-edge, .diag-edge-sel .diag-edge { stroke-width: calc(var(--sw, 2px) + 2px); }
+.diag-temp { fill: none; stroke: var(--diag-ink); stroke-width: 2px; stroke-dasharray: 6 6; stroke-linecap: round; }
+.diag-temp-head { fill: var(--diag-ink); stroke: var(--diag-ink); stroke-width: 1px; stroke-linejoin: round; }
+/* Etiqueta: píldora opaca (--fill es translúcido, por eso el token sólido --diag-pill). */
+:root { --diag-pill: #2c2c2e; }
+[data-glass="light"] { --diag-pill: #ffffff; }
+.diag-label { background: var(--diag-pill); color: var(--t1); border: 1px solid var(--border-strong); }
+
+/* Nodos: el CSS reproduce la medición (measure.ts): relleno 12×8 (+8 laterales en io/round), interlínea 1.3, misma fuente,
+   borde descontado del relleno, texto sin overflow:hidden y con corte por caracteres. */
+.diag-node { --bw: 1px; --px: 12px; font-family: system-ui, -apple-system, sans-serif; line-height: 1.3; border-width: var(--bw);
+  padding: calc(8px - var(--bw)) calc(var(--px) - var(--bw)); font-size: 15px; }
+.diag-root, .diag-l1 { --bw: 2px; }
+.diag-round, .diag-io { --px: 20px; }
+.diag-node .diag-text { display: block; max-width: 100%; min-width: 0; font-weight: 400; overflow-wrap: anywhere; white-space: normal; text-align: center; box-sizing: border-box; }
+.diag-node .diag-text strong { font-weight: 700; }
+.diag-node.diag-folded::after { position: absolute; right: 6px; bottom: 2px; margin: 0; line-height: 1; }
+/* Rombo: la caja se dibuja con dos capas recortadas (relleno y aro); el texto va encima, dentro de su caja medida. */
+.diag-node.diag-decision { --bw: 0px; background: transparent; border: 0; }
+.diag-decision::before, .diag-decision::after { content: ''; position: absolute; inset: 0; z-index: -1; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); pointer-events: none; }
+.diag-decision::before { background: var(--fill-2); }
+.diag-decision::after { background: var(--nb, var(--border-strong));
+  clip-path: polygon(evenodd, 50% 0, 100% 50%, 50% 100%, 0 50%, 50% 0, 50% 3px, calc(100% - 5px) 50%, 50% calc(100% - 3px), 5px 50%, 50% 3px); }
+.diag-decision.diag-sel { --nb: var(--t1); outline: none; }
+.diag-decision.diag-folded::after { clip-path: polygon(evenodd, 50% 0, 100% 50%, 50% 100%, 0 50%, 50% 0, 50% 3px, calc(100% - 5px) 50%, 50% calc(100% - 3px), 5px 50%, 50% 3px); position: absolute; inset: 0; content: ''; }
+/* Color por nodo (contenido del usuario): relleno y borde --diag-cN, texto --diag-cN-fg. */
+.diag-node.diag-c1 { background: var(--diag-c1); border-color: var(--diag-c1); color: var(--diag-c1-fg); }
+.diag-node.diag-c2 { background: var(--diag-c2); border-color: var(--diag-c2); color: var(--diag-c2-fg); }
+.diag-node.diag-c3 { background: var(--diag-c3); border-color: var(--diag-c3); color: var(--diag-c3-fg); }
+.diag-node.diag-c4 { background: var(--diag-c4); border-color: var(--diag-c4); color: var(--diag-c4-fg); }
+.diag-node.diag-c5 { background: var(--diag-c5); border-color: var(--diag-c5); color: var(--diag-c5-fg); }
+.diag-node.diag-c6 { background: var(--diag-c6); border-color: var(--diag-c6); color: var(--diag-c6-fg); }
+.diag-node.diag-c7 { background: var(--diag-c7); border-color: var(--diag-c7); color: var(--diag-c7-fg); }
+.diag-node.diag-c8 { background: var(--diag-c8); border-color: var(--diag-c8); color: var(--diag-c8-fg); }
+.diag-decision.diag-c1 { --nb: var(--diag-c1); } .diag-decision.diag-c2 { --nb: var(--diag-c2); } .diag-decision.diag-c3 { --nb: var(--diag-c3); } .diag-decision.diag-c4 { --nb: var(--diag-c4); }
+.diag-decision.diag-c5 { --nb: var(--diag-c5); } .diag-decision.diag-c6 { --nb: var(--diag-c6); } .diag-decision.diag-c7 { --nb: var(--diag-c7); } .diag-decision.diag-c8 { --nb: var(--diag-c8); }
+.diag-node.diag-decision.diag-c1::before { background: var(--diag-c1); } .diag-node.diag-decision.diag-c2::before { background: var(--diag-c2); }
+.diag-node.diag-decision.diag-c3::before { background: var(--diag-c3); } .diag-node.diag-decision.diag-c4::before { background: var(--diag-c4); }
+.diag-node.diag-decision.diag-c5::before { background: var(--diag-c5); } .diag-node.diag-decision.diag-c6::before { background: var(--diag-c6); }
+.diag-node.diag-decision.diag-c7::before { background: var(--diag-c7); } .diag-node.diag-decision.diag-c8::before { background: var(--diag-c8); }
+.diag-node.diag-decision[class*="diag-c"] { background: transparent; }
+
+/* Chips «+»: píldora de vidrio plana de 22 px dentro de una zona táctil invisible de 44 px (se coloca en canvas.tsx). */
+.diag-chips { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.diag-chip { position: absolute; left: 0; top: 0; width: 44px; height: 44px; margin: 0; padding: 0; border: 0; background: transparent; color: var(--t1);
+  display: grid; place-items: center; transform-origin: 0 0; cursor: pointer; opacity: 1; transition: opacity .12s var(--ease); touch-action: none; }
+.diag-chip-dot { width: 22px; height: 22px; box-sizing: border-box; display: grid; place-items: center; border-radius: var(--r-pill);
+  background: var(--diag-pill); border: 1px solid var(--border-strong); box-shadow: none; }
+.diag-chip:hover .diag-chip-dot { border-color: var(--t1); }
+.diag-chip:focus-visible { outline: none; }
+.diag-chip:focus-visible .diag-chip-dot { outline: 2px solid var(--t1); outline-offset: 1px; }
+.diag-busy .diag-chips { opacity: 0; pointer-events: none; transition: none; }
+html.is-phone .diag-chips { display: none; }
+@media (prefers-reduced-motion: reduce) { .diag-chip { transition: none; } }
+
+/* Fondo del lienzo. Las variantes sólidas fijan sus propios tokens de tinta (no dependen del tema ni del acento). */
+.diag-board.diag-bd-claro, .diag-canvas.diag-bd-claro, .diag-board.diag-bd-gris, .diag-canvas.diag-bd-gris {
+  --t1: #1a1a1a; --t2: #4a4a4a; --diag-ink: #1a1a1a; --fill: rgba(0,0,0,.06); --fill-2: rgba(0,0,0,.03);
+  --border: rgba(0,0,0,.22); --border-strong: rgba(0,0,0,.45); --inverse-bg: #1a1a1a; --inverse-fg: #ffffff; --diag-pill: #ffffff;
+  --diag-c1: #e5484d; --diag-c2: #f76b15; --diag-c3: #ffc53d; --diag-c4: #30a46c; --diag-c5: #12a594; --diag-c6: #0090ff; --diag-c7: #8e4ec6; --diag-c8: #d6409f;
+  --diag-c1-fg: #000; --diag-c2-fg: #000; --diag-c3-fg: #000; --diag-c4-fg: #000; --diag-c5-fg: #000; --diag-c6-fg: #000; --diag-c7-fg: #fff; --diag-c8-fg: #000;
+  -webkit-backdrop-filter: none; backdrop-filter: none; }
+.diag-board.diag-bd-claro, .diag-canvas.diag-bd-claro { background: #ffffff; }
+.diag-board.diag-bd-gris, .diag-canvas.diag-bd-gris { background: #d9d9de; }
+.diag-board.diag-bd-oscuro, .diag-canvas.diag-bd-oscuro {
+  --t1: #f0f0f0; --t2: #c8c8c8; --diag-ink: #f0f0f0; --fill: rgba(255,255,255,.12); --fill-2: rgba(255,255,255,.06);
+  --border: rgba(255,255,255,.22); --border-strong: rgba(255,255,255,.45); --inverse-bg: #f0f0f0; --inverse-fg: #1a1a1a; --diag-pill: #2c2c2e;
+  --diag-c1: #c62a2f; --diag-c2: #cc4e00; --diag-c3: #e2a336; --diag-c4: #218358; --diag-c5: #0d7d6c; --diag-c6: #0b68cb; --diag-c7: #6e3f99; --diag-c8: #b2357f;
+  --diag-c1-fg: #fff; --diag-c2-fg: #000; --diag-c3-fg: #000; --diag-c4-fg: #fff; --diag-c5-fg: #fff; --diag-c6-fg: #fff; --diag-c7-fg: #fff; --diag-c8-fg: #fff;
+  background: #1c1c1e; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.diag-board.diag-bd-cuadricula, .diag-canvas.diag-bd-cuadricula {
+  background-image: linear-gradient(color-mix(in srgb, var(--diag-ink) 10%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--diag-ink) 10%, transparent) 1px, transparent 1px);
+  background-size: 24px 24px; }
+.diag-board.diag-bd-puntos, .diag-canvas.diag-bd-puntos {
+  background-image: radial-gradient(color-mix(in srgb, var(--diag-ink) 22%, transparent) 1.2px, transparent 1.6px); background-size: 24px 24px; }
 /* ==/B== */
 
 /* ==C== colores y tamaños */
