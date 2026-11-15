@@ -43,3 +43,43 @@ Ahorro ≈ 54 % frente a usar solo opus y ≈ 8 % frente a usar solo sonnet. Cas
 - Presupuesto de carga (§1): el «fragmento de 32 KB» resultó ser la pantalla de Notas. Ver un diagrama carga ≈ 8,4 KB gzip (límite ~15 KB); editar (11,9 KB) y exportar (2,7 KB) van en fragmentos aparte (`estado-presupuesto.md`).
 - Los subagentes de las olas 4–6 se corrieron en el checkout principal y no en *worktrees*: los *worktrees* salían de una base vieja y no se pudo avanzarlos.
 - No se hizo la pausa para probar en iPad (ola 4): el usuario pidió seguir sin parar hasta terminar.
+
+---
+
+# Registro · Prompt 22 (mejoras del editor de diagramas)
+
+Tokens = total que informó cada subagente al terminar (entrada + salida). La coordinadora no está incluida. Coordinadora: Opus 5.5 (el prompt pedía Sonnet 5.5; el usuario puso Opus con `/model` y no se cambió en silencio). Navegador: solo Chromium (sin WebKit en el contenedor).
+
+| Ola | Subagente | Tarea | Dificultad | Modelo | Resultado | Tokens |
+|---|---|---|---|---|---|---|
+| 1 | Explorador | Sección `src/diagrams/` en MAPA + reproducir los 8 puntos | fácil | haiku | 6 reproducidos, 2 parciales, 1 distinto (el doble clic no hacía nada) | 151 k |
+| 1 | Arquitecto | Contrato §P22 | media | sonnet | claves, firmas, propiedad de archivos | 105 k |
+| 2 | Lógica | Formato nuevo y ops de edición | media | sonnet | `{c=3}` ya no borra el nodo; 18 pruebas | 157 k |
+| 2 | Lógica 2 | Medición, geometría de flechas, paleta | media | sonnet | `measure.ts`, `edges.ts`, `palette.ts` | 121 k |
+| 2 | CSS/i18n | Tokens de paleta y 43 claves | fácil | haiku | contraste ≥ 4.5:1 comprobado | 113 k |
+| 3 | Interfaz A | Lienzo grande y «Ajustar» | media | sonnet | 94 % del alto libre, 90 % tras ajustar | 136 k |
+| 3 | Interfaz B | Flechas, chips «+», pintar color y texto medido | media | sonnet | punta opaca, sin texto cortado (cortado por el límite de uso y reanudado) | 180 k |
+| 3 | Interfaz C | Colores, tamaños, asas, estilo de flecha, fondo | media | sonnet | 12 pruebas, persiste tras recargar | 181 k |
+| 4 | Gestos y edición | Edición en el sitio, Tab, pegar lista, IME, espacio+arrastre, zoom ×4 | difícil | opus | 19 pruebas nuevas | 257 k |
+| 5 | PDF fiel | Escena única SVG/PNG/PDF, PDF vectorial + raster en mosaicos | difícil | opus | `pdftotext` con todo el texto (cortado por el límite y reanudado) | 154 k |
+| 5 | UI de exportar | Botón PDF, opciones, vista previa, entrega en el gesto | media | sonnet | 6 pruebas | 94 k |
+| 5 | Integración | `fondo:`, `alto=`, título al exportar, impresión completa | media | sonnet | `print.ts`, 8 pruebas | 154 k |
+| 6 | Probador E2E | `e2e/diagramas.mjs` al editor nuevo + §5 | media | sonnet | 77 comprobaciones, 3 corridas en verde | 166 k |
+| 6 | Extremos | break-ui | fácil | haiku | 24 casos, 1 fallo menor (NaN) | 152 k |
+| 6 | Seguridad | security-review del diff | media | sonnet | 0 graves, 2 medios, 3 leves | 167 k |
+| 6 | Corrector | Hallazgos de seguridad + NaN | media | sonnet | 6 corregidos | 110 k |
+| 7 | Docs | `CLAUDE.md`, SPEC, DECISIONS, PROMPTS | fácil | haiku | — | 128 k |
+| 7 | Limpiador | code-simplifier/deslop del diff | media | sonnet | ver `estado-p22-limpieza.md` | (al cierre) |
+
+Ningún subagente necesitó subir de modelo (ninguno falló dos veces).
+
+## Costo frente a un solo modelo (estimación)
+Mismos supuestos que en el Prompt 20: precios de lista (USD por millón, entrada / salida) haiku 5.5 0,10 / 0,50 · sonnet 5.5 2 / 10 · opus 5.5 4 / 20, con 90 % entrada y 10 % salida (tarifa mezclada: 0,14 · 2,80 · 5,60 por millón). Sin contar al Limpiador ni a la coordinadora.
+
+| Reparto | Tokens | Costo aprox. |
+|---|---|---|
+| Real: haiku 0,54 M · sonnet 1,57 M · opus 0,41 M | 2,52 M | **≈ 6,7 USD** |
+| Todo en opus | 2,52 M | ≈ 14,1 USD |
+| Todo en sonnet | 2,52 M | ≈ 7,1 USD |
+
+Ahorro ≈ 52 % frente a usar solo opus y ≈ 6 % frente a usar solo sonnet. Plan: ≈ 2,1 M estimados; real ≈ 2,5 M (1,2×, dentro del freno de 1,5×).
