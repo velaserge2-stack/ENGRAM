@@ -135,6 +135,7 @@ Todo es retrocompatible y perezoso: nada se reescribe hasta que el usuario edita
 - **Escritura**: nunca se fusionan grupos ya escritos. `applyEdit` sobre una línea reemplaza o quita ítems dentro de su grupo original (grupo vacío = se quita); las claves nuevas entran en el **último** grupo de la línea, o en un grupo nuevo `{…}` si no había; orden de las nuevas: x,y,color,w,h,maxw,fs,plegado. Un lector antiguo verá `{plegado,color=3}` como texto: aceptado.
 - **Fondo** (`type Backdrop = 'cristal'|'claro'|'gris'|'oscuro'|'cuadricula'|'puntos'`, defecto `cristal` = sin marca): nota de diagrama → frontmatter `fondo:`; bloque ```` ```flujo ```` → primera línea no vacía `# fondo: puntos` (comentario `#` ya existente, legible por versiones antiguas). Prevalece el frontmatter. `readBackdrop(text: string, fm?: string): Backdrop` en `parse.ts`; valor desconocido = `cristal` y la línea queda literal.
 - **Alto recordado**: bloque en nota normal → info del fence ```` ```mapa alto=420 ```` (el contenedor vuelve a mostrarlo así); nota de diagrama y `![[Mi mapa]]` → frontmatter `alto: 420` de la nota de diagrama. Entero 160–2000; fuera de rango = ignorado y literal. `readHeight(info?: string, fm?: string): number | undefined` en `parse.ts`.
+- **Sufijo a mitad de línea**: un grupo `{…}` que no está al final de la línea (p. ej. `[A] {w=0} --> [B]`) no cuenta como sufijo. La línea entera queda literal con error `forma`: no se crean nodos ni flecha, y no se pierde texto.
 
 ## §P22.2 Tipos (los aplica Lógica en `types.ts`; sustituyen lo anterior)
 ```ts

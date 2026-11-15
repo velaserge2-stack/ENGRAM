@@ -104,6 +104,10 @@ IO: ![[ecg-bloqueo.png]] <!-- io: 10,20,30,12; 55,40,20,10 --> ^c03c
   - Sufijos al final de la línea, con claves exactas: `{x=120,y=-40}` (posición puesta a mano, enteros de ±100 000 como máximo), `{plegado}`, `{recta}`/`{curva}`/`{orto}` (trazo de la flecha). Sin posición, el acomodo es automático.
   - Texto de nodo: texto plano con `**negrita**`, `*cursiva*` y `[[nota]]`; nunca HTML.
   - Una línea desconocida o mal formada se ignora al dibujar y se conserva tal cual al guardar. Con más de 300 nodos, el diagrama se muestra y se edita solo como texto.
+  - Prompt 22 (formato retrocompatible; detalle en `docs/diagramas/CONTRATO.md` §P22.1). Nodo: `{x=…,y=…,color=1..8,w=24..2000,h=24..2000,maxw=80..600,fs=s|m|l,plegado}`. Flecha, tras el destino: `{color=1..8,w=1..8,dash,fin=sin|flecha|ambos|circulo|rombo,recta|curva|orto}`. Color 1–8 es un índice de la paleta fija del tema (contraste ≥ 4,5:1).
+  - Fondo: `fondo:` en el frontmatter de la nota de diagrama, o `# fondo: puntos` como primera línea no vacía del bloque. Valores: `cristal` (defecto, sin marca), `claro`, `gris`, `oscuro`, `cuadricula`, `puntos`.
+  - Alto recordado: `alto=420` en la línea de apertura del bloque (```` ```mapa alto=420 ````) y `alto: 420` en el frontmatter de la nota de diagrama. Entero 160–2000.
+  - Claves desconocidas o con valor fuera de rango se conservan como texto literal en su línea y no se aplican. Un texto de nodo admite hasta 5 000 caracteres; el resto no se mide ni se pinta, y el archivo no se recorta.
 
 ---
 
