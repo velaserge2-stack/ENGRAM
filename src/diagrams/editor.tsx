@@ -3,12 +3,13 @@
 // `onText` (NoteStore, en el padre). Aquí no hay estado del documento, solo selección, diálogos e historial.
 import type { JSX } from 'preact';
 import type { ComponentType } from 'preact';
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Download, FileText, LayoutGrid, ListPlus, Eye, Redo2, Undo2 } from 'lucide-preact';
 import { DiagramCanvas, type DiagramSelection } from './canvas';
 import { layoutLayered, layoutTree } from './layout';
 import { parseDiagram } from './parse';
 import { History } from './history';
+import { fillHeight } from './gestures';
 import { AskDialog, FloatBar, tx, type Ask } from './toolbar';
 import type { DiagramDoc, DiagramKind, DiagramNode, Edit, Route, Shape } from './types';
 
@@ -17,6 +18,10 @@ export interface EditorProps {
   src: string;
   /** Escribe el cuerpo nuevo (la nota decide cómo: NoteStore). `type` = tecleo, `action` = una acción con deshacer propio. */
   onText: (body: string, kind?: 'type' | 'action') => void;
+  /** Nota de diagrama completa: el lienzo ocupa el alto que queda de la ventana (se mide del DOM). */
+  fill?: boolean;
+  /** Bloque o embed: alto fijo del lienzo (px). */
+  height?: number;
 }
 
 const CLOSE: Record<Shape, string> = { rect: ']', round: ')', diamond: '}', io: ']', note: '>' };
@@ -46,7 +51,7 @@ export function orderEdits(doc: DiagramDoc): Edit[] {
 const hasKids = (doc: DiagramDoc, n: DiagramNode) =>
   doc.kind === 'mapa' ? doc.nodes.some((k) => k.parent === n.id) : doc.edges.some((e) => e.from === n.id || e.to === n.id);
 
-export function DiagramEditor({ kind, src, onText }: EditorProps): JSX.Element {
+export function DiagramEditor({ kind, src, onText, fill, height }: EditorProps): JSX.Element {
   const parsed = useMemo(() => parseDiagram(src, kind), [src, kind]);
   const { doc } = parsed;
   const [asText, setAsText] = useState(false);
@@ -58,6 +63,23 @@ export function DiagramEditor({ kind, src, onText }: EditorProps): JSX.Element {
   cur.current = src;
   const [Exp, setExp] = useState<ComponentType<{ doc: DiagramDoc; src: string; onClose: () => void }> | null>(null);
   const isMap = kind === 'mapa';
+  const root = useRef<HTMLDivElement>(null);
+  // alto del lienzo en nota completa: ventana − borde superior del tablero; sin re-render (variable CSS)
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    if (!fill) { if (height) el.style.setProperty('--diag-h', height + 'px'); else el.style.removeProperty('--diag-h'); return; }
+    const measure = () => {
+      // alto útil = ventana − barra superior fija − barra de herramientas del editor (el tablero se alcanza desplazando la nota)
+      const bar = document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().bottom ?? 72;
+      const tools = el.querySelector<HTMLElement>('[role="toolbar"]')?.offsetHeight ?? 52;
+      el.style.setProperty('--diag-h', fillHeight(innerHeight, Math.max(0, bar) + tools + 20, 16) + 'px');
+    };
+    measure();
+    const t = setTimeout(measure, 200); // tras cargar fuentes e imágenes del encabezado
+    addEventListener('resize', measure);
+    return () => { clearTimeout(t); removeEventListener('resize', measure); };
+  }, [fill, height, asText]);
 
   const write = (next: string | null) => { if (next !== null && next !== cur.current) { cur.current = next; onText(next, 'action'); } bump((n) => n + 1); };
   const apply = (edits: Edit[]) => write(hist.current.apply(cur.current, kind, edits));
@@ -122,7 +144,7 @@ export function DiagramEditor({ kind, src, onText }: EditorProps): JSX.Element {
   };
 
   return (
-    <div class="stack-s diag-editor" onKeyDownCapture={asText ? undefined : onKey} onDblClick={asText ? undefined : onDbl}>
+    <div ref={root} class={`stack-s diag-editor${fill ? ' diag-fill' : height ? ' diag-sized' : ''}`} onKeyDownCapture={asText ? undefined : onKey} onDblClick={asText ? undefined : onDbl}>
       <div class="row wrap glass" style={{ padding: '6px', borderRadius: '18px' }} role="toolbar" aria-label={tx('diag.herramientas', 'Herramientas del diagrama')}>
         <button type="button" class="btn icon ghost" aria-label={tx('bar.deshacer', 'Deshacer')} disabled={!canUndo || asText} onClick={undo}><Undo2 size={20} aria-hidden="true" /></button>
         <button type="button" class="btn icon ghost" aria-label={tx('bar.rehacer', 'Rehacer')} disabled={!canRedo || asText} onClick={redo}><Redo2 size={20} aria-hidden="true" /></button>

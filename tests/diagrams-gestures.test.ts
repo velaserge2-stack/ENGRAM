@@ -52,9 +52,9 @@ describe('gestos: puros', () => {
     const v = fitView(b, 248, 148, 24);
     expect(v.k).toBeCloseTo(1);
     expect(toScreen(v, { x: 0, y: 0 })).toEqual({ x: 124, y: 74 });
-    expect(fitView(b, 848, 448, 24).k).toBeCloseTo(1.5);
+    expect(fitView(b, 848, 448, 24).k).toBeCloseTo(3);
     expect(fitView(b, 0, 0).k).toBe(1);
-    expect(fitView({ x: 0, y: 0, w: 10, h: 10 }, 1000, 1000).k).toBe(1.5); // no agranda de más
+    expect(fitView({ x: 0, y: 0, w: 10, h: 10 }, 1000, 1000).k).toBe(3); // tope del ajuste: 300 %
   });
 
   it('nodo bajo un punto (alto mínimo de 44) y asa', () => {

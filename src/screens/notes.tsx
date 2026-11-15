@@ -34,7 +34,8 @@ import { search as searchCards } from '../lib/query';
 import { Graph } from './graph';
 import { APP_VERSION } from './backup';
 import { LinkedEvents } from '../ui/links';
-import { modalOpen, Popover } from '../ui/overlay';
+import { modalOpen, Popover, Portal, useLayer } from '../ui/overlay';
+import { H_MAX, H_MIN, clampHeight } from '../diagrams/gestures';
 import { DIAGRAM_READY, FindBar, pendingFind } from '../notes/find';
 import { notesIndex } from '../notes/search-client';
 import { noteStore, onNoteSaved } from '../notes/store';
@@ -483,7 +484,7 @@ function expandBlock(b: string, data: NotesData, col: ReturnType<typeof useApp>[
 
 /** Un bloque en vista de documento. `memo`: escribir en otro bloque no lo vuelve a pintar. */
 /** Vista de un diagrama dentro de la nota: carga `src/diagrams/mount` bajo demanda; mientras tanto (o si falla) se ve el texto. */
-function DiagramSlot(p: { kind: DiagramKind; src: string; onText?: (body: string, k?: 'type' | 'action') => void }) {
+function DiagramView(p: { kind: DiagramKind; src: string; onText?: (body: string, k?: 'type' | 'action') => void; fill?: boolean; height?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
   // nota de diagrama completa: editor (carga perezosa, único `import()`); el fence dentro de una nota solo se ve
@@ -505,10 +506,59 @@ function DiagramSlot(p: { kind: DiagramKind; src: string; onText?: (body: string
     void import('../diagrams/mount').then((m) => { if (alive) { off = m.mountDiagrams(el); setReady(true); dispatchEvent(new Event(DIAGRAM_READY)); } }).catch(() => {});
     return () => { alive = false; off(); setReady(false); };
   }, [p.kind, p.src, edit]);
-  if (Ed && p.onText) return <Ed kind={p.kind} src={p.src} onText={p.onText} />;
+  if (Ed && p.onText) return <Ed kind={p.kind} src={p.src} onText={p.onText} {...(p.fill ? { fill: true } : {})} {...(p.height ? { height: p.height } : {})} />;
   return (
     <div ref={ref} class="diag-host" data-user-content>
       {!ready && <pre><code>{p.src}</code></pre>}
+    </div>
+  );
+}
+
+/** Alto por defecto del marco compacto (px). */
+const FRAME_H = 320;
+
+/** Pantalla completa del diagrama (por `overlay.tsx`): Esc o el botón la cierran. */
+function DiagramFull(p: { kind: DiagramKind; src: string; onText?: (body: string, k?: 'type' | 'action') => void; onClose: () => void }) {
+  const el = useRef<HTMLDivElement>(null);
+  useLayer(p.onClose, { modal: true, el: () => el.current });
+  return (
+    <Portal>
+      <div ref={el} class="diag-full glass strong" role="dialog" aria-modal="true" aria-label={tr('diag.expandir')} tabIndex={-1}>
+        <div class="diag-full-bar"><button type="button" class="btn icon" aria-label={tr('diag.contraer')} onClick={p.onClose}><Minimize2 size={20} aria-hidden="true" /></button></div>
+        <div class="diag-full-body"><DiagramView kind={p.kind} src={p.src} {...(p.onText ? { onText: p.onText } : {})} /></div>
+      </div>
+    </Portal>
+  );
+}
+
+/**
+ * Diagrama en la nota. Nota de diagrama completa (`full`): lienzo a todo el alto restante. Bloque o embed: alto
+ * compacto con «Expandir» y asa en el borde inferior (arrastrar o flechas). El alto se recuerda solo en memoria:
+ * el bloque es de solo lectura y `alto=` del fence/frontmatter lo escribe la integración (§P22.1, ola 5).
+ */
+function DiagramSlot(p: { kind: DiagramKind; src: string; onText?: (body: string, k?: 'type' | 'action') => void; full?: boolean; alto?: number }) {
+  const [h, setH] = useState(p.alto ?? FRAME_H);
+  const [big, setBig] = useState(false);
+  if (p.full) return <DiagramView kind={p.kind} src={p.src} {...(p.onText ? { onText: p.onText } : {})} fill />;
+  const set = (v: number) => setH(clampHeight(v));
+  const down = (e: PointerEvent) => {
+    const t = e.currentTarget as HTMLElement, y0 = e.clientY, h0 = h;
+    try { t.setPointerCapture(e.pointerId); } catch { /* sin captura */ }
+    const move = (m: PointerEvent) => set(h0 + m.clientY - y0);
+    const up = () => { t.removeEventListener('pointermove', move); t.removeEventListener('pointerup', up); t.removeEventListener('pointercancel', up); };
+    t.addEventListener('pointermove', move); t.addEventListener('pointerup', up); t.addEventListener('pointercancel', up);
+  };
+  const key = (e: KeyboardEvent) => {
+    const d = e.key === 'ArrowDown' ? 40 : e.key === 'ArrowUp' ? -40 : 0;
+    if (d) { e.preventDefault(); set(h + d); }
+  };
+  return (
+    <div class="diag-frame" style={{ '--diag-fh': h + 'px' }}>
+      <button type="button" class="btn icon glass diag-expand" aria-label={tr('diag.expandir')} onClick={() => setBig(true)}><Maximize2 size={20} aria-hidden="true" /></button>
+      <div class={`diag-frame-body${p.onText ? ' edit' : ''}`}><DiagramView kind={p.kind} src={p.src} {...(p.onText ? { onText: p.onText, height: h } : {})} /></div>
+      <div class="diag-grip" role="slider" tabIndex={0} aria-orientation="vertical" aria-label={tr('diag.alto_lienzo')} aria-valuemin={H_MIN} aria-valuemax={H_MAX} aria-valuenow={h}
+        onPointerDown={down} onKeyDown={key} />
+      {big && <DiagramFull kind={p.kind} src={p.src} {...(p.onText ? { onText: p.onText } : {})} onClose={() => setBig(false)} />}
     </div>
   );
 }
@@ -908,11 +958,11 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
         {find !== null && <FindBar root={() => docRef.current} initial={find} dep={mode === 'doc' ? settled : mode} onClose={() => setFind(null)} />}
         <article class="glass strong doc" ref={docRef} onPaste={(e) => void onPaste(e as ClipboardEvent)} onDragOver={(e) => e.dataTransfer?.types.includes('Files') && e.preventDefault()} onDrop={(e) => void onDrop(e as DragEvent)}>
           <div class="print-only"><h1>{meta.title}</h1></div>
-          <div class="doc-inner" style={{ maxWidth: LINE[props.ui.width] }}>
+          <div class="doc-inner" style={tipo !== 'nota' ? undefined : { maxWidth: LINE[props.ui.width] }}>
           {mode === 'md' ? (
             <textarea class="input code" style={{ minHeight: '70dvh', width: '100%', border: 0, background: 'transparent' }} value={text} onInput={(e) => set((e.target as HTMLTextAreaElement).value, 'type')} aria-label={tr('notes.markdown_de_la_nota')} spellcheck />
           ) : tipo !== 'nota' ? (
-            <DiagramSlot kind={tipo} src={doc.body} onText={setBody} />
+            <DiagramSlot kind={tipo} src={doc.body} onText={setBody} full />
           ) : (
             <div class={`stack-s${blocks.length > 2 * CHUNK ? ' doc-cv' : ''}`}>
               {/* «＋ Escribe…» abre un bloque vacío al final (en la misma lista, para no perder el foco) */}
