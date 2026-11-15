@@ -291,12 +291,13 @@ export class SafeVault implements VaultAdapter {
         opts.onProgress?.(n++, total);
         const w = { path: p, tmp: newTmp(), size: 0, hash: '' };
         writes.push(w);
-        if (s.data instanceof Uint8Array) {
-          await this.raw.write(w.tmp, s.data);
-          Object.assign(w, { size: s.data.length, hash: checksum(s.data) });
-        } else if (this.raw.writeBlob) Object.assign(w, await this.raw.writeBlob(w.tmp, s.data));
+        const data = s.load ? await s.load() : s.data; // perezoso: un Blob a la vez, se suelta tras escribirlo
+        if (data instanceof Uint8Array) {
+          await this.raw.write(w.tmp, data);
+          Object.assign(w, { size: data.length, hash: checksum(data) });
+        } else if (this.raw.writeBlob) Object.assign(w, await this.raw.writeBlob(w.tmp, data));
         else {
-          const b = new Uint8Array(await s.data.arrayBuffer());
+          const b = new Uint8Array(await data.arrayBuffer());
           await this.raw.write(w.tmp, b);
           Object.assign(w, { size: b.length, hash: checksum(b) });
         }

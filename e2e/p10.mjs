@@ -154,6 +154,49 @@ try {
     await ctx.close();
   }
 
+  // Paquete grande: los medios no se cargan enteros (se leen por trozos desde el File y se escriben de uno en uno).
+  //   APKG_MB=280 (por defecto). Mide el pico de JSHeapUsedSize de la página (CDP, solo Chromium) y el RSS de todos los procesos del navegador.
+  if (run('grande')) {
+    const MB = Number(process.env.APKG_MB) || 280;
+    console.log(`Paquete de ${MB} MB de medios (sin guardarlo en el repo)`);
+    const fs = require('node:fs'), os = require('node:os'), nodePath = require('node:path'), crypto = require('node:crypto'), { execSync } = require('node:child_process');
+    const { zipSync, unzipSync, strToU8 } = require('fflate');
+    const N = 5, each = Math.floor(MB / N) * 1024 * 1024;
+    const z = unzipSync(fs.readFileSync(FIX + 'legado.apkg'));
+    const map = { 0: 'ecg.png' }, entries = { ...z, 0: new Uint8Array([1, 2, 3]) };
+    for (let i = 1; i <= N; i++) { const b = Buffer.alloc(each, i); crypto.randomFillSync(b, 0, 4096); entries[i] = [new Uint8Array(b.buffer, b.byteOffset, b.length), { level: 0 }]; map[i] = `grande${i}.bin`; }
+    entries.media = strToU8(JSON.stringify(map));
+    const file = nodePath.join(os.tmpdir(), `grande-${MB}.apkg`);
+    fs.writeFileSync(file, zipSync(entries));
+    const rss = () => { try { return execSync('ps -eo rss=,args=', { encoding: 'utf8' }).split('\n').filter((l) => /chrom|webkit|WebContent/i.test(l)).reduce((a, l) => a + (parseInt(l, 10) || 0), 0) / 1024; } catch { return 0; } };
+    try {
+      const { ctx, page } = await fresh();
+      let cdp = null;
+      if (type.name() === 'chromium') { cdp = await ctx.newCDPSession(page); await cdp.send('Performance.enable'); }
+      const heap = async () => cdp ? (await cdp.send('Performance.getMetrics')).metrics.find((m) => m.name === 'JSHeapUsedSize').value / 1048576 : 0;
+      const base = { heap: await heap(), rss: rss() };
+      const peak = { heap: base.heap, rss: base.rss };
+      const timer = setInterval(async () => { peak.heap = Math.max(peak.heap, await heap().catch(() => 0)); peak.rss = Math.max(peak.rss, rss()); }, 150);
+      await openImport(page);
+      await page.locator('.sheet input[type=file]').first().setInputFiles(file);
+      await page.locator('.sheet .import-sum').waitFor({ timeout: 180000 });
+      check(/2 mazos · 6 tarjetas · 6 imágenes y audios/.test(await page.locator('.sheet .import-sum').innerText()), 'se lee el paquete (supera los 200 MB de un archivo suelto) y cuenta los medios');
+      await page.locator('.sheet').getByRole('button', { name: 'Importar', exact: true }).click();
+      await page.locator('.sheet').getByRole('button', { name: 'Deshacer importación' }).waitFor({ timeout: 300000 });
+      clearInterval(timer);
+      const sizes = await page.evaluate(async () => {
+        const out = {};
+        const walk = async (d) => { for await (const [n, h] of d.entries()) { if (h.kind === 'directory') await walk(h); else if (/^grande\d\.bin$/.test(n)) out[n] = (await h.getFile()).size; } };
+        await walk(await navigator.storage.getDirectory());
+        return out;
+      });
+      check(Object.keys(sizes).length === N && Object.values(sizes).every((n) => n === each), `los ${N} medios quedan en media/ con su tamaño exacto`);
+      console.log(`    JSHeapUsedSize de la página: base ${base.heap.toFixed(0)} MB, pico ${peak.heap.toFixed(0)} MB · RSS del navegador (todos los procesos): base ${base.rss.toFixed(0)} MB, pico ${peak.rss.toFixed(0)} MB`);
+      if (cdp) check(peak.heap - base.heap < MB * 0.5, `el heap de la página no crece con el tamaño del paquete (+${(peak.heap - base.heap).toFixed(0)} MB)`);
+      await ctx.close();
+    } finally { fs.rmSync(file, { force: true }); }
+  }
+
   check(errors.length === 0, 'sin errores en consola' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   console.log('\nOK');
 } catch (e) {

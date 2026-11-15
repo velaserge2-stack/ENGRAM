@@ -13,6 +13,8 @@ import type { ApkgResult } from './apkg';
 import type { LogEntry } from '../srs/engine';
 import { unzipSync } from 'fflate';
 import { isExportable, parseZip, type VaultFile } from './zip';
+import { mediaBlob } from './zipblob';
+import { readZipIndex, type ZipRef } from './zipindex';
 
 const VAULT_ROOTS = ['decks/', 'notes/', 'media/', 'templates/', 'exams-bank/', 'exams/', 'docs/', 'calendar/', '.app/'];
 const IMAGE_OR_AUDIO = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'svg', 'mp3', 'm4a', 'wav', 'ogg']);
@@ -77,6 +79,8 @@ export interface Gathered {
 }
 
 export interface GatherOptions {
+  /** Paquete de Anki leído por trozos desde el File (sin cargarlo entero): medios como entradas perezosas. */
+  apkgFile?: (file: Blob, name: string) => Promise<ApkgResult>;
   apkg?: (bytes: Uint8Array, name: string) => Promise<ApkgResult>;
 }
 
@@ -92,6 +96,20 @@ export function isAnkiZip(data: Uint8Array): boolean {
   return found;
 }
 
+/** Medio de un .apkg: se produce al pedirlo; el tope total declarado se descuenta una sola vez por medio. */
+function lazyMedia(file: Blob, ref: ZipRef, name: string, budget: { left: number }): () => Promise<Blob> {
+  let charged = false;
+  return async () => {
+    const b = await mediaBlob(file, ref, name);
+    if (!charged && (budget.left -= b.size) < 0) throw Object.assign(new Error(t('apkg.descomprimido_demasiado_grande', { mb: Math.round(LIMITS.maxApkgTotalBytes / 1048576) })), { code: 'too-big' });
+    charged = true;
+    return b;
+  };
+}
+
+/** ¿El File es un zip con colección de Anki? Solo lee el directorio central. */
+const ankiFile = (file: Blob) => readZipIndex(file).then((ix) => ix.some((e) => /^collection\.anki2(1b?)?$/.test(e.name)), () => false);
+
 export async function gather(incoming: IncomingFile[], opts: GatherOptions = {}): Promise<Gathered> {
   const files: VaultFile[] = [];
   const warnings: string[] = [];
@@ -103,7 +121,30 @@ export async function gather(incoming: IncomingFile[], opts: GatherOptions = {})
   const rels = incoming.map((f) => f.relativePath).filter(Boolean) as string[];
   const stripRoot =
     rels.length > 0 && rels.some((r) => VAULT_ROOTS.some((root) => r.split('/').slice(1).join('/').startsWith(root)));
+  /** Suma un paquete de Anki ya convertido al lote. `file`: si los medios son referencias a este archivo. */
+  const addApkg = async (name: string, run: () => Promise<ApkgResult>, file?: Blob) => {
+    try {
+      const r = await run();
+      warnings.push(...r.warnings.map((w) => `${name}: ${w}`));
+      for (const d of r.decks) files.push({ path: d.path, data: new TextEncoder().encode(d.text) });
+      const budget = { left: LIMITS.maxApkgTotalBytes };
+      for (const m of r.media) files.push(m.ref && file ? { path: `media/${m.name}`, data: new Uint8Array(0), size: m.ref.usize, lazy: lazyMedia(file, m.ref, m.name, budget) } : { path: `media/${m.name}`, data: m.data });
+      log.push(...r.log);
+      anki = { decks: (anki?.decks ?? 0) + r.decks.length, cards: (anki?.cards ?? 0) + r.decks.reduce((a, d) => a + d.cards, 0), media: (anki?.media ?? 0) + r.media.length, reviews: (anki?.reviews ?? 0) + r.log.length };
+    } catch (e) {
+      failures.push({ name, code: (e as { code?: string }).code ?? 'corrupt', message: errMsg(e) });
+      warnings.push(`${name}: ${errMsg(e)}`);
+    }
+  };
   for (const f of incoming) {
+    // Paquete de Anki: se lee por trozos (el archivo no se carga entero ni se limita a maxFileBytes)
+    if (f.file && opts.apkgFile) {
+      const e0 = extname(f.name);
+      if (e0 === 'apkg' || e0 === 'colpkg' || ((e0 === 'zip' || e0 === '') && (await ankiFile(f.file)))) {
+        await addApkg(f.name, () => opts.apkgFile!(f.file!, f.name), f.file);
+        continue;
+      }
+    }
     // Prompt 11: binario grande suelto → sin leerlo (se escribe por trozos al aplicar)
     if (f.file && f.file.size >= STREAM_FROM && STREAMABLE.test(extname(f.name))) {
       let rel = f.relativePath || f.name;
@@ -128,17 +169,7 @@ export async function gather(incoming: IncomingFile[], opts: GatherOptions = {})
         warnings.push(t('import.name_importar_apkg_no_esta_disponible', { name: f.name }));
         continue;
       }
-      try {
-        const r = await opts.apkg(data, f.name);
-        warnings.push(...r.warnings.map((w) => `${f.name}: ${w}`));
-        for (const d of r.decks) files.push({ path: d.path, data: new TextEncoder().encode(d.text) });
-        for (const m of r.media) files.push({ path: `media/${m.name}`, data: m.data });
-        log.push(...r.log);
-        anki = { decks: (anki?.decks ?? 0) + r.decks.length, cards: (anki?.cards ?? 0) + r.decks.reduce((a, d) => a + d.cards, 0), media: (anki?.media ?? 0) + r.media.length, reviews: (anki?.reviews ?? 0) + r.log.length };
-      } catch (e) {
-        failures.push({ name: f.name, code: (e as { code?: string }).code ?? 'corrupt', message: errMsg(e) });
-        warnings.push(`${f.name}: ${errMsg(e)}`);
-      }
+      await addApkg(f.name, () => opts.apkg!(data, f.name));
       continue;
     }
     const zipMagic = data[0] === 0x50 && data[1] === 0x4b && data[2] === 0x03 && data[3] === 0x04;
@@ -194,7 +225,12 @@ export async function buildPlan(vault: VaultAdapter, files: VaultFile[]): Promis
     let status: ItemStatus = 'new';
     // solo coincide sin mayúsculas (disco sin distinción, p. ej. una carpeta en macOS): se pregunta al disco
     if (have.has(f.path) || (lower.has(f.path.toLowerCase()) && (await vault.exists(f.path)))) {
-      if (f.blob) {
+      if (f.lazy) {
+        // medio de un .apkg: se produce, se compara y se suelta (nada se retiene)
+        const b = await f.lazy();
+        const cur = vault.hash ? await vault.hash(f.path) : null;
+        status = cur && cur.size === b.size && cur.hash === (await blobChecksum(b)) ? 'same' : 'conflict';
+      } else if (f.blob) {
         // grande: tamaño y suma por trozos (sin leer ninguno de los dos entero)
         const cur = vault.hash ? await vault.hash(f.path) : null;
         status = cur && cur.size === f.blob.size && cur.hash === (await blobChecksum(f.blob)) ? 'same' : 'conflict';
@@ -244,8 +280,15 @@ async function applyPlanIn(vault: VaultAdapter, plan: PlanItem[], resolve: (item
     }
     // `new` = no existía al planear (buildPlan ya lo comprobó): sin otra consulta al disco
     res.previous.set(target, target === item.path && item.status === 'new' ? null : (await vault.exists(target)) ? await vault.read(target) : null);
-    const sv = vault as VaultAdapter & { writeStream?: (p: string, b: Blob) => Promise<void> };
-    if (item.blob && sv.writeStream) await sv.writeStream(target, item.blob);
+    const sv = vault as VaultAdapter & { writeStream?: (p: string, b: Blob) => Promise<void>; writeLazy?: (p: string, size: number, load: () => Promise<Blob>) => Promise<void> };
+    if (item.lazy) {
+      if (sv.writeLazy) await sv.writeLazy(target, item.size ?? 0, item.lazy);
+      else {
+        const b = await item.lazy();
+        if (sv.writeStream) await sv.writeStream(target, b);
+        else await vault.write(target, new Uint8Array(await b.arrayBuffer()));
+      }
+    } else if (item.blob && sv.writeStream) await sv.writeStream(target, item.blob);
     else await vault.write(target, item.blob ? new Uint8Array(await item.blob.arrayBuffer()) : item.data);
     res.written.push(target);
   }
@@ -279,7 +322,11 @@ export async function mergeLog(vault: VaultAdapter, entries: LogEntry[]): Promis
   });
 }
 
-export function runApkgWorker(bytes: Uint8Array, history = true, name = ''): Promise<ApkgResult> {
+export const runApkgWorker = (bytes: Uint8Array, history = true, name = ''): Promise<ApkgResult> => runApkg({ bytes, history, name });
+/** Igual, pero el Worker recibe el File (se clona sin copiarlo) y lo lee por trozos. */
+export const runApkgFile = (file: Blob, history = true, name = ''): Promise<ApkgResult> => runApkg({ file, history, name });
+
+function runApkg(msg: { bytes?: Uint8Array; file?: Blob; history: boolean; name: string }): Promise<ApkgResult> {
   return new Promise((resolve, reject) => {
     const fail = (message: string, code: string) => reject(Object.assign(new Error(message), { code }));
     let w: Worker;
@@ -294,6 +341,6 @@ export function runApkgWorker(bytes: Uint8Array, history = true, name = ''): Pro
       else fail(e.data.error ?? t('import.error_del_worker'), e.data.code ?? 'corrupt');
     };
     w.onerror = (e) => (w.terminate(), fail(e.message || t('import.error_del_worker'), 'worker'));
-    w.postMessage({ bytes, history, name });
+    w.postMessage(msg);
   });
 }

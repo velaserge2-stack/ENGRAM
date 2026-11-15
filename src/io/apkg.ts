@@ -8,6 +8,7 @@ import { unzipSync, strFromU8 } from 'fflate';
 import { Decompress } from 'fzstd';
 import { stringifyFrontmatter } from '../lib/frontmatter';
 import { LIMITS } from './limits';
+import { readEntry, readZipIndex, ZipIndexError, type ZipEntry, type ZipRef } from './zipindex';
 import type { LogEntry } from '../srs/engine';
 
 interface SqlDb {
@@ -20,14 +21,14 @@ export interface SqlJs {
 
 export interface ApkgResult {
   decks: { path: string; text: string; cards: number }[];
-  media: { name: string; data: Uint8Array }[];
+  /** `ref` (paquete leído por trozos): el contenido se pide después con `mediaBlob`; `data` va vacío. */
+  media: { name: string; data: Uint8Array; ref?: ZipRef }[];
   log: LogEntry[];
   warnings: string[];
   /** Qué se leyó (para el resumen y el diagnóstico). */
   info?: { format: 'legacy' | 'compat' | 'new'; schema: 'v11' | 'v18'; notes: number; decks: number; cards: number; media: number; skippedEmpty: number };
 }
 
-const MAX_APKG = 500 * 1024 * 1024;
 
 /** Nombre seguro para `media/` y para `![[…]]`: sin separadores, `|`, `[`, `]`, `#`, `^` ni punto inicial. */
 export const safeMediaName = (name: string) => String(name).replace(/[\\/:*?"<>|[\]#^]+/g, '_').replace(/^\.+/, '_').slice(0, 120);
@@ -105,6 +106,24 @@ export function unzstd(data: Uint8Array, max = LIMITS.maxUnzstdBytes): Uint8Arra
   let o = 0;
   for (const p of parts) (out.set(p, o), (o += p.length));
   return out;
+}
+
+/** zstd de un Blob → Blob, por trozos de 1 MB y con tope de salida (en memoria solo queda la salida). */
+export async function unzstdToBlob(blob: Blob, max = LIMITS.maxUnzstdBytes): Promise<Blob> {
+  const tooBig = () => new ApkgError('too-big', t('apkg.descomprimido_demasiado_grande', { mb: Math.round(max / 1048576) }));
+  const first = new Uint8Array(await blob.slice(0, 32).arrayBuffer());
+  if (zstdDeclared(first) > max) throw tooBig();
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  const d = new Decompress((chunk) => {
+    total += chunk.length;
+    if (total > max) throw tooBig();
+    parts.push(chunk);
+  });
+  const STEP = 1 << 20;
+  for (let i = 0; i < blob.size; i += STEP) d.push(new Uint8Array(await blob.slice(i, i + STEP).arrayBuffer()), i + STEP >= blob.size);
+  if (!blob.size) d.push(new Uint8Array(0), true);
+  return new Blob(parts as BlobPart[]);
 }
 
 /** Protobuf mínimo: campos de nivel superior (varint y longitud delimitada; el resto se salta). */
@@ -203,7 +222,7 @@ function openCollection(files: Record<string, Uint8Array>, SQL: SqlJs, warnings:
 
 export function convertApkg(bytes: Uint8Array, SQL: SqlJs, withHistory = true, fileName = ''): ApkgResult {
   const warnings: string[] = [];
-  if (bytes.length > MAX_APKG) throw new ApkgError('too-big', t('apkg.el_apkg_supera_500_mb'));
+  if (bytes.length > LIMITS.maxApkgBytes) throw new ApkgError('too-big', t('apkg.el_apkg_supera_n_gb', { gb: Math.round(LIMITS.maxApkgBytes / 2 ** 30) }));
   if (!(bytes[0] === 0x50 && bytes[1] === 0x4b)) throw new ApkgError('invalid', t('apkg.no_es_un_paquete_de_anki'));
   let files: Record<string, Uint8Array>;
   try {
@@ -212,9 +231,9 @@ export function convertApkg(bytes: Uint8Array, SQL: SqlJs, withHistory = true, f
     files = unzipSync(bytes, {
       filter: (f) => {
         const coll = f.name.startsWith('collection.') || f.name === 'meta' || f.name === 'media';
-        const ok = f.originalSize < 300 * 1024 * 1024 && ++count <= LIMITS.maxFiles * 5 &&
+        const ok = f.originalSize < LIMITS.maxApkgEntryBytes && ++count <= LIMITS.maxFiles * 5 &&
           (coll || !(f.size > 0 && f.originalSize / f.size > LIMITS.maxRatio && f.originalSize > 1024 * 1024)) &&
-          total + f.originalSize <= LIMITS.maxTotalBytes;
+          total + f.originalSize <= LIMITS.maxApkgTotalBytes;
         if (ok) total += f.originalSize; else skipped++;
         return ok;
       },
@@ -223,6 +242,52 @@ export function convertApkg(bytes: Uint8Array, SQL: SqlJs, withHistory = true, f
   } catch {
     throw new ApkgError('invalid', t('apkg.no_es_un_paquete_de_anki'));
   }
+  return convertFiles(files, (num) => (files[num] ? { data: files[num]! } : undefined), SQL, withHistory, fileName, warnings);
+}
+
+/** Fuente de un medio por su nombre en el zip: bytes (paquete en memoria), referencia (por trozos), 'skip' (rechazado) o nada. */
+type MediaSrc = (num: string) => { data: Uint8Array; ref?: undefined } | { data?: undefined; ref: ZipRef } | 'skip' | undefined;
+
+/**
+ * Paquete leído por trozos (Prompt «apkg grande»): solo `collection.*`, `meta` y `media` pasan a memoria;
+ * cada medio sale como referencia (posición y tamaños en el zip) y se lee después, de uno en uno.
+ */
+export async function convertApkgBlob(blob: Blob, SQL: SqlJs, withHistory = true, fileName = ''): Promise<ApkgResult> {
+  const warnings: string[] = [];
+  if (blob.size > LIMITS.maxApkgBytes) throw new ApkgError('too-big', t('apkg.el_apkg_supera_n_gb', { gb: Math.round(LIMITS.maxApkgBytes / 2 ** 30) }));
+  let index: ZipEntry[];
+  try {
+    index = await readZipIndex(blob);
+  } catch (e) {
+    if (e instanceof ZipIndexError && e.code === 'too-many') throw new ApkgError('too-many', t('apkg.demasiadas_entradas'));
+    if (e instanceof ZipIndexError && e.code === 'corrupt') throw new ApkgError('corrupt', t('apkg.paquete_incompleto'));
+    throw new ApkgError('invalid', t('apkg.no_es_un_paquete_de_anki'));
+  }
+  const byName = new Map(index.map((e) => [e.name, e]));
+  const files: Record<string, Uint8Array> = {};
+  try {
+    for (const e of index) {
+      if (!(e.name.startsWith('collection.') || e.name === 'meta' || e.name === 'media')) continue;
+      if (e.usize >= LIMITS.maxApkgEntryBytes) throw new ApkgError('too-big', t('apkg.descomprimido_demasiado_grande', { mb: Math.round(LIMITS.maxApkgEntryBytes / 1048576) }));
+      files[e.name] = await readEntry(blob, e);
+    }
+  } catch (e) {
+    if (e instanceof ApkgError) throw e;
+    throw new ApkgError('corrupt', t('apkg.paquete_incompleto'));
+  }
+  let total = 0;
+  const media: MediaSrc = (num) => {
+    const e = byName.get(num);
+    if (!e || e.name.endsWith('/')) return undefined;
+    // por entrada, razón de compresión sospechosa y total declarado (el zstd se acota al leerlo)
+    if (e.usize >= LIMITS.maxApkgEntryBytes || e.flags & 1 || (e.method === 8 && e.csize > 0 && e.usize / e.csize > LIMITS.maxRatio && e.usize > 1024 * 1024) || total + e.usize > LIMITS.maxApkgTotalBytes) return 'skip';
+    total += e.usize;
+    return { ref: { offset: e.offset, csize: e.csize, usize: e.usize, method: e.method } };
+  };
+  return convertFiles(files, media, SQL, withHistory, fileName, warnings);
+}
+
+function convertFiles(files: Record<string, Uint8Array>, mediaSrc: MediaSrc, SQL: SqlJs, withHistory: boolean, fileName: string, warnings: string[]): ApkgResult {
   const { db, format } = openCollection(files, SQL, warnings);
   try {
     const { rows, has } = reader(db, warnings);
@@ -271,17 +336,19 @@ export function convertApkg(bytes: Uint8Array, SQL: SqlJs, withHistory = true, f
     const used = new Set<string>();
     let badMedia = 0;
     for (const [num, name] of Object.entries(mediaMap)) {
-      let data = files[num];
+      const src = mediaSrc(num);
       let safe = safeMediaName(name);
-      if (!data || !safe || names.has(String(name))) continue;
-      if (isZstd(data)) {
+      if (!src || !safe || names.has(String(name))) continue;
+      if (src === 'skip') { badMedia++; continue; }
+      let data = src.data ?? new Uint8Array(0);
+      if (src.data && isZstd(data)) {
         try { data = unzstd(data, Math.min(LIMITS.maxUnzstdBytes, LIMITS.maxFileBytes)); } catch { badMedia++; continue; }
       }
       // dos nombres que se sanean igual no se pisan: «a_b (2).png»
       const b = safe, dot = b.lastIndexOf('.');
       for (let n = 2; used.has(safe.toLowerCase()); n++) safe = dot > 0 ? `${b.slice(0, dot)} (${n})${b.slice(dot)}` : `${b} (${n})`;
       used.add(safe.toLowerCase());
-      media.push({ name: safe, data });
+      media.push(src.ref ? { name: safe, data, ref: src.ref } : { name: safe, data });
       names.set(String(name), safe);
     }
     if (badMedia) warnings.push(t('apkg.medios_omitidos', { n: badMedia }));
