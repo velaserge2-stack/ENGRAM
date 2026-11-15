@@ -36,3 +36,14 @@ export async function mediaBlob(file: Blob, ref: ZipRef, name: string, max = LIM
   if (over) throw big(mb);
   return new Blob(parts as BlobPart[]);
 }
+
+/** Tamaño exacto del medio sin producirlo (deflate lo trae el directorio; sin comprimir salvo zstd, cuyo tamaño solo se sabe al descomprimir). */
+export async function exactSize(file: Blob, ref: ZipRef): Promise<number | null> {
+  if (ref.method === 8) return ref.usize;
+  if (ref.method !== 0) return null;
+  try {
+    const at = await dataStart(file, ref);
+    const h = new Uint8Array(await file.slice(at, at + 4).arrayBuffer());
+    return h[0] === 0x28 && h[1] === 0xb5 && h[2] === 0x2f && h[3] === 0xfd ? null : ref.csize;
+  } catch { return null; }
+}

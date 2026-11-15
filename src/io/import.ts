@@ -13,7 +13,7 @@ import type { ApkgResult } from './apkg';
 import type { LogEntry } from '../srs/engine';
 import { unzipSync } from 'fflate';
 import { isExportable, parseZip, type VaultFile } from './zip';
-import { mediaBlob } from './zipblob';
+import { exactSize, mediaBlob } from './zipblob';
 import { readZipIndex, type ZipRef } from './zipindex';
 
 const VAULT_ROOTS = ['decks/', 'notes/', 'media/', 'templates/', 'exams-bank/', 'exams/', 'docs/', 'calendar/', '.app/'];
@@ -128,7 +128,7 @@ export async function gather(incoming: IncomingFile[], opts: GatherOptions = {})
       warnings.push(...r.warnings.map((w) => `${name}: ${w}`));
       for (const d of r.decks) files.push({ path: d.path, data: new TextEncoder().encode(d.text) });
       const budget = { left: LIMITS.maxApkgTotalBytes };
-      for (const m of r.media) files.push(m.ref && file ? { path: `media/${m.name}`, data: new Uint8Array(0), size: m.ref.usize, lazy: lazyMedia(file, m.ref, m.name, budget) } : { path: `media/${m.name}`, data: m.data });
+      for (const m of r.media) files.push(m.ref && file ? { path: `media/${m.name}`, data: new Uint8Array(0), size: m.ref.usize, lazy: lazyMedia(file, m.ref, m.name, budget), exactSize: () => exactSize(file, m.ref!) } : { path: `media/${m.name}`, data: m.data });
       log.push(...r.log);
       anki = { decks: (anki?.decks ?? 0) + r.decks.length, cards: (anki?.cards ?? 0) + r.decks.reduce((a, d) => a + d.cards, 0), media: (anki?.media ?? 0) + r.media.length, reviews: (anki?.reviews ?? 0) + r.log.length };
     } catch (e) {
@@ -227,9 +227,10 @@ export async function buildPlan(vault: VaultAdapter, files: VaultFile[]): Promis
     if (have.has(f.path) || (lower.has(f.path.toLowerCase()) && (await vault.exists(f.path)))) {
       if (f.lazy) {
         // medio de un .apkg: se produce, se compara y se suelta (nada se retiene)
-        const b = await f.lazy();
+        // primero el tamaño (lo sabe el descriptor): solo si coincide se descomprime para comparar la suma
         const cur = vault.hash ? await vault.hash(f.path) : null;
-        status = cur && cur.size === b.size && cur.hash === (await blobChecksum(b)) ? 'same' : 'conflict';
+        const known = (await f.exactSize?.()) ?? null;
+        status = cur && (known === null || cur.size === known) && cur.hash === (await blobChecksum(await f.lazy())) ? 'same' : 'conflict';
       } else if (f.blob) {
         // grande: tamaño y suma por trozos (sin leer ninguno de los dos entero)
         const cur = vault.hash ? await vault.hash(f.path) : null;
