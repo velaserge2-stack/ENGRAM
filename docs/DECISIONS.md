@@ -530,7 +530,7 @@
 ### 5 · Lienzo (`src/screens/spaces.tsx`, `src/lib/canvaszoom.ts`)
 - Durante el gesto la vista vive en una ref y se aplica en rAF al plano, al porcentaje y al minimapa; `setV` + guardar solo al terminar (soltar, `gestureend`, o 150 ms sin rueda). `Window` va con `memo` y una API estable (las funciones leen el espacio vigente de una ref), sin `scale` como prop.
 - Arrastrar mueve con `transform` y redimensionar cambia ancho/alto directo en el DOM; se confirma una sola vez al soltar (antes, un guardado por cada `pointermove`).
-- Culling: un panel monta su contenido solo si su rectángulo cruza la vista (+200 px); de esos, máximo 4 despiertos con prioridad del foco (`awakePanels`, probado). Bajo 35 % de zoom, tarjeta ligera (icono y título grandes) en lugar del contenido.
+- Culling: un panel monta su contenido solo si su rectángulo cruza la vista (+200 px); de esos, máximo 10 despiertos con prioridad del foco (`awakePanels`, probado). Bajo 35 % de zoom, tarjeta ligera (icono y título grandes) en lugar del contenido.
 - `will-change: transform` solo mientras dura el gesto (`.canvas-wrap.moving`): con él fijo, Safari conserva una capa enorme rasterizada a la escala con que se creó (texto borroso tras el zoom y memoria de GPU constante); al quitarlo, se vuelve a rasterizar nítido una vez. En Chromium headless no hay diferencia medible en tareas largas; validar en iPad con `?perf`.
 
 ### Modo `?perf`

@@ -63,7 +63,7 @@ const TYPES = (): { t: PType; label: string; icon: preact.JSX.Element }[] => ([
   { t: 'calendario', label: tr('calendar.calendario'), icon: <CalendarDays size={18} /> },
   { t: 'sonido', label: tr('addons.n_ambient'), icon: <Headphones size={18} /> },
 ]);
-const MAX_ACTIVE = 4;
+const MAX_ACTIVE = 10;
 /** Id único aunque se creen dos paneles en el mismo milisegundo. */
 let uidSeq = 0;
 const uid = () => `${Date.now().toString(36)}${(++uidSeq).toString(36)}${Math.random().toString(36).slice(2, 5)}`;
