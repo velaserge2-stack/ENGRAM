@@ -130,7 +130,7 @@ export async function buildApkg(o: BuildOpts): Promise<{ bytes: Uint8Array; stat
           insCard.run([c.id, n.id, did, c.ord, mod, s.type, s.queue, s.due, s.ivl, s.factor, s.reps, s.lapses]);
           stats.cards++;
         }
-        if ((i + 1) % 500 === 0) {
+        if ((i + 1) % 250 === 0) {
           o.onProgress?.({ phase: 'notes', done: i + 1, total: notes.length });
           await yieldThread();
         }

@@ -157,6 +157,7 @@ function html(text: string, ctx: Ctx, inline = true): string {
   const hold = (h: string) => `${tags.push(h) - 1}`;
   const src = text
     .replace(PH, '')
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '') // \x1f separa campos en Anki
     .replace(/!\[\[([^\]\n]+)\]\]/g, (all, inner: string) => {
       const [ref, ...opts] = inner.split('|');
       const name = ref!.trim();

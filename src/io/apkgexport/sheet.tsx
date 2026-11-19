@@ -12,6 +12,7 @@ import { safeSegment } from '../../notes/model';
 import { useApp } from '../../state';
 import { Sheet } from '../../ui/kit';
 import { readTextOr } from '../../vault/util';
+import { LIMITS } from '../limits';
 import { deliver, stamp } from '../share';
 import { deckNameOf, mapDeck, type MapResult } from './map';
 import { buildSched, cardIdMapOf } from './sched';
@@ -47,12 +48,20 @@ export function ExportAnkiSheet(props: { onClose: () => void }) {
       const picked = col.decks.filter((d) => sel.has(d.path));
       const used = new Set<number>();
       const mapped: MapResult[] = [];
-      for (const d of picked) mapped.push(mapDeck(deckNameOf(d.path), parseDeck(await readTextOr(app.vault, d.path, '')), { used }));
+      for (const d of picked) {
+        await new Promise<void>((r) => setTimeout(r, 0)); // cede el hilo entre mazos
+        mapped.push(mapDeck(deckNameOf(d.path), parseDeck(await readTextOr(app.vault, d.path, '')), { used }));
+      }
       const media = new Map<string, Uint8Array>();
+      let bytes = 0;
       for (const m of mapped) for (const orig of m.media.keys()) {
         if (media.has(orig)) continue;
         const p = await resolveMedia(app.vault, orig);
-        if (p) media.set(orig, await app.vault.read(p));
+        if (!p || !p.startsWith('media/') || p.includes('..')) continue; // solo medios de la bóveda
+        const b = await app.vault.read(p);
+        // tope antes de acumular en memoria (el Worker vuelve a comprobarlo)
+        if (b.length > LIMITS.maxApkgEntryBytes || (bytes += b.length) > LIMITS.maxApkgTotalBytes) throw Object.assign(new Error('too big'), { code: 'apkg_export_too_big' });
+        media.set(orig, b);
       }
       const req: ExportRequest = { decks: mapped, media };
       if (history) {
