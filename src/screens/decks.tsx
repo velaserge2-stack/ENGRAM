@@ -1,5 +1,5 @@
 import { locale, t } from '../i18n';
-import { BookOpen, Download, FilePlus2, FolderInput, FolderOutput, Import, Pause as PauseIcon, Pencil, Settings2, Layers, Trash2, ListChecks, RotateCcw } from 'lucide-preact';
+import { BookOpen, Download, FilePlus2, FolderInput, FolderOutput, Import, PackageOpen, Pause as PauseIcon, Pencil, Settings2, Layers, Trash2, ListChecks, RotateCcw } from 'lucide-preact';
 import { useRef, useState } from 'preact/hooks';
 import { inFolder, listTrash, purgeTrash, restoreTrash, trashDecks, trashPlan, withSubdecks, type TrashEntry } from '../data/decktrash';
 import type { Deck } from '../data/collection';
@@ -166,6 +166,8 @@ export function DeckPanel(props: { title?: string; select?: { keys: Set<string>;
     setPendingFile(new File([zip as BlobPart], `${d.name}.zip`, { type: 'application/zip' }));
   };
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [AnkiSheet, setAnkiSheet] = useState<null | typeof import('../io/apkgexport/sheet').ExportAnkiSheet>(null);
+  const openExport = () => void import('../io/apkgexport/sheet').then((m) => setAnkiSheet(() => m.ExportAnkiSheet), () => app.toast(t('share.error')));
 
   return (
     <section class="glass panel" aria-label={t('decks.mazos')}>
@@ -204,9 +206,11 @@ export function DeckPanel(props: { title?: string; select?: { keys: Set<string>;
         <button type="button" class="btn" onClick={() => app.openSheet('import')}><FolderInput size={18} />{' '}{t('decks.importar_compartidos')}</button>
         <button type="button" class="btn" onClick={() => setCreating(true)}><FilePlus2 size={18} />{' '}{t('decks.crear_mazo')}</button>
         <button type="button" class="btn" onClick={() => app.openSheet('import')}><Import size={18} />{' '}{t('decks.importar_archivo')}</button>
+        <button type="button" class="btn" onClick={openExport}><PackageOpen size={18} />{' '}{t('decks.exportar_anki')}</button>
       </div>
       {opts && <DeckOptions deck={opts} onClose={() => setOpts(null)} />}
       {creating && <CreateDeck onClose={() => setCreating(false)} />}
+      {AnkiSheet && <AnkiSheet onClose={() => setAnkiSheet(null)} />}
       {pendingFile && (
         <Sheet title={t('decks.exportar_mazo_con_medios')} onClose={() => setPendingFile(null)}>
           <div class="stack">

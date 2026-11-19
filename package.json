@@ -23,6 +23,7 @@
     "e2e:p6": "node e2e/p6.mjs",
     "e2e:p7": "node e2e/p7.mjs",
     "e2e:p10": "node e2e/p10.mjs",
+    "e2e:p16": "node e2e/p16.mjs",
     "e2e:p12": "node e2e/p12.mjs",
     "e2e:p14": "node e2e/p14.mjs",
     "e2e:p15": "node e2e/p15.mjs",

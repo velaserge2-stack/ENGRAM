@@ -36,6 +36,13 @@ En Anki: **Archivo → Exportar → «Paquete de mazos de Anki (.apkg)»**, elig
 - Si un paquete no se puede leer, la hoja dice por qué y qué hacer (por ejemplo, volver a exportar marcando «Compatibilidad con versiones antiguas»).
 - Límites: se convierten Básica, Inversa (y «ambos»), Cloze; las plantillas de tarjeta personalizadas, el CSS y los campos con LaTeX o JavaScript de Anki no se reproducen (se importa el texto de los campos). Las notas con el primer campo vacío se omiten y se cuentan.
 
+## Exportar a Anki
+Mazos → **Exportar Anki** → elige los mazos (y marca el historial si quieres llevar tus repasos) → **Guardar en Archivos**. Sale un `.apkg` para importar en Anki (**Archivo → Importar**).
+- Salen Básica y Cloze como tipos de Anki; los demás tipos, como Básica.
+- Se genera en formato antiguo (v11), compatible con versiones antiguas de Anki.
+- No salen plantillas personalizadas, CSS ni campos con LaTeX. Medios de más de 300 MB: la exportación se cancela.
+- Tus archivos `.md` no cambian al exportar. Probado solo en Chromium; falta probar en Anki real y en el iPad.
+
 ## Formato de la bóveda
 ```
 decks/<Carpeta>/<Mazo>.md     mazos (Q::/A::, Cloze:, MC::, … con ^id)

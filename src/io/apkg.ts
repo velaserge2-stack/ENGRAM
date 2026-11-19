@@ -11,8 +11,15 @@ import { LIMITS } from './limits';
 import { readEntry, readZipIndex, ZipIndexError, type ZipEntry, type ZipRef } from './zipindex';
 import type { LogEntry } from '../srs/engine';
 
-interface SqlDb {
+export interface SqlStmt {
+  run(params?: unknown[]): void;
+  free(): boolean;
+}
+export interface SqlDb {
   exec(sql: string): { columns: string[]; values: unknown[][] }[];
+  run(sql: string, params?: unknown[]): unknown;
+  prepare(sql: string): SqlStmt;
+  export(): Uint8Array;
   close(): void;
 }
 export interface SqlJs {

@@ -22,7 +22,7 @@ declare module 'turndown' {
   }
 }
 declare module 'sql.js/dist/sql-wasm-browser.js' {
-  const init: (cfg: { locateFile: (f: string) => string }) => Promise<unknown>;
+  const init: (cfg: { locateFile: (f: string) => string }) => Promise<import('./io/apkg').SqlJs>;
   export default init;
 }
 declare module 'sql.js/dist/sql-wasm-browser.wasm?url' {

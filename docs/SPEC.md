@@ -141,6 +141,13 @@ Nota honesta en Ajustes: *"Safari guarda tu bóveda en un espacio privado que no
 
 ---
 
+## 5b. Exportar a Anki
+- Mazos → «Exportar Anki»: elige mazos y, opcionalmente, incluye el historial de repasos.
+- Salida: `.apkg` legacy v11 (compatible con versiones antiguas de Anki), generado en un Worker; entrega preparar → entregar (`navigator.share` dentro del gesto, o descarga).
+- Tipos nativos de Anki (Básica, Cloze); el resto se exporta como Básica. Plantillas, CSS y campos con LaTeX no se reproducen.
+- Tus archivos `.md` no se modifican. Medios > 300 MB: aborta con aviso.
+- **Criterio**: exportar, reimportar en Engrama y obtener las mismas cifras; `npm run e2e:p16`. Sin probar en Anki real ni iPad.
+
 ## 6. PWA y detalles de Safari
 - `manifest.webmanifest`: `display: standalone`, `start_url`, `scope`, `theme_color`, `background_color`, íconos 192/512 y máscara.
 - `<head>`: `apple-touch-icon` 180×180, `apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style: black-translucent`, `viewport` con `viewport-fit=cover`, `theme-color` para claro y oscuro.
