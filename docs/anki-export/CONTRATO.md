@@ -78,3 +78,10 @@ Rama `anki-exportar`. Solo lectura; este archivo es el único escrito.
 - revlog: entradas con `rating`, sin `op`, no deshechas (`undo` con `ref` = ts) y con `cid` en el mapa; orden (ts, índice). `id = max(ts, id previo + 1)` ms; `ease` = rating; `type` por `state` previo: 0/1 → 0, 2 → 1 (o 3 si ts < `due_before` − 1 día), 3 → 2; sin `state`: 0 la primera de la tarjeta, 1 después.
 - `ivl` de la fila = (`due_before` del repaso siguiente de la tarjeta, o `card.due` si es el último) − ts: días redondeados si ≥ 1 día, si no −segundos. `lastIvl` = `ivl` de la fila anterior de la tarjeta (0 la primera). `factor` = el actual de la tarjeta (0 si `type 0`). `time` = ms acotado a 1..3 600 000.
 - Límite conocido: `left` de las tarjetas en aprendizaje queda en 0 (write.ts); Anki la trata como paso final.
+
+**Fase 4 · UI `src/io/apkgexport/sheet.tsx` (`ExportAnkiSheet`, e2e `e2e/p16.mjs`)**
+- Botón «Exportar Anki» (`decks.exportar_anki`, ícono `PackageOpen`) en `.footer-pills` de `decks.tsx`; hoja y exportador por `import()` al pulsar (nada en el paquete inicial; el Worker nace al preparar).
+- Lee `app.col` (mazos, estados, log) y la bóveda solo en lectura: `parseDeck` → `mapDeck` (un `used` común) → medios con `resolveMedia` → `buildSched` si «Incluir historial» (apagada) → Worker con progreso (notas 0–60 %, medios 60–85 %, zip 85–100 %).
+- El `File` (`Engrama-<mazo|todos|mazos>-AAAA-MM-DD.apkg`) queda en el estado; «Guardar / Compartir» llama a `deliver` en el toque. Mazos vacíos deshabilitados («Vacío»).
+- Resumen con `tn('apkgexport.*')`: mazos · tarjetas · imágenes · repasos (+ convertidas, omitidas, medios faltantes si > 0). `apkg_export_too_big` → `apkgexport.demasiado_grande`.
+- Claves `apkgexport.*` y `decks.exportar_anki` en es/en/fr. Pendiente Fase 6: añadir `e2e:p16` a la lista del CLAUDE.md.
