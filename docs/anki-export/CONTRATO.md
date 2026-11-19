@@ -69,3 +69,12 @@ Rama `anki-exportar`. Solo lectura; este archivo es el único escrito.
 - Errores: `ApkgExportError('apkg_export_too_big')` si notas > `maxApkgNotes`, colección o un medio > `maxApkgEntryBytes`, o total > min(`maxApkgTotalBytes`, 1,5 GB). Medio sin bytes: se omite y suma `missingMedia`.
 - Worker: entrada `ExportRequest { decks, media: Map<original, Uint8Array>, sched?, revlog? }`; salida `{ progress }`… y `{ ok:true, result:{ bytes, stats } }` (bytes transferidos) o `{ ok:false, error, code }` (`apkg_export_too_big` | `apkg_export_failed`).
 - Tipos: `SqlDb` (exportado en `apkg.ts`) añade `run`, `prepare` (`SqlStmt`: `run`, `free`) y `export`; `initSqlJs` en `env.d.ts` devuelve `SqlJs`.
+
+**Fase 3 · `src/io/apkgexport/sched.ts` (puro, probado en `tests/apkgexport-sched.test.ts`, con ida y vuelta `buildSched → buildApkg → convertApkg`)**
+- `buildSched({ states, log }, cardIdMap, crt) → { sched: Map<idAnki, AnkiSched>, revlog: AnkiRevlog[] }`; `cardIdMapOf(decks)` construye `cid → idAnki` con la regla de write.ts. Solo se usa si la casilla «Incluir historial» está marcada.
+- Estado: New → sin entrada (nueva de write.ts) salvo suspendida/enterrada (`type 0, queue −1|−2, due 0`); Learning `type 1, queue 1`; Review `type 2, queue 2`; Relearning `type 3, queue 1`. Suspendida `queue −1`, enterrada (`buried` ≠ null) `−2`.
+- `due`: (re)aprendizaje = `floor(card.due / 1000)` (s de epoch); repaso = `floor((due_s − crt) / 86400)` (negativo si vencida).
+- `ivl` = `max(1, round(scheduled_days || stability))` días; 0 en aprendizaje. `factor` = `round(1300 + (10 − D)/9 · 1700)` ‰, D acotada 1–10 (1 → 3000, 10 → 1300). `reps`, `lapses` del estado FSRS.
+- revlog: entradas con `rating`, sin `op`, no deshechas (`undo` con `ref` = ts) y con `cid` en el mapa; orden (ts, índice). `id = max(ts, id previo + 1)` ms; `ease` = rating; `type` por `state` previo: 0/1 → 0, 2 → 1 (o 3 si ts < `due_before` − 1 día), 3 → 2; sin `state`: 0 la primera de la tarjeta, 1 después.
+- `ivl` de la fila = (`due_before` del repaso siguiente de la tarjeta, o `card.due` si es el último) − ts: días redondeados si ≥ 1 día, si no −segundos. `lastIvl` = `ivl` de la fila anterior de la tarjeta (0 la primera). `factor` = el actual de la tarjeta (0 si `type 0`). `time` = ms acotado a 1..3 600 000.
+- Límite conocido: `left` de las tarjetas en aprendizaje queda en 0 (write.ts); Anki la trata como paso final.
