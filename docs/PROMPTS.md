@@ -1625,3 +1625,12 @@ Que la app arranque y responda más rápido y que mover, importar y exportar muc
 
 # PROMPT 21-B: Continuación (fases 3 a 9)
 Otro agente hizo las fases 0–2 (PR #27) y dejó la 3a a medias en `rendimiento-3a-wip`. Retomarla en `rendimiento-2` desde `main`, revisar el diff entero con ojo crítico, completarla, medirla y verificarla; luego 3b, pausa, y fases 4–9 con las mismas reglas. Leer `CLAUDE.md`, `docs/rendimiento/*` y `docs/audit/MAPA.md`; respetar `docs/audit/05-correcciones.md`. Registrar modelo y tokens por tarea en `LOG.md`. Entrega: tabla antes/después, optimizaciones aplicadas y descartadas con su motivo, límites de Safari y lo que no se pudo verificar sin iPad.
+
+---
+
+## Prompt 21 · Exportar Anki (rama `anki-exportar`)
+Exportar mazos a `.apkg` para abrirlos en Anki, sin tocar los archivos del usuario.
+1. Botón «Exportar Anki» en Mazos; hoja con selección de mazos y historial opcional (`src/io/apkgexport/`).
+2. Escritor `.apkg` legacy v11 en Worker; mapeo a modelo de Anki y conversión FSRS → programación (`CONTRATO.md`).
+3. Criterios: ida y vuelta en Engrama (mismas cifras), `npm run e2e:p16`. Sin probar en Anki real, iPad ni Safari.
+Nota: el número 21 ya lo usa «Prompt 21 · rendimiento»; revisar la numeración.
