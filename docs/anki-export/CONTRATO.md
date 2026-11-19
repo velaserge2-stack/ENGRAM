@@ -58,3 +58,14 @@ Rama `anki-exportar`. Solo lectura; este archivo es el único escrito.
 - `mediaName(original)`: solo basename, sin controles ni `..`/`:|?*<>`; si cambió, sufijo `-<6 hex del original>` (estable); `Media` en `![[…]]` y `![](…)` (no http/data) → `<img src>`; audio → `[sound:…]`. El llamador (fase 2) debe leer `media/<original>` y guardarlo con el nombre saneado.
 - `converted` cuenta por tipo las notas que pasan a Basic (list, olist, mc, match, order, type, io). `io` solo conserva la imagen (sin rectángulos). `skipped`: sin `^id` o con errores de formato.
 - HTML: markdown-it `html:false`; solo se reconoce Markdown estándar (`==`, `++`, colores `{.x}` se aplanan; wikilinks → texto). Sin etiquetas, `on*` ni `javascript:` del usuario.
+
+**Fase 2 · `src/io/apkgexport/write.ts` + `worker.ts` (probado en `tests/apkgexport-write.test.ts`, ida y vuelta con `convertApkg` y `PRAGMA integrity_check` en Python)**
+- `buildApkg({ SQL, decks: MapResult[], readMedia(original) → Uint8Array|undefined (o Promise), sched?, revlog?, onProgress?({phase:'notes'|'media'|'zip', done, total}), now? }) → Promise<{ bytes, stats: { decks, notes, cards, media, revlog, converted, skipped, missingMedia } }>`.
+- `sched?: Map<idTarjetaAnki:number, AnkiSched>`; `AnkiSched = { type, queue, due, ivl, factor, reps, lapses }` (sin entrada: nueva, `type 0, queue 0, due` = posición 1, 2…). `due` de repaso = días desde `crt`; `crtOf(now)` = medianoche UTC en s (lo que se escribe en `col.crt`).
+- `revlog?: AnkiRevlog[]`; `AnkiRevlog = { id (ms), cid (id de tarjeta de Anki), ease 1–4, ivl, lastIvl, factor, time (ms), type 0–3 }`; se escribe con `usn -1`.
+- Id de tarjeta de Anki ↔ `cid` de Engrama: `note.cards[i]` con `note.src` → `src` (basic, ord 0), `src:r` (reversa ord 1), `src:c<ord+1>` (cloze).
+- Esquema v11 (`collection.anki2`, `ver 11`, `schedVer 2`): `col`, `notes`, `cards`, `revlog`, `graves` + 7 índices `ix_*`; mazos Default (1), los exportados y sus padres (`A` de `A::B`); `dconf` 1. `col.mod/scm` en ms; `notes/cards.mod` en s.
+- Zip con `Zip` de fflate: `collection.anki2` y `media` con DEFLATE; medios `0`,`1`… con STORE; `mtime = now` (mismo input y `now` → mismos bytes).
+- Errores: `ApkgExportError('apkg_export_too_big')` si notas > `maxApkgNotes`, colección o un medio > `maxApkgEntryBytes`, o total > min(`maxApkgTotalBytes`, 1,5 GB). Medio sin bytes: se omite y suma `missingMedia`.
+- Worker: entrada `ExportRequest { decks, media: Map<original, Uint8Array>, sched?, revlog? }`; salida `{ progress }`… y `{ ok:true, result:{ bytes, stats } }` (bytes transferidos) o `{ ok:false, error, code }` (`apkg_export_too_big` | `apkg_export_failed`).
+- Tipos: `SqlDb` (exportado en `apkg.ts`) añade `run`, `prepare` (`SqlStmt`: `run`, `free`) y `export`; `initSqlJs` en `env.d.ts` devuelve `SqlJs`.
