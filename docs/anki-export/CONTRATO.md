@@ -50,4 +50,11 @@ Rama `anki-exportar`. Solo lectura; este archivo es el único escrito.
 - No se leyó el texto completo del prompt de la tarea, solo su resumen: si el prompt cita otros nombres, no están verificados.
 
 ## Convenciones y decisiones
-(vacío: lo rellenan las siguientes fases)
+**Fase 1 · `src/io/apkgexport/map.ts` (puro, probado en `tests/apkgexport-map.test.ts`)**
+- `mapDeck(deckName, parsedDeck, { used? }) → { deckName, deckId, notes: AnkiNote[], media: Map<original, saneado>, converted, skipped }`. `used` (Set de ids) se comparte entre mazos para evitar colisiones; en colisión el id sube de 1 en 1 (determinista según el orden).
+- `AnkiNote { id, guid, model: 'basic'|'reversed'|'cloze', fields, tags, sfld, csum, cards: {id, ord}[], media: string[], src }`. `ord`: 0/1 (reversa), `n-1` (cloze).
+- `MODELS`: ids fijos `1700000000001/2/3` (`Basic`, `Basic (and reversed card)`, `Cloze`; campos Front/Back, Text/Back Extra). `deckNameOf('decks/A/B.md') → 'A::B'`.
+- `ankiId(seed, used?)`: SHA-1 → ms de epoch (1,4e12–1,68e12). `guidFrom(id)`: base 91, 10 caracteres, del `^id`. `sha1(str)`: síncrono. `csum` = primeros 8 hex de SHA-1 del `sfld` (primer campo sin HTML).
+- `mediaName(original)`: solo basename, sin controles ni `..`/`:|?*<>`; si cambió, sufijo `-<6 hex del original>` (estable); `Media` en `![[…]]` y `![](…)` (no http/data) → `<img src>`; audio → `[sound:…]`. El llamador (fase 2) debe leer `media/<original>` y guardarlo con el nombre saneado.
+- `converted` cuenta por tipo las notas que pasan a Basic (list, olist, mc, match, order, type, io). `io` solo conserva la imagen (sin rectángulos). `skipped`: sin `^id` o con errores de formato.
+- HTML: markdown-it `html:false`; solo se reconoce Markdown estándar (`==`, `++`, colores `{.x}` se aplanan; wikilinks → texto). Sin etiquetas, `on*` ni `javascript:` del usuario.
