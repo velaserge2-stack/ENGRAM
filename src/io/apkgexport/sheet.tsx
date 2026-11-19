@@ -83,13 +83,14 @@ export function ExportAnkiSheet(props: { onClose: () => void }) {
         w.onerror = (e) => rej(new Error(e.message));
         w.postMessage(req, [...media.values()].map((b) => b.buffer as ArrayBuffer));
       });
-      w.terminate();
       const label = picked.length === 1 ? safeSegment(picked[0]!.name) || 'mazo' : all ? 'todos' : 'mazos';
       setFile(new File([r.bytes as BlobPart], `Engrama-${label}-${stamp().slice(0, 10)}.apkg`, { type: 'application/octet-stream' }));
       setStats(r.stats);
     } catch (e) {
       setErr((e as { code?: string }).code === 'apkg_export_too_big' ? t('apkgexport.demasiado_grande') : t('apkgexport.error', { msg: errMsg(e) }));
     }
+    worker.current?.terminate();
+    worker.current = null;
     setPct(null);
   };
 

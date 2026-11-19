@@ -249,7 +249,10 @@ export function mapDeck(deckName: string, deck: ParsedDeck, opts: MapOpts = {}):
       tags: [],
       sfld,
       csum: parseInt(hex(sha1(sfld), 4), 16),
-      cards: cardsOf(n).map((c) => ({ id: ankiId(`card:${c.cid}`, used), ord: model === 'cloze' ? c.ord - 1 : model === 'reversed' ? c.ord : 0 })),
+      // Basic tiene una sola plantilla: una tarjeta por nota (la oclusión con varios rectángulos daría ord repetidos)
+      cards: model === 'basic'
+        ? [{ id: ankiId(`card:${n.id}`, used), ord: 0 }]
+        : cardsOf(n).map((c) => ({ id: ankiId(`card:${c.cid}`, used), ord: model === 'cloze' ? c.ord - 1 : c.ord })),
       media: [...ctx.used],
       src: n.id,
     });

@@ -66,6 +66,27 @@ describe('exportador · casos extremos', () => {
     expect(JSON.parse(col[1] as string)).toBeTruthy();
   });
 
+  it('un mazo «Default» (o «default::x») se funde con el mazo 1 de Anki', async () => {
+    const SQL = await sql();
+    const used = new Set<number>();
+    const decks = ['Default', 'default::Sub'].map((n, i) => mapDeck(n, parseDeck(`Q:: a${i}\nA:: b ^d000${i}\n`), { used }));
+    const out = await buildApkg({ SQL, decks, readMedia: () => undefined, now: NOW });
+    const db = new SQL.Database(unzipSync(out.bytes)['collection.anki2']!);
+    const ds = Object.values(JSON.parse(db.exec('SELECT decks FROM col')[0]!.values[0]![0] as string) as Record<string, { id: number; name: string }>);
+    const dids = db.exec('SELECT DISTINCT did FROM cards ORDER BY did')[0]!.values.map((r) => r[0]);
+    db.close();
+    expect(ds.filter((d) => d.name.toLowerCase() === 'default').map((d) => d.id)).toEqual([1]);
+    expect(ds.length).toBe(2);
+    expect(dids).toContain(1);
+    expect(new Set(ds.map((d) => d.name.toLowerCase())).size).toBe(ds.length);
+  });
+
+  it('oclusión con varios rectángulos: una sola tarjeta Basic (sin ord repetidos)', () => {
+    const n = mapDeck('O', parseDeck('IO: ![[a.png]]\n<!-- io: 1,2,3,4;5,6,7,8 --> ^o0001\n')).notes[0]!;
+    expect(n.model).toBe('basic');
+    expect(n.cards.map((c) => c.ord)).toEqual([0]);
+  });
+
   it('HTML hostil y separador de campos no escapan del campo', async () => {
     const SQL = await sql();
     const d = mapDeck('H', parseDeck('Q:: <img src=x onerror=alert(1)> [x](javascript:alert(1)) a\x1fb\nA:: <script>alert(1)</script> ![](x"onerror="y.png) ![[a"b<c>.png|alt "><svg>]] ^h0001\n'));

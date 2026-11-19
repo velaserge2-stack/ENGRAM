@@ -90,7 +90,9 @@ const yieldThread = () => new Promise<void>((r) => setTimeout(r, 0));
 /** Construye el .apkg. Lanza `ApkgExportError('apkg_export_too_big')` si supera los límites. */
 export async function buildApkg(o: BuildOpts): Promise<{ bytes: Uint8Array; stats: BuildStats }> {
   const now = o.now ?? Date.now(), mod = Math.floor(now / 1000), crt = crtOf(now);
-  const notes: { n: AnkiNote; did: number }[] = o.decks.flatMap((d) => d.notes.map((n) => ({ n, did: d.deckId })));
+  // Anki ya tiene «Default» (id 1) y los nombres de mazo no distinguen mayúsculas: un mazo así se funde con el 1
+  const didOf = (name: string, id: number) => (name.toLowerCase() === 'default' ? 1 : id);
+  const notes: { n: AnkiNote; did: number }[] = o.decks.flatMap((d) => d.notes.map((n) => ({ n, did: didOf(d.deckName, d.deckId) })));
   if (notes.length > LIMITS.maxApkgNotes) throw new ApkgExportError('apkg_export_too_big');
   const stats: BuildStats = { decks: o.decks.length, notes: notes.length, cards: 0, media: 0, revlog: o.revlog?.length ?? 0, converted: {}, skipped: 0, missingMedia: 0 };
   for (const d of o.decks) {
@@ -100,13 +102,13 @@ export async function buildApkg(o: BuildOpts): Promise<{ bytes: Uint8Array; stat
 
   // mazos: Default (1), los exportados y sus padres («A» de «A::B»)
   const decks: Record<string, unknown> = { 1: deckJson(1, 'Default', mod) };
-  const byName = new Map(o.decks.map((d) => [d.deckName, d.deckId]));
+  const byName = new Map(o.decks.map((d) => [d.deckName, didOf(d.deckName, d.deckId)]));
   const ids = new Set([1, ...byName.values()]);
   for (const name of [...byName.keys()]) {
     const parts = name.split('::');
     for (let i = 1; i < parts.length; i++) {
       const p = parts.slice(0, i).join('::');
-      if (!byName.has(p)) byName.set(p, ankiId(`deck:${p}`, ids));
+      if (!byName.has(p)) byName.set(p, didOf(p, ankiId(`deck:${p}`, ids)));
     }
   }
   for (const [name, id] of byName) decks[id] = deckJson(id, name, mod);

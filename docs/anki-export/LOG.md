@@ -9,3 +9,4 @@ Tarea · dificultad · modelo · resultado · tokens aprox.
 - Fase 3 · difícil · opus · sched.ts + 4 tests verdes · ~101K
 - Fase 4 · media · sonnet · botón+hoja+i18n+e2e:p16 verdes (Chromium) · ~120K
 - Fase 5 · media · sonnet · extremos, seguridad (3 arreglos), suite completa verde (Chromium) · ~123K
+- Fase 6a · difícil · opus · revisión del diff: 3 arreglos (Default, oclusión, Worker) · ~117K
