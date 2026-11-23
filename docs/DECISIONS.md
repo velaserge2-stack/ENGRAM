@@ -908,3 +908,12 @@ Plan y estados en `docs/diagramas/PLAN-22.md` y `docs/diagramas/estado-p22-*.md`
 - **Precache**: `vite.config.ts` quita del SW los chunks cuyos `moduleIds` (existe en Vite 8) pasan por `node_modules/(ai|@ai-sdk|zod|…)`; el SW los guarda al primer uso. `tests/chat-config.test.ts` lo comprueba sobre `dist/`.
 - **Límites por defecto** duplicados en `settings.ts` (para no cargar `src/chat`); una prueba exige que coincidan con `PROVIDERS`.
 - **Sin verificar**: CORS real en Safari/iPad, límites y políticas de datos de los proveedores, modelo `gemini-3.5-flash`.
+
+## Asistente (Prompt 23)
+- **Excepción a «sin red»**: solo con el add-on `assistant` encendido y claves propias; hosts exactos de la CSP: `generativelanguage.googleapis.com` y `api.groq.com`. Ningún otro.
+- **AI SDK de Vercel en el navegador**: `ai` 7.0.181, `@ai-sdk/google` 4.0.125 y `@ai-sdk/groq` 4.0.86 (Apache-2.0), zod 4.6.7 (MIT). Peso bajo demanda (gzip): Gemini ≈ 180 kB, Groq ≈ 134 kB; fuera del precache del SW (se guardan al primer uso).
+- **Claves** en `localStorage` `engrama.chat.keys` (máx. 3); nunca en la bóveda, el respaldo, Ajustes ni logs. Contadores de uso en `engrama.chat.usage`.
+- **Rotación**: una petición a la vez. Cuota o auth → siguiente clave (una vez por clave, solo si aún no llegó texto). 429 de minuto → espera con la misma clave (tope 60 s).
+- **Herramientas que solo proponen**: escribir exige Aceptar en la vista previa. Deshacer compara el contenido `after` y no escribe si el archivo cambió. Un archivo nuevo queda vacío; nunca se borra.
+- **Límites y modelos por defecto sin verificar** (🔸): `gemini-3.5-flash`, `llama-3.3-70b-versatile` y sus cuotas. Las docs oficiales de Google y Groq no eran accesibles al escribir esto.
+- **Aviso de datos**: el nivel gratuito de Gemini puede usar lo enviado para mejorar productos y puede tener revisión humana; el aviso está en Ajustes («no envíes datos sensibles»).
