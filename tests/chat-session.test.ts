@@ -58,7 +58,7 @@ describe('chat session', () => {
     const r = await runTurn({ ...base, fetch: f });
     expect(r).toMatchObject({ ok: false, code: 'auth', rotated: true });
     expect(calls).toHaveLength(2);
-    expect(loadKeys().keys.map((k) => k.status)).toEqual(['invalid', 'active']);
+    expect(loadKeys().keys.map((k) => k.status)).toEqual(['invalid', 'invalid']);
   });
   it('429 por minuto espera retry-after (tope 60 s) con la misma clave', async () => {
     const { f, calls } = fake(err(429, 'tokens per minute', { 'retry-after': '500' }), sse('ok'));

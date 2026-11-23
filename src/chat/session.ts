@@ -82,9 +82,9 @@ async function run(o: TurnOpts): Promise<TurnResult> {
     const d = decide(c.kind);
     if (text || d === 'fail') return fail(c.kind, message);
     if (d === 'rotate') {
-      if (rotated) return fail(c.kind, message);
       store = markKey(store, k.id, c.kind === 'auth' ? 'invalid' : 'exhausted', c.kind === 'auth' ? undefined : c.resetAt ?? now() + 3_600_000);
       saveKeys(store);
+      if (rotated) return fail(c.kind, message); // la segunda también falló: queda marcada (el panel avisa «todas agotadas»)
       skip.add(k.id); rotated = true;
       const next = pickKey(store.keys, now(), skip);
       if (next) o.onStatus?.({ code: 'rotated', alias: next.alias });

@@ -40,6 +40,7 @@ import { onNoteSaveFailed } from './notes/store';
 
 // hojas poco frecuentes: se cargan al abrirlas
 const AddCardSheet = lazy(() => import('./screens/deck').then((m) => ({ default: m.AddCardSheet })));
+const ChatHost = lazy(() => import('./chat/panel'));
 const Palette = lazy(() => import('./screens/palette').then((m) => ({ default: m.Palette })));
 const DAY = 86_400_000;
 
@@ -307,6 +308,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
       {keysHelp && <ShortcutSheet onClose={() => setKeysHelp(false)} />}
       {addonOn(settings, 'ambient') && <AmbientController />}
       {addonOn(settings, 'ambient') && phone && <MiniAmbient floating />}
+      {addonOn(settings, 'assistant') && <Suspense fallback={null}><ChatHost /></Suspense>}
       {sheet === 'ambient' && <Sheet title={t('addons.n_ambient')} onClose={() => setSheet(null)}><AmbientPlayer /></Sheet>}
       {toastMsg && <div class="toast glass strong" role="status" aria-live="polite">{toastMsg}{toastAct && <>{' '}<button type="button" class="btn small toast-act" onClick={() => { const a = toastAct; setToast(null); setToastAct(null); a.run(); }}>{toastAct.label}</button></>}</div>}
       <TooltipLayer />

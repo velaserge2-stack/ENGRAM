@@ -79,3 +79,12 @@ Límites gratuitos, nombres de modelo y forma de errores 🔸 · CORS · políti
 - `src/screens/assistant.tsx` (`AssistantBody`) se carga con `import()` desde `AssistantGroup` (settings.tsx) al desplegar `asistente`; el add-on apagado no importa `src/chat`. Reordenar: `usePressDrag` + botones subir/bajar. Probar = `generateText` mínimo (8 tokens, `maxRetries:0`, 20 s) y el estado de la clave se actualiza por `classify`.
 - `settings.chat` = `{ limits: {gemini, groq}, warnAt }` (valores por defecto copiados de `PROVIDERS`; clamp en `mergeSettings`). `USAGE_RESET` en `keys.ts` lista lo que borra «Olvidar claves».
 - CSP, precache (`moduleIds` sí existe en Vite 8) y pesos reales: `docs/DECISIONS.md`. Pruebas: `tests/chat-config.test.ts`, `npm run e2e:chat`.
+
+## Fase 2 · Panel de chat (sin herramientas)
+- `src/chat/panel.tsx` (botón flotante + atajos `chat.toggle` ⌘⌥A / `chat.size` ⌘⌥E, ámbito nuevo `chat`) y `conv.tsx` (panel, `import()` al abrir); `app.tsx` los monta con `lazy` solo si `addonOn('assistant')`. `mascot.tsx` = marcador intercambiable (Fase 4). `phonebar.tsx` abre el panel con el evento `engrama:chat` (fila en «Más»).
+- `history.ts`: conversación y estado solo en memoria (`add/append/clear/toModel`, `generation` para turnos viejos); `turn.ts`: `send`/`stop` sobre `runTurn` + prompt de sistema breve (sin herramientas).
+- Tamaños: compacto 360×520 y grande (lateral, deja libre la firma); `settings.chat.size` lo recuerda. Teléfono: hoja modal a pantalla completa (`html.is-phone`). `--z-chat: 150`.
+- Con `.mini-amb` visible el botón y el panel suben 54 px; con el mini desplegado el botón va a su izquierda (CSS `:has`).
+- Respuestas: `renderMarkdown` (DOMPurify) + sin imágenes/medios y solo enlaces https/mailto con `noopener`; `data-user-content`.
+- Cambio en `session.ts`: la segunda clave que también falla por cuota/auth ahora se marca (antes quedaba `active`), para poder avisar «todas agotadas».
+- Pruebas: `tests/chat-history.test.ts`, `npm run e2e:chat` (SSE simulado con `page.route`; capturas en `SHOTS`). Sin verificar: Safari/iPad/iPhone reales, streaming token a token (el mock entrega todo junto), teclado virtual.

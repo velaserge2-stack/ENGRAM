@@ -6,7 +6,7 @@
  * teclas con nombre) y la tecla (`a`, `1`, `?`, `Space`, `Enter`, `ArrowLeft`, `PageDown`…).
  * Secuencias con espacio: `g h` (G y luego H). Mando: índices del «Standard Gamepad».
  */
-export type Scope = 'global' | 'study' | 'sim' | 'ink' | 'editor';
+export type Scope = 'global' | 'study' | 'sim' | 'ink' | 'editor' | 'chat';
 export interface ActionDef { id: string; scope: Scope; keys: string[]; pad?: number[] }
 
 export const ACTIONS: ActionDef[] = [
@@ -61,6 +61,9 @@ export const ACTIONS: ActionDef[] = [
   { id: 'editor.undo', scope: 'editor', keys: ['mod+z'] },
   { id: 'editor.redo', scope: 'editor', keys: ['mod+shift+z'] },
   { id: 'editor.fold', scope: 'editor', keys: ['mod+alt+b'] },
+  // Asistente (add-on): ⌘⌥ + letra libre en Safari y en el resto de ámbitos
+  { id: 'chat.toggle', scope: 'chat', keys: ['mod+alt+a'] },
+  { id: 'chat.size', scope: 'chat', keys: ['mod+alt+e'] },
 ];
 
 /** Atajos del sistema y de Safari que nunca se asignan. */
