@@ -30,6 +30,8 @@ export const MODULES = (): Module[] => ([
   // Prompt 19: mosaicos de Hoy; apagados no cargan su código (import())
   { id: 'sticky-notes', name: t('addons.n_stickies'), version: '1.0', description: t('addons.stickies_desc'), defaultOn: false, hooks: ['renderDashboardTile'] },
   { id: 'tasks', name: t('addons.n_tasks'), version: '1.0', description: t('addons.tasks_desc'), defaultOn: false, hooks: ['renderDashboardTile'] },
+  // Asistente (chat): apagado no importa nada de src/chat ni toca la red
+  { id: 'assistant', name: t('addons.n_assistant'), version: '1.0', description: t('chat.addon_desc'), defaultOn: false, hooks: ['registerView'] },
   { id: 'inbox', name: t('addons.n_inbox'), version: '1.0', description: t('addons.inbox_desc'), defaultOn: false, hooks: ['registerView'] },
 ]);
 

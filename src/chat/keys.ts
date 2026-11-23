@@ -3,6 +3,8 @@ import type { ProviderId } from './providers';
 
 export const KEYS_STORAGE = 'engrama.chat.keys';
 export const MAX_KEYS = 3;
+/** Claves de localStorage que «Olvidar» borra junto con las claves. */
+export const USAGE_RESET = ['engrama.chat.usage'];
 export type KeyStatus = 'active' | 'exhausted' | 'invalid' | 'paused';
 export interface KeyEntry { id: string; alias: string; provider: ProviderId; key: string; status: KeyStatus; until?: number }
 export interface KeyStore { v: 1; keys: KeyEntry[] }

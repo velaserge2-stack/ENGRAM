@@ -74,3 +74,8 @@ Límites gratuitos, nombres de modelo y forma de errores 🔸 · CORS · políti
 - `runTurn` devuelve `{ok:true,text,alias,rotated,tokens}` o `{ok:false,code:'busy'|'nokey'|Kind,message}`; no lanza. `onStatus` emite códigos `rotated`/`waiting`.
 - Se añade `addKey`, `setHdr`, `parseDuration`, `nextPacificMidnight`; `HdrQuota` lleva también `limitReq/limitTok`; día de uso = UTC. Gemini no devuelve cabeceras de cuota (`fromHeaders` → null).
 - `build`: sin importadores en la app, `ai`/`@ai-sdk` no están en ningún chunk (0 coincidencias en `dist/`); medir peso al conectar la UI (Fase 1b).
+
+## Correcciones (Fase 1b)
+- `src/screens/assistant.tsx` (`AssistantBody`) se carga con `import()` desde `AssistantGroup` (settings.tsx) al desplegar `asistente`; el add-on apagado no importa `src/chat`. Reordenar: `usePressDrag` + botones subir/bajar. Probar = `generateText` mínimo (8 tokens, `maxRetries:0`, 20 s) y el estado de la clave se actualiza por `classify`.
+- `settings.chat` = `{ limits: {gemini, groq}, warnAt }` (valores por defecto copiados de `PROVIDERS`; clamp en `mergeSettings`). `USAGE_RESET` en `keys.ts` lista lo que borra «Olvidar claves».
+- CSP, precache (`moduleIds` sí existe en Vite 8) y pesos reales: `docs/DECISIONS.md`. Pruebas: `tests/chat-config.test.ts`, `npm run e2e:chat`.
