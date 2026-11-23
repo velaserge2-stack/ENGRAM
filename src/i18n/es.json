@@ -2197,5 +2197,6 @@
  "chat.pv_werr_open": "Ese mazo está abierto en el editor; ciérralo e inténtalo de nuevo.",
  "chat.pv_werr_exists": "Ya existe un banco con ese nombre; no se sobrescribe.",
  "chat.pv_werr_gone": "El evento ya no existe.",
- "chat.pv_werr_other": "No se pudo guardar; no se cambió nada."
+ "chat.pv_werr_other": "No se pudo guardar; no se cambió nada.",
+ "chat.pv_werr_changed": "El archivo cambió después de guardar; no se deshizo para no perder tus cambios"
 }

@@ -51,7 +51,7 @@ export function Preview({ m }: { m: Msg }) {
       const r = await undoProposal(app.vault, m.id);
       patch(m.id, { pstate: 'undone', code: r.emptied.length ? 'emptied' : undefined });
       app.changed();
-    } catch { patch(m.id, { perr: 'other' }); } finally { lock.current = false; }
+    } catch (e) { patch(m.id, { perr: e instanceof Error && e.message === 'changed' ? 'changed' : 'other' }); } finally { lock.current = false; }
   };
   const open = () => { setErr(''); setText(p.contenido); setEv(p.evento ?? null); setEdit(true); };
   const check = () => {

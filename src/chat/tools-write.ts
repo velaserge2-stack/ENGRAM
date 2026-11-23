@@ -2,7 +2,7 @@
 // PROPUESTA que la interfaz muestra en una vista previa; se escribe únicamente cuando el usuario pulsa «Aceptar» (preview.tsx).
 // Solo se ofrecen si el último mensaje del usuario pide crear/agregar/modificar (`wantsWrite`) y cada una lo vuelve a comprobar.
 import { jsonSchema, tool, type ToolSet } from 'ai';
-import { buildCards, buildEvent, buildEventEdit, buildExam, isBad, type CardIn, type EventFields, type Proposal, type QIn } from './proposal';
+import { MAX_PROPOSALS, buildCards, buildEvent, buildEventEdit, buildExam, isBad, type CardIn, type EventFields, type Proposal, type QIn } from './proposal';
 import type { ToolCtx } from './tools';
 
 export interface WriteCtx extends ToolCtx {
@@ -15,8 +15,11 @@ const NO = { error: 'El usuario no pidió crear ni modificar nada: no se propone
 const EV = { titulo: str, fecha: { ...str, description: 'AAAA-MM-DD' }, inicio: { ...str, description: 'HH:MM' }, fin: { ...str, description: 'HH:MM' }, materia: str, nota: str, tipo: { type: 'string', enum: ['clase', 'actividad', 'estudio', 'examen', 'otro'] } } as const;
 
 export function makeWriteTools(ctx: WriteCtx): ToolSet {
+  let n = 0; // propuestas de este turno
   const out = (p: Proposal | { error: string; detail?: string }) => {
     if (isBad(p)) return { error: `No válido (${p.error}${p.detail ? ': ' + p.detail : ''}). Corrige y vuelve a intentar.` };
+    if (n >= MAX_PROPOSALS) return { error: `Límite alcanzado: ya hay ${MAX_PROPOSALS} propuestas en este turno. No propongas más; dile al usuario que pida el resto después de revisar estas.` };
+    n++;
     ctx.propose(p);
     return { estado: 'PROPUESTA mostrada al usuario; no se ha guardado nada hasta que pulse Aceptar.', resumen: p.resumen };
   };

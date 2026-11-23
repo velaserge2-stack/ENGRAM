@@ -41,7 +41,11 @@ export interface Attempt {
 
 async function loadBanks(vault: ReturnType<typeof useApp>['vault']): Promise<{ path: string; bank: Bank }[]> {
   const out = [];
-  for (const f of await walk(vault, 'exams-bank')) if (f.path.endsWith('.md')) out.push({ path: f.path, bank: parseBankMarkdown(await readTextOr(vault, f.path, ''), f.name.replace(/\.md$/, '')) });
+  for (const f of await walk(vault, 'exams-bank')) {
+    if (!f.path.endsWith('.md')) continue;
+    const text = await readTextOr(vault, f.path, '');
+    if (text.trim()) out.push({ path: f.path, bank: parseBankMarkdown(text, f.name.replace(/\.md$/, '')) }); // vacío (lo dejó «Deshacer»): no es un banco
+  }
   return out;
 }
 

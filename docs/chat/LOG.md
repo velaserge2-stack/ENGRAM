@@ -7,3 +7,4 @@
 - Fase 2 · sonnet · panel compacto/grande, streaming, rotación visible, teléfono; e2e:chat 4/4, phone compare 0 px (add-on apagado) · ~203K
 - Fase 3a · sonnet · lectura+citas (~168K) · Fase 4 · sonnet · mascota (~88K) · Fase 3b · sonnet · escritura+preview+undo (~191K) · seguridad opus lectura (~121K)
 - Fase 5a · sonnet · arreglos de seguridad (9 hallazgos) + pruebas · ~140K
+- Fase 5b · sonnet · arreglos de escritura (undo seguro, cola, wantsWrite, tope) + break-ui + phone compare (33/36 a 0 px; 3 = fila nueva en Add-ons) · ~160K · opus seguridad escritura ~102K

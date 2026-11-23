@@ -2197,5 +2197,6 @@
  "chat.pv_werr_open": "That deck is open in the editor; close it and try again.",
  "chat.pv_werr_exists": "A bank with that name already exists; it won't be overwritten.",
  "chat.pv_werr_gone": "The event no longer exists.",
- "chat.pv_werr_other": "Couldn't save; nothing was changed."
+ "chat.pv_werr_other": "Couldn't save; nothing was changed.",
+ "chat.pv_werr_changed": "The file changed after saving; nothing was undone so your changes are kept"
 }

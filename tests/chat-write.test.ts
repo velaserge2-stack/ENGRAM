@@ -160,7 +160,7 @@ describe('Asistente · undo', () => {
     const v = new MemoryBackend();
     await v.write('a.md', enc('A0'));
     const g = await tracked(v, async (w) => { await w('a.md', 'A1'); await w('b.md', 'B1'); await w('a.md', 'A2'); });
-    expect(g).toEqual([{ path: 'a.md', before: 'A0' }, { path: 'b.md', before: null }, { path: 'a.md', before: 'A1' }]);
+    expect(g).toEqual([expect.objectContaining({ path: 'a.md', before: 'A0' }), expect.objectContaining({ path: 'b.md', before: null }), expect.objectContaining({ path: 'a.md', before: 'A1' })]);
     expect((await undo(v, g)).emptied).toEqual(['b.md']);
     expect(dec(await v.read('a.md'))).toBe('A0'); expect(dec(await v.read('b.md'))).toBe('');
   });

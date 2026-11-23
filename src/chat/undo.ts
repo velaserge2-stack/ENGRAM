@@ -5,11 +5,16 @@ import { batch } from '../vault/safe';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr } from '../vault/util';
 
-export interface Entry { path: string; before: string | null }
+/** `after` = el texto que se escribió: deshacer solo procede si el archivo sigue igual. */
+export interface Entry { path: string; before: string | null; after: string }
 export type Writer = (path: string, text: string) => Promise<void>;
 
-/** Restaura en orden inverso, todo o nada si el vault es SafeVault. Devuelve las rutas que quedaron vacías (eran nuevas). */
+/** Restaura en orden inverso, todo o nada si el vault es SafeVault. Devuelve las rutas que quedaron vacías (eran nuevas).
+ *  Si alguna ruta ya no tiene el texto escrito (cambió después), lanza `changed` antes de escribir nada. */
 export async function undo(vault: VaultAdapter, group: readonly Entry[]): Promise<{ emptied: string[] }> {
+  const last = new Map<string, string>();
+  for (const e of group) last.set(e.path, e.after);
+  for (const [path, after] of last) if ((await readTextOr(vault, path, '')) !== after) throw new Error('changed');
   await batch(vault, async (tx) => {
     for (const e of [...group].reverse()) await tx.write(e.path, e.before ?? '');
   });
@@ -25,7 +30,7 @@ export async function tracked(vault: VaultAdapter, fn: (write: Writer) => Promis
   const write: Writer = async (path, text) => {
     const before = (await vault.exists(path)) ? await readTextOr(vault, path, '') : null;
     await vault.write(path, text);
-    group.push({ path, before });
+    group.push({ path, before, after: text });
   };
   try { await fn(write); } catch (e) {
     await undo(vault, group).catch(() => undefined);

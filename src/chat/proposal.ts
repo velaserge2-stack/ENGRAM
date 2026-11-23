@@ -32,10 +32,13 @@ export type Bad = { error: string; detail?: string };
 export const isBad = (x: unknown): x is Bad => typeof x === 'object' && x !== null && 'error' in x;
 
 // ───────── ¿pidió el usuario escribir? ─────────
-const WRITE_RE = /\b(cre[ae]\w*|crea\b|genera\w*|agrega\w*|anade\w*|anota\w*|agenda\w*|programa\w*|modifica\w*|cambia\w*|mueve\w*|mover|edita\w*|reprograma\w*|haz\w*|elabora\w*|prepara\w*|create\w*|add|adds|make|generate\w*|schedule\w*|modify|change|move|reschedule|edit|write|build|cree\w*|creer|ajoute\w*|genere\w*|modifie\w*|planifie\w*|deplace\w*|fais|ecris\w*)\b/;
-/** Comprobación simple: el último mensaje del usuario contiene un verbo de crear/agregar/modificar (es/en/fr). Sin ella no hay herramientas de escritura. */
+// Verbo de crear/modificar Y un objeto del Asistente: «hazme un resumen» o «el programa de la materia» no abren las herramientas.
+const WRITE_VERB = /\b(cre[ae]\w*|crea|genera\w*|agrega\w*|anade\w*|anota\w*|agenda(me|r)?|programa(me|r|rme)|programa\s+(un|una|el|la|mi|unos|unas)|modifica\w*|cambia\w*|mueve\w*|mover|edita\w*|reprograma\w*|haz\w*|elabora\w*|prepara\w*|create\w*|add|adds|make|generate\w*|schedule\w*|modify|change|move|reschedule|edit|write|build|cree\w*|creer|ajoute\w*|genere\w*|modifie\w*|planifie\w*|deplace\w*|fais|ecris\w*)\b/;
+const WRITE_OBJ = /\b(tarjetas?|flashcards?|cards?|cartes?|fiches?|examen(es)?|exams?|quiz(zes)?|banco|bancos|simulacros?|preguntas?|questions?|eventos?|events?|evenements?|citas?|recordatorios?|reminders?|rappels?|calendario|calendar|calendrier|mazos?|decks?|paquets?|repasos?|reviews?|clases?|rendez-vous)\b/;
+/** El último mensaje del usuario pide crear/modificar algo concreto (verbo + objeto, es/en/fr). Sin ella no hay herramientas de escritura. */
 export function wantsWrite(text: string): boolean {
-  return WRITE_RE.test(text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase());
+  const q = text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  return WRITE_VERB.test(q) && WRITE_OBJ.test(q);
 }
 
 // ───────── utilidades ─────────
@@ -43,7 +46,7 @@ const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCas
 /** Una línea, sin comentarios HTML (no se puede forjar `origen:`), con tope. */
 const one = (s: unknown, max = 600) => String(s ?? '').replace(/<!--|-->/g, '').replace(/\s*[\r\n]+\s*/g, ' ').trim().slice(0, max);
 const ID_END = /\s\^[A-Za-z0-9_-]{2,40}\s*$/;
-export const MAX_CARDS = 30, MAX_QUESTIONS = 30;
+export const MAX_CARDS = 30, MAX_QUESTIONS = 30, MAX_PROPOSALS = 3;
 
 // ───────── tarjetas ─────────
 /** Valida el texto de tarjetas con el parser real; cada bloque queda con `origen: ia` y sin ID (los IDs se asignan al guardar). */
@@ -104,7 +107,8 @@ export function buildExam(nombre: string, minutos: number | undefined, qs: QIn[]
     const f = finalize({ n: questions.length + 1, case: one(q?.caso), text: one(q?.texto), options, answer: [...new Set(ans)], explanation: one(q?.explicacion), topic: one(q?.tema, 120) });
     if (!f.problems.length && options.every((o) => o.text)) questions.push(f);
   }
-  const contenido = serializeBank({ name, minutes: clampMinutes(minutos ?? 60), shuffle: true, questions });
+  // `origen: ia` en el frontmatter: el parser ignora claves desconocidas (el editor de bancos la pierde al regrabar; ver CONTRATO)
+  const contenido = serializeBank({ name, minutes: clampMinutes(minutos ?? 60), shuffle: true, questions }).replace('\n---\n', '\norigen: ia\n---\n');
   const v = validateBank(contenido); // ida y vuelta por el parser real
   if (isBad(v) || !questions.length) return isBad(v) ? v : { error: 'vacio' };
   return { tipo: 'examen', destino: `exams-bank/${seg}.md`, contenido, items: v.items, resumen: `${v.items.length} → ${name}` };
@@ -172,14 +176,14 @@ const groups = new Map<number, Entry[]>();
 
 async function write(vault: VaultAdapter, col: Collection | null, p: Proposal, w: (path: string, text: string) => Promise<void>): Promise<void> {
   if (p.tipo === 'tarjetas') {
-    const exists = await vault.exists(p.destino);
-    if (exists && noteStore.peek(p.destino) !== null) throw new Error('open'); // abierto en el editor: no se pisa
-    const base = exists ? await readTextOr(vault, p.destino, '') : stringifyFrontmatter({ deck: p.mazo ?? '', tags: [] }, '\n');
+    const cur = (await vault.exists(p.destino)) ? await readTextOr(vault, p.destino, '') : '';
+    if (cur && noteStore.peek(p.destino) !== null) throw new Error('open'); // abierto en el editor: no se pisa
+    const base = cur.trim() ? cur : stringifyFrontmatter({ deck: p.mazo ?? '', tags: [] }, '\n'); // vacío (lo dejó «Deshacer») = nuevo
     const taken = new Set<string>(col ? [...col.byCid.keys(), ...col.log.map((e) => e.id)].map(noteIdOf) : []);
     for (const n of parseDeck(base).notes) if (n.id) taken.add(n.id);
     await w(p.destino, `${base.replace(/\s*$/, '')}\n\n${ensureIds(p.contenido.trim(), taken).text}\n`);
   } else if (p.tipo === 'examen') {
-    if (await vault.exists(p.destino)) throw new Error('exists'); // nunca se sobrescribe un banco
+    if ((await readTextOr(vault, p.destino, '')).trim()) throw new Error('exists'); // nunca se sobrescribe un banco (uno vacío, dejado por «Deshacer», cuenta como libre)
     await w(p.destino, p.contenido);
   } else {
     const own = fromICS(await readTextOr(vault, CAL, ''));
@@ -197,22 +201,28 @@ async function write(vault: VaultAdapter, col: Collection | null, p: Proposal, w
   }
 }
 
+// Una sola cola para aplicar y deshacer: dos propuestas sobre el mismo mazo o el .ics no se pisan, y deshacer espera a aceptar.
+let chain: Promise<unknown> = Promise.resolve();
+const serial = <T,>(fn: () => Promise<T>): Promise<T> => { const r = chain.then(fn); chain = r.catch(() => undefined); return r; };
+
 /** Escribe la propuesta por el vault (SafeVault en la app). Idempotente por `id`: un segundo llamado no escribe otra vez. Si falla, no queda nada escrito. */
 export function applyProposal(vault: VaultAdapter, col: Collection | null, p: Proposal, id: number): Promise<Entry[]> {
   const prev = inflight.get(id);
   if (prev) return prev;
   if (!safeDest(p)) return Promise.reject(new Error('path'));
-  const run = tracked(vault, (w) => write(vault, col, p, w)).then((g) => (groups.set(id, g), g), (e) => (inflight.delete(id), Promise.reject(e)));
+  const run = serial(() => tracked(vault, (w) => write(vault, col, p, w))).then((g) => (groups.set(id, g), g), (e) => (inflight.delete(id), Promise.reject(e)));
   inflight.set(id, run);
   return run;
 }
 
-/** Restaura el «antes» de lo que escribió `id`. Un archivo que era nuevo queda vacío (no se borra). */
-export async function undoProposal(vault: VaultAdapter, id: number): Promise<{ emptied: string[] }> {
-  const g = groups.get(id);
-  if (!g) return { emptied: [] };
-  const r = await undo(vault, g);
-  groups.delete(id);
-  return r;
+/** Restaura el «antes» de lo que escribió `id`. Un archivo que era nuevo queda vacío (no se borra). Si el archivo cambió después, lanza `changed`. */
+export function undoProposal(vault: VaultAdapter, id: number): Promise<{ emptied: string[] }> {
+  return serial(async () => {
+    const g = groups.get(id);
+    if (!g) return { emptied: [] };
+    const r = await undo(vault, g);
+    groups.delete(id);
+    return r;
+  });
 }
 export const forgetProposals = (): void => { inflight.clear(); groups.clear(); };

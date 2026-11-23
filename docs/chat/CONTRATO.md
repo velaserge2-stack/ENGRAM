@@ -112,3 +112,10 @@ Límites gratuitos, nombres de modelo y forma de errores 🔸 · CORS · políti
 - `conv.tsx`: `harden` corre en un `<template>` inerte (ninguna imagen remota llega a pedirse); enlaces externos sin `href` (texto + dominio); `[[X]]` solo se enlaza si una herramienta lo devolvió.
 - `turn.ts`: controlador local por turno con try/finally; «Probar» deshabilitado con turno en curso.
 - Pruebas: `tests/chat-security.test.ts`, `tests/chat-turn.test.ts`, e2e (solo `self` y 2 hosts). Sin hacer: botón «copiar enlace»; «Probar» no se prueba en e2e (solo jsdom); la exclusión mutua inversa (turno durante «Probar») no se cambió.
+
+## Correcciones (Parte A · revisión de la ruta de escritura)
+- `undo.Entry` lleva `after`; `undo` relee cada ruta y, si alguna difiere, lanza `changed` antes de escribir (clave `chat.pv_werr_changed`); el grupo se conserva para reintentar.
+- `applyProposal` y `undoProposal` pasan por una sola cola (`serial`, no se rompe tras un error). `wantsWrite` = verbo + objeto (tarjeta/examen/evento/mazo…). Máx. 3 propuestas por turno (`MAX_PROPOSALS`).
+- Banco: `origen: ia` en el frontmatter (el parser lo ignora); el editor de bancos (`serializeBank`) lo pierde al regrabar: aceptado, `serializeBank` no se toca.
+- Un `.md` vacío (lo deja «Deshacer») no cuenta como mazo (`loadCollection`), ni como banco (`loadBanks`), ni bloquea el nombre del banco; un mazo vacío se reutiliza con su frontmatter.
+- Sin verificar: Safari/iPad reales, teclado virtual real (solo viewport reducido), MiniAmbient con audio.
