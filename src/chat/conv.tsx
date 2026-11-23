@@ -33,14 +33,18 @@ function citeEl(label: string, src: Source | null): HTMLElement {
   return sp;
 }
 
-/** Las respuestas ya vienen saneadas (DOMPurify); aquí además: sin imágenes ni medios, enlaces https/mailto fuera, y citas validadas contra las fuentes del turno. */
-function harden(el: HTMLElement, sources: readonly Source[]) {
+/** Las respuestas ya vienen saneadas (DOMPurify); aquí además: sin imágenes ni medios, sin href externo (texto + dominio), y citas validadas contra las fuentes del turno. */
+export function harden(el: HTMLElement, sources: readonly Source[]) {
   el.querySelectorAll('img, audio, video, [data-media]').forEach((n) => n.replaceWith(document.createTextNode(n.getAttribute('alt') ?? '')));
   el.querySelectorAll('a').forEach((a) => {
     const wl = a.getAttribute('data-wl');
     if (a.classList.contains('wl') || wl !== null) a.replaceWith(citeEl(wl ?? a.textContent ?? '', resolveNote(wl ?? a.textContent ?? '', sources)));
-    else if (/^(https?:|mailto:)/i.test(a.getAttribute('href') ?? '')) { a.target = '_blank'; a.rel = 'noopener noreferrer nofollow'; }
-    else a.replaceWith(...Array.from(a.childNodes));
+    else {
+      // enlaces del modelo: nunca clicables (podrían sacar datos en la URL); se muestra el texto y el dominio
+      let host = '';
+      try { host = new URL(a.getAttribute('href') ?? '').hostname; } catch { /* relativo o inválido */ }
+      a.replaceWith(...Array.from(a.childNodes), ...(host ? [document.createTextNode(` (${host})`)] : []));
+    }
   });
   const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
   const hits: Text[] = [];
@@ -58,10 +62,14 @@ function harden(el: HTMLElement, sources: readonly Source[]) {
 }
 
 function Answer(p: { text: string; sources?: Source[]; onCite: () => void }) {
-  const html = useMemo(() => renderMarkdown(p.text), [p.text]);
-  const ref = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => { if (ref.current) harden(ref.current, p.sources ?? []); }, [html, p.sources?.length]);
-  return <div ref={ref} class="chat-msg assistant md" data-user-content dangerouslySetInnerHTML={{ __html: html }} onClick={(e) => { if ((e.target as HTMLElement).closest('a.chat-cite')) p.onCite(); }} />;
+  // se endurece en un <template> inerte: así ninguna <img> remota llega a cargarse (ni una petición) antes de quitarla
+  const html = useMemo(() => {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = renderMarkdown(p.text);
+    harden(tpl.content as unknown as HTMLElement, p.sources ?? []);
+    return tpl.innerHTML;
+  }, [p.text, p.sources?.length]);
+  return <div class="chat-msg assistant md" data-user-content dangerouslySetInnerHTML={{ __html: html }} onClick={(e) => { if ((e.target as HTMLElement).closest('a.chat-cite')) p.onCite(); }} />;
 }
 
 function Settings(p: { onClick: () => void }) {

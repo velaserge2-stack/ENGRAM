@@ -76,11 +76,11 @@ async function ensureIndex(vault: VaultAdapter): Promise<void> {
 }
 
 const pdfCache = new Map<string, string[]>();
-async function pdfPages(vault: VaultAdapter, f: { path: string; size: number }): Promise<string[]> {
-  const k = `${vault.kind}|${f.path}|${f.size}`;
+async function pdfPages(vault: VaultAdapter, f: { path: string; size: number; mtime?: number }): Promise<string[]> {
+  const k = `${vault.kind}|${f.path}|${f.size}|${f.mtime ?? ''}`;
   const hit = pdfCache.get(k);
   if (hit) return hit;
-  const pages = (await pdfText(await vault.read(f.path))).pages.slice(0, MAX_PDF_PAGES).map((p) => p.lines.map((l) => l.text).join('\n'));
+  const pages = (await pdfText(await vault.read(f.path), MAX_PDF_PAGES)).pages.map((p) => p.lines.map((l) => l.text).join('\n'));
   pdfCache.set(k, pages);
   if (pdfCache.size > MAX_PDFS) pdfCache.delete(pdfCache.keys().next().value!);
   return pages;

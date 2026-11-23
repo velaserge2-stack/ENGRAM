@@ -28,7 +28,8 @@ try {
   page.on('dialog', (d) => d.accept());
   const apiHits = [], js = new Set(), logs = [];
   let mode = 'ok';
-  page.on('request', (r) => /\.(js|css)(\?|$)/.test(r.url()) && js.add(r.url()));
+  const hosts = new Set();
+  page.on('request', (r) => { /\.(js|css)(\?|$)/.test(r.url()) && js.add(r.url()); try { const u = new URL(r.url()); if (/^https?:$/.test(u.protocol)) hosts.add(u.host); } catch { /* data:, blob: */ } });
   page.on('console', (m) => logs.push(m.text()));
   const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
   // Fase 2: modos del servidor simulado (streaming SSE de Gemini)
@@ -196,7 +197,7 @@ try {
   const ans = await log.locator('.chat-msg.assistant').last();
   check((await ans.locator('img').count()) === 0, 'sin imágenes en las respuestas');
   check((await ans.locator('a[href^="javascript"], a[href^="#"]').count()) === 0, 'sin enlaces javascript: ni internos');
-  check((await ans.locator('a[href^="https://example.com"]').getAttribute('rel')).includes('noopener'), 'enlace externo con noopener');
+  check((await ans.locator('a[href^="http"]').count()) === 0 && (await ans.innerText()).includes('web (example.com)'), 'enlace externo sin href: texto + dominio');
   check(await ans.evaluate((e) => e.hasAttribute('data-user-content')), 'respuesta con data-user-content');
   reply = 'Hola mundo';
 
@@ -379,6 +380,8 @@ try {
   await page.screenshot({ path: `${SHOTS}/390-telefono.png` });
   await page.keyboard.press('Escape');
   await panel.waitFor({ state: 'detached' });
+  // toda la sesión: solo localhost y los 2 hosts del Asistente (incluida la carga del SDK)
+  { const bad = [...hosts].filter((h) => !/^localhost(:\d+)?$/.test(h) && h !== 'generativelanguage.googleapis.com' && h !== 'api.groq.com'); check(bad.length === 0, 'peticiones solo a self y 2 hosts ' + bad.join(',')); }
 } catch (e) {
   failed++;
   console.error(e);

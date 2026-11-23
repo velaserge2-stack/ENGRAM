@@ -65,12 +65,12 @@ export function classify(p: ProviderId, e: unknown, now = Date.now()): Classifie
   return { kind: 'other' };
 }
 
-const KEY_PATTERNS = [/AIza[\w-]{20,}/g, /gsk_[\w-]{16,}/g, /(key|token)=[^&\s"']+/gi, /Bearer\s+[\w.~+/=-]{12,}/gi];
+const KEY_PATTERNS = [/(?:x-goog-[a-z]+-key|api-key|authorization)["']?\s*[:=]\s*["']?[^\s"',}]+/gi, /AIza[\w-]{20,}/g, /gsk_[\w-]{16,}/g, /(key|token)=[^&\s"']+/gi, /Bearer\s+[\w.~+/=-]{12,}/gi];
 
 /** Quita cualquier clave (conocida o con forma de clave) de un texto. */
 export function redact(s: string, keys: readonly string[] = []): string {
   let out = s;
   for (const k of keys) if (k.length >= 8) out = out.split(k).join('••••');
-  for (const re of KEY_PATTERNS) out = out.replace(re, (m) => (/^(key|token)=/i.test(m) ? m.split('=')[0] + '=••••' : '••••'));
+  for (const re of KEY_PATTERNS) out = out.replace(re, (m) => (/^(key|token)=/i.test(m) ? m.split('=')[0] + '=••••' : /^(x-goog|api-key|authorization)/i.test(m) ? m.replace(/[^\s"',}:=]+$/, '••••') : '••••'));
   return out;
 }

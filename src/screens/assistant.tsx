@@ -7,6 +7,7 @@ import { classify, type Kind } from '../chat/errors';
 import { addKey, loadKeys, markKey, mask, MAX_KEYS, saveKeys, USAGE_RESET, type KeyEntry, type KeyStore } from '../chat/keys';
 import { loadCore, loadModel, PROVIDERS, type ProviderId } from '../chat/providers';
 import { bar, loadUsage } from '../chat/usage';
+import { busy } from '../chat/session';
 import type { ChatLimits } from '../lib/settings';
 import { useApp } from '../state';
 import { Row } from '../ui/kit';
@@ -63,6 +64,7 @@ export function AssistantBody() {
   };
   const run = async (k: KeyEntry) => {
     if (abort.current) return abort.current.abort();
+    if (busy()) return; // un turno en curso: una sola petición a la vez
     const ac = new AbortController();
     abort.current = ac;
     const timer = setTimeout(() => ac.abort(), TEST_MS);
@@ -113,7 +115,7 @@ export function AssistantBody() {
             <div class="row" style={{ gap: '4px', flexWrap: 'wrap' }}>
               <button type="button" class="btn icon" aria-label={t('chat.subir', { alias: k.alias })} disabled={i === 0} onClick={() => move(k.id, i - 1)}><ArrowUp size={18} aria-hidden="true" /></button>
               <button type="button" class="btn icon" aria-label={t('chat.bajar', { alias: k.alias })} disabled={i === store.keys.length - 1} onClick={() => move(k.id, i + 1)}><ArrowDown size={18} aria-hidden="true" /></button>
-              <button type="button" class="btn" onClick={() => void run(k)} disabled={!!abort.current && test?.id !== k.id}><Plug size={16} aria-hidden="true" />{' '}{tt === 'busy' ? t('chat.cancelar_prueba') : t('chat.probar')}</button>
+              <button type="button" class="btn" onClick={() => void run(k)} disabled={(!!abort.current && test?.id !== k.id) || (!abort.current && busy())}><Plug size={16} aria-hidden="true" />{' '}{tt === 'busy' ? t('chat.cancelar_prueba') : t('chat.probar')}</button>
               {k.status === 'paused'
                 ? <button type="button" class="btn" onClick={() => put(markKey(store, k.id, 'active'))}><Play size={16} aria-hidden="true" />{' '}{t('chat.reactivar')}</button>
                 : <button type="button" class="btn" onClick={() => put(markKey(store, k.id, 'paused'))}><Pause size={16} aria-hidden="true" />{' '}{t('chat.pausar')}</button>}

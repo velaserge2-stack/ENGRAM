@@ -105,3 +105,10 @@ Límites gratuitos, nombres de modelo y forma de errores 🔸 · CORS · políti
 - `undo.ts`: `tracked` anota `{path, before}` antes de escribir y revierte si algo falla a mitad; `undo` restaura. Archivo nuevo (`before: null`) → queda VACÍO (nunca se borra) y se avisa.
 - Mascota: `mascotState`/`useMascotState` (error > responding > thinking > listening > idle) en el botón flotante y en la cabecera.
 - Pruebas: `tests/chat-write.test.ts`, `e2e/chat.mjs` (sección «Escritura»). Sin verificar: tool-calling real de escritura con Gemini/Groq, Safari/iPad, `modificar_evento` en series (solo «ese día»), toICS sin la etiqueta de vínculos de la pantalla.
+
+## Fase 5 · parte 1 (seguridad)
+- `session.ts`: `markKey(loadKeys(), …)` al rotar (clave borrada no reaparece); bandera `stepped` (error tras herramienta = fallo, sin reintento ni rotación); rota hasta agotar la lista (una vez por clave); 403 → `paused` (puede ser región); timeout de 120 s sin señales (`AbortController` propio por intento, `network`) y `maxOutputTokens` 2048.
+- `pdfText(bytes, maxPages)` y caché de PDF con `mtime` (`listPdfs` lo devuelve). `redact` cubre `x-goog-api-key`/`authorization` en JSON y cabeceras.
+- `conv.tsx`: `harden` corre en un `<template>` inerte (ninguna imagen remota llega a pedirse); enlaces externos sin `href` (texto + dominio); `[[X]]` solo se enlaza si una herramienta lo devolvió.
+- `turn.ts`: controlador local por turno con try/finally; «Probar» deshabilitado con turno en curso.
+- Pruebas: `tests/chat-security.test.ts`, `tests/chat-turn.test.ts`, e2e (solo `self` y 2 hosts). Sin hacer: botón «copiar enlace»; «Probar» no se prueba en e2e (solo jsdom); la exclusión mutua inversa (turno durante «Probar») no se cambió.
