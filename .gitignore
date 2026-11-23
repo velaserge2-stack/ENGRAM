@@ -8,3 +8,4 @@ tests/fixtures/perf/
 tests/fixtures/notes/
 tests/fixtures/rendimiento/
 .claude/worktrees/
+e2e-shots/
