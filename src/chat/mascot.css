@@ -1,0 +1,38 @@
+/* Mascota del Asistente: monocroma (currentColor), solo transform/opacity. Estados distinguibles por forma. */
+.mascot { display: block; flex: none; color: inherit; overflow: visible; }
+.mascot * { transform-box: fill-box; transform-origin: center; }
+.mascot .head { fill: currentColor; fill-opacity: .14; stroke: currentColor; stroke-width: 2.5; }
+.mascot .eye { fill: currentColor; }
+.mascot .mouth, .mascot .brow { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.mascot .mouth-open { fill: currentColor; fill-opacity: .85; stroke: none; }
+.mascot .mouth, .mascot .mouth-open, .mascot .brow { display: none; }
+
+/* forma estática por estado (sin movimiento) */
+.mascot[data-state="idle"] .mouth-smile,
+.mascot[data-state="listening"] .mouth-o,
+.mascot[data-state="thinking"] .mouth-flat,
+.mascot[data-state="responding"] .mouth-open,
+.mascot[data-state="error"] .mouth-sad { display: inline; }
+.mascot[data-state="error"] .brow { display: inline; }
+.mascot[data-state="listening"] .eye { transform: scale(1.35); }
+.mascot[data-state="error"] .eye { transform: translateY(2px) scaleY(.7); }
+.mascot[data-state="thinking"] .eyes { transform: translateX(4px); }
+.mascot[data-state="listening"] .body { transform: rotate(4deg); }
+.mascot[data-state="error"] .body { transform: rotate(-7deg) translateY(1px); }
+
+/* resorte aproximado con linear(): masa y rigidez moderadas, un rebote */
+.mascot { --spring: linear(0, .22 6%, .62 14%, 1 24%, 1.1 32%, 1.06 40%, .98 52%, 1.005 66%, 1); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .mascot .body, .mascot .eyes, .mascot .eye { transition: transform .55s var(--spring); }
+  .mascot .eye { animation: m-blink var(--blink, 5s) var(--blink-delay, 1s) infinite; }
+  .mascot[data-state="thinking"] .eye { animation: none; }
+  .mascot[data-state="thinking"] .body { animation: m-beat 1.6s ease-in-out infinite; }
+  .mascot[data-state="responding"] .body { animation: m-pulse .7s var(--spring) infinite; }
+  .mascot[data-state="responding"] .mouth-open { animation: m-talk .7s ease-in-out infinite; }
+  html.mascot-hidden .mascot, html.mascot-hidden .mascot * { animation-play-state: paused; }
+}
+@keyframes m-blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
+@keyframes m-beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes m-pulse { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.06); } }
+@keyframes m-talk { 0%, 100% { transform: scaleY(.55); } 50% { transform: scaleY(1); } }
