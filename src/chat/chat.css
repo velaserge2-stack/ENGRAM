@@ -47,3 +47,12 @@ html.is-phone .chat-panel { inset: 0 0 var(--kb-inset, 0px) 0; width: auto; heig
 @media print { .chat-fab, .chat-panel { display: none !important; } }
 .chat-cite { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s-2, 8px); border-radius: 999px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; color: inherit; }
 .chat-cite.off { text-decoration: line-through; opacity: .7; }
+
+/* Vista previa de escritura (Fase 3b) */
+.chat-pv { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: var(--r-row); border: 2px solid var(--border-strong); font-size: var(--t-note); }
+.chat-pv:focus { outline: none; }
+.chat-pv-list { margin: 0; padding-left: 18px; max-height: 220px; overflow-y: auto; overflow-wrap: anywhere; }
+.chat-pv-act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.chat-pv-err { margin: 0; font-weight: 600; }
+.chat-pv-ok { flex: 1 1 140px; min-width: 0; overflow-wrap: anywhere; }
+.chat-pv textarea.input { min-height: 160px; resize: vertical; }

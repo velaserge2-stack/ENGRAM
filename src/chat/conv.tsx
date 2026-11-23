@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 import { CircleAlert, Maximize2, Minimize2, SendHorizontal, Square, SquarePen, X } from 'lucide-preact';
-import { useEffect, useLayoutEffect, useMemo, useReducer, useRef } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'preact/hooks';
 import { renderMarkdown } from '../md/render';
 import { dayKey } from '../lib/days';
 import { go, useApp } from '../state';
@@ -8,7 +8,9 @@ import { Portal, useLayer } from '../ui/overlay';
 import { getStatus, type Msg, messages, clear, subscribe } from './history';
 import { loadKeys, pickKey } from './keys';
 import { citeHref, citeLabel, PDF_CITE, resolveNote, resolvePdf } from './cites';
-import { Mascot } from './mascot';
+import { Mascot, useMascotState } from './mascot';
+import { forgetProposals } from './proposal';
+import { Preview } from './preview';
 import type { Source } from './tools';
 import { send, stop } from './turn';
 import { bar, loadUsage } from './usage';
@@ -69,6 +71,7 @@ function Settings(p: { onClick: () => void }) {
 function Bubble(p: { m: Msg; onSettings: () => void; onCite: () => void }) {
   const { m } = p;
   if (m.role === 'user') return <article class="chat-msg user" data-user-content><span class="sr-only">{t('chat.p_tu')}: </span>{m.text}</article>;
+  if (m.role === 'proposal') return <Preview m={m} />;
   if (m.role === 'assistant') return <Answer text={m.text} sources={m.sources} onCite={p.onCite} />;
   if (m.role === 'notice') {
     return <p class="chat-note">{m.code === 'rotated' ? t('chat.p_rotada', { alias: m.alias ?? '' }) : t('chat.p_detenida')}</p>;
@@ -110,6 +113,8 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
   // teléfono = hoja a pantalla completa (modal, foco atrapado); iPad y web = panel que no bloquea la app
   useLayer(p.onClose, { modal: p.phone, el: () => root.current });
   useLayoutEffect(() => { if (!p.phone) input.current?.focus(); }, []);
+  const [foc, setFoc] = useState(false), [has, setHas] = useState(false);
+  const ms = useMascotState(foc || has);
   const stick = useRef(true);
   useLayoutEffect(() => { const l = log.current; if (l && stick.current) l.scrollTop = l.scrollHeight; });
   const toSettings = () => { p.onClose(); go('ajustes'); };
@@ -118,7 +123,7 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
     const el = input.current;
     if (!el || !el.value.trim() || st.busy) return;
     const q = el.value;
-    el.value = ''; el.style.height = '';
+    el.value = ''; el.style.height = ''; setHas(false);
     stick.current = true;
     void send(q, { vault: app.vault, col: app.col, today: dayKey(Date.now(), app.settings.timeZone, app.settings.dayStartHour) });
   };
@@ -130,12 +135,12 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
     <Portal>
       <section ref={root} class={`chat-panel glass strong ${p.size}`} role="dialog" aria-modal={p.phone ? 'true' : undefined} aria-label={t('chat.p_titulo')} tabIndex={-1}>
         <header class="chat-h">
-          <Mascot size={20} />
+          <Mascot size={24} state={ms} />
           <div class="chat-title">
             <h2>{t('chat.p_titulo')}</h2>
             {st.alias && <span class="foot ellipsis" data-user-content>{t('chat.p_clave_usada', { alias: st.alias })}</span>}
           </div>
-          <button type="button" class="btn icon ghost" aria-label={t('chat.p_nueva')} onClick={() => { clear(); input.current?.focus(); }}><SquarePen size={18} aria-hidden="true" /></button>
+          <button type="button" class="btn icon ghost" aria-label={t('chat.p_nueva')} onClick={() => { clear(); forgetProposals(); input.current?.focus(); }}><SquarePen size={18} aria-hidden="true" /></button>
           {!p.phone && (
             <button type="button" class="btn icon ghost" aria-label={p.size === 'large' ? t('chat.p_compacto') : t('chat.p_grande')} aria-pressed={p.size === 'large'} onClick={p.onSize}>
               {p.size === 'large' ? <Minimize2 size={18} aria-hidden="true" /> : <Maximize2 size={18} aria-hidden="true" />}
@@ -151,7 +156,7 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
           {waiting && <p class="chat-note" role="status">{st.waitS ? t('chat.p_espera', { s: st.waitS }) : st.tool ? t('chat.p_buscando') : t('chat.p_pensando')}</p>}
         </div>
         <form class="chat-form" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-          <textarea ref={input} class="input" rows={1} aria-label={t('chat.p_escribe')} placeholder={t('chat.p_escribe')} onInput={grow}
+          <textarea ref={input} class="input" rows={1} aria-label={t('chat.p_escribe')} placeholder={t('chat.p_escribe')} onInput={(e) => { grow(e); setHas(!!(e.currentTarget as HTMLTextAreaElement).value.trim()); }} onFocus={() => setFoc(true)} onBlur={() => setFoc(false)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !p.phone) { e.preventDefault(); submit(); } }} />
           {/* claves distintas: si no, el mismo <button> pasaría de «Detener» a «Enviar» en pleno clic y lo enviaría */}
           {st.busy

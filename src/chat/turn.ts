@@ -1,7 +1,8 @@
 // Un turno del Asistente: historial + runTurn (una petición a la vez, rotación y espera 429 ya viven en session.ts).
 import { add, append, generation, getStatus, messages, remove, setStatus, toModel } from './history';
 import { busy, runTurn } from './session';
-import { SYSTEM } from './system';
+import { SYSTEM, SYSTEM_WRITE } from './system';
+import { wantsWrite } from './proposal';
 import type { Source, ToolCtx } from './tools';
 
 export { SYSTEM };
@@ -23,9 +24,11 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>): Promis
   ctl = new AbortController();
   const history = toModel(messages().filter((m) => m.id !== reply.id));
   // las herramientas se cargan junto al SDK, ya con el panel abierto
-  const tools = env ? (await import('./tools')).makeTools({ ...env, sources }) : undefined;
+  // las de escritura solo si ESTE mensaje pide crear/agregar/modificar; aun así solo proponen (la UI escribe tras «Aceptar»)
+  const writes = wantsWrite(q);
+  const tools = env ? { ...(await import('./tools')).makeTools({ ...env, sources }), ...(writes ? (await import('./tools-write')).makeWriteTools({ ...env, sources, allowed: () => writes, propose: (p) => { if (writes && generation() === gen) add('proposal', '', { proposal: p, pstate: 'pending' }); } }) : {}) } : undefined;
   const r = await runTurn({
-    messages: history, system: SYSTEM, tools, signal: ctl.signal,
+    messages: history, system: writes ? SYSTEM + ' ' + SYSTEM_WRITE : SYSTEM, tools, signal: ctl.signal,
     onTool: (name) => { if (generation() === gen) setStatus({ tool: name }); },
     onText: (d) => { if (generation() !== gen) return; if (getStatus().tool) setStatus({ tool: undefined }); append(reply.id, d); },
     onStatus: (s) => {

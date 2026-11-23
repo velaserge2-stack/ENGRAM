@@ -1,4 +1,5 @@
-import { useMemo } from 'preact/hooks';
+import { useEffect, useMemo, useReducer } from 'preact/hooks';
+import { getStatus, messages, subscribe } from './history';
 import './mascot.css';
 
 /**
@@ -8,6 +9,20 @@ import './mascot.css';
 export const MASCOT_NAMES = ['Moti', 'Nubi', 'Tico'] as const;
 
 export type MascotState = 'idle' | 'listening' | 'thinking' | 'responding' | 'error';
+
+/** Estado de la mascota: error si el turno falló · responding con texto en curso · thinking sin texto aún · listening con foco o texto en el campo · idle. */
+export function mascotState(typing: boolean, msgs = messages(), st = getStatus()): MascotState {
+  const last = msgs[msgs.length - 1];
+  if (!st.busy && last?.role === 'error') return 'error';
+  if (st.busy) return last?.role === 'assistant' && last.text ? 'responding' : 'thinking';
+  return typing ? 'listening' : 'idle';
+}
+/** Se actualiza con el historial (turnos aunque el panel esté cerrado). */
+export function useMascotState(typing = false): MascotState {
+  const [, bump] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => subscribe(bump as () => void), []);
+  return mascotState(typing);
+}
 
 // Las animaciones se pausan con la pestaña oculta (clase en <html>; la lee mascot.css).
 if (typeof document !== 'undefined' && 'hidden' in document) {

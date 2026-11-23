@@ -1,10 +1,12 @@
 // Historial del Asistente: solo en memoria (nunca en disco ni en el respaldo). «Nueva conversación» lo vacía.
 import type { ModelMessage } from 'ai';
+import type { Proposal } from './proposal';
 import type { Source } from './tools';
 
-export type Role = 'user' | 'assistant' | 'error' | 'notice';
+export type Role = 'user' | 'assistant' | 'error' | 'notice' | 'proposal';
+export type PState = 'pending' | 'saving' | 'saved' | 'canceled' | 'undone';
 /** `code` y `alias` los traduce la interfaz al pintar (así el idioma puede cambiar sin perder nada). */
-export interface Msg { id: number; role: Role; text: string; code?: string; alias?: string; /** fuentes devueltas por las herramientas en ese turno (se llena durante el turno) */ sources?: Source[] }
+export interface Msg { id: number; role: Role; text: string; code?: string; alias?: string; /** fuentes devueltas por las herramientas en ese turno (se llena durante el turno) */ sources?: Source[]; /** vista previa de escritura (role 'proposal') */ proposal?: Proposal; pstate?: PState; perr?: string }
 export interface Status { busy: boolean; /** herramienta en curso */ tool?: string; /** apodo de la última clave usada */ alias?: string; /** espera por límite por minuto, en s */ waitS?: number }
 
 /** Mensajes que se envían al modelo como máximo (los más recientes). */
@@ -22,7 +24,7 @@ export const getStatus = (): Status => status;
 export const generation = (): number => epoch;
 export function subscribe(f: () => void): () => void { subs.add(f); return () => void subs.delete(f); }
 
-export function add(role: Role, text: string, extra?: { code?: string; alias?: string; sources?: Source[] }): Msg {
+export function add(role: Role, text: string, extra?: { code?: string; alias?: string; sources?: Source[]; proposal?: Proposal; pstate?: PState }): Msg {
   const m: Msg = { id: ++seq, role, text, ...extra };
   msgs = [...msgs, m];
   emit();
@@ -30,6 +32,10 @@ export function add(role: Role, text: string, extra?: { code?: string; alias?: s
 }
 export function append(id: number, delta: string): void {
   msgs = msgs.map((m) => (m.id === id ? { ...m, text: m.text + delta } : m));
+  emit();
+}
+export function patch(id: number, p: Partial<Msg>): void {
+  msgs = msgs.map((m) => (m.id === id ? { ...m, ...p } : m));
   emit();
 }
 export function remove(id: number): void {

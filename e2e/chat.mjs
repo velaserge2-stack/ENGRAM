@@ -54,6 +54,12 @@ try {
           await new Promise((res) => setTimeout(res, 600));
           return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse(mode === 'tool' ? 'El ECG usa 12 derivaciones [[Clase 1 - ECG básico]]. Otra fuente: [[Nota Inventada]] y [PDF: Falso p.3].' : 'No lo encontré en tus notas.') });
         }
+        if (mode === 'write' || mode === 'writeno') {
+          const done = (r.request().postData() ?? '').includes('functionResponse');
+          if (done) return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse('Te dejo una propuesta para revisar.') });
+          const args = { mazo: 'ECG IA', tarjetas: [{ pregunta: '¿Cuántas derivaciones tiene el ECG?', respuesta: '12' }, { pregunta: '<b>x</b> ¿Eje normal?', respuesta: '-30 a +90' }] };
+          return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: 'data: ' + JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ functionCall: { name: 'crear_tarjetas', args } }] }, finishReason: 'STOP', index: 0 }], usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 3, totalTokenCount: 6 } }) + '\n\n' });
+        }
         const dead = mode === 'all429' || (mode === 'q1' && key === K1);
         if (dead) return await r.fulfill({ status: 429, headers: CORS, contentType: 'application/json', body: JSON.stringify(day429) });
         return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse(reply) });
@@ -274,6 +280,52 @@ try {
   check((await log.locator('a.chat-cite').count()) === 0, 'sin resultados: «No lo encontré en tus notas» y sin citas');
   await page.goto(URL_ + '#/hoy');
   if (!(await panel.isVisible())) { await page.keyboard.press('Control+Alt+a'); await panel.waitFor(); }
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  // Fase 3b: escritura con vista previa
+  console.log('Escritura');
+  const deckText = () => page.evaluate(async () => { try { let d = await navigator.storage.getDirectory(); for (const part of ['decks']) d = await d.getDirectoryHandle(part); return await (await (await d.getFileHandle('ECG IA.md')).getFile()).text(); } catch { return null; } });
+  const appText = () => page.evaluate(() => document.querySelector('#app')?.innerText ?? '');
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  mode = 'writeno'; apiHits.length = 0;
+  await ta.fill('¿Cuántas derivaciones tiene el ECG?'); await ta.press('Enter');
+  await panel.getByText('Te dejo una propuesta').waitFor().catch(() => {});
+  await page.waitForTimeout(600);
+  check((await panel.locator('.chat-pv').count()) === 0, 'el modelo intenta escribir sin que se lo pidan: no hay vista previa');
+  check((await deckText()) === null, 'y no se escribió nada');
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  mode = 'write';
+  await ta.fill('Crea tarjetas de mi nota Clase 1 - ECG básico'); await ta.press('Enter');
+  const pv = panel.locator('.chat-pv');
+  await pv.waitFor();
+  check((await pv.locator('li').count()) === 2 && (await pv.innerText()).includes('<b>x</b>') && (await pv.locator('b, script, img').count()) === 1, 'vista previa: 2 tarjetas, HTML escapado como texto');
+  check((await deckText()) === null, 'proponer no escribe');
+  for (const n of ['Aceptar', 'Editar', 'Cancelar']) check((await pv.getByRole('button', { name: n }).boundingBox()).height >= 43.5, `«${n}» ≥ 44 px`);
+  await page.screenshot({ path: `${SHOTS}/1024-vista-previa.png` });
+  await pv.getByRole('button', { name: 'Cancelar' }).click();
+  await pv.getByText('Propuesta cancelada').waitFor();
+  check((await deckText()) === null, 'Cancelar: no se escribió nada');
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  await ta.fill('Crea tarjetas de mi nota Clase 1 - ECG básico'); await ta.press('Enter');
+  await pv.waitFor();
+  await pv.getByRole('button', { name: 'Editar' }).click();
+  const area = pv.getByRole('textbox');
+  await area.fill('texto sin formato');
+  await pv.getByRole('button', { name: 'Revisar' }).click();
+  check(await pv.getByRole('alert').isVisible(), 'Editar: texto inválido muestra error y no avanza');
+  await area.fill('Q:: ¿Derivaciones del ECG?\nA:: 12 <!-- origen: usuario -->');
+  await pv.getByRole('button', { name: 'Revisar' }).click();
+  await pv.getByRole('button', { name: 'Aceptar' }).waitFor();
+  check((await pv.locator('li').count()) === 1, 'Editar: revalidada, queda 1 tarjeta');
+  await pv.getByRole('button', { name: 'Aceptar' }).dblclick();
+  await pv.getByRole('button', { name: 'Deshacer' }).waitFor();
+  const saved = await deckText();
+  check(saved !== null && (saved.match(/^Q::/gm) ?? []).length === 1 && saved.includes('<!-- origen: ia -->') && !saved.includes('usuario'), 'Aceptar (doble clic): una sola escritura, con origen: ia');
+  await page.evaluate(() => { location.hash = '#/mazos'; });
+  await page.waitForFunction(() => document.querySelector('#app')?.innerText.includes('ECG IA'));
+  check((await appText()).includes('ECG IA'), 'el mazo aparece en Mazos');
+  await pv.getByRole('button', { name: 'Deshacer' }).click();
+  await pv.getByText(/Deshecho/).waitFor();
+  check(((await deckText()) ?? '').trim() === '---\ndeck: ECG IA\ntags: []\n---' || !/^Q::/m.test((await deckText()) ?? ''), 'Deshacer: las tarjetas ya no están');
   await panel.getByRole('button', { name: 'Nueva conversación' }).click();
   mode = 'stream';
 

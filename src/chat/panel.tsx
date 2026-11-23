@@ -5,7 +5,7 @@ import { useApp } from '../state';
 import { useKeyScope } from '../ui/keys';
 import { Portal } from '../ui/overlay';
 import { usePhone } from '../ui/kit';
-import { Mascot } from './mascot';
+import { Mascot, useMascotState } from './mascot';
 import './chat.css';
 
 const Conversation = lazy(() => import('./conv'));
@@ -19,6 +19,7 @@ export default function ChatHost() {
   const phone = usePhone();
   const [open, setOpen] = useState(false);
   const fab = useRef<HTMLButtonElement>(null);
+  const ms = useMascotState();
   const was = useRef(false);
   const size = app.settings.chat.size;
   const setSize = (s: 'compact' | 'large') => app.update({ chat: { ...app.settings.chat, size: s } });
@@ -40,7 +41,7 @@ export default function ChatHost() {
       {!open && (
         <Portal>
           <button ref={fab} type="button" class="chat-fab glass strong" aria-label={t('chat.p_abrir')} aria-haspopup="dialog" onClick={() => setOpen(true)}>
-            <Mascot size={24} />
+            <Mascot size={24} state={ms} />
           </button>
         </Portal>
       )}

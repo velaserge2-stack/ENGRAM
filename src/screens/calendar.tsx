@@ -6,7 +6,7 @@ import { deliver } from '../io/share';
 import { addDays, dayKey, daysBetween, weekdayMon } from '../lib/days';
 import { decksForTopic, fmtDate, topicStats } from '../lib/exams';
 import { type EventKind, fromICS, KINDS, occurrences, type StudyBlock, toICS, WEEKDAYS } from '../lib/ics';
-import { deleteOccurrence, editOccurrence, onDate, type Scope } from '../lib/calendar-edit';
+import { addEvent, atMinutes, blankEvent, CAL, deleteOccurrence, editOccurrence, onDate, type Scope } from '../lib/calendar-edit';
 import { type GridItem, KIND_ICON, kindLabel, TimeGrid } from './timegrid';
 import { srsParams } from '../lib/settings';
 import { activity, avgDaily, forecast, studyMs } from '../lib/stats';
@@ -20,7 +20,6 @@ import { noteTexts } from '../notes/textcache';
 import { type LinkIndex, resolveLink } from '../lib/links';
 import { Link2 } from 'lucide-preact';
 
-const CAL = 'calendar/estudio.ics';
 const DOW = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 type View = 'mes' | 'semana' | 'dia' | 'agenda';
 type Layer = 'forecast' | 'exams' | 'sims' | 'focus' | 'blocks' | 'tasks' | 'imported';
@@ -164,12 +163,11 @@ export function Calendar() {
   };
 
   // F16: entradas con hora (cuadrícula de semana y día)
-  const at = (date: string, min: number) => { const [y, m, dd] = date.split('-').map(Number) as [number, number, number]; return new Date(y, m - 1, dd, 0, min).getTime(); };
-  const blank = (date: string, a = 18 * 60, b = 19 * 60): StudyBlock => ({ uid: `${Date.now().toString(36)}@engrama`, start: at(date, a), end: at(date, b), title: '', subject: '', note: '', rrule: '', until: '', done: [], alarmMin: 10, kind: 'estudio', floating: true });
+  const at = atMinutes, blank = blankEvent;
   const gridItems: GridItem[] = [...own, ...imp];
   const apply = async (op: 'edit' | 'delete', uid: string, date: string | null, next: StudyBlock | undefined, scope: Scope) => {
     if (!data) return;
-    const list = op === 'delete' ? deleteOccurrence(data.own, uid, date ?? '', date ? scope : 'series') : data.own.some((x) => x.uid === uid) ? (date ? editOccurrence(data.own, uid, date, next!, scope) : data.own.map((x) => (x.uid === uid ? next! : x))) : [...data.own, next!];
+    const list = op === 'delete' ? deleteOccurrence(data.own, uid, date ?? '', date ? scope : 'series') : data.own.some((x) => x.uid === uid) ? (date ? editOccurrence(data.own, uid, date, next!, scope) : data.own.map((x) => (x.uid === uid ? next! : x))) : addEvent(data.own, next!);
     await saveOwn(list);
     setAsk(null);
     setEdit(null);
