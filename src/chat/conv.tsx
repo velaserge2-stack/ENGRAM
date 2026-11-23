@@ -2,41 +2,74 @@ import { t } from '../i18n';
 import { CircleAlert, Maximize2, Minimize2, SendHorizontal, Square, SquarePen, X } from 'lucide-preact';
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef } from 'preact/hooks';
 import { renderMarkdown } from '../md/render';
+import { dayKey } from '../lib/days';
 import { go, useApp } from '../state';
 import { Portal, useLayer } from '../ui/overlay';
 import { getStatus, type Msg, messages, clear, subscribe } from './history';
 import { loadKeys, pickKey } from './keys';
+import { citeHref, citeLabel, PDF_CITE, resolveNote, resolvePdf } from './cites';
 import { Mascot } from './mascot';
+import type { Source } from './tools';
 import { send, stop } from './turn';
 import { bar, loadUsage } from './usage';
 
 const ERR: Record<string, string> = { nokey: 'nokey', auth: 'auth', quota: 'quota', rate: 'rate', network: 'network', server: 'server', busy: 'busy' };
 const NEEDS_SETTINGS = new Set(['nokey', 'auth', 'quota']);
 
-/** Las respuestas ya vienen saneadas (DOMPurify); aquí además: sin imágenes ni medios y solo enlaces https/mailto, que abren fuera. */
-function harden(el: HTMLElement) {
-  el.querySelectorAll('img, audio, video, [data-media]').forEach((n) => n.replaceWith(document.createTextNode(n.getAttribute('alt') ?? '')));
-  el.querySelectorAll('a').forEach((a) => {
-    if (/^(https?:|mailto:)/i.test(a.getAttribute('href') ?? '')) { a.target = '_blank'; a.rel = 'noopener noreferrer nofollow'; }
-    else a.replaceWith(...Array.from(a.childNodes));
-  });
+/** Cita tocable (≥ 44 px, vía CSS) si la fuente la devolvió una herramienta en este turno; si no, texto inerte con aviso. */
+function citeEl(label: string, src: Source | null): HTMLElement {
+  if (src) {
+    const a = document.createElement('a');
+    a.className = 'chat-cite'; a.href = citeHref(src); a.textContent = citeLabel(src);
+    return a;
+  }
+  const sp = document.createElement('span');
+  sp.className = 'chat-cite off'; sp.setAttribute('aria-disabled', 'true'); sp.textContent = label;
+  const sr = document.createElement('span');
+  sr.className = 'sr-only'; sr.textContent = ` (${t('chat.p_cita_no')})`;
+  sp.append(sr);
+  return sp;
 }
 
-function Answer(p: { text: string }) {
+/** Las respuestas ya vienen saneadas (DOMPurify); aquí además: sin imágenes ni medios, enlaces https/mailto fuera, y citas validadas contra las fuentes del turno. */
+function harden(el: HTMLElement, sources: readonly Source[]) {
+  el.querySelectorAll('img, audio, video, [data-media]').forEach((n) => n.replaceWith(document.createTextNode(n.getAttribute('alt') ?? '')));
+  el.querySelectorAll('a').forEach((a) => {
+    const wl = a.getAttribute('data-wl');
+    if (a.classList.contains('wl') || wl !== null) a.replaceWith(citeEl(wl ?? a.textContent ?? '', resolveNote(wl ?? a.textContent ?? '', sources)));
+    else if (/^(https?:|mailto:)/i.test(a.getAttribute('href') ?? '')) { a.target = '_blank'; a.rel = 'noopener noreferrer nofollow'; }
+    else a.replaceWith(...Array.from(a.childNodes));
+  });
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const hits: Text[] = [];
+  for (let n = w.nextNode(); n; n = w.nextNode()) if (new RegExp(PDF_CITE.source, 'i').test(n.nodeValue ?? '')) hits.push(n as Text);
+  for (const n of hits) {
+    const frag = document.createDocumentFragment(), text = n.nodeValue ?? '';
+    let at = 0;
+    for (const m of text.matchAll(PDF_CITE)) {
+      frag.append(text.slice(at, m.index), citeEl(m[0], resolvePdf(m[1]!, Number(m[2]), sources)));
+      at = m.index! + m[0].length;
+    }
+    frag.append(text.slice(at));
+    n.replaceWith(frag);
+  }
+}
+
+function Answer(p: { text: string; sources?: Source[]; onCite: () => void }) {
   const html = useMemo(() => renderMarkdown(p.text), [p.text]);
   const ref = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => { if (ref.current) harden(ref.current); }, [html]);
-  return <div ref={ref} class="chat-msg assistant md" data-user-content dangerouslySetInnerHTML={{ __html: html }} />;
+  useLayoutEffect(() => { if (ref.current) harden(ref.current, p.sources ?? []); }, [html, p.sources?.length]);
+  return <div ref={ref} class="chat-msg assistant md" data-user-content dangerouslySetInnerHTML={{ __html: html }} onClick={(e) => { if ((e.target as HTMLElement).closest('a.chat-cite')) p.onCite(); }} />;
 }
 
 function Settings(p: { onClick: () => void }) {
   return <button type="button" class="btn small" onClick={p.onClick}>{t('chat.p_ajustes')}</button>;
 }
 
-function Bubble(p: { m: Msg; onSettings: () => void }) {
+function Bubble(p: { m: Msg; onSettings: () => void; onCite: () => void }) {
   const { m } = p;
   if (m.role === 'user') return <article class="chat-msg user" data-user-content><span class="sr-only">{t('chat.p_tu')}: </span>{m.text}</article>;
-  if (m.role === 'assistant') return <Answer text={m.text} />;
+  if (m.role === 'assistant') return <Answer text={m.text} sources={m.sources} onCite={p.onCite} />;
   if (m.role === 'notice') {
     return <p class="chat-note">{m.code === 'rotated' ? t('chat.p_rotada', { alias: m.alias ?? '' }) : t('chat.p_detenida')}</p>;
   }
@@ -69,6 +102,7 @@ function Meter(p: { alias?: string; onSettings: () => void }) {
 }
 
 export default function Conversation(p: { size: 'compact' | 'large'; phone: boolean; onClose: () => void; onSize: () => void }) {
+  const app = useApp();
   const [, bump] = useReducer((n: number) => n + 1, 0);
   useEffect(() => subscribe(bump as () => void), []);
   const msgs = messages(), st = getStatus();
@@ -86,11 +120,11 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
     const q = el.value;
     el.value = ''; el.style.height = '';
     stick.current = true;
-    void send(q);
+    void send(q, { vault: app.vault, col: app.col, today: dayKey(Date.now(), app.settings.timeZone, app.settings.dayStartHour) });
   };
   const grow = (e: Event) => { const el = e.currentTarget as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`; };
   const last = msgs[msgs.length - 1];
-  const waiting = st.busy && last?.role === 'assistant' && !last.text;
+  const waiting = st.busy && (!!st.tool || (last?.role === 'assistant' && !last.text));
 
   return (
     <Portal>
@@ -113,8 +147,8 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
         <div ref={log} class="chat-log" role="log" aria-live="polite" aria-relevant="additions text" aria-busy={st.busy} aria-label={t('chat.p_conv')} tabIndex={0}
           onScroll={(e) => { const l = e.currentTarget as HTMLElement; stick.current = l.scrollHeight - l.scrollTop - l.clientHeight < 40; }}>
           {!msgs.length && <div class="chat-empty"><p><b>{t('chat.p_vacio')}</b></p><p class="foot">{t('chat.p_vacio_sub')}</p></div>}
-          {msgs.map((m) => (m.role === 'assistant' && !m.text ? null : <Bubble key={m.id} m={m} onSettings={toSettings} />))}
-          {waiting && <p class="chat-note" role="status">{st.waitS ? t('chat.p_espera', { s: st.waitS }) : t('chat.p_pensando')}</p>}
+          {msgs.map((m) => (m.role === 'assistant' && !m.text ? null : <Bubble key={m.id} m={m} onSettings={toSettings} onCite={() => { if (p.phone) p.onClose(); }} />))}
+          {waiting && <p class="chat-note" role="status">{st.waitS ? t('chat.p_espera', { s: st.waitS }) : st.tool ? t('chat.p_buscando') : t('chat.p_pensando')}</p>}
         </div>
         <form class="chat-form" onSubmit={(e) => { e.preventDefault(); submit(); }}>
           <textarea ref={input} class="input" rows={1} aria-label={t('chat.p_escribe')} placeholder={t('chat.p_escribe')} onInput={grow}

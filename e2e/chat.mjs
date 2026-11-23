@@ -33,6 +33,7 @@ try {
   const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
   // Fase 2: modos del servidor simulado (streaming SSE de Gemini)
   const K1 = 'AIzaSyKEYONE0123456789abcdefAAAA', K2 = 'AIzaSyKEYTWO0123456789abcdefBBBB';
+  const toolBodies = [];
   let reply = 'Hola mundo', inflight = 0, maxInflight = 0, release = null;
   const sse = (text) => 'data: ' + JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text }] }, index: 0 }] }) + '\n\n'
     + 'data: ' + JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text: '' }] }, finishReason: 'STOP', index: 0 }], usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 3, totalTokenCount: 6 } }) + '\n\n';
@@ -45,6 +46,14 @@ try {
       inflight++; maxInflight = Math.max(maxInflight, inflight);
       try {
         if (mode === 'hold') await new Promise((res) => { release = res; });
+        if (mode === 'tool' || mode === 'toolnone') {
+          const done = (r.request().postData() ?? '').includes('functionResponse');
+          const fc = { candidates: [{ content: { role: 'model', parts: [{ functionCall: { name: 'buscar_notas', args: { consulta: mode === 'tool' ? 'ECG derivaciones' : 'zzzxqwv' } } }] }, finishReason: 'STOP', index: 0 }], usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 3, totalTokenCount: 6 } };
+          toolBodies.push(r.request().postData() ?? '');
+          if (!done) return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: 'data: ' + JSON.stringify(fc) + '\n\n' });
+          await new Promise((res) => setTimeout(res, 600));
+          return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse(mode === 'tool' ? 'El ECG usa 12 derivaciones [[Clase 1 - ECG básico]]. Otra fuente: [[Nota Inventada]] y [PDF: Falso p.3].' : 'No lo encontré en tus notas.') });
+        }
         const dead = mode === 'all429' || (mode === 'q1' && key === K1);
         if (dead) return await r.fulfill({ status: 429, headers: CORS, contentType: 'application/json', body: JSON.stringify(day429) });
         return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse(reply) });
@@ -234,6 +243,39 @@ try {
   await panel.getByRole('button', { name: 'Nueva conversación' }).click();
   await panel.getByText('Pregúntame lo que quieras').waitFor();
   check(true, 'Nueva conversación vacía el historial');
+
+  // Fase 3a: herramienta de lectura + cita tocable
+  console.log('Herramientas');
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  await seed();
+  mode = 'tool'; apiHits.length = 0;
+  await ta.fill('¿Cuántas derivaciones tiene el ECG?'); await ta.press('Enter');
+  await panel.getByText('Buscando en tus notas…').waitFor();
+  check(await panel.locator('[role=status]').filter({ hasText: 'Buscando en tus notas…' }).count() === 1, 'estado «Buscando en tus notas…» con role=status (aria-live)');
+  const cite = log.locator('a.chat-cite', { hasText: 'Clase 1 - ECG básico' });
+  await cite.waitFor();
+  check(apiHits.length === 2, 'pregunta → herramienta → respuesta (2 peticiones)');
+  check(toolBodies.some((b) => b.includes('functionResponse') && b.includes('DATOS') && b.includes('Clase 1 - ECG básico')), 'el resultado vuelve al modelo marcado como dato con su fuente');
+  check((await cite.boundingBox()).height >= 43.5, 'cita ≥ 44 px');
+  check((await log.locator('.chat-cite.off').count()) === 2 && (await log.locator('a.chat-cite').count()) === 1, 'cita sin fuente real (nota y PDF inventados): sin enlace');
+  check((await log.locator('.chat-cite.off').first().getAttribute('aria-disabled')) === 'true', 'cita inexistente deshabilitada con aviso');
+  check((await log.innerText()).includes('fuente no encontrada'), 'aviso accesible de fuente no encontrada');
+  await page.screenshot({ path: `${SHOTS}/1024-cita.png` });
+  await cite.click();
+  await page.waitForFunction(() => location.hash.startsWith('#/notas/'));
+  check(decodeURIComponent(page.url()).includes('#/notas/Cardiología/ECG/Clase 1 - ECG básico.md'), 'clic en la cita abre la nota');
+  await page.getByRole('heading', { name: /ECG básico/ }).first().waitFor();
+  await page.goto(URL_ + '#/hoy');
+  if (!(await panel.isVisible())) { await page.keyboard.press('Control+Alt+a'); await panel.waitFor(); }
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  mode = 'toolnone'; toolBodies.length = 0;
+  await ta.fill('¿Y esto?'); await ta.press('Enter');
+  await log.getByText('No lo encontré en tus notas.').waitFor();
+  check((await log.locator('a.chat-cite').count()) === 0, 'sin resultados: «No lo encontré en tus notas» y sin citas');
+  await page.goto(URL_ + '#/hoy');
+  if (!(await panel.isVisible())) { await page.keyboard.press('Control+Alt+a'); await panel.waitFor(); }
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  mode = 'stream';
 
   // Mini reproductor simulado: el botón y el panel no lo tapan; ni la firma
   await page.keyboard.press('Escape');

@@ -15,6 +15,8 @@ export interface TurnOpts {
   signal?: AbortSignal;
   onText?: (delta: string) => void;
   /** Códigos para la interfaz: 'rotated' (cambió de clave) | 'waiting' (429 por minuto). */
+  /** Una herramienta fue llamada; la interfaz lo muestra hasta que llega texto. */
+  onTool?: (name: string) => void;
   onStatus?: (s: { code: 'rotated' | 'waiting'; alias: string; waitMs?: number }) => void;
   /** Solo pruebas. */
   fetch?: typeof fetch;
@@ -64,6 +66,7 @@ async function run(o: TurnOpts): Promise<TurnResult> {
       });
       for await (const part of r.fullStream) {
         if (part.type === 'text-delta') { text += part.text; o.onText?.(part.text); }
+        else if (part.type === 'tool-call') o.onTool?.(part.toolName);
         else if (part.type === 'error') err = err ?? part.error;
       }
       if (!err && !o.signal?.aborted) {

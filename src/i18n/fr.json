@@ -2150,6 +2150,8 @@
  "chat.p_espera": "Attente de {s} s pour la limite par minute…",
  "chat.p_ajustes": "Aller aux Réglages",
  "chat.p_detenida": "Réponse arrêtée.",
+ "chat.p_buscando": "Recherche dans tes notes…",
+ "chat.p_cita_no": "source introuvable",
  "chat.p_pensando": "Réflexion…",
  "chat.p_uso": "Utilisation de la clé : {pct}",
  "chat.p_agotadas": "Toutes tes clés sont épuisées ou invalides.",

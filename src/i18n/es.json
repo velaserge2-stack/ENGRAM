@@ -2150,6 +2150,8 @@
  "chat.p_espera": "Esperando {s} s por el límite por minuto…",
  "chat.p_ajustes": "Ir a Ajustes",
  "chat.p_detenida": "Respuesta detenida.",
+ "chat.p_buscando": "Buscando en tus notas…",
+ "chat.p_cita_no": "fuente no encontrada",
  "chat.p_pensando": "Pensando…",
  "chat.p_uso": "Uso de la clave: {pct}",
  "chat.p_agotadas": "Todas tus claves están agotadas o son inválidas.",

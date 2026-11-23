@@ -45,3 +45,5 @@ html.is-phone body:has(.mini-amb.open) .chat-fab { visibility: hidden; }
 html.is-phone .chat-panel { inset: 0 0 var(--kb-inset, 0px) 0; width: auto; height: auto; border-radius: 0; padding: env(safe-area-inset-top) var(--chat-sr) var(--chat-sb) env(safe-area-inset-left); box-shadow: none; }
 
 @media print { .chat-fab, .chat-panel { display: none !important; } }
+.chat-cite { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s-2, 8px); border-radius: 999px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; color: inherit; }
+.chat-cite.off { text-decoration: line-through; opacity: .7; }

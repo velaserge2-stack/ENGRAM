@@ -2150,6 +2150,8 @@
  "chat.p_espera": "Waiting {s} s for the per-minute limit…",
  "chat.p_ajustes": "Go to Settings",
  "chat.p_detenida": "Reply stopped.",
+ "chat.p_buscando": "Searching your notes…",
+ "chat.p_cita_no": "source not found",
  "chat.p_pensando": "Thinking…",
  "chat.p_uso": "Key usage: {pct}",
  "chat.p_agotadas": "All your keys are exhausted or invalid.",
