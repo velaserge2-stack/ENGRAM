@@ -1,0 +1,76 @@
+# Asistente · Contrato Fase 1
+Rama `asistente`. Fase 1 = proveedores, claves con rotación, uso/barra, sesión en streaming, Ajustes y CSP. Herramientas → Fase 3 (las que escriben, con deshacer §7).
+🔸 = NO verificado en doc oficial (ai.google.dev y console.groq.com no se resolvieron desde la sesión; consulta 2026-11-23). Confirmar antes de fijar.
+
+## 1 · SDK (npm view + npm pack, 2026-11-23)
+- `ai` 7.0.181 · `@ai-sdk/google` 4.0.125 · `@ai-sdk/groq` 4.0.86: Apache-2.0. Peer obligatorio `zod` ^3.25.76 || ^4.1.8 (4.6.7, MIT).
+- `streamText({ model, system, messages, tools, stopWhen: stepCountIs(5), maxRetries: 0, abortSignal, onError })`. Por defecto se para en 1 paso.
+- `maxRetries` vale 2 y reintenta 429 con retry-after (0–60 s) → **siempre 0**; la rotación es nuestra.
+- Herramientas: `tool({ description, inputSchema, execute })`; `inputSchema` acepta zod, Standard Schema o `jsonSchema()` (usamos `jsonSchema()`; zod entra igual en el chunk).
+- Errores: `APICallError.isInstance(e)` → `statusCode`, `responseHeaders`, `responseBody`. En streaming llegan por `onError` o como parte `error` de `fullStream`.
+- `createGoogleGenerativeAI({ apiKey })` (cabecera `x-goog-api-key`, no URL) y `createGroq({ apiKey })` (`Authorization: Bearer`). Pasar siempre el objeto modelo, nunca una cadena (una cadena activa `@ai-sdk/gateway`).
+- Peso (esbuild, minificado, gzip): `ai` 115 kB · +groq 186 kB · +google 233 kB · todo 240 kB. zod ≈ 45 %. Mitigación: `import('ai')` común + `import()` por proveedor (solo el de la clave en uso), fuera del precache. Se mide con `vite build`. **Tope propuesto ≈ 190 kB gzip bajo demanda (el de 60 kB de la auditoría no es alcanzable con este SDK).**
+
+## 2 · Red y CSP
+- `index.html:19`: `connect-src 'self' https://generativelanguage.googleapis.com https://api.groq.com` (hosts leídos del código del SDK).
+- 🔸 CORS desde navegador sin cabecera especial: probar en Safari/iPad.
+- `sw.js:29-31` ya ignora POST y otros orígenes: sin cambios.
+
+## 3 · Proveedores (`src/chat/providers.ts`)
+`type ProviderId = 'gemini' | 'groq'`
+`interface Limits { rpm: number; rpd: number; tpm: number; tpd?: number }`
+`PROVIDERS: Record<ProviderId, { name: string; host: string; model: string; limits: Limits }>`
+`loadModel(p, apiKey): Promise<LanguageModel>` (import() del proveedor) · `loadCore(): Promise<typeof import('ai')>`
+| | modelo por defecto | límites por defecto 🔸 (editables) |
+|---|---|---|
+| gemini | `gemini-3.5-flash` 🔸 (¿gratuito?) | rpm 10 · rpd 250 · tpm 250 000 |
+| groq | `llama-3.3-70b-versatile` (tools en el SDK) | rpm 30 · rpd 1 000 · tpm 12 000 · tpd 100 000 |
+
+## 4 · Claves (`src/chat/keys.ts`)
+- `localStorage['engrama.chat.keys']` = `{ v: 1, keys: KeyEntry[] }` (máx. 3; el orden es la prioridad).
+- `KeyEntry { id; alias; provider; key; status: 'active'|'exhausted'|'invalid'|'paused'; until? }` (`until` = ms en que se reabre una agotada).
+- `last4(k)` · `mask(k)` (`••••abcd`) · `loadKeys()`/`saveKeys()` (JSON malo → vacío; nunca lanza).
+- `pickKey(keys, now, skip?: ReadonlySet<string>): KeyEntry | null` (pura): primera `active`, o `exhausted` con `until <= now`, fuera de `skip`.
+- `markKey(s, id, status, until?)` (pura).
+- Nunca en `.app/`, Settings, zip, logs, URLs ni mensajes de error; todo error pasa por `redact()`.
+
+## 5 · Errores (`src/chat/errors.ts`)
+`type Kind = 'quota'|'rate'|'auth'|'network'|'server'|'aborted'|'other'`
+`classify(p, e): { kind; retryAfterMs?; resetAt? }` · `decide(k): 'rotate'|'wait'|'fail'` (quota/auth → rotate · rate → wait misma clave · resto → fail).
+- 🔸 Gemini: 429 `RESOURCE_EXHAUSTED` para minuto y día; distinguir por `details[].violations[].quotaId` (con `PerDay` → quota). Clave mala = 400 `API_KEY_INVALID` o 403 → auth. Reinicio diario a medianoche del Pacífico.
+- 🔸 Groq: 401 → auth; 429 → RPD/TPD → quota, si no → rate; `retry-after` (s); `x-ratelimit-{limit,remaining,reset}-{requests,tokens}`.
+- `AbortError` → aborted · `TypeError` de fetch → network · 5xx → server.
+
+## 6 · Sesión (`src/chat/session.ts`)
+`runTurn({ messages, tools, signal, onText, onStatus }): Promise<TurnResult>`
+- Mutex: una sola petición a la vez (`busy()`); una segunda llamada → error `busy`.
+- `pickKey` → stream. Si `rotate` y aún no llegó texto → `markKey` + reintento **una vez** con la siguiente. Si `wait` → `retryAfterMs` (tope 60 s, cancelable) con la misma clave.
+- `onFinish` → `usage.record` + `fromHeaders`. Indica la clave usada (apodo) y si cambió de clave.
+
+## 7 · Uso y barra (`src/chat/usage.ts`)
+- `localStorage['engrama.chat.usage']` = `{ v: 1, perKey: Record<id, { day; req; tok; min: { t; req; tok } }>; hdr?: Record<id, HdrQuota> }`.
+- `record(u, id, tokens, now)` (pura) · `fromHeaders(p, h)` → `HdrQuota { remainingReq, remainingTok, resetAt }`.
+- `bar(u, id, limits, now, warnAt = 0.8): { pct; level: 'ok'|'near'|'full'; show; label }`; la cabecera manda sobre la cuenta local.
+- Deshacer (Fase 3): `src/chat/undo.ts` guarda `{ path, before: string | null }` antes de cada escritura vía SafeVault.
+
+## 8 · Interfaz y configuración
+- `screens/addons.tsx`: `{ id: 'assistant', defaultOn: false }` (apagado = nada se importa).
+- `settings.ts`: `chat: { limits; warnAt }` (sin secretos).
+- `screens/settings.tsx`: `'asistente'` en `FOLDS`, `<Group id="asistente">` solo con `addonOn(s,'assistant')`: lista de claves (apodo, proveedor, ••••últimos 4, estado, subir/bajar, pausar, borrar, «Probar»), límites editables y aviso de datos. `--z-chat` entre `--z-dock` y `--z-popover`.
+- Aviso de datos 🔸: Gemini gratuito puede usar el contenido para mejorar productos y haber revisores humanos («no envíes datos sensibles»); Groq no entrena con datos de clientes. Verificar.
+- i18n es/en/fr.
+- `vite.config.ts:16-18`: quitar del precache los chunks cuyo `moduleIds` pasen por `node_modules/(ai|@ai-sdk|zod|eventsource-parser|@standard-schema|@vercel|@workflow)/`. 🔸 Comprobar `moduleIds` en Vite 8. El SW los guarda al primer uso.
+- CLAUDE.md/DECISIONS.md: «Asistente: única red, solo con el add-on encendido y clave propia; hosts exactos en la CSP».
+
+## 9 · Pruebas Vitest (`tests/chat-*.test.ts`)
+keys (orden, paused/invalid, `until`, `skip`, vacío, tope 3, JSON corrupto, mask) · errors (tabla por proveedor, redact) · session (`fetch` falso: quota rota una vez; 401 invalid + rota; 429 minuto espera misma clave; sin red/5xx/cancelado no rota; no rota con texto ya enviado; `busy`; `maxRetries:0`) · usage (cambio de día/minuto, headers Groq, `bar` 0/79/80/100 %) · csp (exactamente 2 hosts) · build (SW sin chunks del SDK) · leak (clave ausente en `zipVault` y `settings.json`).
+
+## 10 · Sin verificar
+Límites gratuitos, nombres de modelo y forma de errores 🔸 · CORS · políticas de datos · `moduleIds` en Vite 8 · peso real con Vite · Safari/iPad.
+
+## Correcciones (Fase 1a, según el código real del SDK)
+- `text-delta` de `fullStream` usa `part.text` (no `textDelta`); errores = parte `type:'error'` + `onError`. `APICallError` se detecta por duck-typing (`statusCode`/`responseBody`/`responseHeaders`), sin importar `ai` en `errors.ts`.
+- `stepCountIs` sigue exportado (alias de `isStepCount`). `loadModel(p, key, fetch?)` acepta `fetch` solo para pruebas; `runTurn(opts)` también (`fetch`, `now`, `sleep`).
+- `runTurn` devuelve `{ok:true,text,alias,rotated,tokens}` o `{ok:false,code:'busy'|'nokey'|Kind,message}`; no lanza. `onStatus` emite códigos `rotated`/`waiting`.
+- Se añade `addKey`, `setHdr`, `parseDuration`, `nextPacificMidnight`; `HdrQuota` lleva también `limitReq/limitTok`; día de uso = UTC. Gemini no devuelve cabeceras de cuota (`fromHeaders` → null).
+- `build`: sin importadores en la app, `ai`/`@ai-sdk` no están en ningún chunk (0 coincidencias en `dist/`); medir peso al conectar la UI (Fase 1b).

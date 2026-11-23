@@ -45,6 +45,9 @@
     "e2e:papelera": "node e2e/papelera.mjs"
   },
   "dependencies": {
+    "@ai-sdk/google": "4.0.125",
+    "@ai-sdk/groq": "4.0.86",
+    "ai": "7.0.181",
     "docx": "^9.15.3",
     "dompurify": "^3.4.17",
     "fflate": "^0.8.3",
@@ -59,7 +62,8 @@
     "preact": "^11.2.0",
     "sql.js": "^1.16.0",
     "ts-fsrs": "^5.4.2",
-    "turndown": "^7.2.5"
+    "turndown": "^7.2.5",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.2.0",
