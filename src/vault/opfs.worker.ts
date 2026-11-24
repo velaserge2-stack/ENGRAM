@@ -6,6 +6,7 @@
  * En Safari 15.x los métodos del sync handle devolvían promesas: por eso se usa `await` en todos.
  */
 import { asciiCodec, HandleFS, type WriteStrategy, writeWithWritable } from './handle-fs';
+import { retryLocked } from './retry';
 import type { FileStat } from './types';
 
 interface SyncHandle {
@@ -84,6 +85,7 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
   chain = chain.then(async () => {
     try {
       const { fs, strategy } = await getFS();
+      const { value, transfer } = await retryLocked(async () => {
       let value: unknown;
       const transfer: Transferable[] = [];
       switch (req.op) {
@@ -148,13 +150,15 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
           value = (await fs.stat(req.path)) as FileStat | null;
           break;
       }
+      return { value, transfer };
+      });
       (self as unknown as Worker).postMessage({ id: req.id, ok: true, value } satisfies WorkerResponse, transfer);
     } catch (e) {
       const err = e as { message?: string; code?: unknown; name?: string };
       (self as unknown as Worker).postMessage({
         id: req.id,
         ok: false,
-        error: `${req.op} ${'path' in req ? req.path : 'paths' in req ? `${req.paths.length} archivos` : 'from' in req ? `${req.from} → ${req.to}` : ''}: ${err?.message ?? String(e)}`,
+        error: `${req.op} ${'path' in req ? req.path : 'paths' in req ? `${req.paths.length} archivos` : 'from' in req ? `${req.from} → ${req.to}` : ''}: ${err?.name && err.name !== 'Error' && err.name !== 'VaultError' ? `${err.name}: ` : ''}${err?.message ?? String(e)}`,
         // VaultError trae `code` de texto; DOMException.code es numérico (22): entonces vale el nombre
         code: typeof err?.code === 'string' ? err.code : err?.name,
       } satisfies WorkerResponse);

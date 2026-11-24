@@ -2271,5 +2271,10 @@
  "chat.dl_err_changed": "It changed after it was proposed; nothing was moved. Ask again.",
  "chat.dl_err_gone": "It no longer exists (or is no longer in the trash).",
  "chat.dl_err_open": "It is open in the editor; close it and try again.",
- "chat.dl_err_other": "Could not move it; nothing was changed."
+ "chat.dl_err_other": "Could not move it; nothing was changed.",
+ "vault.locked": "The file is in use by another tab or window; close it and try again.",
+ "vault.tech": "Detail: {line}",
+ "vault.pending_save": "The previous session ended without saving: {paths}. Check those notes.",
+ "vault.memory": "Temporary mode: your changes are not saved.",
+ "vault.reintentar": "Retry"
 }
