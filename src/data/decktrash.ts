@@ -41,7 +41,8 @@ export function trashPlan(col: Collection, decks: Deck[]): { cards: number; revi
 }
 
 export async function trashDecks(vault: VaultAdapter, col: Collection, decks: Deck[], now = Date.now()): Promise<TrashEntry> {
-  const id = now.toString(36);
+  let id = now.toString(36);
+  for (let n = 2; await vault.exists(`${DECK_TRASH}/${id}`); n++) id = `${now.toString(36)}-${n}`;
   const entry: TrashEntry = { id, deletedAt: now, decks: decks.map((d) => ({ path: d.path, name: d.full })), ...trashPlan(col, decks) };
   // primero el meta: si la app se cierra a medias, la papelera sabe qué había
   await vault.write(`${DECK_TRASH}/${id}/meta.json`, JSON.stringify(entry, null, 1));

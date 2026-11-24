@@ -32,7 +32,7 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>): Promis
     const writes = wantsWrite(q), dels = wantsDelete(q); // solo del último mensaje del USUARIO
     const propose = (ok: boolean) => (p: Proposal) => { if (ok && generation() === gen) add('proposal', '', { proposal: p, pstate: 'pending' }); };
     const tw = writes || dels ? await import('./tools-write') : null;
-    const tools = env ? { ...(await import('./tools')).makeTools({ ...env, sources }), ...(writes && tw ? tw.makeWriteTools({ ...env, sources, allowed: () => writes, propose: propose(writes) }) : {}), ...(dels && tw ? tw.makeDeleteTools({ ...env, sources, allowed: () => dels, propose: propose(dels) }) : {}) } : undefined;
+    const tools = env ? { ...(await import('./tools')).makeTools({ ...env, sources }), ...(writes && tw ? tw.makeWriteTools({ ...env, sources, allowed: () => writes, propose: propose(writes) }) : {}), ...(dels && tw ? tw.makeDeleteTools({ ...env, sources, allowed: () => dels, userText: q, propose: propose(dels) }) : {}) } : undefined;
     r = await runTurn({
       messages: history, system: [SYSTEM, writes && SYSTEM_WRITE, dels && SYSTEM_DELETE].filter(Boolean).join(' '), tools, signal: mine.signal,
       onTool: (name) => { if (generation() === gen) setStatus({ tool: name }); },

@@ -3,13 +3,15 @@
 // Solo se ofrecen si el último mensaje del usuario pide crear/agregar/modificar (`wantsWrite`) y cada una lo vuelve a comprobar.
 import { jsonSchema, tool, type ToolSet } from 'ai';
 import { MAX_PROPOSALS, buildCards, buildEvent, buildEventEdit, buildExam, isBad, type CardIn, type EventFields, type Proposal, type QIn } from './proposal';
-import { buildDeleteBank, buildDeleteDeck, buildDeleteEvent, buildDeleteNote, MAX_DELETES } from './delete';
+import { buildDeleteBank, buildDeleteDeck, buildDeleteEvent, buildDeleteNote, MAX_DELETES, named } from './delete';
 import type { ToolCtx } from './tools';
 
 export interface WriteCtx extends ToolCtx {
   /** ¿el último mensaje del usuario pidió escribir? (se evalúa en cada llamada) */
   allowed: () => boolean;
   propose: (p: Proposal) => void;
+  /** último mensaje del usuario (borrar: el objetivo debe aparecer ahí) */
+  userText?: string;
 }
 const str = { type: 'string' } as const;
 const NO = { error: 'El usuario no pidió crear ni modificar nada: no se propone nada.' };
@@ -60,6 +62,7 @@ export function makeDeleteTools(ctx: WriteCtx): ToolSet {
   let n = 0; // propuestas de borrado de este turno
   const out = (p: Proposal | { error: string; detail?: string }) => {
     if (isBad(p)) return { error: `No válido (${p.error}${p.detail ? ': ' + p.detail : ''}). ${p.error === 'varios' ? 'Pide al usuario que precise cuál.' : 'Díselo al usuario; no inventes otro nombre.'}` };
+    if (!named(ctx.userText ?? '', p)) return { error: 'El usuario no nombró ese objetivo en su mensaje: no se propone nada. Pregúntale cuál quiere borrar.' };
     if (n >= MAX_DELETES) return { error: `Límite alcanzado: ya hay ${MAX_DELETES} propuestas de borrado en este turno. No propongas más.` };
     n++;
     ctx.propose(p);

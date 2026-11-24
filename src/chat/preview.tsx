@@ -152,7 +152,7 @@ function DeleteCard({ m }: { m: Msg }) {
     lock.current = true;
     try { await undoProposal(app.vault, m.id); patch(m.id, { pstate: 'undone', perr: undefined }); refresh(); } catch (e) { patch(m.id, { perr: derr(e), pdet: tech(e) }); } finally { lock.current = false; }
   };
-  const d = p.datos ?? {};
+  const d = p.datos ?? {}, days = app.settings.deckTrashDays;
   const info = p.objetivo === 'nota' ? t('chat.dl_info_nota', { n: d.chars ?? 0 })
     : p.objetivo === 'mazo' ? t('chat.dl_info_mazo', { cards: d.cards ?? 0, reviews: d.reviews ?? 0 })
     : p.objetivo === 'banco' ? t('chat.dl_info_banco', { n: d.questions ?? 0 })
@@ -166,7 +166,9 @@ function DeleteCard({ m }: { m: Msg }) {
         <p class="foot">{t(`chat.dl_obj_${p.objetivo}`)}</p>
         <ul class="chat-pv-list" data-user-content>{p.items.map((x, i) => <li key={i}>{x}</li>)}</ul>
         <p class="foot">{info}</p>
-        <p style={{ fontWeight: 600 }}>{t('chat.dl_aviso')}</p>
+        <p style={{ fontWeight: 600 }}>{t('chat.dl_aviso')} {p.objetivo === 'evento' ? '' : p.objetivo === 'nota' || !days ? t('chat.dl_sin_purga') : t('chat.dl_purga', { n: days })}</p>
+        {p.objetivo === 'mazo' && <p class="foot">{t('chat.dl_sin_sub')}</p>}
+        {p.objetivo !== 'evento' && <p class="foot">{t('chat.dl_rotos')}</p>}
       </>)}
       {m.perr && st !== 'undone' && <p class="chat-pv-err" role="alert">{t(`chat.dl_err_${m.perr}`)}{m.perr === 'other' && m.pdet && <small class="foot" style={{ display: 'block', fontWeight: 400 }} data-user-content>{m.pdet}</small>}</p>}
       {st === 'pending' || st === 'saving' ? (

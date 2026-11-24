@@ -26,10 +26,21 @@ const blockFp = (b: StudyBlock) => fingerprint(JSON.stringify([b.uid, b.start, b
 // Solo se evalúa sobre el ÚLTIMO mensaje del usuario (turn.ts): notas, PDF y respuestas del modelo nunca cuentan.
 const DEL_VERB = /\b(borr(a|ar|alo|ala|ame|ado|ada)|elimin(a|ar|alo|ala|ame)|quit(a|ar|alo|ala|ame)|suprim(e|ir)|delete\w*|remove\w*|erase\w*|get rid of|supprim(e|er|ez)\w*|efface\w*|retire\w*|enleve\w*)\b/;
 const DEL_OBJ = /\b(notas?|notes?|mazos?|decks?|paquets?|bancos?|banks?|banques?|examen(es)?|exams?|simulacros?|eventos?|events?|evenements?|citas?|appointments?|rendez-vous)\b/;
-const DEL_NEG = /\b(no|nunca|jamas|don'?t|do not|never|ne|n')\s+(me\s+|lo\s+|la\s+|los\s+|las\s+|vayas a\s+|vas a\s+|please\s+)?(borr|elimin|quit|suprim|delet|remov|erase|supprim|efface|retir)/;
+const STEM = '(?:borr|elimin|quit|suprim|delet|remov|erase|supprim|efface|retir|enleve)';
+// negación: «no», «nunca», «don't», «ne»… hasta 2 palabras de relleno («no quiero que borres», «ne les supprime pas», «n'efface pas»)
+const DEL_NEG = new RegExp(`(?:\\b(?:no|nunca|jamas|don'?t|do not|never|ne)\\b|\\bn')\\s*(?:[^\\s.,;!?]+\\s+){0,2}?${STEM}`);
+// pregunta o ayuda («¿cómo borro una nota?», «how do I delete…»): no es una orden
+const DEL_HELP = new RegExp(`\\b(?:como|how|comment)\\b[^.?!]*${STEM}`);
 export function wantsDelete(text: string): boolean {
-  const q = String(text ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-  return DEL_VERB.test(q) && DEL_OBJ.test(q) && !DEL_NEG.test(q);
+  const q = String(text ?? '').replace(/\u2019/g, "'").replace(/"[^"]*"|\u201c[^\u201d]*\u201d|\u00ab[^\u00bb]*\u00bb|^\s*>.*$/gm, ' ') // citado o pegado
+    .normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  return DEL_VERB.test(q) && DEL_OBJ.test(q) && !DEL_NEG.test(q) && !DEL_HELP.test(q);
+}
+/** ¿El último mensaje del usuario nombra el objetivo (nombre o archivo)? Frena que un texto leído inyecte otro objetivo. */
+export function named(userText: string, p: Proposal): boolean {
+  const u = norm(String(userText ?? '').replace(/\u2019/g, "'"));
+  const names = [p.resumen, p.destino.replace(/^.*\//, '').replace(/\.\w+$/, ''), p.op?.fecha ?? ''].map(norm).filter((x) => x.length > 1 && x !== 'estudio');
+  return names.some((x) => u.includes(x));
 }
 
 // ───────── resolver el objetivo (solo contra lo que EXISTE) ─────────
@@ -37,10 +48,12 @@ interface Cand { key: string; names: string[]; label: string }
 function pick(list: Cand[], q: string): Cand | Bad {
   const n = norm(q);
   if (!n) return { error: 'nombre' };
-  let hits = list.filter((c) => c.names.some((x) => norm(x) === n));
-  if (!hits.length) hits = list.filter((c) => c.names.some((x) => norm(x).includes(n)));
+  const hits = list.filter((c) => c.names.some((x) => norm(x) === n));
   if (hits.length === 1) return hits[0]!;
-  return hits.length ? { error: 'varios', detail: hits.slice(0, 8).map((h) => h.label).join(' | ') } : { error: 'noexiste' };
+  if (hits.length) return { error: 'varios', detail: hits.slice(0, 8).map((h) => h.label).join(' | ') };
+  // solo parcial («Bio» ~ «Biología avanzada»): nunca se elige solo; el usuario precisa
+  const part = list.filter((c) => c.names.some((x) => norm(x).includes(n)));
+  return part.length ? { error: 'varios', detail: part.slice(0, 8).map((h) => h.label).join(' | ') } : { error: 'noexiste' };
 }
 const isBad = (x: unknown): x is Bad => typeof x === 'object' && x !== null && 'error' in x;
 
@@ -110,15 +123,17 @@ export async function applyDelete(vault: VaultAdapter, col: Collection | null, p
   const path = p.destino;
   if (p.objetivo === 'evento') {
     const text = await readTextOr(vault, CAL, '');
-    const own = fromICS(text), b = own.find((x) => x.uid === p.op?.uid);
+    const own = fromICS(text), same = own.filter((x) => x.uid === p.op?.uid), b = same[0];
     if (!b) return gone();
+    if (same.length > 1) return changed(); // UID repetido: no se quitan varios bloques
     if (blockFp(b) !== p.huella) return changed();
     await w(CAL, toICS(deleteOccurrence(own, b.uid, p.op!.fecha, p.op!.scope)));
     return { entries: [], restore: async () => undefined }; // el deshacer de eventos lo hace undo.ts con el grupo `tracked`
   }
   if (!(await vault.exists(path))) return gone();
+  if (noteStore.listening(path)) throw new Error('open'); // abierto en un panel del editor: no se mueve
+  await noteStore.flush(path); // cerrado pero con cambios pendientes: se escriben antes de comparar la huella
   if (fingerprint(await readTextOr(vault, path, '')) !== p.huella) return changed();
-  if (noteStore.peek(path) !== null) throw new Error('open'); // abierto en el editor: no se mueve
   if (p.objetivo === 'nota') {
     const stored = await trash(vault, path);
     await noteStore.forget(path);
