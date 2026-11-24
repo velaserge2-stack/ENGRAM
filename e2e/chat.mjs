@@ -227,7 +227,7 @@ try {
   const fb = await fab.boundingBox();
   check(fb.width >= 44 && fb.height >= 44, 'botón flotante ≥ 44 px');
   check((await page.locator('.dev-sign').boundingBox()).x < 400 && fb.x > 700, 'el botón va a la derecha, la firma a la izquierda');
-  check(!(await page.evaluate(() => document.querySelector('.chat-fab').closest('.glass:not(.chat-fab)'))), 'el botón flotante no está dentro de otro vidrio');
+  check(!(await page.evaluate(() => document.querySelector('.gx-dock').closest('.glass'))) && (await page.locator('.gx-pill.glass').count()) === 1, 'la barra no está dentro de otro vidrio (una sola pastilla)');
   await fab.click();
   let panel = page.getByRole('dialog', { name: 'Asistente' });
   await panel.waitFor();
@@ -537,21 +537,138 @@ try {
   await dl.getByRole('button', { name: 'Deshacer' }).click();
   await dl.getByText('Restaurado.').waitFor();
   check((await deckThere()) && (await inTrash()) === 0, 'Deshacer: el mazo vuelve y la papelera queda vacía');
-  // Mini reproductor simulado: el botón y el panel no lo tapan; ni la firma
+  // panel grande: no tapa la firma ni la barra
   await page.keyboard.press('Escape');
-  await page.evaluate(() => document.body.insertAdjacentHTML('beforeend', '<div class="mini-amb docked glass on" id="fake-mini"><div class="mini-amb-pill"><button class="mini-amb-main" type="button">Mini</button></div></div>'));
-  const mini = await page.locator('#fake-mini').boundingBox();
   const hit = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
-  await page.waitForTimeout(150);
-  check(!hit(await fab.boundingBox(), mini), 'con el mini reproductor, el botón no lo tapa');
   await fab.click(); await panel.waitFor(); await page.waitForTimeout(400);
-  { const pbx = await panel.boundingBox(); check(!hit(pbx, mini), `con el mini reproductor, el panel compacto no lo tapa (${JSON.stringify(pbx)} vs ${JSON.stringify(mini)})`); }
-  await page.screenshot({ path: `${SHOTS}/1024-compacto-mini.png` });
-  await panel.getByRole('button', { name: 'Panel grande' }).click();
+  await panel.getByRole('button', { name: /Panel grande|Panel compacto/ }).click();
   await page.waitForTimeout(350);
+  if ((await panel.boundingBox()).width < 500) { await panel.getByRole('button', { name: 'Panel grande' }).click(); await page.waitForTimeout(350); }
   check(!hit(await panel.boundingBox(), await page.locator('.dev-sign').boundingBox()), 'el panel grande no tapa la firma');
-  await page.screenshot({ path: `${SHOTS}/1024-grande-mini.png` });
-  await page.evaluate(() => document.getElementById('fake-mini').remove());
+  check(!hit(await panel.boundingBox(), await page.locator('.gx-dock').boundingBox()), 'el panel grande no tapa la barra');
+  await page.screenshot({ path: `${SHOTS}/1024-grande-dock.png` });
+  await panel.getByRole('button', { name: 'Panel compacto' }).click();
+  await page.waitForTimeout(350);
+
+  // ───── GREX: barra, atajos, minimizar, posición estable ─────
+  console.log('GREX · barra');
+  await page.keyboard.press('Escape');
+  await panel.waitFor({ state: 'detached' });
+  await page.evaluate(() => { const d = new Date().toISOString().slice(0, 10); localStorage.setItem('engrama.chat.usage', JSON.stringify({ v: 1, perKey: { a: { day: d, req: 230, tok: 0, min: { t: 0, req: 0, tok: 0 } } } })); });
+  await page.goto(URL_ + '#/hoy');
+  const dock = page.locator('.gx-dock');
+  await dock.waitFor();
+  { const tx = await dock.innerText();
+    check(tx.includes('Pregúntale a GREX') && tx.includes('Toca para escribir'), 'barra en reposo: «Pregúntale a GREX» + «Toca para escribir»'); }
+  check((await page.locator('.gx-u').count()) === 2 && (await page.locator('.gx-u [role=progressbar]').count()) === 2, 'chips de uso por clave (2) con barra');
+  { const hot = page.locator('.gx-u.hot');
+    check((await hot.count()) === 1 && (await hot.innerText()).includes('casi al límite'), '≥ 80 %: «casi al límite»');
+    const [fw, h1, h0] = await Promise.all([hot.evaluate((e) => +getComputedStyle(e).fontWeight), hot.locator('.gx-bar').evaluate((e) => e.getBoundingClientRect().height), page.locator('.gx-u:not(.hot) .gx-bar').evaluate((e) => e.getBoundingClientRect().height)]);
+    check(fw >= 700 && h1 > h0, `≥ 80 %: negrita y barra más gruesa (${fw}, ${h1} > ${h0})`); }
+  check(await page.evaluate(() => getComputedStyle(document.querySelector('.gx-ttl')).fontFamily.includes('Helvetica Neue')), 'tipografía Helvetica Neue');
+  // acciones rápidas: rellenan el campo y no envían
+  const hitsBefore = apiHits.length;
+  await page.getByRole('button', { name: 'Acciones rápidas' }).click();
+  check((await page.locator('.gx-quick .gx-chip').count()) === 3, 'Acciones rápidas: 3 atajos');
+  await page.locator('.gx-chip', { hasText: 'Crear tarjetas' }).click();
+  panel = page.getByRole('dialog', { name: 'Asistente' });
+  await panel.waitFor();
+  check((await panel.getByLabel('Escribe tu mensaje').inputValue()).startsWith('Crea tarjetas de la nota') && apiHits.length === hitsBefore && (await page.locator('.gx-dock.work').count()) === 0, 'el atajo rellena el campo y no envía nada');
+  check((await panel.locator('h2').innerText()) === 'GREX', 'título del asistente: GREX');
+  await page.keyboard.press('Escape');
+  await panel.waitFor({ state: 'detached' });
+
+  // trabajando: estado + Detener en la barra
+  mode = 'hold'; apiHits.length = 0;
+  await page.locator('.gx-avatar').click();
+  await panel.waitFor();
+  await panel.getByLabel('Escribe tu mensaje').fill('espera');
+  await panel.getByLabel('Escribe tu mensaje').press('Enter');
+  await page.locator('.gx-dock.work').waitFor();
+  check((await dock.innerText()).includes('Pensando') && (await dock.getByRole('button', { name: 'Detener' }).count()) === 1, 'trabajando: «Pensando…» y botón «Detener» en la barra');
+  await dock.getByRole('button', { name: 'Detener' }).click();
+  await page.locator('.gx-dock.work').waitFor({ state: 'detached' });
+  if (release) release();
+  check((await dock.innerText()).includes('Pregúntale a GREX'), 'Detener desde la barra: vuelve al reposo');
+  mode = 'stream';
+  await page.keyboard.press('Escape');
+  await panel.waitFor({ state: 'detached' });
+
+  // posición estable: abrir teclado simulado y abrir/cerrar el panel no mueven la barra (≤ 1 px)
+  const rect = () => dock.evaluate((e) => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; });
+  const same = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 1);
+  const r0 = await rect();
+  await page.locator('.gx-avatar').click(); await panel.waitFor(); await page.waitForTimeout(400);
+  const r1 = await rect();
+  await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
+  await page.evaluate(() => { document.documentElement.classList.add('kb-open'); document.documentElement.style.setProperty('--kb-inset', '320px'); });
+  await page.waitForTimeout(150);
+  const r2 = await rect();
+  check((await dock.evaluate((e) => getComputedStyle(e).visibility)) === 'hidden', 'con el teclado abierto la barra se oculta (no estorba el campo)');
+  await page.evaluate(() => { document.documentElement.classList.remove('kb-open'); document.documentElement.style.removeProperty('--kb-inset'); });
+  await page.waitForTimeout(150);
+  const r3 = await rect();
+  check(same(r0, r1) && same(r0, r2) && same(r0, r3), `posición estable ≤ 1 px: ${r0.map(Math.round)} / ${r1.map(Math.round)} / ${r2.map(Math.round)} / ${r3.map(Math.round)}`);
+
+  // minimizar a la mascota (abajo a la derecha), persistencia y restaurar
+  await dock.getByRole('button', { name: 'Minimizar a la mascota' }).click();
+  const mini = page.locator('.gx-mini');
+  await mini.waitFor();
+  check((await dock.count()) === 0, 'minimizada: la barra desaparece');
+  check(await mini.evaluate((e) => e === document.activeElement), 'minimizar: el foco pasa a la mascota');
+  { const m = await mini.boundingBox(), vw = page.viewportSize().width, vh = page.viewportSize().height;
+    check(Math.abs(m.width - 64) <= 1 && vw - (m.x + m.width) >= 8 && vw - (m.x + m.width) <= 40 && m.y + m.height <= vh - 8, `GREX minimizada abajo a la derecha (${Math.round(m.x)},${Math.round(m.y)} ${m.width}×${m.height})`); }
+  await page.waitForTimeout(600);
+  await page.goto(URL_ + '#/hoy');
+  await page.locator('.gx-mini').waitFor();
+  check((await page.locator('.gx-dock').count()) === 0, 'minimizar persiste (settings.chat.dock = mascota)');
+  await page.setViewportSize({ width: 1024, height: 768 }); await page.waitForTimeout(200);
+  await page.screenshot({ path: `${SHOTS}/1024-mascota.png` });
+  await page.locator('.gx-mini').click();
+  await dock.waitFor();
+  check(await page.locator('.gx-avatar').evaluate((e) => e === document.activeElement), 'restaurar: el foco pasa a la barra');
+  await page.waitForTimeout(600);
+  await page.goto(URL_ + '#/hoy');
+  await dock.waitFor();
+  check((await page.locator('.gx-mini').count()) === 0, 'restaurar persiste (barra)');
+
+  // no solapa la firma ni la barra del editor (1024×768 y 1366×1024); claro y oscuro
+  await page.goto(URL_ + '#/notas');
+  await page.getByRole('button', { name: 'Nueva nota', exact: true }).first().click();
+  await page.locator('.sheet').getByLabel('Título').fill('Nota GREX');
+  await page.locator('.sheet').getByLabel('Título').press('Enter');
+  await page.locator('.doc').waitFor();
+  for (const [w, h] of [[1024, 768], [1366, 1024]]) {
+    await page.setViewportSize({ width: w, height: h }); await page.waitForTimeout(250);
+    for (const dark of [false, true]) {
+      await page.evaluate((d) => document.documentElement.classList.toggle('dark', d), dark);
+      await page.waitForTimeout(100);
+      const eb = page.locator('.editorbar').first(), sg = await page.locator('.dev-sign').boundingBox();
+      const d = await page.locator('.gx-dock').boundingBox();
+      check(!hit(d, sg), `${w}×${h}${dark ? ' oscuro' : ''}: la barra no tapa la firma`);
+      check((await eb.count()) > 0 && !hit(d, await eb.boundingBox()), `${w}×${h}${dark ? ' oscuro' : ''}: la barra no tapa la barra del editor`);
+      await page.screenshot({ path: `${SHOTS}/${w}-notas-${dark ? 'oscuro' : 'claro'}.png` });
+    }
+    await page.locator('.gx-dock .gx-minimize, .gx-dock [aria-label="Minimizar a la mascota"]').click();
+    await page.locator('.gx-mini').waitFor();
+    { const m = await page.locator('.gx-mini').boundingBox(), eb = await page.locator('.editorbar').first().boundingBox(), sg = await page.locator('.dev-sign').boundingBox();
+      check(!hit(m, eb) && !hit(m, sg), `${w}×${h}: la mascota minimizada no tapa la barra del editor ni la firma`); }
+    await page.screenshot({ path: `${SHOTS}/${w}-notas-mascota.png` });
+    await page.locator('.gx-mini').click();
+    await page.locator('.gx-dock').waitFor();
+  }
+  await page.evaluate(() => document.documentElement.classList.remove('dark'));
+  await page.setViewportSize({ width: 1180, height: 900 });
+
+  // reduced-motion: mascota y barra sin animación
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(URL_ + '#/hoy');
+  await page.locator('.gx-dock').waitFor();
+  check(await page.evaluate(() => [...document.querySelectorAll('.gx-dock *, .gx-dock')].every((e) => getComputedStyle(e).animationName === 'none' && !/after/.test('')) && getComputedStyle(document.querySelector('.gx-dock .blink')).animationName === 'none'), 'reduced-motion: sin animaciones en la barra ni en GREX');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto(URL_ + '#/hoy');
+  await page.locator('.gx-dock').waitFor();
+  check(await page.evaluate(() => getComputedStyle(document.querySelector('.gx-dock .blink')).animationName === 'm-blink'), 'con movimiento: GREX parpadea');
 
   // pseudo-idioma +40 %: sin desbordes
   await page.keyboard.press('Escape');

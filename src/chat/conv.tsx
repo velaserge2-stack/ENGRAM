@@ -9,7 +9,7 @@ import { Portal, useLayer } from '../ui/overlay';
 import { getStatus, type Msg, messages, clear, subscribe } from './history';
 import { loadKeys, pickKey } from './keys';
 import { citeHref, citeLabel, PDF_CITE, resolveNote, resolvePdf } from './cites';
-import { Mascot, useMascotState } from './mascot';
+import { Mascot, MASCOT_NAME, useMascotState } from './mascot';
 import { forgetProposals } from './proposal';
 import { Preview } from './preview';
 import type { Source } from './tools';
@@ -71,7 +71,15 @@ function Answer(p: { text: string; sources?: Source[]; onCite: () => void }) {
     harden(tpl.content as unknown as HTMLElement, p.sources ?? []);
     return tpl.innerHTML;
   }, [p.text, p.sources?.length]);
-  return <div class="chat-msg assistant md" data-user-content dangerouslySetInnerHTML={{ __html: html }} onClick={(e) => { if ((e.target as HTMLElement).closest('a.chat-cite')) p.onCite(); }} />;
+  return (
+    <div class="chat-a">
+      <span class="chat-av"><Mascot size={30} /></span>
+      <div class="chat-a-b">
+        <div class="chat-who" aria-hidden="true">{MASCOT_NAME}</div>
+        <div class="chat-msg assistant md" data-user-content dangerouslySetInnerHTML={{ __html: html }} onClick={(e) => { if ((e.target as HTMLElement).closest('a.chat-cite')) p.onCite(); }} />
+      </div>
+    </div>
+  );
 }
 
 function Settings(p: { onClick: () => void }) {
@@ -116,7 +124,7 @@ function Meter(p: { alias?: string; onSettings: () => void }) {
   );
 }
 
-export default function Conversation(p: { size: 'compact' | 'large'; phone: boolean; onClose: () => void; onSize: () => void }) {
+export default function Conversation(p: { size: 'compact' | 'large'; phone: boolean; prefill?: { text: string; n: number } | undefined; onClose: () => void; onSize: () => void }) {
   const app = useApp();
   const [, bump] = useReducer((n: number) => n + 1, 0);
   useEffect(() => subscribe(bump as () => void), []);
@@ -126,6 +134,13 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
   useLayer(p.onClose, { modal: p.phone, el: () => root.current });
   useLayoutEffect(() => { if (!p.phone) input.current?.focus(); }, []);
   const [foc, setFoc] = useState(false), [has, setHas] = useState(false);
+  // «Acciones rápidas»: rellena el campo (nunca envía) y deja el cursor al final
+  useLayoutEffect(() => {
+    const el = input.current;
+    if (!p.prefill || !el) return;
+    el.value = p.prefill.text; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+    el.focus(); el.setSelectionRange(el.value.length, el.value.length); setHas(true);
+  }, [p.prefill?.n]);
   const ms = useMascotState(foc || has);
   const stick = useRef(true);
   useLayoutEffect(() => { const l = log.current; if (l && stick.current) l.scrollTop = l.scrollHeight; });
@@ -148,11 +163,11 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
 
   return (
     <Portal>
-      <section ref={root} class={`chat-panel glass strong ${p.size}`} role="dialog" aria-modal={p.phone ? 'true' : undefined} aria-label={t('chat.p_titulo')} tabIndex={-1}>
+      <section ref={root} class={`chat-panel glass strong ${p.size}${app.settings.chat.estilo === 'b' ? ' sty-b' : ''}`} role="dialog" aria-modal={p.phone ? 'true' : undefined} aria-label={t('chat.p_titulo')} tabIndex={-1}>
         <header class="chat-h">
-          <Mascot size={24} state={ms} />
+          <Mascot size={34} state={ms} />
           <div class="chat-title">
-            <h2>{t('chat.p_titulo')}</h2>
+            <h2>{MASCOT_NAME}</h2>
             {st.alias && <span class="foot ellipsis" data-user-content>{t('chat.p_clave_usada', { alias: st.alias })}</span>}
           </div>
           <button type="button" class="btn icon ghost" aria-label={t('chat.p_nueva')} onClick={() => { clear(); forgetProposals(); input.current?.focus(); }}><SquarePen size={18} aria-hidden="true" /></button>
@@ -166,7 +181,7 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
         <Meter alias={st.alias} onSettings={toSettings} />
         <div ref={log} class="chat-log" role="log" aria-live="polite" aria-relevant="additions text" aria-busy={st.busy} aria-label={t('chat.p_conv')} tabIndex={0}
           onScroll={(e) => { const l = e.currentTarget as HTMLElement; stick.current = l.scrollHeight - l.scrollTop - l.clientHeight < 40; }}>
-          {!msgs.length && <div class="chat-empty"><p><b>{t('chat.p_vacio')}</b></p><p class="foot">{t('chat.p_vacio_sub')}</p></div>}
+          {!msgs.length && <div class="chat-empty"><Mascot size={64} state={ms} /><p><b>{t('chat.p_vacio')}</b></p><p class="foot">{t('chat.p_vacio_sub')}</p></div>}
           {msgs.map((m) => (m.role === 'assistant' && !m.text ? null : <Bubble key={m.id} m={m} onSettings={toSettings} onCite={() => { if (p.phone) p.onClose(); }} onRetry={lastUser && !st.busy ? () => { stick.current = true; setModels(app.settings.chat.models, app.settings.chat.context); run(lastUser); } : undefined} />))}
           {waiting && <p class="chat-note" role="status">{st.waitS ? t('chat.p_espera', { s: st.waitS }) : st.tool ? t('chat.p_buscando') : t('chat.p_pensando')}</p>}
         </div>
