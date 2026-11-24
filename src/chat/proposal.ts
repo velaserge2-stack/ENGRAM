@@ -55,7 +55,7 @@ const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCas
 const one = (s: unknown, max = 600) => String(s ?? '').replace(/<!--|-->/g, '').replace(/\s*[\r\n]+\s*/g, ' ').trim().slice(0, max);
 const ID_END = /\s\^[A-Za-z0-9_-]{2,40}\s*$/;
 export { wantsDelete, MAX_DELETES } from './delete';
-export const MAX_CARDS = 30, MAX_QUESTIONS = 30, MAX_PROPOSALS = 3;
+export const MAX_CARDS = 30, MAX_QUESTIONS = 15, MAX_PROPOSALS = 3;
 
 // ───────── tarjetas ─────────
 /** Valida el texto de tarjetas con el parser real; cada bloque queda con `origen: ia` y sin ID (los IDs se asignan al guardar). */

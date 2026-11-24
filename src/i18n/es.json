@@ -2178,6 +2178,8 @@
  "chat.p_err_server": "El proveedor tuvo un error. Prueba más tarde.",
  "chat.p_err_busy": "Ya hay una respuesta en curso.",
  "chat.p_err_other": "No se pudo responder.",
+ "chat.p_err_empty": "El modelo no devolvió una respuesta. Prueba de nuevo o pídele menos preguntas por vez.",
+ "chat.p_reintentar": "Reintentar",
  "chat.pv_t_tarjetas": "Tarjetas nuevas · {dest}",
  "chat.pv_t_examen": "Banco nuevo · {dest}",
  "chat.pv_t_evento": "Evento nuevo",

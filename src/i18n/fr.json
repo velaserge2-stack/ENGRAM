@@ -2178,6 +2178,8 @@
  "chat.p_err_server": "Le fournisseur a eu une erreur. Réessaie plus tard.",
  "chat.p_err_busy": "Une réponse est déjà en cours.",
  "chat.p_err_other": "Impossible d’obtenir une réponse.",
+ "chat.p_err_empty": "Le modèle n’a renvoyé aucune réponse. Réessayez ou demandez moins de questions à la fois.",
+ "chat.p_reintentar": "Réessayer",
  "chat.pv_t_tarjetas": "Nouvelles cartes · {dest}",
  "chat.pv_t_examen": "Nouvelle banque · {dest}",
  "chat.pv_t_evento": "Nouvel événement",

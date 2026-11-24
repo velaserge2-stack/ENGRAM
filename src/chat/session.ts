@@ -6,7 +6,7 @@ import { loadCore, loadModel, modelOf } from './providers';
 import { fromHeaders, loadUsage, record, saveUsage, setHdr } from './usage';
 
 export const MAX_WAIT_MS = 60_000;
-export const TIMEOUT_MS = 120_000, MAX_OUT = 2048;
+export const TIMEOUT_MS = 120_000, MAX_OUT = 8192;
 const DEFAULT_WAIT_MS = 5_000;
 
 export interface TurnOpts {
@@ -17,6 +17,8 @@ export interface TurnOpts {
   onText?: (delta: string) => void;
   /** Códigos para la interfaz: 'rotated' (cambió de clave) | 'waiting' (429 por minuto). */
   /** Una herramienta fue llamada; la interfaz lo muestra hasta que llega texto. */
+  /** ¿el turno ya produjo algo visible aparte del texto (p. ej. una propuesta)? */
+  produced?: () => boolean;
   onTool?: (name: string) => void;
   onStatus?: (s: { code: 'rotated' | 'waiting'; alias: string; waitMs?: number }) => void;
   /** Solo pruebas. */
@@ -58,7 +60,7 @@ async function run(o: TurnOpts): Promise<TurnResult> {
   for (;;) {
     const k = pickKey(store.keys, now(), skip);
     if (!k) return last ? fail(last.code, last.message, last.detail) : fail('nokey', 'nokey');
-    let text = '', err: unknown, stepped = false, timedOut = false;
+    let text = '', err: unknown, stepped = false, timedOut = false, toolErr = '';
     // un AbortController por intento: Detener o 120 s sin señales del servidor lo cortan
     const ac = new AbortController();
     const onAbort = () => ac.abort();
@@ -70,7 +72,10 @@ async function run(o: TurnOpts): Promise<TurnResult> {
       const [core, model] = await Promise.all([loadCore(), loadModel(k.provider, k.key, o.fetch)]);
       const r = core.streamText({
         model, system: o.system, messages: o.messages, tools: o.tools,
-        stopWhen: core.stepCountIs(5), maxRetries: 0, maxOutputTokens: MAX_OUT, abortSignal: ac.signal,
+        stopWhen: core.stepCountIs(6),
+        // último paso sin herramientas: obliga a cerrar con texto
+        prepareStep: ({ stepNumber }) => (stepNumber >= 5 ? { toolChoice: 'none' as const } : undefined),
+        ...(k.provider === 'gemini' ? { providerOptions: { google: { thinkingConfig: { thinkingBudget: 1024, includeThoughts: false } } } } : {}), maxRetries: 0, maxOutputTokens: MAX_OUT, abortSignal: ac.signal,
         onError: ({ error }) => { err = err ?? error; },
       });
       for await (const part of r.fullStream) {
@@ -78,6 +83,7 @@ async function run(o: TurnOpts): Promise<TurnResult> {
         if (part.type === 'text-delta') { text += part.text; o.onText?.(part.text); }
         else if (part.type === 'tool-call') { stepped = true; o.onTool?.(part.toolName); }
         else if (part.type === 'tool-result') stepped = true;
+        else if (part.type === 'tool-error') { toolErr = toolErr || redact(String((part.error as { message?: string } | undefined)?.message ?? part.error), store.keys.map((x) => x.key)).slice(0, 160); }
         else if (part.type === 'error') err = err ?? part.error;
       }
       if (!err && !timedOut && !o.signal?.aborted) {
@@ -86,6 +92,12 @@ async function run(o: TurnOpts): Promise<TurnResult> {
         try { headers = (await (r as unknown as { response: PromiseLike<{ headers?: Record<string, string> }> }).response).headers; } catch { /* sin cabeceras */ }
         const t = now();
         saveUsage(setHdr(record(loadUsage(), k.id, tokens, t), k.id, fromHeaders(k.provider, headers, t)));
+        if (!text.trim() && !o.produced?.()) {
+          let why = '', steps = 0;
+          try { why = String(await r.finishReason); steps = (await r.steps).length; } catch { /* sin motivo */ }
+          const msg = redact(`motivo: ${why || '?'} · pasos ${steps}${toolErr ? ' · ' + toolErr : ''}`, store.keys.map((x) => x.key));
+          return fail('empty', 'empty', { msg });
+        }
         return { ok: true, text, alias: k.alias, rotated, tokens };
       }
     } catch (e) { err = e; } finally { clearTimeout(timer); o.signal?.removeEventListener('abort', onAbort); }

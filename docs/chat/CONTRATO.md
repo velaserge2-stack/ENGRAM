@@ -149,3 +149,8 @@ Límites gratuitos, nombres de modelo y forma de errores 🔸 · CORS · políti
 - `wantsDelete`: negación con hasta 2 palabras de relleno («no quiero que borres», «n'efface pas»), preguntas «cómo/how/comment» y texto citado (`"…"`, `«…»`, `>`) no son órdenes.
 - Evento con UID repetido al borrar → `changed`. `trashDecks` evita colisión de id con el mismo `now`. Aviso por tipo: mazos/bancos «se vacía sola en N días» (`deckTrashDays`), notas «hasta que la vacíes»; mazo sin submazos; vínculos y exámenes quedan rotos. El historial `.app/history/` de una nota sí queda (por eso se mantiene esa frase).
 - Sin verificar: Safari/iPad real; vista de las nuevas líneas del aviso (no hay captura); «restaurar con sufijo» y «mazo con submazos» solo por las pruebas previas de `decktrash`.
+## Turno sin respuesta (fix-asistente-sin-respuesta)
+- Un turno sin texto ni propuesta devuelve `code: 'empty'` (`detail.msg` = «motivo: <finishReason> · pasos N · <tool-error>», redactado); la interfaz muestra error + «Reintentar» (reenvía el último mensaje). Nunca silencio.
+- `MAX_OUT` 8192; Gemini con `thinkingBudget: 1024`, `includeThoughts: false`. `stopWhen` 6 pasos; el último con `toolChoice: 'none'` (el SDK falla si el modelo aun así llama una herramienta: queda como error visible).
+- `crear_examen`: máx. 15 preguntas por llamada (`MAX_QUESTIONS`); el resultado avisa al modelo del recorte y `SYSTEM_WRITE` pide proponer por partes con nombres distintos.
+- Sin verificar: Gemini real (thinkingBudget aceptado por `flash-latest`), Safari/iPad. Tests: `tests/chat-vacio.test.ts`, `e2e:chat`.

@@ -14,6 +14,7 @@ export const SYSTEM_WRITE = [
   'The user asked you to create or change something. You may call crear_tarjetas, crear_examen, agregar_evento or modificar_evento, but ONLY because the user asked for it in their last message.',
   'These tools never save anything: they show a preview and the user decides (Accept / Edit / Cancel). Say briefly what you proposed and that it needs their approval. Never claim something was saved. These tools cannot delete anything. ',
   'Base cards and questions on what the read tools returned this turn; read first if you have not. Keep them short and accurate.',
+  'crear_examen takes at most 15 questions per call. If the user asks for more, propose the exam in parts ("Name · Part 1", "Name · Part 2", different names) or the first 15 and offer to continue. Always finish with a short text reply.',
 ].join(' ');
 
 /** Solo cuando el último mensaje del usuario pide borrar (wantsDelete). */

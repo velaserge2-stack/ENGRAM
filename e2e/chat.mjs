@@ -83,6 +83,7 @@ try {
           if (done) return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse('Te dejo la confirmación.') });
           return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: 'data: ' + JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ functionCall: { name: 'borrar_mazo', args: { nombre: 'ECG IA' } } }] }, finishReason: 'STOP', index: 0 }], usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 3, totalTokenCount: 6 } }) + '\n\n' });
         }
+        if (mode === 'empty') return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: 'data: ' + JSON.stringify({ candidates: [{ content: { role: 'model', parts: [] }, finishReason: 'MAX_TOKENS', index: 0 }], usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 0, totalTokenCount: 3 } }) + '\n\n' });
         const dead = mode === 'all429' || (mode === 'q1' && key === K1);
         if (dead) return await r.fulfill({ status: 429, headers: CORS, contentType: 'application/json', body: JSON.stringify(day429) });
         return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse(reply) });
@@ -350,6 +351,16 @@ try {
   const examName = 'Simulacro 1 Parcial Ginecología';
   const deckText = () => page.evaluate(async () => { try { let d = await navigator.storage.getDirectory(); for (const part of ['decks']) d = await d.getDirectoryHandle(part); return await (await (await d.getFileHandle('ECG IA.md')).getFile()).text(); } catch { return null; } });
   const appText = () => page.evaluate(() => document.querySelector('#app')?.innerText ?? '');
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  mode = 'empty'; apiHits.length = 0;
+  await ta.fill('Crea un examen de 20 preguntas'); await ta.press('Enter');
+  const retry = panel.getByRole('button', { name: 'Reintentar' });
+  await retry.waitFor();
+  check((await panel.locator('.chat-err').innerText()).includes('no devolvió una respuesta') && (await panel.locator('.chat-err code').count()) === 1, 'respuesta vacía: mensaje de error con motivo, nunca silencio');
+  mode = 'reply'; const hits0 = apiHits.length;
+  await retry.click();
+  await panel.getByText(reply, { exact: false }).first().waitFor();
+  check(apiHits.length > hits0, 'Reintentar reenvía el último mensaje');
   await panel.getByRole('button', { name: 'Nueva conversación' }).click();
   mode = 'writeno'; apiHits.length = 0;
   await ta.fill('¿Cuántas derivaciones tiene el ECG?'); await ta.press('Enter');

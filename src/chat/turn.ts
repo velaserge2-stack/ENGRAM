@@ -20,6 +20,7 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>): Promis
   const gen = generation();
   add('user', q);
   const sources: Source[] = [];
+  let proposed = false;
   const reply = add('assistant', '', { sources });
   setStatus({ busy: true, waitS: undefined });
   const mine = new AbortController(); // propio del turno: un turno viejo que termine tarde no toca el de otro
@@ -30,11 +31,11 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>): Promis
     // las herramientas se cargan junto al SDK, ya con el panel abierto
     // las de escritura solo si ESTE mensaje pide crear/agregar/modificar; aun así solo proponen (la UI escribe tras «Aceptar»)
     const writes = wantsWrite(q), dels = wantsDelete(q); // solo del último mensaje del USUARIO
-    const propose = (ok: boolean) => (p: Proposal) => { if (ok && generation() === gen) add('proposal', '', { proposal: p, pstate: 'pending' }); };
+    const propose = (ok: boolean) => (p: Proposal) => { if (ok && generation() === gen) { proposed = true; add('proposal', '', { proposal: p, pstate: 'pending' }); } };
     const tw = writes || dels ? await import('./tools-write') : null;
     const tools = env ? { ...(await import('./tools')).makeTools({ ...env, sources }), ...(writes && tw ? tw.makeWriteTools({ ...env, sources, allowed: () => writes, propose: propose(writes) }) : {}), ...(dels && tw ? tw.makeDeleteTools({ ...env, sources, allowed: () => dels, userText: q, propose: propose(dels) }) : {}) } : undefined;
     r = await runTurn({
-      messages: history, system: [SYSTEM, writes && SYSTEM_WRITE, dels && SYSTEM_DELETE].filter(Boolean).join(' '), tools, signal: mine.signal,
+      messages: history, system: [SYSTEM, writes && SYSTEM_WRITE, dels && SYSTEM_DELETE].filter(Boolean).join(' '), tools, signal: mine.signal, produced: () => proposed,
       onTool: (name) => { if (generation() === gen) setStatus({ tool: name }); },
       onText: (d) => { if (generation() !== gen) return; if (getStatus().tool) setStatus({ tool: undefined }); append(reply.id, d); },
       onStatus: (s) => {
