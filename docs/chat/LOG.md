@@ -41,3 +41,4 @@ Total registrado ≈ 1,32 M tokens (sin 0 ni 1a).
 - Ramas `notas-pro` y `mejoras-2` NO fusionadas por decisión (`origin/notas-pro` y `origin/mejoras-2` no están en `main`). `asistente` sin unir a `main`.
 - Fix probar · paso 1 haiku (mapa de errores) · paso 2 sonnet (detail seguro, kinds model/timeout, línea técnica) ~112K
 - Fix probar · paso 3 sonnet (modelo configurable + listar modelos; defecto Gemini gemini-flash-latest 🔸) ~128K
+- Fix examen · sonnet (systematic-debugging): no reproducible en memoria/Chromium; línea técnica de error en la vista previa + tests ~110K

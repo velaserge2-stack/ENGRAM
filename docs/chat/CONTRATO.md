@@ -131,3 +131,8 @@ Límites gratuitos, nombres de modelo y forma de errores 🔸 · CORS · políti
 - `src/chat/models.ts`: un GET (Gemini `/v1beta/models?pageSize=200`, `x-goog-api-key`, hasta 5 páginas; Groq `/openai/v1/models`, `Bearer`), nunca la clave en la URL. Filtra `generateContent` / quita whisper, guard, tts, `active:false`. Sugerido = primer `flash` / `llama`; solo se fija al tocar.
 - Errores con `classify`/`detail` redactado. Misma exclusión mutua que «Probar» (una petición a la vez). La CSP no cambia (mismos hosts).
 - 🔸 Sin verificar: forma real de ambos listados, que `gemini-flash-latest` exista/sea gratuito, ids de Groq no-chat (heurística por nombre), CORS del GET en Safari.
+
+## Aceptar un examen falla en iPad («No se pudo guardar») — diagnóstico
+- No se reprodujo en memoria (SafeVault real, `tests/chat-examen-real.test.ts`) ni en Chromium/OPFS (`e2e/chat.mjs`, bloque «Examen»: `exams-bank/` nueva, escribir, Simulacros, nombre repetido → `exists`). Frontmatter `origen: ia` único y reparseable.
+- `preview.tsx` ya no esconde la causa: `other` muestra `Nombre: mensaje` (≤160, `redact`); `QuotaExceededError`, `NotAllowedError`/`SecurityError`, `NotFoundError` tienen aviso propio (`chat.pv_werr_quota|denied|notfound`).
+- Hipótesis pendiente (Safari): lo único distinto de las tarjetas es crear la carpeta `exams-bank/` (no existe hasta el primer banco) y el nombre con acentos codificado `%C3%AD`; probar en el iPad y leer la línea técnica.

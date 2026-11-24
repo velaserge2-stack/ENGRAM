@@ -2213,5 +2213,8 @@
  "chat.pv_werr_exists": "Une banque porte déjà ce nom ; elle n'est pas écrasée.",
  "chat.pv_werr_gone": "L'événement n'existe plus.",
  "chat.pv_werr_other": "Échec de l'enregistrement ; rien n'a changé.",
+ "chat.pv_werr_quota": "Espace insuffisant pour enregistrer ; rien n'a changé.",
+ "chat.pv_werr_denied": "Pas d'autorisation d'écriture dans le dossier ; rien n'a changé.",
+ "chat.pv_werr_notfound": "Le dossier de destination est introuvable ; rien n'a changé.",
  "chat.pv_werr_changed": "Le fichier a changé après l’enregistrement ; rien n’a été annulé pour conserver vos modifications"
 }

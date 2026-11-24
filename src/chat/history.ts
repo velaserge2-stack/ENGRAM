@@ -7,7 +7,7 @@ import type { Source } from './tools';
 export type Role = 'user' | 'assistant' | 'error' | 'notice' | 'proposal';
 export type PState = 'pending' | 'saving' | 'saved' | 'canceled' | 'undone';
 /** `code` y `alias` los traduce la interfaz al pintar (así el idioma puede cambiar sin perder nada). */
-export interface Msg { id: number; role: Role; text: string; code?: string; alias?: string; /** fuentes devueltas por las herramientas en ese turno (se llena durante el turno) */ sources?: Source[]; /** vista previa de escritura (role 'proposal') */ proposal?: Proposal; pstate?: PState; perr?: string; detail?: Detail }
+export interface Msg { id: number; role: Role; text: string; code?: string; alias?: string; /** fuentes devueltas por las herramientas en ese turno (se llena durante el turno) */ sources?: Source[]; /** vista previa de escritura (role 'proposal') */ proposal?: Proposal; pstate?: PState; perr?: string; /** línea técnica (redactada) del último fallo al guardar */ pdet?: string; detail?: Detail }
 export interface Status { busy: boolean; /** herramienta en curso */ tool?: string; /** apodo de la última clave usada */ alias?: string; /** espera por límite por minuto, en s */ waitS?: number }
 
 /** Mensajes que se envían al modelo como máximo (los más recientes). */
