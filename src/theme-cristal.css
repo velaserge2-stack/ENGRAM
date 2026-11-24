@@ -120,7 +120,9 @@ body.focus .bg-veil { background: rgba(0, 0, 0, .35) !important; }
 .seg-nav a[aria-current="page"] { color: var(--inverse-fg); }
 .seg-nav .slider { position: absolute; z-index: 0; top: 4px; bottom: 4px; border-radius: var(--r-pill); background: var(--inverse-bg); transition: transform .38s var(--spring), width .38s var(--spring); }
 .seg-nav a .lbl { display: inline; }
-@media (max-width: 1440px) { .seg-nav a:not([aria-current]) .lbl { display: none; } .seg-nav a { padding: 0 12px; min-width: 44px; justify-content: center; } }
+/* no teléfono: solo iconos; la etiqueta (.lbl) solo en la pestaña activa, el resto la muestra como tooltip */
+html:not(.is-phone) .seg-nav a:not([aria-current]) .lbl { display: none; }
+html:not(.is-phone) .seg-nav a { padding: 0 12px; min-width: 44px; justify-content: center; }
 @media (max-width: 700px) { .seg-nav a .lbl { display: none; } .topbar { flex-wrap: wrap; } }
 .topbar .spacer { flex: 1; }
 .pill { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: var(--r-pill); font-size: .9375rem; font-weight: 500; white-space: nowrap; text-decoration: none; }
@@ -882,9 +884,13 @@ body.focus .dev-sign, body.notes-full .dev-sign { display: none; }
 .mini-amb.on .bars i:nth-child(2) { animation-delay: -.3s; }
 .mini-amb.on .bars i:nth-child(3) { animation-delay: -.6s; }
 @keyframes mini-lvl { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
-.mini-amb.docked { position: fixed; z-index: var(--z-dock); right: calc(env(safe-area-inset-right) + 16px); bottom: calc(env(safe-area-inset-bottom) + 16px + var(--kb-inset, 0px)); }
-/* en el lienzo, la esquina inferior derecha es del minimapa y su botón: el mini sube por encima */
-html.in-canvas .mini-amb.docked { bottom: calc(env(safe-area-inset-bottom) + 176px); }
+.mini-amb.inbar { padding: 0 4px 0 12px; max-width: 190px; min-width: 0; flex: 0 1 auto; }
+.mini-amb.inbar .mini-amb-main { min-width: 0; }
+.mini-amb.inbar .mini-amb-t { max-width: 110px; }
+@media (min-width: 601px) and (max-width: 1100px) { html:not(.is-phone) .topbar { gap: 6px; } html:not(.is-phone) .topbar .pill { padding: 0 12px; } }
+@media (max-width: 1100px) { html:not(.is-phone) .mini-amb.inbar { padding: 0 6px; } html:not(.is-phone) .mini-amb.inbar .mini-amb-t { display: none; } html:not(.is-phone) .mini-amb.inbar .mini-amb-main { padding: 0 8px; min-width: 44px; justify-content: center; } }
+.mini-amb-pop { width: min(300px, calc(100vw - 16px)); }
+.mini-amb-pop .mini-amb-x { border-bottom: 0; padding: 12px; }
 .mini-amb.floating { position: fixed; z-index: var(--z-dock); right: calc(env(safe-area-inset-right) + 12px); bottom: calc(env(safe-area-inset-bottom) + var(--tabbar-h) + 18px); }
 .mini-amb-x { padding: 12px 12px 4px; border-bottom: var(--hair) solid var(--line); animation: fade .2s; }
 .mini-amb-line { display: grid; gap: 2px; min-width: 0; }

@@ -75,39 +75,42 @@ try {
   check(await page.evaluate(() => window.__player.playing), 'la música suena (el <audio> no está en pausa)');
   await sh.getByRole('button', { name: 'Cerrar' }).click();
 
-  console.log('Mini reproductor: una sola pieza');
+  console.log('Mini reproductor: pastilla en la barra, controles en un Popover');
   const mini = page.locator('.mini-amb');
   await mini.waitFor();
+  const pop = page.locator('.mini-amb-pop');
   const glassIn = () => page.evaluate(() => { const m = document.querySelector('.mini-amb'); return [m, ...m.querySelectorAll('*')].filter((e) => { const f = getComputedStyle(e).backdropFilter; return f && f !== 'none'; }).length; });
   check(await mini.count() === 1 && await glassIn() === 1, `píldora: un solo mini con un solo backdrop-filter (${await glassIn()})`);
+  const geo = await page.evaluate(() => { const m = document.querySelector('.mini-amb'), p = document.querySelector('.mini-pomo').getBoundingClientRect(), r = m.getBoundingClientRect(); return { inBar: !!m.closest('.topbar'), pos: getComputedStyle(m).position, h: r.height, dx: r.left - p.right, dy: Math.abs(r.top + r.height / 2 - (p.top + p.height / 2)) }; });
+  check(geo.inBar && geo.pos !== 'fixed' && geo.h >= 44 && geo.dx >= 0 && geo.dx < 24 && geo.dy < 4, `está en la barra, pegado al reloj, sin position:fixed (dx ${Math.round(geo.dx)}, alto ${Math.round(geo.h)})`);
   await mini.screenshot({ path: OUT + 'reproductor-pildora.png' });
-  // pausar desde el mini y comprobar que pasar el cursor no inicia audio
-  await mini.getByRole('button', { name: 'Pausar' }).first().click();
-  await page.waitForTimeout(300);
+  // pasar el cursor no abre ni inicia audio
   await page.evaluate(() => (window.__plays = []));
-  await page.mouse.move(10, 10);
-  const box = await mini.boundingBox();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });
-  await page.waitForTimeout(500);
-  check((await page.evaluate(() => window.__plays.length)) === 0 && !(await page.evaluate(() => window.__player.playing || window.__ambient.playing)), 'pasar el cursor encima expande pero no inicia audio');
-  check(await page.locator('.mini-amb.open').count() === 1 && await page.locator('.popover').count() === 0, 'expandido: crece el mismo contenedor (sin otra ventana)');
-  check(await glassIn() === 1, 'expandido: sigue habiendo un solo backdrop-filter');
-  const b2 = await mini.boundingBox();
-  check(Math.abs(b2.x + b2.width - (box.x + box.width)) < 1 && Math.abs(b2.y + b2.height - (box.y + box.height)) < 1, 'al expandirse no salta: la esquina inferior derecha queda fija');
-  await mini.screenshot({ path: OUT + 'reproductor-expandido.png' });
+  await mini.hover();
+  await page.waitForTimeout(400);
+  check(await pop.count() === 0 && (await page.evaluate(() => window.__plays.length)) === 0, 'pasar el cursor no abre controles ni inicia audio');
+  // tocar abre el Popover con foco; Esc lo cierra y devuelve el foco a la pastilla
+  await mini.getByRole('button', { name: /^Controles de/ }).click();
+  await pop.waitFor();
+  await page.waitForTimeout(100); 
+  check(await pop.getByRole('slider', { name: 'Volumen general' }).count() === 1 && await page.evaluate(() => !!document.activeElement?.closest('.mini-amb-pop')), 'tocar abre el Popover (volumen, pausa) y el foco entra');
+  await pop.screenshot({ path: OUT + 'reproductor-expandido.png' });
   await page.keyboard.press('Escape');
-  await page.mouse.move(10, 10);
-  await page.waitForTimeout(500);
-  check(await page.locator('.mini-amb.open').count() === 0, 'Esc / salir lo pliega');
-  // reanudar desde el mini: un toque
-  await mini.getByRole('button', { name: 'Reanudar' }).first().click();
+  await pop.waitFor({ state: 'detached' });
+  check(await page.evaluate(() => document.activeElement?.classList.contains('mini-amb-main')), 'Esc lo cierra y el foco vuelve a la pastilla');
+  // pausar y reanudar desde el Popover
+  const act = async (name) => { await mini.getByRole('button', { name: /^Controles de/ }).click(); await pop.waitFor(); await pop.getByRole('button', { name, exact: true }).click(); await page.keyboard.press('Escape'); await pop.waitFor({ state: 'detached' }); };
+  await act('Pausar');
+  await page.waitForTimeout(300);
+  check(!(await page.evaluate(() => window.__player.playing || window.__ambient.playing)), 'pausar desde el Popover detiene');
+  await act('Reanudar');
   await page.waitForFunction(() => window.__player.playing, null, { timeout: 3000 });
-  check(true, 'reanudar desde el mini con un toque');
+  check(true, 'reanudar desde el Popover con un toque');
 
   console.log('play() rechazado');
-  await mini.getByRole('button', { name: 'Pausar' }).first().click();
+  await act('Pausar');
   await page.evaluate(() => (window.__reject = 'NotAllowedError'));
-  await mini.getByRole('button', { name: 'Reanudar' }).first().click();
+  await act('Reanudar');
   await page.locator('.toast', { hasText: 'no dejó reproducir' }).waitFor({ timeout: 3000 });
   check(!(await page.evaluate(() => window.__player.playing)), 'avisa con la causa y queda detenido');
   await page.evaluate(() => (window.__reject = null));

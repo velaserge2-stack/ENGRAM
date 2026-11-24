@@ -356,6 +356,7 @@ function TopBar(props: { tab: string }) {
       <button type="button" class="pill glass mini-pomo" onClick={() => (p.state.running ? p.pause() : p.start())} aria-label={p.state.running ? t('app.pausar_enfoque') : t('app.iniciar_enfoque')} data-tip={p.state.running ? t('app.pausar_enfoque') : t('app.iniciar_enfoque')}>
         {p.state.running ? <Pause size={16} /> : <Play size={16} />} {mm}
       </button>
+      {addonOn(app.settings, 'ambient') && !phoneBar && <MiniAmbient inbar />}
       <button type="button" class="pill glass" onClick={() => app.openSheet('palette')} aria-label={t('app.buscar_k')}>
         <Search size={18} />
       </button>
@@ -374,7 +375,6 @@ function TopBar(props: { tab: string }) {
         </Popover>
       )}
       {addonOn(app.settings, 'ambient') && <button type="button" class="pill glass ph-hide mid-hide" aria-label={t('addons.n_ambient')} onClick={() => app.openSheet('ambient')}><Headphones size={18} /></button>}
-      {addonOn(app.settings, 'ambient') && !phoneBar && <MiniAmbient />}
       <a class="pill glass avatar-pill ph-hide" href="#/perfil" aria-label={t('profile.perfil')} aria-current={props.tab === 'perfil' || props.tab === 'ajustes' ? 'page' : undefined}>
         <Avatar profile={profile} size={32} />
       </a>
