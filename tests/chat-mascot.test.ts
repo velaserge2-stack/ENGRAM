@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { render, h } from 'preact';
-import { Mascot, MASCOT_NAMES } from '../src/chat/mascot';
+import { Mascot, MASCOT_NAME } from '../src/chat/mascot';
 
 const STATES = ['idle', 'listening', 'thinking', 'responding', 'error'] as const;
 
@@ -23,5 +23,12 @@ describe('Mascot', () => {
     expect(box.querySelector('svg')!.getAttribute('width')).toBe('44');
     expect(box.querySelector('svg')!.getAttribute('data-state')).toBe('idle');
   });
-  it('3 nombres', () => expect(MASCOT_NAMES).toHaveLength(3));
+  it('nombre fijo GREX', () => expect(MASCOT_NAME).toBe('GREX'));
+  it('cada instancia lleva su propio degradado', () => {
+    const box = document.createElement('div');
+    render(h('div', null, h(Mascot, { size: 40 }), h(Mascot, { size: 40 })), box);
+    const ids = [...box.querySelectorAll('linearGradient')].map((g) => g.id);
+    expect(new Set(ids).size).toBe(2);
+    expect(box.querySelectorAll('rect.face')[1]!.getAttribute('fill')).toBe(`url(#${ids[1]})`);
+  });
 });

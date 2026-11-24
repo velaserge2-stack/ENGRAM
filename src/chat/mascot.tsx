@@ -2,11 +2,8 @@ import { useEffect, useMemo, useReducer } from 'preact/hooks';
 import { getStatus, messages, subscribe } from './history';
 import './mascot.css';
 
-/**
- * Nombres propuestos para la mascota (solo constante, sin UI; originales y cortos, iguales en es/en/fr):
- * «Moti», «Nubi», «Tico».
- */
-export const MASCOT_NAMES = ['Moti', 'Nubi', 'Tico'] as const;
+/** Nombre fijo de la mascota (no se traduce). */
+export const MASCOT_NAME = 'GREX';
 
 export type MascotState = 'idle' | 'listening' | 'thinking' | 'responding' | 'error';
 
@@ -31,26 +28,28 @@ if (typeof document !== 'undefined' && 'hidden' in document) {
   sync();
 }
 
-/** Mascota SVG del Asistente (decorativa: el botón que la contiene pone el aria-label). */
+let uid = 0;
+/** GREX: cuadrado de esquinas muy redondeadas (decorativa: el botón que la contiene pone el aria-label). Colores y movimiento en mascot.css. */
 export function Mascot(p: { state?: MascotState; size?: number | undefined }) {
   const size = p.size ?? 44;
-  // parpadeo lento, cada 4–6 s con desfase propio
-  const blink = useMemo(() => ({ '--blink': `${(4 + Math.random() * 2).toFixed(2)}s`, '--blink-delay': `${(Math.random() * 3).toFixed(2)}s` }), []);
+  // parpadeo lento, cada 4–6 s con desfase propio; id propio para el degradado
+  const own = useMemo(() => ({ id: `mg${++uid}`, blink: { '--blink': `${(4 + Math.random() * 2).toFixed(2)}s`, '--blink-delay': `${(Math.random() * 3).toFixed(2)}s` } }), []);
   return (
-    <svg class="mascot" data-state={p.state ?? 'idle'} width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" focusable="false" style={blink}>
+    <svg class="mascot" data-state={p.state ?? 'idle'} width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" focusable="false" style={own.blink}>
+      <defs><linearGradient id={own.id} x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="g0" /><stop offset="1" class="g1" /></linearGradient></defs>
+      <ellipse class="shadow" cx="32" cy="60.5" rx="16" ry="2.2" />
       <g class="body">
-        <path class="head" d="M32 7c14 0 24 9 24 24 0 15-9 26-24 26S8 46 8 31C8 16 18 7 32 7z" />
+        <rect class="face" x="6" y="7" width="52" height="50" rx="20" fill={`url(#${own.id})`} />
         <g class="eyes">
-          <ellipse class="eye" cx="23" cy="29" rx="3" ry="3.4" />
-          <ellipse class="eye" cx="41" cy="29" rx="3" ry="3.4" />
+          <g class="blink"><ellipse class="feat" cx="24" cy="30" rx="3.1" ry="4.1" /><ellipse class="feat" cx="40" cy="30" rx="3.1" ry="4.1" /><circle class="shine" cx="25.2" cy="28.4" r="1.15" /><circle class="shine" cx="41.2" cy="28.4" r="1.15" /></g>
         </g>
-        <path class="brow" d="M17 24l9-2M47 24l-9-2" />
-        <path class="mouth mouth-smile" d="M26 40q6 5 12 0" />
-        <ellipse class="mouth mouth-o" cx="32" cy="41" rx="2.4" ry="2.8" />
-        <path class="mouth mouth-flat" d="M27 41h10" />
-        <ellipse class="mouth-open" cx="32" cy="41" rx="4.5" ry="4" />
-        <path class="mouth mouth-sad" d="M26 43q6-5 12 0" />
+        <g class="sad"><path d="M20.5 32q3.5-5 7 0M36.5 32q3.5-5 7 0" /></g>
+        <ellipse class="cheek" cx="16.5" cy="38.5" rx="4" ry="2.5" /><ellipse class="cheek" cx="47.5" cy="38.5" rx="4" ry="2.5" />
+        <path class="smile" d="M28.5 38.6q3.5 3.4 7 0" />
+        <ellipse class="talk" cx="32" cy="40" rx="3" ry="2.4" />
+        <path class="frown" d="M29.5 42.5q2.5-2.2 5 0" />
       </g>
+      <g class="dots"><circle cx="48" cy="6" r="1.8" /><circle cx="53" cy="4" r="2.1" /><circle cx="59" cy="2.5" r="2.4" /></g>
     </svg>
   );
 }
