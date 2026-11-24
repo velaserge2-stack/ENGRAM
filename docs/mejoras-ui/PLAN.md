@@ -57,3 +57,6 @@ A barra superior + reproductor · B chat + GREX + zona inferior · C notas (sola
 
 ## 2026-11-24 · rediseño de interfaz (mejoras-ui)
 Agentes: auditoría haiku (inventario) · A barra superior/reproductor · B chat+GREX+dock · C notas · D diagramas · E vault · F tipografía · G dictado · integración (sonnet, regresión de 29 e2e). Todos en worktrees propios; fusión en orden con resolución de i18n por unión. Verificado en Chromium: 0 solapes en 4 resoluciones (e2e:uiaudit), 1042/1043 pruebas (la roja es de tiempo, preexistente). Sin verificar: Safari/iPad reales, dictado real, teclado real.
+
+## 2026-11-24 · Asistente: un elemento a la vez (mascota · pastilla · chat), capa superior
+Diseño aprobado: docs/mejoras-ui/preview-asistente.html. Estado único (src/chat/state.ts); --z-assistant 250; sin desplazar la interfaz; GREX a la derecha de la pastilla (440×54); tira de uso unida debajo con logos de LLM (lobehub/lobe-icons, MIT; marcas de sus dueños) y fuente mono; acciones rápidas editables; selector de clave y modelo. Verificado en Chromium: 1050/1051 pruebas (la roja es de tiempo, preexistente), 24 e2e de regresión, auditor de solapes 0 en 4 resoluciones. Sin verificar: Safari/iPad, teclado real, dictado real, APIs reales.
