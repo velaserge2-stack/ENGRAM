@@ -41,3 +41,16 @@ Relación con el examen que no se guardaba desde el asistente: puede ser la mism
 
 ## Reglas que se respetan
 Cristal (interfaz sin color, acento opcional), todo lo flotante por `overlay.tsx` y `--z-*`, objetivos ≥ 44 px, `aria-label` en iconos, textos por `t()` (es/en/fr), sin red. Tipografía: `"Helvetica Neue", Helvetica, Arial, system-ui` con interletrado −0,01 a −0,02 em y Bold (700) en títulos y énfasis; no se descarga ninguna fuente (sin red).
+
+## Decisiones confirmadas (2026-11-24)
+- **Barra superior grande**: solo iconos; etiqueta al pasar el cursor y nombre en la pestaña activa (como en iPad).
+- **Mini reproductor**: junto al reloj (barra superior). Sale de la zona inferior.
+- **Mascota**: se llama **GREX**; cuadrado con esquinas redondeadas (squircle), tierna, original (ojos con brillo, mejillas).
+- **Barra del chatbot**: se puede **minimizar a la mascota**; la mascota minimizada queda **abajo a la derecha**, en el hueco que deja el reproductor, sin tapar nada (respeta teclado, barra de notas, barras laterales y la firma). Un clic abre la barra.
+- **Respuestas del asistente**: estilo de la demo (A, vidrio claro; B opcional).
+- **Notas**: verificar y eliminar solapes entre menús, barras laterales, barra del editor, chat y avisos.
+- **Diagramas**: menú inferior y espacio de pantalla fijos al hacer zoom (la interfaz no se escala ni se pierde; el zoom solo afecta al lienzo).
+- **Tipografía**: Helvetica Neue apretada, Bold en lo importante.
+
+## Reparto sin pisarse (un agente por zona, cada uno en su worktree y con CSS/i18n propios)
+A barra superior + reproductor · B chat + GREX + zona inferior · C notas (solapes) · D diagramas (barra inferior y zoom) · E bug borrar/modificar (vault/notas) · F tipografía global. Archivos compartidos (`app.tsx`, `theme-cristal.css`, `i18n/*.json`): CSS en archivos nuevos por agente, claves con prefijo propio (`topbar.*`, `dock.*`, `notas.*`, `diag.*`) y `app.tsx` lo toca un solo agente por turno. Se fusionan en orden y se prueban juntos.
