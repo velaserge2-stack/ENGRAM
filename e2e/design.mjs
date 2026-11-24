@@ -108,6 +108,33 @@ try {
     if (colors.length) (failed++, colors.forEach((c) => console.log('   ', c)));
     await page.screenshot({ path: `${OUT}pantalla-${r}.png` });
   }
+
+  // Barra superior (no teléfono): solo iconos; .lbl solo en la activa; objetivos >= 44 px; sin title nativo; no se desborda
+  for (const [w, h] of [[1024, 768], [1366, 1024], [1440, 900]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto(`${URL_}#/hoy`);
+    await page.waitForTimeout(500);
+    const r = await page.evaluate(() => {
+      const links = [...document.querySelectorAll('.seg-nav a')];
+      const vis = (e) => e.offsetParent !== null && e.getBoundingClientRect().width > 0;
+      const nav = document.querySelector('.seg-nav'), tb = document.querySelector('.topbar');
+      return {
+        lbls: links.filter((a) => vis(a.querySelector('.lbl') ?? a) && a.querySelector('.lbl') && getComputedStyle(a.querySelector('.lbl')).display !== 'none').map((a) => a.getAttribute('aria-current') ?? 'x'),
+        noAria: links.filter((a) => !a.getAttribute('aria-label')).length,
+        small: [...tb.querySelectorAll('a.pill, button.pill, .seg-nav a')].filter((e) => vis(e) && e.getBoundingClientRect().height < 40).length,
+        titles: tb.querySelectorAll('[title]').length,
+        overflow: nav.scrollWidth - nav.clientWidth,
+        h: tb.getBoundingClientRect().height,
+        page: document.documentElement.scrollWidth - innerWidth,
+      };
+    });
+    const ok = r.lbls.length === 1 && r.lbls[0] === 'page' && !r.noAria && !r.small && !r.titles && r.overflow <= 0 && r.h < 70 && r.page <= 0;
+    console.log(`${ok ? '✓' : '✗'} barra superior ${w}×${h}: solo la activa con etiqueta, sin desborde ni envolver ${JSON.stringify(r)}`);
+    if (!ok) failed++;
+    for (const modo of ['light', 'dark']) { await page.emulateMedia({ colorScheme: modo }); await page.screenshot({ path: `${OUT}topbar-${w}-${modo}.png`, clip: { x: 0, y: 0, width: w, height: 90 } }); }
+    await page.emulateMedia({ colorScheme: null });
+  }
+  await page.setViewportSize({ width: 1180, height: 820 });
 } finally {
   await browser.close();
   server.kill();

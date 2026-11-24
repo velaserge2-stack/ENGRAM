@@ -1,7 +1,8 @@
 import { t } from '../i18n';
 import { ExternalLink, Music, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward, Square, Upload } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { Portal } from '../ui/overlay';
+import type { ComponentChildren } from 'preact';
+import { Popover, Portal } from '../ui/overlay';
 import { ambient, onAudioError, player } from '../lib/ambient';
 import { fadeGain, sleepAt, SOUNDS, type SoundId } from '../lib/noise';
 import type { Settings } from '../lib/settings';
@@ -172,7 +173,7 @@ function Duration(p: { path: string; onDur: (s: number) => void }) {
  * Esc o salir lo pliega. Nunca inicia audio al pasar el cursor: solo los botones (toques).
  * Visible mientras algo suena o quedó en pausa con algo cargado.
  */
-export function MiniAmbient(p: { floating?: boolean }) {
+export function MiniAmbient(p: { floating?: boolean; inbar?: boolean }) {
   const app = useApp();
   const s = app.settings.ambient;
   useEngine();
@@ -183,7 +184,7 @@ export function MiniAmbient(p: { floating?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
   // expandido: tocar fuera lo pliega (como hacía el popover de antes)
   useEffect(() => {
-    if (!open) return;
+    if (!open || p.inbar) return; // en la barra, el Popover cierra solo
     const out = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) (clearTimeout(timer.current), setOpen(false)); };
     document.addEventListener('pointerdown', out, true);
     return () => document.removeEventListener('pointerdown', out, true);
@@ -208,48 +209,73 @@ export function MiniAmbient(p: { floating?: boolean }) {
   const tm = player.time;
   const mmss = (x: number) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
   const playBtn = <button type="button" class="btn icon small ghost" aria-label={sounding ? t('ambient.pausar') : t('mini.reanudar')} onClick={toggle}>{sounding ? <Pause size={16} /> : <Play size={16} />}</button>;
+  const panel = (
+      <div class="mini-amb-x stack-s">
+        {ambOn && <div class="mini-amb-line"><span class="foot">{t('addons.n_ambient')}</span><b class="ellipsis">{mix}</b></div>}
+        {player.current && (
+          <div class="mini-amb-line">
+            <span class="foot">{t('mini.musica')}</span>
+            <b class="ellipsis" data-user-content>{player.current.title}</b>
+            {tm.dur > 0 && <div class="mini-amb-prog" role="progressbar" aria-label={t('mini.progreso')} aria-valuemin={0} aria-valuemax={Math.round(tm.dur)} aria-valuenow={Math.round(tm.at)} aria-valuetext={`${mmss(tm.at)} / ${mmss(tm.dur)}`}><i style={{ width: `${Math.min(100, (tm.at / tm.dur) * 100)}%` }} /></div>}
+          </div>
+        )}
+        <div class="row">
+          {musicOn && <button type="button" class="btn icon small" aria-label={t('ambient.anterior')} onClick={() => player.prev()}><SkipBack size={16} /></button>}
+          <button type="button" class="btn icon small" aria-label={sounding ? t('ambient.pausar') : t('mini.reanudar')} onClick={toggle}>{sounding ? <Pause size={16} /> : <Play size={16} />}</button>
+          {musicOn && <button type="button" class="btn icon small" aria-label={t('ambient.siguiente')} onClick={() => player.next()}><SkipForward size={16} /></button>}
+          <span class="grow" />
+          {left !== null && <span class="foot">{t('ambient.se_apaga_en', { n: left })}</span>}
+        </div>
+        <label class="mini-amb-row"><span>{t('mini.volumen_general')}</span><input type="range" min={0} max={100} step={5} value={Math.round(ambient.volume * 100)} aria-label={t('mini.volumen_general')} onInput={(e) => ambient.setVolume(Number((e.target as HTMLInputElement).value) / 100)} /></label>
+        {ambOn && layers.map((id) => (
+          <label class="mini-amb-row"><span>{label(id)}</span><input type="range" min={0} max={100} step={5} value={Math.round((s.levels[id] ?? 0) * 100)} aria-label={t('ambient.volumen_x', { name: label(id) })} onInput={(e) => setLevel(id, Number((e.target as HTMLInputElement).value) / 100)} /></label>
+        ))}
+        <button type="button" class="btn small" onClick={() => { setOpen(false); app.openSheet('ambient'); }}><ExternalLink size={14} />{' '}{t('mini.abrir_panel')}</button>
+      </div>
+  );
+  const status = <span class="sr-only" role="status" aria-live="polite">{sounding ? t('mini.sonando', { name: title }) : t('mini.en_pausa')}</span>;
+  const mainBtn = (onClick: (e: Event) => void) => (
+    <button type="button" class="mini-amb-main" aria-expanded={open} aria-haspopup={p.inbar ? 'dialog' : undefined} aria-label={t('mini.controles_de', { name: title })} onClick={onClick}>
+      <span class="bars" aria-hidden="true"><i /><i /><i /></span>
+      <span class="ellipsis mini-amb-t" data-user-content={musicOn ? '' : undefined}>{title}</span>
+    </button>
+  );
+  if (p.inbar) {
+    // En la barra (no teléfono): pastilla en el flujo, junto al reloj; los controles salen en un Popover anclado a ella.
+    return (
+      <div ref={box} class={`mini-amb inbar pill glass${sounding ? ' on' : ''}`} role="group" aria-label={t('mini.reproductor')}>
+        {mainBtn(() => setOpen(!open))}
+        {status}
+        {open && box.current && (
+          <Popover anchor={box.current} onClose={() => { setOpen(false); box.current?.querySelector<HTMLElement>('.mini-amb-main')?.focus(); }} label={t('mini.reproductor')} role="dialog" class="mini-amb-pop">
+            <FocusFirst>{panel}</FocusFirst>
+          </Popover>
+        )}
+      </div>
+    );
+  }
   return (
     <Portal>
-      <div ref={box} class={`mini-amb glass${p.floating ? ' floating' : ' docked'}${sounding ? ' on' : ''}${open ? ' open' : ''}`} role="group" aria-label={t('mini.reproductor')}
+      <div ref={box} class={`mini-amb glass floating${sounding ? ' on' : ''}${open ? ' open' : ''}`} role="group" aria-label={t('mini.reproductor')}
         onPointerEnter={(e) => mouse(e) && later(true, 150)} onPointerLeave={(e) => mouse(e) && later(false, 300)}
         onFocusIn={(e) => (e.target as HTMLElement).matches(':focus-visible') && later(true, 0)}
         onFocusOut={(e) => { if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) later(false, 300); }}
         onKeyDown={(e) => { if (e.key === 'Escape' && open) (e.stopPropagation(), clearTimeout(timer.current), setOpen(false)); }}>
         <div class="mini-amb-pill">
-          <button type="button" class="mini-amb-main" aria-expanded={open} aria-label={t('mini.controles_de', { name: title })} onClick={(e) => { if ((e as unknown as PointerEvent).pointerType === 'mouse') return; clearTimeout(timer.current); setOpen(!open); }}>
-            <span class="bars" aria-hidden="true"><i /><i /><i /></span>
-            <span class="ellipsis mini-amb-t" data-user-content={musicOn ? '' : undefined}>{title}</span>
-          </button>
+          {mainBtn((e) => { if ((e as unknown as PointerEvent).pointerType === 'mouse') return; clearTimeout(timer.current); setOpen(!open); })}
           {playBtn}
         </div>
-        <span class="sr-only" role="status" aria-live="polite">{sounding ? t('mini.sonando', { name: title }) : t('mini.en_pausa')}</span>
-        {open && (
-          <div class="mini-amb-x stack-s">
-            {ambOn && <div class="mini-amb-line"><span class="foot">{t('addons.n_ambient')}</span><b class="ellipsis">{mix}</b></div>}
-            {player.current && (
-              <div class="mini-amb-line">
-                <span class="foot">{t('mini.musica')}</span>
-                <b class="ellipsis" data-user-content>{player.current.title}</b>
-                {tm.dur > 0 && <div class="mini-amb-prog" role="progressbar" aria-label={t('mini.progreso')} aria-valuemin={0} aria-valuemax={Math.round(tm.dur)} aria-valuenow={Math.round(tm.at)} aria-valuetext={`${mmss(tm.at)} / ${mmss(tm.dur)}`}><i style={{ width: `${Math.min(100, (tm.at / tm.dur) * 100)}%` }} /></div>}
-              </div>
-            )}
-            <div class="row">
-              {musicOn && <button type="button" class="btn icon small" aria-label={t('ambient.anterior')} onClick={() => player.prev()}><SkipBack size={16} /></button>}
-              <button type="button" class="btn icon small" aria-label={sounding ? t('ambient.pausar') : t('mini.reanudar')} onClick={toggle}>{sounding ? <Pause size={16} /> : <Play size={16} />}</button>
-              {musicOn && <button type="button" class="btn icon small" aria-label={t('ambient.siguiente')} onClick={() => player.next()}><SkipForward size={16} /></button>}
-              <span class="grow" />
-              {left !== null && <span class="foot">{t('ambient.se_apaga_en', { n: left })}</span>}
-            </div>
-            <label class="mini-amb-row"><span>{t('mini.volumen_general')}</span><input type="range" min={0} max={100} step={5} value={Math.round(ambient.volume * 100)} aria-label={t('mini.volumen_general')} onInput={(e) => ambient.setVolume(Number((e.target as HTMLInputElement).value) / 100)} /></label>
-            {ambOn && layers.map((id) => (
-              <label class="mini-amb-row"><span>{label(id)}</span><input type="range" min={0} max={100} step={5} value={Math.round((s.levels[id] ?? 0) * 100)} aria-label={t('ambient.volumen_x', { name: label(id) })} onInput={(e) => setLevel(id, Number((e.target as HTMLInputElement).value) / 100)} /></label>
-            ))}
-            <button type="button" class="btn small" onClick={() => { setOpen(false); app.openSheet('ambient'); }}><ExternalLink size={14} />{' '}{t('mini.abrir_panel')}</button>
-          </div>
-        )}
+        {status}
+        {open && panel}
       </div>
     </Portal>
   );
+}
+/** Lleva el foco al primer control al abrirse (el Popover no es modal y no lo mueve). */
+function FocusFirst(p: { children: ComponentChildren }) {
+  const r = useRef<HTMLDivElement>(null);
+  useEffect(() => { r.current?.querySelector<HTMLElement>('button, input')?.focus(); }, []);
+  return <div ref={r}>{p.children}</div>;
 }
 /** Música pausada desde el mini reproductor (para poder reanudarla desde él). */
 const musicHeld = { on: false };
