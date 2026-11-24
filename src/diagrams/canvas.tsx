@@ -131,12 +131,14 @@ export function DiagramCanvas({ text, kind, onEdit, onEdits, control, onSelect, 
     else if (cb.current.onEdits) cb.current.onEdits(edits);
     else for (const e of edits) cb.current.onEdit(e);
   };
+  const pct = useRef<HTMLSpanElement>(null);
   const apply = (v: View) => {
     view.current = v;
     const s = stage.current;
     if (!s) return;
     s.style.transform = `translate(${v.x}px, ${v.y}px) scale(${v.k})`;
     s.style.setProperty('--diag-inv', String(1 / v.k));
+    if (pct.current) pct.current.textContent = Math.round(v.k * 100) + ' %'; // sin re-render en el gesto
   };
   const size = () => ({ w: board.current?.clientWidth ?? 0, h: board.current?.clientHeight ?? 0 });
   const fit = () => {
@@ -159,8 +161,11 @@ export function DiagramCanvas({ text, kind, onEdit, onEdits, control, onSelect, 
       const r = el.getBoundingClientRect();
       apply(wheel4(view.current, e.deltaX, e.deltaY, e.ctrlKey || e.metaKey, { x: e.clientX - r.left, y: e.clientY - r.top }));
     };
+    // Safari (trackpad e iPad): el pellizco manda gesture*; sin cancelarlo escala la PÁGINA y la interfaz se pierde.
+    const no = (e: Event) => e.preventDefault();
     el.addEventListener('wheel', on, { passive: false });
-    return () => el.removeEventListener('wheel', on);
+    for (const g of ['gesturestart', 'gesturechange', 'gestureend']) el.addEventListener(g, no);
+    return () => { el.removeEventListener('wheel', on); for (const g of ['gesturestart', 'gesturechange', 'gestureend']) el.removeEventListener(g, no); };
   }, []);
 
   const local = (e: PointerEvent): Pt => ({ x: e.clientX - rect.current.left, y: e.clientY - rect.current.top });
@@ -600,6 +605,7 @@ export function DiagramCanvas({ text, kind, onEdit, onEdits, control, onSelect, 
   const tools = (
     <div class="diag-tools glass">
       <button type="button" class="btn icon ghost" aria-label={t('pdf.alejar')} onClick={() => { const { w, h } = size(); apply(zoomBy4(view.current, 1 / 1.25, w, h)); }}><ZoomOut size={20} aria-hidden="true" /></button>
+      <span ref={pct} class="diag-pct" aria-hidden="true">{Math.round(view.current.k * 100)} %</span>
       <button type="button" class="btn icon ghost" aria-label={t('pdf.acercar')} onClick={() => { const { w, h } = size(); apply(zoomBy4(view.current, 1.25, w, h)); }}><ZoomIn size={20} aria-hidden="true" /></button>
       <button type="button" class="btn icon ghost" aria-label={t('spaces.ajustar_al_contenido')} onClick={fit}><Maximize size={20} aria-hidden="true" /></button>
     </div>
