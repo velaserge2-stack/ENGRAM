@@ -145,13 +145,13 @@ for (const [w, h] of SIZES) {
     }
   };
   const setSize = async (want) => { const b = page.getByRole('button', { name: want === 'large' ? 'Panel grande' : 'Panel compacto', exact: true }); if (await b.count()) { await b.click(); await page.waitForTimeout(350); } };
-  const click = (name, opts = {}) => page.getByRole('button', { name, exact: true }).first().click({ timeout: 3000, ...opts }).catch(() => found.push(`${w}x${h}: botón «${name}» no pulsable`));
+  const click = (name, opts = {}) => page.getByRole('button', { name, exact: true }).first().click({ timeout: 3000, ...opts }).catch((e) => found.push(`${w}x${h}: botón «${name}» no pulsable · ${String(e.message).split('\n').filter((l) => /intercept|outside|not stable|not visible/.test(l)).slice(0, 2).join(' | ').replace(/\x1b\[\d+m/g, '').slice(0, 300)}`));
   const notice = () => page.evaluate(() => {
     for (const [c, t] of [['key-feedback glass strong', '⌨ ⌘B → Negrita'], ['toast glass', 'Guardado']]) { if (!document.querySelector('.' + c.split(' ')[0])) { const k = document.createElement('div'); k.className = c; k.textContent = t; document.body.appendChild(k); } }
   });
   const clearNotice = () => page.evaluate(() => document.querySelectorAll('.key-feedback, .toast').forEach((e) => e.remove()));
   // tocar el texto de la pastilla abre el chat (ya no hay botón «Escribir»)
-  const openChat = () => page.locator('.gx-txt').click({ timeout: 3000 }).catch(() => found.push(`${w}x${h}: la pastilla no se puede tocar para abrir el chat`));
+  const openChat = () => page.locator('.gx-txt').click({ timeout: 3000 }).catch((e) => found.push(`${w}x${h}: la pastilla no se puede tocar para abrir el chat · ${String(e.message).split("\n").filter((l) => /intercept|outside|not stable|not visible|<.*>/.test(l)).slice(0, 3).join(" | ").slice(0, 400)}`));
   const closeChat = async () => { await page.keyboard.press('Escape'); await page.waitForTimeout(250); };
   /** Abrir pastilla/chat compacto/grande, cerrar, minimizar, restaurar: ningún elemento de la página se mueve (±0 px). Parte de la pastilla. */
   const noShift = async (label) => {

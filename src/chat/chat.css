@@ -72,7 +72,7 @@ body.focus .gx-dock, body.notes-full .gx-dock, body.focus .gx-mini, body.notes-f
 .gx-kt { min-width: 0; line-height: 1.2; }
 .gx-kt b { display: block; font-size: 14px; font-weight: 700; letter-spacing: -.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gx-kt small { display: block; font-size: 12px; color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gx-mdl { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; max-width: 150px; padding: 0 10px; border-radius: 10px; border: var(--hair) solid var(--border); background: var(--fill); color: var(--t2); font: 700 12px/1 var(--font); cursor: pointer; }
+.gx-mdl { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; max-width: 124px; padding: 0 8px; border-radius: 10px; border: var(--hair) solid var(--border); background: var(--fill); color: var(--t2); font: 700 12px/1 var(--font); cursor: pointer; }
 .gx-mdl .mono { font-size: 11px; font-weight: 600; }
 .gx-mdl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gx-kfoot { display: flex; gap: 8px; }
@@ -82,6 +82,10 @@ body.focus .gx-dock, body.notes-full .gx-dock, body.focus .gx-mini, body.notes-f
 .popover.gx-menu { z-index: var(--z-modal); }
 .gx-mi { display: flex; width: 100%; min-height: 44px; align-items: center; padding: 0 12px; border: 0; border-radius: 10px; background: none; color: var(--t1); cursor: pointer; text-align: left; }
 .gx-mi[aria-checked="true"] { font-weight: 800; background: var(--fill); }
+
+/* avisos pasajeros (toast, atajos): con la pastilla visible salen por encima de ella, no encima de sus botones (no mueven nada de la página) */
+body:has(.gx-dock) .toast, body:has(.gx-dock) .key-feedback { translate: 0 -78px; }
+html.kb-open body:has(.gx-dock) .toast, html.kb-open body:has(.gx-dock) .key-feedback { translate: none; }
 
 /* ───── minimizada: solo GREX, un cuadrito de 56 px abajo a la derecha (fijo) ───── */
 .gx-mini { position: fixed; z-index: var(--z-assistant); right: calc(var(--chat-sr) + 16px); bottom: calc(var(--chat-sb) + var(--gx-bottom) + var(--kb-inset, 0px)); width: 56px; height: 56px; border-radius: 18px; box-shadow: var(--shadow); }
