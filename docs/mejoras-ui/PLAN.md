@@ -54,3 +54,6 @@ Cristal (interfaz sin color, acento opcional), todo lo flotante por `overlay.tsx
 
 ## Reparto sin pisarse (un agente por zona, cada uno en su worktree y con CSS/i18n propios)
 A barra superior + reproductor · B chat + GREX + zona inferior · C notas (solapes) · D diagramas (barra inferior y zoom) · E bug borrar/modificar (vault/notas) · F tipografía global. Archivos compartidos (`app.tsx`, `theme-cristal.css`, `i18n/*.json`): CSS en archivos nuevos por agente, claves con prefijo propio (`topbar.*`, `dock.*`, `notas.*`, `diag.*`) y `app.tsx` lo toca un solo agente por turno. Se fusionan en orden y se prueban juntos.
+
+## 2026-11-24 · rediseño de interfaz (mejoras-ui)
+Agentes: auditoría haiku (inventario) · A barra superior/reproductor · B chat+GREX+dock · C notas · D diagramas · E vault · F tipografía · G dictado · integración (sonnet, regresión de 29 e2e). Todos en worktrees propios; fusión en orden con resolución de i18n por unión. Verificado en Chromium: 0 solapes en 4 resoluciones (e2e:uiaudit), 1042/1043 pruebas (la roja es de tiempo, preexistente). Sin verificar: Safari/iPad reales, dictado real, teclado real.

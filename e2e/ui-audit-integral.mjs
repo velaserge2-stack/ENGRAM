@@ -206,6 +206,20 @@ for (const [w, h] of SIZES) {
   await setSize('large');
   await measure('diagrama+chat-grande');
   await notice(); await measure('diagrama+chat-grande+avisos'); await clearNotice();
+  // barra superior: la pastilla de la pestaña activa cubre su enlace y su etiqueta (Bold incluido), una vez asentada la animación
+  const innerWidthOf = w;
+  const tabs = await page.$$eval('.seg-nav a', (as) => as.map((a) => a.getAttribute('href')));
+  for (const h of tabs) {
+    await goto(page, h); await page.waitForTimeout(700);
+    const r = await page.evaluate(() => {
+      const a = document.querySelector('.seg-nav a[aria-current="page"]'), sl = document.querySelector('.seg-nav .slider'), l = a?.querySelector('.lbl');
+      if (!a || !sl || !l) return null;
+      const A = a.getBoundingClientRect(), S = sl.getBoundingClientRect(), L = l.getBoundingClientRect(), N = a.closest('.seg-nav');
+      const NR = N.getBoundingClientRect();
+      return { nv: N.scrollWidth - N.clientWidth, hid: Math.round(Math.max(NR.left - A.left, A.right - NR.right)), tab: a.textContent.trim(), dw: Math.round(S.width - A.width), dl: Math.round(S.left - A.left), over: Math.round(L.right - S.right), overL: Math.round(S.left - L.left) };
+    });
+    if (r && (Math.abs(r.dw) > 2 || Math.abs(r.dl) > 2 || r.over > 0 || r.overL > 0 || r.hid > 1 || (innerWidthOf > 1000 && r.nv > 1))) found.push(`${w}x${h}`.replace(/x\d+$/, '') + ` barra superior: pastilla de «${r.tab}» no cubre su etiqueta (${JSON.stringify(r)})`);
+  }
   await ctx.close();
   console.log(`== ${w}x${h}: ${found.length - n0} problemas`); found.slice(n0).forEach((f) => console.log('  ✗ ' + f));
 }

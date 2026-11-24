@@ -332,6 +332,8 @@ function TopBar(props: { tab: string }) {
     const measure = () => {
       const a = nav.current?.querySelector<HTMLElement>('a[aria-current="page"]');
       setSlider(a ? { x: a.offsetLeft, w: a.offsetWidth } : null);
+      const n = nav.current;
+      if (a && n && n.scrollWidth > n.clientWidth + 1) n.scrollLeft = Math.max(0, a.offsetLeft - (n.clientWidth - a.offsetWidth) / 2);
     };
     measure();
     addEventListener('resize', measure);
@@ -365,18 +367,19 @@ function TopBar(props: { tab: string }) {
       <button type="button" class="pill glass" onClick={() => app.openSheet('palette')} aria-label={t('app.buscar_k')}>
         <Search size={18} />
       </button>
-      {addonOn(app.settings, 'inbox') && <a class="pill glass" href="#/bandeja" aria-label={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })} data-tip={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })}>
+      {addonOn(app.settings, 'inbox') && <a class="pill glass mid-hide" href="#/bandeja" aria-label={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })} data-tip={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })}>
         <Inbox size={18} /> <span class={`count${app.inboxCount ? '' : ' zero'}`}>{app.inboxCount}</span>
       </a>}
       {/* Ajustes y Respaldo viven en Perfil (Prompt 6 · B). iPad (601–1100 px): Sonido ambiente pasa a «⋯» */}
-      {addonOn(app.settings, 'ambient') && (
+      {(addonOn(app.settings, 'ambient') || addonOn(app.settings, 'inbox')) && (
         <button type="button" class="pill glass more-pill" aria-label={t('phone.mas')} aria-haspopup="menu" aria-expanded={!!moreAt} onClick={(e) => setMoreAt(moreAt ? null : (e.currentTarget as HTMLElement))}>
           <Ellipsis size={18} />
         </button>
       )}
       {moreAt && (
         <Popover anchor={moreAt} onClose={() => setMoreAt(null)} label={t('phone.mas')} role="menu" class="glass strong add-menu">
-          <button type="button" role="menuitem" onClick={() => (setMoreAt(null), app.openSheet('ambient'))}><Headphones size={18} />{' '}{t('addons.n_ambient')}</button>
+          {addonOn(app.settings, 'ambient') && <button type="button" role="menuitem" onClick={() => (setMoreAt(null), app.openSheet('ambient'))}><Headphones size={18} />{' '}{t('addons.n_ambient')}</button>}
+          {addonOn(app.settings, 'inbox') && <a role="menuitem" href="#/bandeja" onClick={() => setMoreAt(null)}><Inbox size={18} />{' '}{t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })}</a>}
         </Popover>
       )}
       {addonOn(app.settings, 'ambient') && <button type="button" class="pill glass ph-hide mid-hide" aria-label={t('addons.n_ambient')} onClick={() => app.openSheet('ambient')}><Headphones size={18} /></button>}

@@ -728,6 +728,7 @@ try {
   await page.locator('#asistente').waitFor();
   if ((await page.locator('#asistente').getAttribute('class')).includes('open') === false) await page.locator('#asistente .fold-btn').click();
   const s2 = page.locator('#asistente');
+  await s2.getByLabel('Proveedor').waitFor(); // el cuerpo de la sección se carga con import() al desplegarla
   const provs = await s2.getByLabel('Proveedor').locator('option').allInnerTexts();
   check(provs.join() === 'Gemini,Groq,OpenRouter,Kimi', 'selector con los 4 proveedores: ' + provs.join());
   check((await s2.innerText()).includes('Hasta 4'), 'texto «Hasta 4»');
