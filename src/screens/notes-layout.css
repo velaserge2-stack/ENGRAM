@@ -7,7 +7,7 @@ html:not(.is-phone) {
   --eb-h: 52px;
   --bar-gap: 6px;
   /* lo que se reserva abajo para el asistente (barra al centro) y la mascota (esquina): variables de B, con valores por omisión */
-  --dock-reserve: calc(var(--dock-bottom, 16px) + var(--dock-mini-size, 56px) + 16px + 52px /* avisos de teclas */);
+  --dock-reserve: calc(var(--dock-bottom, 16px) + max(var(--dock-mini-size, 56px), var(--dock-h-eff, 0px)) + 16px + 136px /* avisos: aviso (44) + atajo (36) apilados sobre la barra */);
   --bars-bottom: calc(var(--bar-top) + var(--eb-h) + var(--bar-gap));
   --panels-top: var(--bars-bottom); /* debajo de la última barra pegada */
 }
@@ -31,3 +31,9 @@ html:not(.is-phone) .tree-over { width: min(300px, calc(50vw - 18px)); }
 /* con el teclado abierto la barra ya está pegada: los paneles parten de ella */
 html.kb-open .insp-over, html.kb-open .tree-over { top: var(--panels-top, calc(env(safe-area-inset-top) + 72px)); max-height: max(160px, calc(100dvh - var(--panels-top, 72px) - var(--dock-reserve, 24px) - var(--kb-inset, 0px))); }
 html:not(.is-phone):has(.find-bar) { --panels-top: calc(var(--bars-bottom) + 50px + var(--bar-gap)); }
+
+/* Asistente abierto (z-chat 150, el que el usuario acaba de abrir, queda por encima): la nota cede su carril y los paneles flotantes se apartan.
+   Inspector y árbol flotantes (< 1100 px) se ocultan sin desmontarse (vuelven al cerrar el chat). */
+html:not(.is-phone) body:has(.chat-panel.compact) .notes { padding-right: calc(min(360px, 100vw - 32px) + 32px); }
+html:not(.is-phone) body:has(.chat-panel.large) .notes { padding-right: calc(min(760px, 100vw - 280px) + 24px); }
+html:not(.is-phone) body:has(.chat-panel) .insp-over, html:not(.is-phone) body:has(.chat-panel.large) .tree-over { visibility: hidden; pointer-events: none; }

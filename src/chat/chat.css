@@ -3,6 +3,8 @@
 :root { --dock-bottom: 16px; --dock-mini-size: 64px; --dock-h-eff: calc(var(--dock-h, 112px) + 10px); }
 html.in-canvas { --dock-bottom: 176px; }
 html.kb-open { --dock-bottom: 16px; --dock-h-eff: 0px; }
+/* avisos, barra de formato flotante y atajos suben por encima de la barra del Asistente (la mascota va en la esquina: no estorba al centro) */
+body:has(.gx-dock) { --notice-lift: calc(var(--dock-bottom) + var(--dock-h-eff) - 16px); }
 .chat-fab, .gx-dock, .gx-mini, .chat-panel { --chat-sr: env(safe-area-inset-right); --chat-sb: env(safe-area-inset-bottom); font-family: var(--font); letter-spacing: -.012em; --ring: var(--border-strong); }
 html[class*="acc-"] .gx-avatar, html[class*="acc-"] .gx-mini, html[class*="acc-"] .chat-fab { --ring: var(--accent); }
 
@@ -45,7 +47,7 @@ html.is-phone body:has(.mini-amb.open) .chat-fab { visibility: hidden; }
 .chat-panel { --pb: calc(var(--chat-sb) + var(--dock-bottom) + var(--dock-h-eff) + var(--kb-inset, 0px)); position: fixed; z-index: var(--z-chat); display: flex; flex-direction: column; overflow: hidden; border-radius: var(--r-panel); box-shadow: var(--shadow); animation: up .25s var(--spring); }
 .chat-panel.compact { right: calc(var(--chat-sr) + 16px); bottom: var(--pb); width: min(360px, calc(100vw - 32px)); height: min(520px, calc(100dvh - var(--pb) - 24px - env(safe-area-inset-top))); }
 /* grande: panel lateral; deja libre el borde izquierdo (firma y bandeja) */
-.chat-panel.large { right: calc(var(--chat-sr) + 12px); top: calc(env(safe-area-inset-top) + 12px); bottom: var(--pb); width: min(760px, calc(100vw - 280px)); }
+.chat-panel.large { right: calc(var(--chat-sr) + 12px); top: var(--bar-top, calc(env(safe-area-inset-top) + 72px)); bottom: var(--pb); width: min(760px, calc(100vw - 280px)); }
 
 .chat-h { display: flex; align-items: center; gap: 4px; padding: 6px 6px 6px 12px; border-bottom: var(--hair) solid var(--line); flex: none; }
 .chat-title { flex: 1; min-width: 0; display: grid; margin-left: 4px; }
