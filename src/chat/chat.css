@@ -55,6 +55,10 @@ html.is-phone .chat-panel { inset: 0 0 var(--kb-inset, 0px) 0; width: auto; heig
 .chat-pv-act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .chat-pv-err { margin: 0; font-weight: 600; }
 .chat-pv-ok { flex: 1 1 140px; min-width: 0; overflow-wrap: anywhere; }
+.chat-pv-md { max-height: 240px; overflow: auto; overflow-wrap: anywhere; }
+.chat-pv-diag { height: 220px; overflow: hidden; border-radius: var(--r-row); }
+.chat-pv-code { margin: 4px 0 0; max-height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-pv summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
 .chat-pv textarea.input { min-height: 160px; resize: vertical; }
 .chat-tech { flex-basis: 100%; font-size: var(--t-note); color: var(--t2); overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
 .chat-tech summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }

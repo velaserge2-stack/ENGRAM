@@ -2,13 +2,28 @@
 // Todo se pinta como TEXTO (Preact escapa); nada de innerHTML. El deshacer queda visible hasta «Nueva conversación».
 import { Check, Pencil, Trash2, Undo2, X } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { t } from '../i18n';
+import { t, tn } from '../i18n';
+import { dayKey } from '../lib/days';
+import { parseFrontmatter } from '../lib/frontmatter';
+import { renderMarkdown } from '../md/render';
 import { useApp } from '../state';
 import { redact } from './errors';
 import { type Msg, patch } from './history';
 import { applyProposal, type EventFields, isBad, revalidate, undoProposal } from './proposal';
 
-const TITLE: Record<'tarjetas' | 'examen' | 'evento', string> = { tarjetas: 'chat.pv_t_tarjetas', examen: 'chat.pv_t_examen', evento: 'chat.pv_t_evento' } as const;
+const TITLE: Record<'tarjetas' | 'examen' | 'evento' | 'nota' | 'diagrama' | 'fecha', string> = { tarjetas: 'chat.pv_t_tarjetas', examen: 'chat.pv_t_examen', evento: 'chat.pv_t_evento', nota: 'chat.pv_t_nota', diagrama: 'chat.pv_t_diagrama', fecha: 'chat.pv_t_fecha' } as const;
+const NEWFILE = new Set(['nota', 'diagrama', 'fecha']);
+
+/** Vista del diagrama propuesto con el visor de siempre, cargado bajo demanda; si falla, queda el código. */
+function DiagramPeek({ kind, src }: { kind: string; src: string }) {
+  const host = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let off = () => undefined as void, dead = false;
+    void import('../diagrams/mount').then((m) => { if (!dead && host.current) off = m.mountDiagrams(host.current); }).catch(() => undefined);
+    return () => { dead = true; off(); };
+  }, [kind, src]);
+  return <div ref={host} class="diag-host chat-pv-diag" role="group" aria-label={t('chat.pv_vista_diagrama')} data-kind={kind} data-src={src} data-user-content />;
+}
 const FIELDS = ['titulo', 'fecha', 'inicio', 'fin', 'materia', 'nota'] as const;
 const TYPE: Record<string, 'date' | 'time'> = { fecha: 'date', inicio: 'time', fin: 'time' };
 
@@ -45,6 +60,7 @@ function WritePreview({ m }: { m: Msg }) {
   }, [st]);
   useEffect(() => { if (edit) first.current?.focus(); }, [edit]);
 
+  const refresh = () => (p.tipo === 'nota' || p.tipo === 'diagrama' ? app.changed('notes') : app.changed());
   const accept = async () => {
     if (lock.current || st !== 'pending' || edit) return; // doble toque: una sola escritura (applyProposal también es idempotente)
     lock.current = true;
@@ -52,7 +68,7 @@ function WritePreview({ m }: { m: Msg }) {
     try {
       await applyProposal(app.vault, app.col, p, m.id);
       patch(m.id, { pstate: 'saved' });
-      app.changed();
+      refresh();
     } catch (e) {
       patch(m.id, { pstate: 'pending', perr: werr(e), pdet: tech(e) });
     } finally { lock.current = false; }
@@ -63,12 +79,12 @@ function WritePreview({ m }: { m: Msg }) {
     try {
       const r = await undoProposal(app.vault, m.id);
       patch(m.id, { pstate: 'undone', code: r.emptied.length ? 'emptied' : undefined });
-      app.changed();
+      refresh();
     } catch (e) { patch(m.id, { perr: e instanceof Error && e.message === 'changed' ? 'changed' : werr(e), pdet: tech(e) }); } finally { lock.current = false; }
   };
   const open = () => { setErr(''); setText(p.contenido); setEv(p.evento ?? null); setEdit(true); };
   const check = () => {
-    const r = revalidate(p, p.tipo === 'evento' ? { evento: ev ?? {} } : { contenido: text });
+    const r = revalidate(p, p.tipo === 'evento' ? { evento: ev ?? {} } : { contenido: text }, { col: app.col, today: dayKey(Date.now(), app.settings.timeZone, app.settings.dayStartHour) });
     if (isBad(r)) { setErr(`${t(`chat.pv_err_${r.error}`)}${r.detail ? ` — ${r.detail}` : ''}`); return; }
     patch(m.id, { proposal: r });
     setEdit(false); setErr('');
@@ -78,8 +94,8 @@ function WritePreview({ m }: { m: Msg }) {
   const title = p.tipo === 'evento' ? t(p.op ? 'chat.pv_t_evento_mod' : 'chat.pv_t_evento') : t(TITLE[p.tipo as keyof typeof TITLE], { dest: p.mazo ?? p.destino.replace(/^.*\//, '').replace(/\.md$/, '') });
   const busy = st === 'saving';
   return (
-    <section ref={root} class="chat-pv" tabIndex={-1} aria-label={title}>
-      <b class="chat-pv-t">{title}</b>
+    <section ref={root} class="chat-pv" tabIndex={-1} aria-label={title} aria-live="polite">
+      <b class="chat-pv-t" data-user-content>{title}</b>
       {(st === 'pending' || st === 'saving') && <p class="foot">{t('chat.pv_aviso')}</p>}
       {edit ? (
         <div class="stack-s">
@@ -93,7 +109,13 @@ function WritePreview({ m }: { m: Msg }) {
             </label>}
         </div>
       ) : (
-        <ul class="chat-pv-list" data-user-content>{p.items.map((x, i) => <li key={i}>{x}</li>)}</ul>
+        <>
+          {NEWFILE.has(p.tipo) && <p class="foot" data-user-content>{t('chat.pv_ruta', { ruta: p.destino })}</p>}
+          {p.tipo === 'nota' && <div class="chat-pv-md md" tabIndex={0} role="region" aria-label={t('chat.pv_vista_nota')} data-user-content dangerouslySetInnerHTML={{ __html: renderMarkdown(parseFrontmatter(p.contenido).body.slice(0, 6000)) }} />}
+          {p.tipo === 'diagrama' && <><DiagramPeek kind={p.diag ?? 'mapa'} src={parseFrontmatter(p.contenido).body} /><details><summary>{t('chat.pv_codigo')}</summary><pre class="chat-pv-code" tabIndex={0} data-user-content>{parseFrontmatter(p.contenido).body}</pre></details></>}
+          {p.tipo === 'fecha' && <p class="foot" data-user-content>{t('chat.pv_faltan', { n: `${p.datos?.dias ?? 0} ${tn('plural.daysword', p.datos?.dias ?? 0)}`, fecha: p.items[1] ?? '' })}</p>}
+          {(p.tipo === 'fecha' || !NEWFILE.has(p.tipo)) && <ul class="chat-pv-list" data-user-content>{p.items.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+        </>
       )}
       {err && <p class="chat-pv-err" role="alert">{err}</p>}
       {m.perr && st === 'pending' && <p class="chat-pv-err" role="alert">{t(`chat.pv_werr_${m.perr}`)}{m.perr === 'other' && m.pdet && <small class="foot" style={{ display: 'block', fontWeight: 400 }} data-user-content>{m.pdet}</small>}</p>}
@@ -112,7 +134,7 @@ function WritePreview({ m }: { m: Msg }) {
           {m.perr && <span class="chat-pv-err">{t(`chat.pv_werr_${m.perr}`)}</span>}
         </div>
       ) : (
-        <p class="foot" role="status">{st === 'canceled' ? t('chat.pv_cancelado') : t(m.code === 'emptied' ? 'chat.pv_deshecho_vacio' : 'chat.pv_deshecho')}</p>
+        <p class="foot" role="status">{st === 'canceled' ? t('chat.pv_cancelado') : t(m.code === 'emptied' ? 'chat.pv_deshecho_vacio' : p.tipo === 'nota' || p.tipo === 'diagrama' ? 'chat.pv_deshecho_nota' : p.tipo === 'fecha' ? 'chat.pv_deshecho_quitado' : 'chat.pv_deshecho')}</p>
       )}
     </section>
   );

@@ -27,7 +27,8 @@ import { Empty, PageTitle, Segmented, Sheet } from '../ui/kit';
 import { Html, hydrateAllMedia } from '../ui/md';
 import { readTextOr, walk } from '../vault/util';
 import { noteTexts } from '../notes/textcache';
-import { type DiagramKind, type NoteKind, diagramFence, diagramKindOf, newDiagramNote, newDiagramText, replaceBlockAt, setFenceAlto } from '../notes/diagramtype';
+import { type DiagramKind, type NoteKind, diagramFence, diagramKindOf, newDiagramText, replaceBlockAt, setFenceAlto } from '../notes/diagramtype';
+import { createNote } from '../notes/create';
 import { readBackdrop, readHeight } from '../diagrams/parse';
 import type { Backdrop } from '../diagrams/types';
 import { mediaRefs, resolveMedia } from '../data/ops';
@@ -423,9 +424,7 @@ function NewNote(props: { notes: NoteMeta[]; onClose: () => void; initial?: { ma
     <Sheet title={tr('notes.nueva_nota')} onClose={props.onClose}>
       <form class="stack" onSubmit={async (e) => {
         e.preventDefault();
-        let path = notePath(materia, tema, title);
-        for (let i = 2; await app.vault.exists(path); i++) path = notePath(materia, tema, `${title} (${i})`);
-        await app.vault.write(path, kind === 'nota' ? newNoteText(materia, tema, title.trim(), tpl) : newDiagramNote(kind, materia, tema, title.trim()));
+        const path = await createNote(app.vault, { materia, tema, titulo: title, kind, template: tpl });
         app.changed('notes');
         props.onClose();
         if (props.onCreated) props.onCreated(path);
