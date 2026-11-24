@@ -2213,5 +2213,8 @@
  "chat.pv_werr_exists": "A bank with that name already exists; it won't be overwritten.",
  "chat.pv_werr_gone": "The event no longer exists.",
  "chat.pv_werr_other": "Couldn't save; nothing was changed.",
+ "chat.pv_werr_quota": "Not enough storage space to save; nothing was changed.",
+ "chat.pv_werr_denied": "No permission to write to the folder; nothing was changed.",
+ "chat.pv_werr_notfound": "The destination folder wasn't found; nothing was changed.",
  "chat.pv_werr_changed": "The file changed after saving; nothing was undone so your changes are kept"
 }

@@ -4,12 +4,21 @@ import { Check, Pencil, Undo2, X } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { useApp } from '../state';
+import { redact } from './errors';
 import { type Msg, patch } from './history';
 import { applyProposal, type EventFields, isBad, revalidate, undoProposal } from './proposal';
 
 const TITLE = { tarjetas: 'chat.pv_t_tarjetas', examen: 'chat.pv_t_examen', evento: 'chat.pv_t_evento' } as const;
 const FIELDS = ['titulo', 'fecha', 'inicio', 'fin', 'materia', 'nota'] as const;
 const TYPE: Record<string, 'date' | 'time'> = { fecha: 'date', inicio: 'time', fin: 'time' };
+
+/** Código de aviso (i18n `chat.pv_werr_*`) de un fallo al guardar; los DOMException de almacenamiento tienen mensaje propio. */
+const werr = (e: unknown): string => {
+  const n = e instanceof Error ? (e.name === 'Error' ? e.message : e.name) : '';
+  return ({ open: 'open', exists: 'exists', gone: 'gone', QuotaExceededError: 'quota', NotAllowedError: 'denied', SecurityError: 'denied', NotFoundError: 'notfound' } as Record<string, string>)[n] ?? 'other';
+};
+/** «Nombre: mensaje» corto y sin claves, para diagnosticar fallos no clasificados. */
+const tech = (e: unknown): string => redact(e instanceof Error ? `${e.name}: ${e.message}` : String(e)).replace(/\s+/g, ' ').slice(0, 160);
 
 export function Preview({ m }: { m: Msg }) {
   const app = useApp();
@@ -40,8 +49,7 @@ export function Preview({ m }: { m: Msg }) {
       patch(m.id, { pstate: 'saved' });
       app.changed();
     } catch (e) {
-      const c = e instanceof Error && ['open', 'exists', 'gone'].includes(e.message) ? e.message : 'other';
-      patch(m.id, { pstate: 'pending', perr: c });
+      patch(m.id, { pstate: 'pending', perr: werr(e), pdet: tech(e) });
     } finally { lock.current = false; }
   };
   const undo = async () => {
@@ -51,7 +59,7 @@ export function Preview({ m }: { m: Msg }) {
       const r = await undoProposal(app.vault, m.id);
       patch(m.id, { pstate: 'undone', code: r.emptied.length ? 'emptied' : undefined });
       app.changed();
-    } catch (e) { patch(m.id, { perr: e instanceof Error && e.message === 'changed' ? 'changed' : 'other' }); } finally { lock.current = false; }
+    } catch (e) { patch(m.id, { perr: e instanceof Error && e.message === 'changed' ? 'changed' : werr(e), pdet: tech(e) }); } finally { lock.current = false; }
   };
   const open = () => { setErr(''); setText(p.contenido); setEv(p.evento ?? null); setEdit(true); };
   const check = () => {
@@ -83,7 +91,7 @@ export function Preview({ m }: { m: Msg }) {
         <ul class="chat-pv-list" data-user-content>{p.items.map((x, i) => <li key={i}>{x}</li>)}</ul>
       )}
       {err && <p class="chat-pv-err" role="alert">{err}</p>}
-      {m.perr && st === 'pending' && <p class="chat-pv-err" role="alert">{t(`chat.pv_werr_${m.perr}`)}</p>}
+      {m.perr && st === 'pending' && <p class="chat-pv-err" role="alert">{t(`chat.pv_werr_${m.perr}`)}{m.perr === 'other' && m.pdet && <small class="foot" style={{ display: 'block', fontWeight: 400 }} data-user-content>{m.pdet}</small>}</p>}
       {st === 'pending' || st === 'saving' ? (
         <div class="chat-pv-act">
           {edit

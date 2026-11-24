@@ -64,6 +64,14 @@ try {
           await new Promise((res) => setTimeout(res, 600));
           return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse(mode === 'tool' ? 'El ECG usa 12 derivaciones [[Clase 1 - ECG básico]]. Otra fuente: [[Nota Inventada]] y [PDF: Falso p.3].' : 'No lo encontré en tus notas.') });
         }
+        if (mode === 'exam') {
+          const done = (r.request().postData() ?? '').includes('functionResponse');
+          if (done) return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse('Te dejo el examen para revisar.') });
+          const cita = '[PDF: Recopilación 1 Parcial Gine 1.pdf p.5]';
+          const preguntas = ['C', 'C', 'D', 'A', 'D'].map((c, i) => ({ texto: `Paciente ${20 + i} años con sangrado uterino anormal, ¿manejo inicial? ${cita}`, opciones: ['Observar', 'Legrado', 'ACO', 'Histerectomía', 'Ninguna'], correcta: c, explicacion: `Según la guía ${cita}`, tema: 'Ginecología' }));
+          const args = { nombre: examName, minutos: 90, preguntas };
+          return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: 'data: ' + JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ functionCall: { name: 'crear_examen', args } }] }, finishReason: 'STOP', index: 0 }], usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 3, totalTokenCount: 6 } }) + '\n\n' });
+        }
         if (mode === 'write' || mode === 'writeno') {
           const done = (r.request().postData() ?? '').includes('functionResponse');
           if (done) return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse('Te dejo una propuesta para revisar.') });
@@ -334,6 +342,7 @@ try {
   await panel.getByRole('button', { name: 'Nueva conversación' }).click();
   // Fase 3b: escritura con vista previa
   console.log('Escritura');
+  const examName = 'Simulacro 1 Parcial Ginecología';
   const deckText = () => page.evaluate(async () => { try { let d = await navigator.storage.getDirectory(); for (const part of ['decks']) d = await d.getDirectoryHandle(part); return await (await (await d.getFileHandle('ECG IA.md')).getFile()).text(); } catch { return null; } });
   const appText = () => page.evaluate(() => document.querySelector('#app')?.innerText ?? '');
   await panel.getByRole('button', { name: 'Nueva conversación' }).click();
@@ -377,6 +386,28 @@ try {
   await pv.getByRole('button', { name: 'Deshacer' }).click();
   await pv.getByText(/Deshecho/).waitFor();
   check(((await deckText()) ?? '').trim() === '---\ndeck: ECG IA\ntags: []\n---' || !/^Q::/m.test((await deckText()) ?? ''), 'Deshacer: las tarjetas ya no están');
+  // Examen propuesto por el Asistente: carpeta exams-bank/ nueva, Aceptar, aparece en Simulacros, nombre repetido
+  console.log('Examen');
+  const bankText = () => page.evaluate(async (n) => { try { let d = await navigator.storage.getDirectory(); d = await d.getDirectoryHandle('exams-bank'); return await (await (await d.getFileHandle(encodeURIComponent(n) + '.md')).getFile()).text(); } catch { return null; } }, examName);
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  mode = 'exam';
+  await ta.fill('Crea un examen de 5 preguntas de mis PDFs'); await ta.press('Enter');
+  await pv.waitFor();
+  check((await pv.locator('li').count()) === 5 && (await bankText()) === null, 'examen: vista previa con 5 preguntas, proponer no escribe');
+  await pv.getByRole('button', { name: 'Aceptar' }).click();
+  await Promise.race([pv.getByRole('button', { name: 'Deshacer' }).waitFor(), pv.locator('.chat-pv-err').waitFor()]);
+  const eb = await bankText();
+  check(eb !== null && (eb.match(/^origen: ia$/gm) ?? []).length === 1 && eb.includes('[PDF: Recopilación 1 Parcial Gine 1.pdf p.5]'), 'examen: Aceptar escribe exams-bank/ (carpeta nueva) con origen: ia' + (await pv.locator('.chat-pv-err').allInnerTexts()).join('|'));
+  await page.evaluate(() => { location.hash = '#/simulacros'; });
+  await page.waitForFunction((n) => document.querySelector('#app')?.innerText.includes(n), examName);
+  check(true, 'examen: aparece en Simulacros');
+  await page.evaluate(() => { location.hash = '#/'; });
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  await ta.fill('Crea un examen de 5 preguntas de mis PDFs'); await ta.press('Enter');
+  await pv.waitFor();
+  await pv.getByRole('button', { name: 'Aceptar' }).click();
+  await pv.getByText('Ya existe un banco').waitFor();
+  check(true, 'examen: nombre repetido → «Ya existe un banco»');
   await panel.getByRole('button', { name: 'Nueva conversación' }).click();
   mode = 'stream';
 
