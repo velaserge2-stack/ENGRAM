@@ -154,3 +154,11 @@ Límites gratuitos, nombres de modelo y forma de errores 🔸 · CORS · políti
 - `MAX_OUT` 8192; Gemini con `thinkingBudget: 1024`, `includeThoughts: false`. `stopWhen` 6 pasos; el último con `toolChoice: 'none'` (el SDK falla si el modelo aun así llama una herramienta: queda como error visible).
 - `crear_examen`: máx. 15 preguntas por llamada (`MAX_QUESTIONS`); el resultado avisa al modelo del recorte y `SYSTEM_WRITE` pide proponer por partes con nombres distintos.
 - Sin verificar: Gemini real (thinkingBudget aceptado por `flash-latest`), Safari/iPad. Tests: `tests/chat-vacio.test.ts`, `e2e:chat`.
+## Crear notas, diagramas y exámenes con fecha (rama `asistente-crear`)
+- Herramientas `crear_nota`, `crear_diagrama`, `registrar_examen` (`src/chat/make.ts`, `tools-write.ts`): solo PROPONEN; se ofrecen con `wantsWrite` (verbo + objeto; «hazme un resumen» es responder, no crear; nota/resumen solo con verbo de crear). Cuentan en `MAX_PROPOSALS`.
+- Tipos de propuesta `nota` | `diagrama` (`notes/…`, `diag` = tipo) y `fecha` (`exams/<nombre>.md`, NO bancos). `contenido` = archivo completo, con `origen: ia` en el frontmatter (el frontmatter del modelo se descarta). Nota ≤ 20 000 caracteres.
+- Ruta y texto salen de `src/notes/create.ts` (`planNote` sin escribir, `createNote` escribiendo; la pantalla Notas y la Bandeja usan la misma lógica de «(2)»). Nunca sobrescribe: ocupada al Aceptar → `exists`.
+- Diagrama: `parseDiagram` real; error → resultado al modelo con línea y código (`línea 2 «…»: sangria`); `tooBig` → `grande`. La vista previa monta el visor con `import()` (`DiagramPeek`).
+- Examen con fecha: AAAA-MM-DD hoy o futura, temas existentes (mazo, carpeta o `tag:x`; si no, error con sugerencias), `exists` si ya hay archivo. «Editar» revalida con los mismos validadores.
+- Deshacer de un archivo NUEVO (comprueba que sigue igual): notas y diagramas van a la papelera de notas (no quedan vacíos); el examen se quita (uno vacío estorbaría en Exámenes). Si cambió → `changed`.
+- Sin verificar: Gemini/Groq reales llamando estas herramientas, Safari/iPad.

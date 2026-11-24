@@ -5,15 +5,17 @@ import type { Collection } from '../data/collection';
 import { addEvent, atMinutes, blankEvent, CAL, editOccurrence } from '../lib/calendar-edit';
 import { stringifyFrontmatter } from '../lib/frontmatter';
 import { fromICS, KINDS, occurrences, type EventKind, type StudyBlock, toICS } from '../lib/ics';
-import { safeSegment } from '../notes/model';
+import type { DiagramKind } from '../diagrams/types';
+import { safeSegment, trash } from '../notes/model';
 import { noteStore } from '../notes/store';
 import { clampMinutes, finalize, parseBankMarkdown, serializeBank, type Question } from '../sim/parse';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr } from '../vault/util';
 import { applyDelete, safeDeleteDest } from './delete';
+import { checkExamEdit, checkNoteFile, one } from './make';
 import { tracked, undo, type Entry } from './undo';
 
-export type Kind = 'tarjetas' | 'examen' | 'evento' | 'borrar';
+export type Kind = 'tarjetas' | 'examen' | 'evento' | 'borrar' | 'nota' | 'diagrama' | 'fecha';
 export interface EventFields { titulo: string; fecha: string; inicio: string; fin: string; materia: string; nota: string; tipo: EventKind }
 export interface Proposal {
   tipo: Kind;
@@ -25,6 +27,8 @@ export interface Proposal {
   /** lo que ve el usuario, una línea por elemento (se pinta como texto, nunca como HTML) */
   items: string[];
   mazo?: string;
+  /** diagrama: tipo del diagrama */
+  diag?: DiagramKind;
   evento?: EventFields;
   /** modificar: la entrada y la fecha de la ocurrencia que cambia */
   op?: { uid: string; fecha: string; scope: 'one' | 'series' };
@@ -41,18 +45,21 @@ export const isBad = (x: unknown): x is Bad => typeof x === 'object' && x !== nu
 
 // ───────── ¿pidió el usuario escribir? ─────────
 // Verbo de crear/modificar Y un objeto del Asistente: «hazme un resumen» o «el programa de la materia» no abren las herramientas.
-const WRITE_VERB = /\b(cre[ae]\w*|crea|genera\w*|agrega\w*|anade\w*|anota\w*|agenda(me|r)?|programa(me|r|rme)|programa\s+(un|una|el|la|mi|unos|unas)|modifica\w*|cambia\w*|mueve\w*|mover|edita\w*|reprograma\w*|haz\w*|elabora\w*|prepara\w*|create\w*|add|adds|make|generate\w*|schedule\w*|modify|change|move|reschedule|edit|write|build|cree\w*|creer|ajoute\w*|genere\w*|modifie\w*|planifie\w*|deplace\w*|fais|ecris\w*)\b/;
-const WRITE_OBJ = /\b(tarjetas?|flashcards?|cards?|cartes?|fiches?|examen(es)?|exams?|quiz(zes)?|banco|bancos|simulacros?|preguntas?|questions?|eventos?|events?|evenements?|citas?|recordatorios?|reminders?|rappels?|calendario|calendar|calendrier|mazos?|decks?|paquets?|repasos?|reviews?|clases?|rendez-vous)\b/;
+const WRITE_VERB = /\b(cre[ae]\w*|crea|genera\w*|agrega\w*|anade\w*|anota\w*|agenda(me|r)?|programa(me|r|rme)|programa\s+(un|una|el|la|mi|unos|unas)|modifica\w*|cambia\w*|mueve\w*|mover|edita\w*|reprograma\w*|haz\w*|elabora\w*|prepara\w*|create\w*|add|adds|make|generate\w*|schedule\w*|modify|change|move|reschedule|edit|write|build|cree\w*|creer|ajoute\w*|genere\w*|modifie\w*|planifie\w*|deplace\w*|fais|ecris\w*|registr\w*|register\w*|enregistre\w*)\b/;
+const WRITE_OBJ = /\b(tarjetas?|flashcards?|cards?|cartes?|fiches?|examen(es)?|exams?|quiz(zes)?|banco|bancos|simulacros?|preguntas?|questions?|eventos?|events?|evenements?|citas?|recordatorios?|reminders?|rappels?|calendario|calendar|calendrier|mazos?|decks?|paquets?|repasos?|reviews?|clases?|rendez-vous|mapas? (mental|mentales|conceptual|conceptuales)|mind ?maps?|cartes? mentales?|diagramas?|diagrammes?|flowcharts?|organigramas?|schemas?|flujogramas?)\b/;
+// notas y resúmenes: solo con un verbo de CREAR («hazme un resumen» es responder, no crear una nota)
+const NOTE_VERB = /\b(cre[ae]\w*|genera\w*|agrega\w*|anade\w*|redacta\w*|escribe\w*|elabora\w*|prepara\w*|haz\w*|create\w*|write|add|make|generate\w*|cree\w*|ajoute\w*|ecris\w*|genere\w*|fais)\b/;
+const NOTE_OBJ = /\b(notas?|apuntes?|notes?)\b/;
+const SUMM_VERB = /\b(cre[ae]\w*|genera\w*|agrega\w*|anade\w*|create\w*|generate\w*|add|cree\w*|genere\w*|ajoute\w*)\b/;
+const SUMM_OBJ = /\b(resumenes|resumen|summary|summaries|resume)\b/;
 /** El último mensaje del usuario pide crear/modificar algo concreto (verbo + objeto, es/en/fr). Sin ella no hay herramientas de escritura. */
 export function wantsWrite(text: string): boolean {
   const q = text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-  return WRITE_VERB.test(q) && WRITE_OBJ.test(q);
+  return (WRITE_VERB.test(q) && WRITE_OBJ.test(q)) || (NOTE_VERB.test(q) && NOTE_OBJ.test(q)) || (SUMM_VERB.test(q) && SUMM_OBJ.test(q));
 }
 
 // ───────── utilidades ─────────
 const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
-/** Una línea, sin comentarios HTML (no se puede forjar `origen:`), con tope. */
-const one = (s: unknown, max = 600) => String(s ?? '').replace(/<!--|-->/g, '').replace(/\s*[\r\n]+\s*/g, ' ').trim().slice(0, max);
 const ID_END = /\s\^[A-Za-z0-9_-]{2,40}\s*$/;
 export { wantsDelete, MAX_DELETES } from './delete';
 export const MAX_CARDS = 30, MAX_QUESTIONS = 15, MAX_PROPOSALS = 3;
@@ -164,7 +171,15 @@ export async function buildEventEdit(vault: VaultAdapter, q: { titulo?: string; 
 }
 
 // ───────── revalidar tras «Editar» ─────────
-export function revalidate(p: Proposal, edit: { contenido?: string; evento?: Partial<EventFields> }): Proposal | Bad {
+export function revalidate(p: Proposal, edit: { contenido?: string; evento?: Partial<EventFields> }, env?: { col: Collection | null; today: string }): Proposal | Bad {
+  if (p.tipo === 'nota' || p.tipo === 'diagrama') {
+    const v = checkNoteFile(edit.contenido ?? p.contenido, p.tipo, p.diag);
+    return isBad(v) ? v : { ...p, contenido: v.contenido };
+  }
+  if (p.tipo === 'fecha') {
+    const v = checkExamEdit(edit.contenido ?? p.contenido, env?.col ?? null, env?.today ?? '0000-00-00');
+    return isBad(v) ? v : { ...p, ...v, resumen: `${v.items[0]} · ${v.items[1]}` };
+  }
   if (p.tipo === 'tarjetas') {
     const v = validateCards(edit.contenido ?? p.contenido);
     return isBad(v) ? v : { ...p, contenido: v.contenido, items: v.items, resumen: `${v.items.length} → ${p.mazo}` };
@@ -178,8 +193,8 @@ export function revalidate(p: Proposal, edit: { contenido?: string; evento?: Par
 }
 
 // ───────── aplicar y deshacer (solo la interfaz, tras «Aceptar») ─────────
-const OKPATH: Record<Exclude<Kind, 'borrar'>, [string, RegExp]> = { tarjetas: ['decks', /\.md$/], examen: ['exams-bank', /\.md$/], evento: ['calendar', /\.ics$/] };
-const safeDest = (p: Proposal) => { if (p.tipo === 'borrar') return safeDeleteDest(p); const [pre, re] = OKPATH[p.tipo]; return p.destino.startsWith(pre + '/') && re.test(p.destino) && p.destino.split('/').every((s) => s !== '' && s !== '.' && s !== '..') && !/[\\\u0000-\u001f]/.test(p.destino) && (p.tipo !== 'evento' || p.destino === CAL); };
+const OKPATH: Record<Exclude<Kind, 'borrar'>, [string, RegExp]> = { tarjetas: ['decks', /\.md$/], examen: ['exams-bank', /\.md$/], evento: ['calendar', /\.ics$/], nota: ['notes', /\.md$/], diagrama: ['notes', /\.md$/], fecha: ['exams', /\.md$/] };
+const safeDest = (p: Proposal) => { if (p.tipo === 'borrar') return safeDeleteDest(p); const [pre, re] = OKPATH[p.tipo]; return p.destino.startsWith(pre + '/') && re.test(p.destino) && p.destino.split('/').every((s) => s !== '' && s !== '.' && s !== '..') && !/[\\\u0000-\u001f]/.test(p.destino) && (p.tipo !== 'evento' || p.destino === CAL) && (p.tipo !== 'fecha' || p.destino.split('/').length === 2) && p.destino.length <= 400; };
 const inflight = new Map<number, Promise<Entry[]>>();
 const groups = new Map<number, Entry[]>();
 const restorers = new Map<number, () => Promise<void>>(); // borrar: restaurar desde la papelera
@@ -192,6 +207,9 @@ async function write(vault: VaultAdapter, col: Collection | null, p: Proposal, w
     const taken = new Set<string>(col ? [...col.byCid.keys(), ...col.log.map((e) => e.id)].map(noteIdOf) : []);
     for (const n of parseDeck(base).notes) if (n.id) taken.add(n.id);
     await w(p.destino, `${base.replace(/\s*$/, '')}\n\n${ensureIds(p.contenido.trim(), taken).text}\n`);
+  } else if (p.tipo === 'nota' || p.tipo === 'diagrama' || p.tipo === 'fecha') {
+    if (await vault.exists(p.destino)) throw new Error('exists'); // nunca se sobrescribe
+    await w(p.destino, p.contenido);
   } else if (p.tipo === 'examen') {
     if ((await readTextOr(vault, p.destino, '')).trim()) throw new Error('exists'); // nunca se sobrescribe un banco (uno vacío, dejado por «Deshacer», cuenta como libre)
     await w(p.destino, p.contenido);
@@ -211,6 +229,17 @@ async function write(vault: VaultAdapter, col: Collection | null, p: Proposal, w
   }
 }
 
+/** Deshacer de un archivo NUEVO (nota, diagrama, examen con fecha): si sigue tal cual se escribió, las notas van a la papelera de notas
+ *  (se pueden restaurar) y el examen se quita (un examen vacío estorbaría en Exámenes). Si cambió, `changed`. */
+async function removeNew(vault: VaultAdapter, p: Proposal): Promise<void> {
+  if (!(await vault.exists(p.destino))) throw new Error('gone');
+  if ((await readTextOr(vault, p.destino, '')) !== p.contenido) throw new Error('changed');
+  if (p.tipo === 'fecha') { await vault.remove(p.destino); return; }
+  if (noteStore.listening(p.destino)) throw new Error('open'); // abierta en un panel: no se mueve
+  await trash(vault, p.destino);
+  await noteStore.forget(p.destino);
+}
+
 // Una sola cola para aplicar y deshacer: dos propuestas sobre el mismo mazo o el .ics no se pisan, y deshacer espera a aceptar.
 let chain: Promise<unknown> = Promise.resolve();
 const serial = <T,>(fn: () => Promise<T>): Promise<T> => { const r = chain.then(fn); chain = r.catch(() => undefined); return r; };
@@ -220,7 +249,7 @@ export function applyProposal(vault: VaultAdapter, col: Collection | null, p: Pr
   const prev = inflight.get(id);
   if (prev) return prev;
   if (!safeDest(p)) return Promise.reject(new Error('path'));
-  const run = serial(() => tracked(vault, async (w) => { if (p.tipo === 'borrar') { const a = await applyDelete(vault, col, p, w); if (p.objetivo !== 'evento') restorers.set(id, a.restore); } else await write(vault, col, p, w); })).then((g) => (groups.set(id, g), g), (e) => (inflight.delete(id), Promise.reject(e)));
+  const run = serial(() => tracked(vault, async (w) => { if (p.tipo === 'borrar') { const a = await applyDelete(vault, col, p, w); if (p.objetivo !== 'evento') restorers.set(id, a.restore); } else { await write(vault, col, p, w); if (p.tipo === 'nota' || p.tipo === 'diagrama' || p.tipo === 'fecha') restorers.set(id, () => removeNew(vault, p)); } })).then((g) => (groups.set(id, g), g), (e) => (inflight.delete(id), Promise.reject(e)));
   inflight.set(id, run);
   return run;
 }

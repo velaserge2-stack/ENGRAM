@@ -7,6 +7,7 @@ import { docxToMarkdown, pdfToMarkdown } from '../notes/io';
 import { saveImage } from '../notes/images';
 import { STREAM_FROM } from '../io/import';
 import { buildTree, classNoteFromPlaud, glossarySuggestions, listNotes, localDate, newNoteText, notePath, plaudGroupKey, plaudKind, type PlaudKind, replaceAll, suggestPlace } from '../notes/model';
+import { freePath } from '../notes/create';
 import { go, href, useApp, useAsync } from '../state';
 import { Empty, PageTitle } from '../ui/kit';
 import { extname, withSuffix } from '../vault/paths';
@@ -184,8 +185,7 @@ function Process(p: { item: Item; tree: ReturnType<typeof buildTree>['tree']; on
     // todo o nada: si algo falla antes de escribir la nota, los archivos vuelven a la bandeja
     const moved: [string, string][] = [];
     try {
-      let path = finalPath;
-      for (let i = 2; await app.vault.exists(path); i++) path = notePath(it.materia, it.tema, `${it.title} (${i})`);
+      const path = await freePath((x) => app.vault.exists(x), it.materia, it.tema, it.title);
       let body = doc.body;
       const attach: string[] = [];
       for (const f of it.files) {

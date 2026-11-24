@@ -923,3 +923,7 @@ Plan y estados en `docs/diagramas/PLAN-22.md` y `docs/diagramas/estado-p22-*.md`
 - **Sigue sin poder** vaciar la papelera, eliminar definitivamente, tocar `reviews.jsonl`, `.app/`, `media/` ni borrar tarjetas sueltas. Un objetivo y máx. 3 propuestas por turno; si el objetivo cambió entre proponer y confirmar, no se mueve (`changed`).
 - Diferencia con el diseño: un mazo se mueve sin sus submazos (la app los incluye al borrar desde Mazos); la tarjeta pone el énfasis visual en «Cancelar».
 
+## Asistente · crear notas, diagramas y exámenes (rama `asistente-crear`)
+- `createNote`/`planNote` en `src/notes/create.ts` sustituyen el bucle «(2)» repetido en Notas e Inbox; el asistente usa `planNote` (sin escribir) para la vista previa y `applyProposal` escribe lo mismo.
+- Deshacer de archivos nuevos: antes «queda vacío»; para notas/diagramas ahora va a la papelera de notas (restaurable) y el examen con fecha se quita, porque un examen vacío aparecería roto. Solo si el archivo sigue igual que lo escrito.
+- `wantsWrite`: «nota/apunte» con verbo de crear (incl. «haz»), «resumen» solo con crear/genera/agrega (no «haz»/«dame»); mapa mental, diagrama, organigrama y registrar (examen) añadidos. Falsos positivos posibles («escribe una nota musical») solo abren las herramientas: nada se guarda sin Aceptar.

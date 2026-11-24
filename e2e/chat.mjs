@@ -29,6 +29,13 @@ try {
   const apiHits = [], js = new Set(), logs = [];
   let mode = 'ok', lmode = 'ok', lrelease = null;
   const listReqs = [];
+  const EX_DATE = new Date(Date.now() + 20 * 864e5).toISOString().slice(0, 10);
+  const CREATE = {
+    cnota: ['crear_nota', { titulo: 'Nota IA ECG', contenido: 'El ECG registra **12 derivaciones**.\n\n<script>window.__x=1</script><b>x</b>', materia: 'Cardio IA', tema: 'ECG' }],
+    cmapa: ['crear_diagrama', { tipo: 'mapa', titulo: 'Mapa IA Arritmias', fuente: 'Arritmias\n- Taquicardias\n  - Fibrilación\n- Bradicardias' }],
+    cmalo: ['crear_diagrama', { tipo: 'mapa', titulo: 'Mapa malo', fuente: 'Raíz\n      - salto' }],
+    cfecha: ['registrar_examen', { nombre: 'Parcial IA ECG', fecha: EX_DATE, temas: ['ECG IA'] }],
+  };
   const hosts = new Set();
   page.on('request', (r) => { /\.(js|css)(\?|$)/.test(r.url()) && js.add(r.url()); try { const u = new URL(r.url()); if (/^https?:$/.test(u.protocol)) hosts.add(u.host); } catch { /* data:, blob: */ } });
   page.on('console', (m) => logs.push(m.text()));
@@ -77,6 +84,12 @@ try {
           if (done) return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse('Te dejo una propuesta para revisar.') });
           const args = { mazo: 'ECG IA', tarjetas: [{ pregunta: '¿Cuántas derivaciones tiene el ECG?', respuesta: '12' }, { pregunta: '<b>x</b> ¿Eje normal?', respuesta: '-30 a +90' }] };
           return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: 'data: ' + JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ functionCall: { name: 'crear_tarjetas', args } }] }, finishReason: 'STOP', index: 0 }], usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 3, totalTokenCount: 6 } }) + '\n\n' });
+        }
+        if (CREATE[mode]) {
+          const done = (r.request().postData() ?? '').includes('functionResponse');
+          if (done) return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse('Te dejo la propuesta para revisar.') });
+          const [name, args] = CREATE[mode];
+          return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: 'data: ' + JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ functionCall: { name, args } }] }, finishReason: 'STOP', index: 0 }], usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 3, totalTokenCount: 6 } }) + '\n\n' });
         }
         if (mode === 'del' || mode === 'delno') {
           const done = (r.request().postData() ?? '').includes('functionResponse');
@@ -422,9 +435,70 @@ try {
   await ta.fill('Crea un examen de 5 preguntas de mis PDFs'); await ta.press('Enter');
   await pv.waitFor();
   await pv.getByRole('button', { name: 'Aceptar' }).click();
-  await pv.getByText('Ya existe un banco').waitFor();
-  check(true, 'examen: nombre repetido → «Ya existe un banco»');
+  await pv.getByText('Ya existe un archivo').waitFor();
+  check(true, 'examen: nombre repetido → «Ya existe un archivo»');
   await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  mode = 'stream';
+
+  // Crear notas, diagramas y registrar exámenes (propuesta → Aceptar)
+  console.log('Crear');
+  const fileText = (path) => page.evaluate(async (pth) => { try { const parts = pth.split('/'); let d = await navigator.storage.getDirectory(); for (const x of parts.slice(0, -1)) d = await d.getDirectoryHandle(encodeURIComponent(x).replace(/%20/g, ' ')); return await (await (await d.getFileHandle(encodeURIComponent(parts.at(-1)).replace(/%20/g, ' '))).getFile()).text(); } catch { return null; } }, path);
+  const fresh = async () => { await panel.getByRole('button', { name: 'Nueva conversación' }).click(); };
+  await fresh();
+  mode = 'write'; // el mazo «ECG IA» existe para el examen con fecha
+  await ta.fill('Crea tarjetas de mi nota Clase 1 - ECG básico'); await ta.press('Enter');
+  { const w = panel.locator('.chat-pv'); await w.getByRole('button', { name: 'Aceptar' }).click(); await w.getByRole('button', { name: 'Deshacer' }).waitFor(); }
+  await fresh();
+  mode = 'cnota';
+  await ta.fill('Crea una nota de ECG'); await ta.press('Enter');
+  await pv.waitFor();
+  check((await pv.innerText()).includes('notes/Cardio IA/ECG/Nota IA ECG.md') && (await pv.locator('.chat-pv-md strong').count()) === 1 && (await pv.locator('.chat-pv-md script').count()) === 0 && !(await page.evaluate(() => window.__x)), 'nota: vista previa con la ruta y el Markdown (sin script)');
+  check((await fileText('notes/Cardio IA/ECG/Nota IA ECG.md')) === null, 'nota: proponer no escribe');
+  for (const n of ['Aceptar', 'Editar', 'Cancelar']) check((await pv.getByRole('button', { name: n }).boundingBox()).height >= 43.5, `nota: «${n}» ≥ 44 px`);
+  check((await pv.getAttribute('aria-live')) === 'polite', 'nota: aria-live');
+  await pv.getByRole('button', { name: 'Aceptar' }).click();
+  await pv.getByRole('button', { name: 'Deshacer' }).waitFor();
+  check(/origen: ia/.test((await fileText('notes/Cardio IA/ECG/Nota IA ECG.md')) ?? ''), 'nota: Aceptar escribe con origen: ia');
+  await page.evaluate(() => { location.hash = '#/notas'; });
+  await page.waitForFunction(() => document.querySelector('#app')?.innerText.includes('Nota IA ECG'));
+  check(true, 'nota: aparece en Notas');
+  await pv.getByRole('button', { name: 'Deshacer' }).click();
+  await pv.getByText(/papelera de notas/).waitFor();
+  check((await fileText('notes/Cardio IA/ECG/Nota IA ECG.md')) === null, 'nota: Deshacer la manda a la papelera de notas');
+  await fresh();
+  mode = 'cmalo';
+  await ta.fill('Haz un mapa mental de arritmias'); await ta.press('Enter');
+  await panel.getByText('Te dejo la propuesta').waitFor().catch(() => {});
+  check((await panel.locator('.chat-pv').count()) === 0, 'diagrama inválido: sin vista previa (el modelo recibe el error)');
+  await fresh();
+  mode = 'cmapa';
+  await ta.fill('Haz un mapa mental de arritmias'); await ta.press('Enter');
+  await pv.waitFor();
+  await pv.locator('.chat-pv-diag .diag-node').first().waitFor();
+  check((await pv.locator('.chat-pv-diag .diag-node').count()) >= 4 && (await fileText('notes/Mapa IA Arritmias.md')) === null, 'mapa: vista previa del diagrama (4 nodos), no escribe');
+  await pv.getByRole('button', { name: 'Aceptar' }).click();
+  await pv.getByRole('button', { name: 'Deshacer' }).waitFor();
+  check(/tipo: mapa/.test((await fileText('notes/Mapa IA Arritmias.md')) ?? ''), 'mapa: Aceptar escribe con tipo: mapa');
+  await page.evaluate(() => { location.hash = '#/notas/' + encodeURIComponent('Mapa IA Arritmias.md'); });
+  await page.locator('#app .diag-node', { hasText: 'Fibrilación' }).first().waitFor();
+  check(true, 'mapa: abre como mapa en Notas');
+  await fresh();
+  mode = 'cfecha';
+  await ta.fill(`Registra mi examen Parcial IA ECG el ${EX_DATE}`); await ta.press('Enter');
+  await pv.waitFor();
+  check((await pv.innerText()).includes('Parcial IA ECG') && (await pv.innerText()).includes(EX_DATE) && (await pv.innerText()).includes('20 días') && (await fileText('exams/Parcial IA ECG.md')) === null, 'examen con fecha: vista previa legible, no escribe');
+  await pv.getByRole('button', { name: 'Aceptar' }).click();
+  await pv.getByRole('button', { name: 'Deshacer' }).waitFor();
+  check(/origen: ia/.test((await fileText('exams/Parcial IA ECG.md')) ?? ''), 'examen con fecha: Aceptar escribe exams/ con origen: ia');
+  await page.evaluate(() => { location.hash = '#/estadisticas'; });
+  await page.waitForFunction(() => document.querySelector('#app')?.innerText.includes('Parcial IA ECG'));
+  check(true, 'examen con fecha: aparece en Exámenes');
+  await fresh();
+  await ta.fill(`Registra mi examen Parcial IA ECG el ${EX_DATE}`); await ta.press('Enter');
+  await panel.getByText('Te dejo la propuesta').waitFor().catch(() => {});
+  check((await panel.locator('.chat-pv').count()) === 0 && (await fileText('exams/Parcial IA ECG.md')) !== null, 'examen con fecha repetido: no se propone y no se pisa');
+  await page.evaluate(() => { location.hash = '#/'; });
+  await fresh();
   mode = 'stream';
 
   // Borrar desde el Asistente = papelera + confirmación

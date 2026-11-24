@@ -4,6 +4,7 @@
 import { jsonSchema, tool, type ToolSet } from 'ai';
 import { MAX_PROPOSALS, MAX_QUESTIONS, buildCards, buildEvent, buildEventEdit, buildExam, isBad, type CardIn, type EventFields, type Proposal, type QIn } from './proposal';
 import { buildDeleteBank, buildDeleteDeck, buildDeleteEvent, buildDeleteNote, MAX_DELETES, named } from './delete';
+import { buildDiagram, buildExamDate, buildNote, type DiagIn, type ExamIn, type NoteIn } from './make';
 import type { ToolCtx } from './tools';
 
 export interface WriteCtx extends ToolCtx {
@@ -19,10 +20,13 @@ const EV = { titulo: str, fecha: { ...str, description: 'AAAA-MM-DD' }, inicio: 
 
 export function makeWriteTools(ctx: WriteCtx): ToolSet {
   let n = 0; // propuestas de este turno
+  const reserved = new Set<string>(); // rutas ya propuestas en este turno (dos notas con el mismo título no chocan)
+  const free = async (p: string) => reserved.has(p) || ctx.vault.exists(p);
   const out = (p: Proposal | { error: string; detail?: string }) => {
-    if (isBad(p)) return { error: `No válido (${p.error}${p.detail ? ': ' + p.detail : ''}). Corrige y vuelve a intentar.` };
+    if (isBad(p)) return { error: `No válido (${p.error}${p.detail ? ': ' + p.detail : ''}). ${['exists', 'pasada', 'temas', 'fecha'].includes(p.error) ? 'No lo cambies por tu cuenta: díselo al usuario y pregúntale.' : 'Corrige y vuelve a intentar.'}` };
     if (n >= MAX_PROPOSALS) return { error: `Límite alcanzado: ya hay ${MAX_PROPOSALS} propuestas en este turno. No propongas más; dile al usuario que pida el resto después de revisar estas.` };
     n++;
+    reserved.add(p.destino);
     ctx.propose(p);
     return { estado: 'PROPUESTA mostrada al usuario; no se ha guardado nada hasta que pulse Aceptar.', resumen: p.resumen };
   };
@@ -43,6 +47,21 @@ export function makeWriteTools(ctx: WriteCtx): ToolSet {
         const r = out(buildExam(nombre, minutos, preguntas));
         return preguntas.length > MAX_QUESTIONS && !('error' in r) ? { ...r, aviso: `Solo se tomaron las primeras ${MAX_QUESTIONS} preguntas. Díselo al usuario y ofrece proponer el resto como otra parte.` } : r;
       },
+    }),
+    crear_nota: tool({
+      description: 'Propone una NOTA nueva (Markdown) en la sección Notas. Solo si el usuario pidió crear una nota; úsala tras leer sus fuentes. No guarda: el usuario revisa y acepta. Nunca sobrescribe (si el título existe, añade « (2)»). Máx. 20 000 caracteres.',
+      inputSchema: jsonSchema<NoteIn>({ type: 'object', properties: { titulo: str, contenido: { ...str, description: 'Markdown; sin frontmatter' }, materia: { ...str, description: 'Opcional; sin materia queda en «Sin clasificar»' }, tema: { ...str, description: 'Opcional' }, tags: { type: 'array', items: str } }, required: ['titulo', 'contenido'], additionalProperties: false }),
+      execute: async (a) => (ctx.allowed() ? out(await buildNote(free, a)) : NO),
+    }),
+    crear_diagrama: tool({
+      description: 'Propone una nota de DIAGRAMA nueva: mapa mental (mapa), diagrama de flujo (flujo) o diagrama libre (diagrama). `fuente` es la gramática del tipo (sin ```); se valida con el analizador real y, si falla, devuelve la línea y el código para que corrijas. No guarda: el usuario revisa y acepta.',
+      inputSchema: jsonSchema<DiagIn>({ type: 'object', properties: { tipo: { type: 'string', enum: ['mapa', 'flujo', 'diagrama'] }, titulo: str, fuente: { ...str, description: 'Gramática del diagrama' }, materia: str, tema: str }, required: ['tipo', 'titulo', 'fuente'], additionalProperties: false }),
+      execute: async (a) => (ctx.allowed() ? out(await buildDiagram(free, a)) : NO),
+    }),
+    registrar_examen: tool({
+      description: 'Propone REGISTRAR un examen con fecha en la sección Exámenes (para el ritmo de repaso), no un banco de preguntas. Fecha AAAA-MM-DD de hoy o futura; `temas` deben ser mazos, carpetas o `tag:x` que existan. Nunca sobrescribe. No guarda: el usuario revisa y acepta.',
+      inputSchema: jsonSchema<ExamIn>({ type: 'object', properties: { nombre: str, fecha: { ...str, description: 'AAAA-MM-DD' }, temas: { type: 'array', items: str }, meta_retencion: { type: 'number', description: '0.5–0.99 (por omisión 0.9)' }, dias_repaso_final: { type: 'number', description: '0–60 (por omisión 7)' } }, required: ['nombre', 'fecha', 'temas'], additionalProperties: false }),
+      execute: async (a) => (ctx.allowed() ? out(await buildExamDate(free, ctx.col, ctx.today, a)) : NO),
     }),
     agregar_evento: tool({
       description: 'Propone un evento nuevo en el calendario del usuario. No guarda: el usuario revisa y acepta.',
