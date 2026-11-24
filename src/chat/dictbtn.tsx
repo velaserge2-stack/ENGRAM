@@ -10,7 +10,9 @@ const HOLD_MS = 350;
 export function DictButton(p: { variant: 'pill' | 'icon'; onStart?: () => void }) {
   const dict = useDict(), on = dict.state === 'listening';
   const down = useRef<{ at: number; was: boolean } | null>(null);
-  const begin = () => { dictate.start(); p.onStart?.(); }; // abre el panel aunque no haya soporte (se enfoca el campo)
+  // pill: abre el chat al SOLTAR (la pastilla desaparece y su pointerup no llegaría); icon: ya está en el chat. Abre aunque no haya soporte (se enfoca el campo)
+  const pill = p.variant === 'pill';
+  const begin = () => { dictate.start(); if (!pill) p.onStart?.(); };
   const label = on ? t('voz.escuchando_detener') : t('voz.dictar');
   const ev = {
     onPointerDown: (e: PointerEvent) => {
@@ -23,13 +25,14 @@ export function DictButton(p: { variant: 'pill' | 'icon'; onStart?: () => void }
       const s = down.current; down.current = null;
       if (!s) return;
       if (s.was || Date.now() - s.at >= HOLD_MS) dictate.stop();
+      if (pill) p.onStart?.();
     },
     onPointerCancel: () => { if (down.current) { down.current = null; dictate.stop(); } },
-    onClick: (e: MouseEvent) => { if (e.detail === 0) (on ? dictate.stop() : begin()); }, // teclado
+    onClick: (e: MouseEvent) => { if (e.detail === 0) { if (on) dictate.stop(); else begin(); if (pill) p.onStart?.(); } }, // teclado
     onContextMenu: (e: Event) => e.preventDefault(),
   };
-  return p.variant === 'pill'
-    ? <button type="button" class={`gx-act vz${on ? ' on' : ''}`} aria-label={label} aria-pressed={on} {...ev}><Mic size={17} aria-hidden="true" />{label}</button>
+  return pill
+    ? <button type="button" class={`gx-ib vz${on ? ' on' : ''}`} aria-label={label} aria-pressed={on} {...ev}><Mic size={18} aria-hidden="true" /></button>
     : <button type="button" class={`btn icon vz${on ? ' on' : ''}`} aria-label={label} aria-pressed={on} {...ev}><Mic size={18} aria-hidden="true" /></button>;
 }
 

@@ -259,6 +259,4 @@ html.is-phone .diag-handles { display: none; }
 .diag-pct { min-width: 48px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; color: var(--t1); }
 /* La barra de formato de Markdown (pegajosa bajo la barra superior) no aplica a un diagrama y tapaba la barra del editor. */
 body:has(.diag-editor.diag-fill) .editorbar { display: none; }
-/* Con el Asistente abierto (z-chat) la barra flotante cede: no tapa su campo de texto; vuelve al cerrarlo. */
-html:not(.is-phone) body:has(.chat-panel) .diag-fbar { visibility: hidden; pointer-events: none; }
 /* ==/UI-D== */

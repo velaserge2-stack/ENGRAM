@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } fro
 import { renderMarkdown } from '../md/render';
 import { dayKey } from '../lib/days';
 import { go, useApp } from '../state';
-import { Portal, useLayer } from '../ui/overlay';
+import { useLayer } from '../ui/overlay';
 import { getStatus, type Msg, messages, clear, subscribe } from './history';
 import { loadKeys, pickKey } from './keys';
 import { citeHref, citeLabel, PDF_CITE, resolveNote, resolvePdf } from './cites';
@@ -136,12 +136,14 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
   useLayer(p.onClose, { modal: p.phone, el: () => root.current });
   useLayoutEffect(() => { if (!p.phone) input.current?.focus(); }, []);
   const [foc, setFoc] = useState(false), [has, setHas] = useState(false);
-  // «Acciones rápidas»: rellena el campo (nunca envía) y deja el cursor al final
+  // prompt rápido: rellena el campo (nunca envía) y deja seleccionado el primer [marcador]
   useLayoutEffect(() => {
     const el = input.current;
     if (!p.prefill || !el) return;
     el.value = p.prefill.text; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
-    el.focus(); el.setSelectionRange(el.value.length, el.value.length); setHas(true);
+    el.focus(); setHas(true);
+    const m = /\[[^\]]+\]/.exec(el.value);
+    if (m) el.setSelectionRange(m.index, m.index + m[0].length); else el.setSelectionRange(el.value.length, el.value.length);
   }, [p.prefill?.n]);
   // dictado: el texto va al campo (base previa + definitivo + provisional); nunca se envía solo
   const dict = useDict(), dbase = useRef({ id: 0, s: '' }), dictOn = dict.state === 'listening';
@@ -174,7 +176,7 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
   const waiting = st.busy && (!!st.tool || (last?.role === 'assistant' && !last.text));
 
   return (
-    <Portal>
+    <>
       <section ref={root} class={`chat-panel glass strong ${p.size}${app.settings.chat.estilo === 'b' ? ' sty-b' : ''}`} role="dialog" aria-modal={p.phone ? 'true' : undefined} aria-label={t('chat.p_titulo')} tabIndex={-1}>
         <header class="chat-h">
           <Mascot size={34} state={ms} />
@@ -208,6 +210,6 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
         </form>
         <VoiceMsg />
       </section>
-    </Portal>
+    </>
   );
 }

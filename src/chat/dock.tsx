@@ -1,115 +1,75 @@
-import { Minus, SlidersHorizontal, Square, Zap, PenLine } from 'lucide-preact';
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { Minus, SlidersHorizontal, Square, PenLine } from 'lucide-preact';
 import { t } from '../i18n';
 import { go, useApp } from '../state';
 import { getStatus, messages } from './history';
-import { loadKeys } from './keys';
+import { loadKeys, pickKey } from './keys';
 import { Mascot, MASCOT_NAME, type MascotState } from './mascot';
 import { PROVIDERS } from './providers';
 import { stop } from './turn';
 import { DictButton, VoiceMsg } from './dictbtn';
 import { useDict } from './voice';
+import { Quick } from './quick';
 import { bar, loadUsage } from './usage';
 import type { Ref } from 'preact';
 
-/** Atajos de la pestaña «Acciones rápidas»: solo rellenan el campo, nunca envían. */
-const QUICK = () => [
-  { k: 'tarjetas', label: t('dock.q_tarjetas'), text: t('dock.q_tarjetas_t') },
-  { k: 'resumir', label: t('dock.q_resumir'), text: t('dock.q_resumir_t') },
-  { k: 'examen', label: t('dock.q_examen'), text: t('dock.q_examen_t') },
-];
-
-/** Chips de uso por clave: barra + %; desde el 80 % más gruesa y en negrita («casi al límite»). */
+/** Chip diminuto de uso de la clave en curso (barra + %); desde el 80 % en negrita, «casi al límite» solo como etiqueta. */
 function Usage() {
   const { settings } = useApp();
-  const keys = loadKeys().keys, u = loadUsage(), now = Date.now();
-  if (!keys.length) return null;
-  const dup = (p: string) => keys.filter((k) => k.provider === p).length > 1;
+  const keys = loadKeys().keys, now = Date.now();
+  const k = pickKey(keys, now) ?? keys[0];
+  if (!k) return null;
+  const b = bar(loadUsage(), k.id, settings.chat.limits[k.provider], now, settings.chat.warnAt);
+  const hot = b.pct >= 0.8, pct = Math.round(b.pct * 100);
+  const label = `${PROVIDERS[k.provider].name}${keys.filter((x) => x.provider === k.provider).length > 1 ? ` · ${k.alias}` : ''}: ${t('chat.uso')} ${b.label}${hot ? ` · ${t('dock.casi_limite')}` : ''}`;
   return (
-    <div class="gx-usage glass" role="group" aria-label={t('chat.uso')}>
-      {keys.map((k) => {
-        const b = bar(u, k.id, settings.chat.limits[k.provider], now, settings.chat.warnAt);
-        const hot = b.pct >= 0.8, name = PROVIDERS[k.provider].name + (dup(k.provider) ? ` · ${k.alias}` : '');
-        return (
-          <span key={k.id} class={hot ? 'gx-u hot' : 'gx-u'}>
-            <span data-user-content>{name}</span>
-            <span class="gx-bar" role="progressbar" aria-label={`${name}: ${t('chat.uso')}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(b.pct * 100)}><i style={{ width: `${Math.round(b.pct * 100)}%` }} /></span>
-            {b.label}{hot && <> · {t('dock.casi_limite')}</>}
-          </span>
-        );
-      })}
-    </div>
+    <span class={hot ? 'gx-u hot' : 'gx-u'} role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+      <span class="gx-bar"><i style={{ width: `${pct}%` }} /></span>{b.label}
+    </span>
   );
 }
 
-/** Barra del Asistente: fija abajo al centro (una sola posición, `--dock-bottom`). Reposo, trabajando (estado + Detener) y error. */
-export function Dock(p: { open: boolean; ms: MascotState; avatarRef: Ref<HTMLButtonElement>; onToggle: () => void; onMin: () => void; onDictate: () => void; onQuick: (text: string) => void }) {
-  const root = useRef<HTMLDivElement>(null);
+/** Pastilla del Asistente (una sola fila): ajustes · GREX · nombre + subtítulo · Dictar · Escribir · minimizar. Reposo, trabajando (estado + Detener) y error.
+ *  Cualquier acción de escribir o dictar abre el chat (la pastilla deja de existir mientras el chat está abierto). */
+export function Dock(p: { ms: MascotState; avatarRef: Ref<HTMLButtonElement>; onOpen: () => void; onQuick: (text: string) => void; onMin: () => void }) {
   const dictating = useDict().state === 'listening';
-  const [tab, setTab] = useState(false);
   const st = getStatus(), msgs = messages(), last = msgs[msgs.length - 1];
   const err = !st.busy && last?.role === 'error';
-  // alto real → --dock-h (el panel se coloca encima); una sola escritura por cambio
-  useLayoutEffect(() => {
-    const el = root.current;
-    if (!el || !('ResizeObserver' in window)) return;
-    const set = () => document.documentElement.style.setProperty('--dock-h', `${Math.round(el.offsetHeight)}px`);
-    set();
-    const ro = new ResizeObserver(set);
-    ro.observe(el);
-    return () => { ro.disconnect(); document.documentElement.style.removeProperty('--dock-h'); };
-  }, []);
-  useEffect(() => {
-    if (!tab) return;
-    const away = (e: Event) => { if (!root.current?.contains(e.target as Node)) setTab(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { setTab(false); e.stopPropagation(); } };
-    document.addEventListener('pointerdown', away);
-    document.addEventListener('keydown', esc, true);
-    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc, true); };
-  }, [tab]);
 
-  let ttl: string, sub: string, dots = false;
+  let sub: string, dots = false;
   if (st.busy) {
     dots = !st.waitS;
-    ttl = st.waitS ? t('chat.p_espera', { s: st.waitS }) : st.tool ? t('dock.buscando') : last?.role === 'assistant' && last.text ? t('dock.escribiendo') : t('dock.pensando');
-    sub = st.tool ?? t('dock.sub_trabajando');
-  } else if (dictating) { ttl = t('voz.escuchando'); sub = t('voz.sub'); }
-  else if (err) { ttl = t('dock.error'); sub = t('dock.error_sub'); }
-  else { ttl = t('dock.reposo', { nombre: MASCOT_NAME }); sub = t('dock.reposo_sub'); }
+    sub = st.waitS ? t('chat.p_espera', { s: st.waitS }) : st.tool ? t('dock.buscando') : last?.role === 'assistant' && last.text ? t('dock.escribiendo') : t('dock.pensando');
+  } else if (dictating) sub = t('voz.escuchando');
+  else if (err) sub = t('dock.error_sub');
+  else sub = t('dock.reposo_sub');
 
   return (
-    <div ref={root} class={`gx-dock${st.busy ? ' work' : ''}`} data-state={st.busy ? 'busy' : err ? 'error' : 'idle'}>
-      <button type="button" class="gx-tab glass" aria-expanded={tab} aria-controls="gx-quick" onClick={() => setTab(!tab)}><Zap size={15} aria-hidden="true" />{t('dock.rapidas')}</button>
-      {tab && (
-        <div id="gx-quick" class="gx-quick glass strong" role="group" aria-label={t('dock.rapidas')}>
-          {QUICK().map((q) => <button type="button" class="gx-chip" key={q.k} onClick={() => { setTab(false); p.onQuick(q.text); }}>{q.label}</button>)}
-        </div>
-      )}
+    <div class={`gx-dock${st.busy ? ' work' : ''}`} data-state={st.busy ? 'busy' : err ? 'error' : 'idle'}>
+      <Quick onPick={p.onQuick} />
       <div class="gx-pill glass strong">
-        <button type="button" class="gx-ib" aria-label={t('dock.ajustes')} onClick={() => go('ajustes')}><SlidersHorizontal size={22} aria-hidden="true" /></button>
-        <div class="gx-txt" role="status" onClick={p.onToggle}>
-          <div class={`gx-ttl${dots ? ' dots' : ''}`}>{ttl}</div>
-          <div class="gx-sub" data-user-content>{sub}</div>
+        <button type="button" class="gx-ib" aria-label={t('dock.ajustes')} onClick={() => go('ajustes')}><SlidersHorizontal size={20} aria-hidden="true" /></button>
+        <button ref={p.avatarRef} type="button" class="gx-avatar" aria-label={t('chat.p_abrir')} aria-haspopup="dialog" onClick={p.onOpen}>
+          <Mascot size={36} state={p.ms} />
+        </button>
+        <div class="gx-txt" role="status" onClick={p.onOpen}>
+          <div class="gx-ttl">{MASCOT_NAME}<Usage /></div>
+          <div class={`gx-sub${dots ? ' dots' : ''}`} data-user-content>{sub}</div>
         </div>
         {st.busy
-          ? <button type="button" class="gx-act stop" onClick={stop}><Square size={14} fill="currentColor" aria-hidden="true" />{t('chat.p_detener')}</button>
-          : <><DictButton variant="pill" onStart={p.onDictate} />{!dictating && <button type="button" class="gx-act" onClick={p.onToggle}><PenLine size={17} aria-hidden="true" />{t('dock.escribir')}</button>}</>}
-        <button type="button" class="gx-ib" aria-label={t('dock.minimizar')} onClick={p.onMin}><Minus size={22} aria-hidden="true" /></button>
-        <button ref={p.avatarRef} type="button" class="gx-avatar" aria-label={p.open ? t('chat.p_cerrar') : t('chat.p_abrir')} aria-haspopup="dialog" aria-expanded={p.open} onClick={p.onToggle}>
-          <Mascot size={46} state={p.ms} />
-        </button>
+          ? <button type="button" class="gx-act stop" onClick={stop}><Square size={13} fill="currentColor" aria-hidden="true" />{t('chat.p_detener')}</button>
+          : <><DictButton variant="pill" onStart={p.onOpen} /><button type="button" class="gx-act" onClick={p.onOpen}><PenLine size={16} aria-hidden="true" />{t('dock.escribir')}</button></>}
+        <button type="button" class="gx-ib" aria-label={t('dock.minimizar')} onClick={p.onMin}><Minus size={20} aria-hidden="true" /></button>
       </div>
       <VoiceMsg />
-      <Usage />
     </div>
   );
 }
 
-/** Minimizada: solo GREX, abajo a la derecha; un toque restaura la barra. */
+/** Minimizada: solo GREX en un cuadrito de vidrio, abajo a la derecha; un toque abre la pastilla. */
 export function DockMini(p: { ms: MascotState; btnRef: Ref<HTMLButtonElement>; onRestore: () => void }) {
   return (
     <button ref={p.btnRef} type="button" class={`gx-mini glass strong${getStatus().busy ? ' work' : ''}`} aria-label={t('dock.restaurar')} onClick={p.onRestore}>
-      <Mascot size={44} state={p.ms} />
+      <Mascot size={40} state={p.ms} />
     </button>
   );
 }

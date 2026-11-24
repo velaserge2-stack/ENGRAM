@@ -14,7 +14,7 @@
   --k: .7;            /* intensidad del vidrio 0–1 */
   --kb-inset: 0px;
   /* capas: nada usa z-index sueltos fuera de estos tokens (salvo apilados locales 1–5) */
-  --z-base: 0; --z-panel: 10; --z-dock: 100; --z-chat: 150; --z-popover: 200; --z-modal: 300; --z-toast: 400; --z-tooltip: 500;
+  --z-base: 0; --z-panel: 10; --z-dock: 100; --z-popover: 200; --z-assistant: 250; --z-chat: var(--z-assistant); --z-modal: 300; --z-toast: 400; --z-tooltip: 500;
   --t-large: 2.125rem; --t-1: 1.75rem; --t-2: 1.375rem; --t-3: 1.25rem; --t-body: 1.0625rem; --t-note: .8125rem; --t-foot: .75rem;
   color-scheme: dark;
 }
@@ -283,7 +283,7 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 
 .banner { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: var(--r-inner); margin-bottom: 14px; font-size: var(--t-note); }
 .banner .k { flex: 1; }
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(28px + env(safe-area-inset-bottom) + var(--kb-inset, 0px) + var(--notice-lift, 0px)); z-index: var(--z-toast); padding: 12px 18px; border-radius: var(--r-pill); font-size: var(--t-note); animation: up .3s var(--spring); max-width: calc(100vw - 32px); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(28px + env(safe-area-inset-bottom) + var(--kb-inset, 0px)); z-index: var(--z-toast); padding: 12px 18px; border-radius: var(--r-pill); font-size: var(--t-note); animation: up .3s var(--spring); max-width: calc(100vw - 32px); }
 .empty { text-align: center; padding: 44px 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .empty h2 { font-size: var(--t-2); }
 .empty p { color: var(--t2); max-width: 46ch; }
@@ -808,7 +808,7 @@ mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border
 .key-row .kbd, .shortcut-grid .kbd { font-size: 12px; padding: 2px 6px; }
 .shortcut-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
 .shortcut-grid .v { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
-.key-feedback { position: fixed; z-index: var(--z-toast); left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom) + var(--dock-bottom, 28px) + 96px + var(--kb-inset, 0px) + var(--notice-lift, 0px)); padding: 8px 14px; border-radius: var(--r-pill); font-size: var(--t-note); font-weight: 600; animation: fade .12s; white-space: nowrap; max-width: calc(100vw - 32px); pointer-events: none; }
+.key-feedback { position: fixed; z-index: var(--z-toast); left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom) + 124px + var(--kb-inset, 0px)); padding: 8px 14px; border-radius: var(--r-pill); font-size: var(--t-note); font-weight: 600; animation: fade .12s; white-space: nowrap; max-width: calc(100vw - 32px); pointer-events: none; }
 /* iPad (601–1100 px, no teléfono): Respaldo y Ajustes van en «⋯» para que la barra de secciones quepa entera */
 .topbar .more-pill { display: none; }
 @media (min-width: 601px) and (max-width: 1100px) {

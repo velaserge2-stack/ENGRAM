@@ -1,7 +1,7 @@
 // Auditor integral de solapes (add-ons Asistente, Sonido ambiente y Bandeja encendidos; todo real, sin cuadros simulados).
 //   npm run build && npm run e2e:uiaudit      (SHOT=dir guarda capturas; ONLY=1024x768,...; BROWSER=chromium)
 // Mide fijos/sticky en: Hoy/Mazos (barra superior sin envolver ni desbordar, reproductor con Popover), dock y mascota de GREX,
-// chat compacto y grande, Notas (árbol + inspector + búsqueda), avisos, teclado, editor de diagramas (barra + FloatBar).
+// chat compacto y grande (UNO a la vez, capa superior, sin desplazar nada), Notas (árbol + inspector + búsqueda), avisos, teclado, editor de diagramas (barra + FloatBar).
 import { spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -54,6 +54,19 @@ const TOPBAR = () => {
   return { h: r.height, wrapped: Math.max(...ctr) - Math.min(...ctr), overflowX: tb.scrollWidth - tb.clientWidth, out, n: kids.length, right: r.right, vw: innerWidth };
 };
 
+/** Asistente: lo que existe en el DOM y sus tamaños. Debe haber EXACTAMENTE un elemento (mascota · pastilla · chat). */
+const ASSIST = () => {
+  const r = (el) => { if (!el) return null; const q = el.getBoundingClientRect(); return { x: q.left, y: q.top, w: q.width, h: q.height }; };
+  const tb = document.querySelector('.topbar');
+  return { n: document.querySelectorAll('.gx-mini, .chat-fab, .gx-dock, .chat-panel').length, names: [...document.querySelectorAll('.gx-mini, .chat-fab, .gx-dock, .chat-panel')].map((e) => e.className.split(' ')[0]), pill: r(document.querySelector('.gx-pill')), mini: r(document.querySelector('.gx-mini')), panel: r(document.querySelector('.chat-panel')), tbBottom: tb && getComputedStyle(tb).display !== 'none' ? tb.getBoundingClientRect().bottom : null };
+};
+/** Rectángulos de la página (todo lo que NO es del asistente): no deben moverse ni cambiar de tamaño al abrir/cerrar el chat o la pastilla. */
+const PAGE = () => {
+  const sel = '.topbar, .notes, .tree, .tree-over, .insp, .insp-over, .editorbar, .find-bar, [class*="diag-"], main .glass, main .card, .doc, .mini-amb';
+  return [...document.querySelectorAll(sel)].filter((e) => !e.closest('.gx-dock, .gx-mini, .chat-panel, .chat-fab, .tooltip') && getComputedStyle(e).display !== 'none').map((e) => { const q = e.getBoundingClientRect(); return `${(e.className + '').split(' ')[0]}|${q.left.toFixed(2)},${q.top.toFixed(2)},${q.width.toFixed(2)},${q.height.toFixed(2)}`; });
+};
+const isA = (n) => /^\.(gx-dock|gx-mini|chat-panel|chat-fab)$/.test(n);
+
 function analyze(snap, w, h, kb, label) {
   const hits = [];
   const vis = h - kb;
@@ -65,12 +78,14 @@ function analyze(snap, w, h, kb, label) {
     const a = snap[i], b = snap[j];
     if (a.anc.includes(b.id) || b.anc.includes(a.id)) continue;
     const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x), oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
-    // avisos pasajeros (z-toast): por diseño van por encima de un panel del Asistente o de la barra flotante; no tapan la barra del Asistente
-    const note = (n) => n === '.toast' || n === '.key-feedback', cover = (n) => n === '.chat-panel' || n === '.diag-fbar';
-    // barra pegajosa todavía en su sitio natural del texto (sin pegar): el Asistente flotante pasa por encima como sobre cualquier contenido
-    if (a.name === '.toast' && b.name === '.toast') continue; // el simulado del auditor sobre uno real
-    if ((a.flow || b.flow) && /gx-dock|gx-mini/.test(a.name + b.name)) continue;
-    if ((note(a.name) && cover(b.name)) || (note(b.name) && cover(a.name))) continue;
+    // avisos pasajeros (z-toast): por diseño van encima de cualquier contenido (ya no reservan sitio ni lo mueven)
+    if (/^\.(toast|key-feedback)$/.test(a.name) || /^\.(toast|key-feedback)$/.test(b.name)) continue;
+    // el Asistente (--z-assistant) vive en una capa superior: PUEDE solapar contenido, avisos incluidos; lo que no puede es tapar la barra superior
+    if (isA(a.name) || isA(b.name)) {
+      const o = isA(a.name) ? b : a;
+      if (o.name === '.topbar' && ox > 4 && oy > 4) hits.push(`${label}: el asistente tapa la barra superior (${Math.round(ox)}x${Math.round(oy)}px)`);
+      continue;
+    }
     if (ox > 4 && oy > 4) hits.push(`${label}: ${a.name}(z${a.z}) x ${b.name}(z${b.z}) ${Math.round(ox)}x${Math.round(oy)}px ${a.z === b.z ? 'MISMO z' : 'z distinto'} [${a.name} y${Math.round(a.y)}+${Math.round(a.h)} x${Math.round(a.x)}+${Math.round(a.w)} | ${b.name} y${Math.round(b.y)}+${Math.round(b.h)} x${Math.round(b.x)}+${Math.round(b.w)}]`);
   }
   return hits;
@@ -117,6 +132,11 @@ for (const [w, h] of SIZES) {
       await page.waitForFunction(() => !document.getAnimations().some((a) => a.effect?.target?.closest?.('.toast, .key-feedback')), null, { timeout: 2500 }).catch(() => {});
       const L = `${w}x${h} ${label}${scrolls.length > 1 ? ' scroll' + sy : ''}`;
       found.push(...analyze(await page.evaluate(SNAP), w, h, kb, L));
+      const o = await page.evaluate(ASSIST);
+      if (o.n !== 1) found.push(`${L}: ${o.n} elementos del asistente en el DOM (${o.names}); debe haber exactamente 1`);
+      if (o.pill && (o.pill.w > 440.5 || o.pill.h > 64)) found.push(`${L}: pastilla demasiado grande (${Math.round(o.pill.w)}x${Math.round(o.pill.h)}; máx. 440x64)`);
+      if (o.mini && (Math.abs(o.mini.w - 56) > 1 || Math.abs(o.mini.h - 56) > 1)) found.push(`${L}: mascota ${Math.round(o.mini.w)}x${Math.round(o.mini.h)} (debe ser ≈56x56)`);
+      if (o.panel && o.tbBottom !== null && o.panel.y < o.tbBottom - 1) found.push(`${L}: el chat tapa la barra superior (top ${Math.round(o.panel.y)} < ${Math.round(o.tbBottom)})`);
       if (topbar) {
         const tb = await page.evaluate(TOPBAR);
         if (tb && (tb.wrapped > 6 || tb.overflowX > 1 || tb.out.length || tb.h > 80)) found.push(`${L}: barra superior envuelta/desbordada (alto ${Math.round(tb.h)}, filas ${Math.round(tb.wrapped)}, scrollX ${tb.overflowX}, fuera ${tb.out.join(',')})`);
@@ -131,16 +151,34 @@ for (const [w, h] of SIZES) {
   });
   const clearNotice = () => page.evaluate(() => document.querySelectorAll('.key-feedback, .toast').forEach((e) => e.remove()));
   const closeChat = async () => { await page.keyboard.press('Escape'); await page.waitForTimeout(250); };
+  /** Abrir pastilla/chat compacto/grande, cerrar, minimizar, restaurar: ningún elemento de la página se mueve (±0 px). Parte de la pastilla. */
+  const noShift = async (label) => {
+    const base = await page.evaluate(PAGE);
+    const same = async (step) => {
+      await page.waitForTimeout(450);
+      const now = await page.evaluate(PAGE);
+      const diff = base.length !== now.length ? [`${base.length}→${now.length} elementos`] : base.flatMap((v, i) => (v === now[i] ? [] : [`${v} → ${now[i]}`]));
+      if (diff.length) found.push(`${w}x${h} ${label} · ${step}: la interfaz se movió (${diff.slice(0, 3).join(' ; ')})`);
+    };
+    await click('Escribir'); await page.getByRole('dialog', { name: 'Asistente' }).waitFor({ timeout: 4000 }).catch(() => found.push(`${w}x${h} ${label}: el chat no abrió`));
+    await setSize('compact'); await same('chat compacto');
+    await setSize('large'); await same('chat grande');
+    await setSize('compact'); await closeChat(); await same('cerrar (pastilla)');
+    await click('Minimizar a la mascota'); await same('minimizar (mascota)');
+    await click('Abrir a GREX'); await same('abrir la pastilla');
+  };
 
   // 1) Hoy y Mazos: barra superior, reproductor y dock
   await goto(page, '#/hoy');
   await measure('hoy-reposo', { topbar: true });
+  await noShift('hoy');
   await page.locator('.mini-amb-main').click({ timeout: 3000 }).catch(() => found.push(`${w}x${h}: mini reproductor no pulsable`));
   await page.waitForTimeout(300);
   await measure('hoy-reproductor-popover', { topbar: true });
   await page.keyboard.press('Escape');
   await goto(page, '#/mazos');
   await measure('mazos', { topbar: true });
+  await noShift('mazos');
   // 2) chat compacto y grande en Hoy
   await goto(page, '#/hoy');
   await click('Escribir');
@@ -158,7 +196,7 @@ for (const [w, h] of SIZES) {
   await measure('mascota');
   await notice(); await measure('mascota+avisos'); await clearNotice();
   await kbSet(page, 340); await notice(); await measure('mascota+teclado', { kb: 340 }); await clearNotice(); await kbSet(page, 0);
-  await click('Mostrar la barra del Asistente'); await page.waitForTimeout(300);
+  await click('Abrir a GREX'); await page.waitForTimeout(300);
 
   // 4) Notas
   await goto(page, '#/notas');
@@ -176,6 +214,8 @@ for (const [w, h] of SIZES) {
   await page.waitForTimeout(250);
   await measure('notas-arbol+inspector+buscar', { scrolls: [0, 600], topbar: true });
   await notice(); await measure('notas-todo+avisos', { scrolls: [600] }); await clearNotice();
+  await page.evaluate(() => window.scrollTo(0, 0)); await page.waitForTimeout(300);
+  await noShift('notas (árbol+inspector+buscar)');
   await panel('explorador', false);
   await click('Escribir'); await page.getByRole('dialog', { name: 'Asistente' }).waitFor({ timeout: 4000 }).catch(() => {}); await setSize('compact');
   await measure('notas-inspector+chat-compacto', { scrolls: [0, 600] });
@@ -188,7 +228,7 @@ for (const [w, h] of SIZES) {
   await panel('inspector', false);
   await click('Minimizar a la mascota'); await page.waitForTimeout(300);
   await measure('notas-mascota', { scrolls: [0, 600] });
-  await click('Mostrar la barra del Asistente');
+  await click('Abrir a GREX');
 
   // 5) diagrama: barra del editor + FloatBar
   await goto(page, '#/notas');

@@ -68,7 +68,7 @@ export const backdropName = (b: Backdrop) => ({ cristal: t('diag.fondo_cristal')
 const endName = (f: EdgeEnd) => ({ sin: t('diag.extremo_sin'), flecha: t('diag.extremo_flecha'), ambos: t('diag.extremo_ambos'), circulo: t('diag.extremo_circulo'), rombo: t('diag.extremo_rombo') })[f];
 const ENDS: EdgeEnd[] = ['sin', 'flecha', 'ambos', 'circulo', 'rombo'];
 
-const bar = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + var(--kb-inset,0px) + var(--notice-lift,0px) + 12px);z-index:var(--z-popover);display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px;border-radius:18px;max-width:calc(100vw - 16px);max-height:min(70dvh,calc(100dvh - var(--kb-inset,0px) - var(--notice-lift,0px) - 96px));overflow-y:auto';
+const bar = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + var(--kb-inset,0px) + 12px);z-index:var(--z-popover);display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px;border-radius:18px;max-width:calc(100vw - 16px);max-height:min(70dvh,calc(100dvh - var(--kb-inset,0px) - 96px));overflow-y:auto';
 
 const B = (p: { label: string; on: () => void; icon: JSX.Element; disabled?: boolean; pressed?: boolean }) => (
   <button type="button" class="btn icon ghost" aria-label={p.label} aria-pressed={p.pressed} disabled={p.disabled} onClick={p.on}>{p.icon}</button>

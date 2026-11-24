@@ -228,7 +228,7 @@ try {
   await fab.waitFor();
   const fb = await fab.boundingBox();
   check(fb.width >= 44 && fb.height >= 44, 'botón flotante ≥ 44 px');
-  check((await page.locator('.dev-sign').boundingBox()).x < 400 && fb.x > 700, 'el botón va a la derecha, la firma a la izquierda');
+  check((await page.locator('.dev-sign').boundingBox()).x < 400 && Math.abs(fb.x + fb.width / 2 - 512) < 220, 'la pastilla va al centro, la firma a la izquierda');
   check(!(await page.evaluate(() => document.querySelector('.gx-dock').closest('.glass'))) && (await page.locator('.gx-pill.glass').count()) === 1, 'la barra no está dentro de otro vidrio (una sola pastilla)');
   await fab.click();
   let panel = page.getByRole('dialog', { name: 'Asistente' });
@@ -547,7 +547,9 @@ try {
   await page.waitForTimeout(350);
   if ((await panel.boundingBox()).width < 500) { await panel.getByRole('button', { name: 'Panel grande' }).click(); await page.waitForTimeout(350); }
   check(!hit(await panel.boundingBox(), await page.locator('.dev-sign').boundingBox()), 'el panel grande no tapa la firma');
-  check(!hit(await panel.boundingBox(), await page.locator('.gx-dock').boundingBox()), 'el panel grande no tapa la barra');
+  check((await page.locator('.gx-dock, .gx-mini, .chat-fab').count()) === 0, 'con el chat abierto no existe ni la pastilla ni la mascota (solo el chat)');
+  { const bar = await page.locator('.topbar').boundingBox(), pg = await panel.boundingBox();
+    check(pg.y >= bar.y + bar.height - 1 && pg.y + pg.height <= page.viewportSize().height, 'el chat grande queda bajo la barra superior y dentro de la pantalla'); }
   await page.screenshot({ path: `${SHOTS}/1024-grande-dock.png` });
   await panel.getByRole('button', { name: 'Panel compacto' }).click();
   await page.waitForTimeout(350);
@@ -561,24 +563,26 @@ try {
   const dock = page.locator('.gx-dock');
   await dock.waitFor();
   { const tx = await dock.innerText();
-    check(tx.includes('Pregúntale a GREX') && tx.includes('Toca para escribir'), 'barra en reposo: «Pregúntale a GREX» + «Toca para escribir»'); }
-  check((await page.locator('.gx-u').count()) === 2 && (await page.locator('.gx-u [role=progressbar]').count()) === 2, 'chips de uso por clave (2) con barra');
+    check(tx.includes('GREX') && tx.includes('Toca para escribir') && !tx.includes('Acciones rápidas'), 'pastilla en reposo: «GREX» + «Toca para escribir», sin pestaña de acciones rápidas'); }
+  { const pb = await page.locator('.gx-pill').boundingBox();
+    check(pb.width <= 440.5 && pb.height <= 56.5, `pastilla ≤ 440×56 (${Math.round(pb.width)}×${Math.round(pb.height)})`); }
+  check((await page.locator('.gx-u').count()) === 1 && (await page.locator('.gx-u .gx-bar').count()) === 1, 'un chip de uso (clave en curso) con barra');
   { const hot = page.locator('.gx-u.hot');
-    check((await hot.count()) === 1 && (await hot.innerText()).includes('casi al límite'), '≥ 80 %: «casi al límite»');
-    const [fw, h1, h0] = await Promise.all([hot.evaluate((e) => +getComputedStyle(e).fontWeight), hot.locator('.gx-bar').evaluate((e) => e.getBoundingClientRect().height), page.locator('.gx-u:not(.hot) .gx-bar').evaluate((e) => e.getBoundingClientRect().height)]);
-    check(fw >= 700 && h1 > h0, `≥ 80 %: negrita y barra más gruesa (${fw}, ${h1} > ${h0})`); }
+    check((await hot.count()) === 1 && /casi al límite/.test(await hot.getAttribute('aria-label')) && !(await hot.innerText()).includes('casi'), '≥ 80 %: «casi al límite» solo como etiqueta');
+    check((await hot.evaluate((e) => +getComputedStyle(e).fontWeight)) >= 700, '≥ 80 %: negrita'); }
   check(await page.evaluate(() => getComputedStyle(document.querySelector('.gx-ttl')).fontFamily.includes('Helvetica Neue')), 'tipografía Helvetica Neue');
-  // acciones rápidas: rellenan el campo y no envían
+  // «Escribir» abre el chat y SOLO el chat (la pastilla sale del DOM); no envía nada
   const hitsBefore = apiHits.length;
-  await page.getByRole('button', { name: 'Acciones rápidas' }).click();
-  check((await page.locator('.gx-quick .gx-chip').count()) === 3, 'Acciones rápidas: 3 atajos');
-  await page.locator('.gx-chip', { hasText: 'Crear tarjetas' }).click();
+  await dock.getByRole('button', { name: 'Escribir', exact: true }).click();
   panel = page.getByRole('dialog', { name: 'Asistente' });
   await panel.waitFor();
-  check((await panel.getByLabel('Escribe tu mensaje').inputValue()).startsWith('Crea tarjetas de la nota') && apiHits.length === hitsBefore && (await page.locator('.gx-dock.work').count()) === 0, 'el atajo rellena el campo y no envía nada');
+  check((await page.locator('.gx-dock, .gx-mini, .chat-fab').count()) === 0 && (await page.locator('.chat-panel').count()) === 1, 'Escribir: solo existe el chat (sin pastilla ni mascota)');
+  check(await panel.getByLabel('Escribe tu mensaje').evaluate((e) => e === document.activeElement) && apiHits.length === hitsBefore, 'el foco va al campo y no se envía nada');
   check((await panel.locator('h2').innerText()) === 'GREX', 'título del asistente: GREX');
   await page.keyboard.press('Escape');
   await panel.waitFor({ state: 'detached' });
+  await dock.waitFor();
+  check((await page.locator('.gx-avatar').evaluate((e) => e === document.activeElement)) && (await page.locator('.gx-mini').count()) === 0, 'cerrar: vuelve la pastilla (reposo) con el foco en GREX');
 
   // trabajando: estado + Detener en la barra
   mode = 'hold'; apiHits.length = 0;
@@ -586,23 +590,23 @@ try {
   await panel.waitFor();
   await panel.getByLabel('Escribe tu mensaje').fill('espera');
   await panel.getByLabel('Escribe tu mensaje').press('Enter');
+  await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
   await page.locator('.gx-dock.work').waitFor();
   check((await dock.innerText()).includes('Pensando') && (await dock.getByRole('button', { name: 'Detener' }).count()) === 1, 'trabajando: «Pensando…» y botón «Detener» en la barra');
   await dock.getByRole('button', { name: 'Detener' }).click();
   await page.locator('.gx-dock.work').waitFor({ state: 'detached' });
   if (release) release();
-  check((await dock.innerText()).includes('Pregúntale a GREX'), 'Detener desde la barra: vuelve al reposo');
+  check((await dock.innerText()).includes('Toca para escribir'), 'Detener desde la barra: vuelve al reposo');
+  { const pb = await page.locator('.gx-pill').boundingBox(); check(pb.width <= 440.5 && pb.height <= 56.5, 'trabajando: la pastilla no crece'); }
   mode = 'stream';
-  await page.keyboard.press('Escape');
-  await panel.waitFor({ state: 'detached' });
 
   // posición estable: abrir teclado simulado y abrir/cerrar el panel no mueven la barra (≤ 1 px)
   const rect = () => dock.evaluate((e) => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; });
   const same = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 1);
   const r0 = await rect();
   await page.locator('.gx-avatar').click(); await panel.waitFor(); await page.waitForTimeout(400);
+  await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' }); await dock.waitFor();
   const r1 = await rect();
-  await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
   await page.evaluate(() => { document.documentElement.classList.add('kb-open'); document.documentElement.style.setProperty('--kb-inset', '320px'); });
   await page.waitForTimeout(150);
   const r2 = await rect();
@@ -619,7 +623,7 @@ try {
   check((await dock.count()) === 0, 'minimizada: la barra desaparece');
   check(await mini.evaluate((e) => e === document.activeElement), 'minimizar: el foco pasa a la mascota');
   { const m = await mini.boundingBox(), vw = page.viewportSize().width, vh = page.viewportSize().height;
-    check(Math.abs(m.width - 64) <= 1 && vw - (m.x + m.width) >= 8 && vw - (m.x + m.width) <= 40 && m.y + m.height <= vh - 8, `GREX minimizada abajo a la derecha (${Math.round(m.x)},${Math.round(m.y)} ${m.width}×${m.height})`); }
+    check(Math.abs(m.width - 56) <= 1 && Math.abs(m.height - 56) <= 1 && Math.abs(vw - (m.x + m.width) - 16) <= 1 && Math.abs(vh - (m.y + m.height) - 16) <= 1, `GREX minimizada abajo a la derecha (${Math.round(m.x)},${Math.round(m.y)} ${m.width}×${m.height})`); }
   await page.waitForTimeout(600);
   await page.goto(URL_ + '#/hoy');
   await page.locator('.gx-mini').waitFor();
@@ -811,7 +815,7 @@ try {
   await page.evaluate(() => window.__sr.say('hola gre', false));
   check((await field().inputValue()) === 'hola gre', 'texto provisional en el campo');
   check((await field().getAttribute('class')).includes('vz-int'), 'provisional en gris/cursiva');
-  check((await page.locator('.chat-panel .mascot').first().getAttribute('data-state')) === 'listening' && (await page.locator('.gx-avatar .mascot').getAttribute('data-state')) === 'listening', 'la mascota pasa a listening');
+  check((await page.locator('.chat-panel .mascot').first().getAttribute('data-state')) === 'listening' , 'la mascota pasa a listening');
   { const b = page.getByRole('button', { name: 'Escuchando… · Detener' }).first();
     check((await b.count()) >= 1 && (await b.getAttribute('aria-pressed')) === 'true', 'botón: «Escuchando… · Detener» (pressed)'); }
   await page.screenshot({ path: `${SHOTS}/1024-dictar-escuchando.png` });
@@ -821,7 +825,7 @@ try {
   await page.waitForTimeout(300);
   check(!(await page.locator('.chat-msg.user').count()) && apiHits.length === apiBefore, 'NO se envía solo');
   // con texto previo: se añade con espacio
-  await dk.getByRole('button', { name: 'Dictar' }).click({ delay: 30 });
+  await page.locator('.chat-form .vz').click({ delay: 30 });
   await page.evaluate(() => window.__sr.say('otra frase', true)); await page.evaluate(() => window.__sr.onend());
   check((await field().inputValue()) === 'hola grex otra frase', 'si ya hay texto, se añade con un espacio');
   // el botón del campo del panel

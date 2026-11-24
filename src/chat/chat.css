@@ -1,53 +1,52 @@
-/* Asistente (solo se carga con el add-on encendido): barra GREX fija abajo al centro, mascota minimizada, panel y respuestas.
-   Una sola variable de posición (--dock-bottom); z-index = --z-chat. Sin color propio: solo el acento opcional (html.acc-*). */
-:root { --dock-bottom: 16px; --dock-mini-size: 64px; --dock-h-eff: calc(var(--dock-h, 112px) + 10px); }
-html.in-canvas { --dock-bottom: 176px; }
-html.kb-open { --dock-bottom: 16px; --dock-h-eff: 0px; }
-/* avisos, barra de formato flotante y atajos suben por encima de la barra del Asistente (la mascota va en la esquina: no estorba al centro) */
-body:has(.gx-dock) { --notice-lift: calc(var(--dock-bottom) + var(--dock-h-eff) - 16px); }
+/* Asistente (solo se carga con el add-on encendido): UN elemento a la vez (mascota · pastilla · chat), todos en un portal sobre la interfaz
+   (--z-assistant). Se superponen al contenido y no mueven nada. Sin color propio: solo el acento opcional (html.acc-*). */
+:root { --gx-bottom: 16px; }
+html.in-canvas { --gx-bottom: 176px; }
+html.kb-open { --gx-bottom: 16px; }
 .chat-fab, .gx-dock, .gx-mini, .chat-panel { --chat-sr: env(safe-area-inset-right); --chat-sb: env(safe-area-inset-bottom); font-family: var(--font); letter-spacing: -.012em; --ring: var(--border-strong); }
 html[class*="acc-"] .gx-avatar, html[class*="acc-"] .gx-mini, html[class*="acc-"] .chat-fab { --ring: var(--accent); }
 
-/* ───── barra ───── */
-.gx-dock { position: fixed; z-index: var(--z-chat); left: 50%; transform: translateX(-50%); bottom: calc(var(--chat-sb) + var(--dock-bottom)); width: min(520px, calc(100vw - 2 * (var(--chat-sr) + 16px))); display: grid; justify-items: center; }
+/* ───── pastilla: una fila, ≤ 440 × 56 ───── */
+.gx-dock { position: fixed; z-index: var(--z-assistant); left: 50%; transform: translateX(-50%); bottom: calc(var(--chat-sb) + var(--gx-bottom)); width: min(440px, calc(100vw - 24px)); display: grid; justify-items: center; }
 html.kb-open .gx-dock { visibility: hidden; pointer-events: none; }
 body.focus .gx-dock, body.notes-full .gx-dock, body.focus .gx-mini, body.notes-full .gx-mini, body.focus .chat-fab, body.notes-full .chat-fab { display: none; }
-.gx-tab { margin-bottom: -1px; padding: 6px 16px 10px; min-height: 44px; border-radius: 18px 18px 0 0; border-bottom: 0; font: 700 13.5px/1 var(--font); letter-spacing: -.01em; display: flex; gap: 7px; align-items: center; color: var(--t1); cursor: pointer; box-shadow: none; }
-.gx-quick { position: absolute; bottom: calc(100% + 6px); display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 8px; border-radius: 22px; max-width: 100%; }
-.gx-chip { min-height: 44px; padding: 0 16px; border-radius: 999px; border: var(--hair) solid var(--border); background: var(--fill); color: var(--t1); font: 700 14px/1 var(--font); letter-spacing: -.01em; cursor: pointer; }
-.gx-pill { width: 100%; display: flex; align-items: center; gap: 6px; padding: 8px 8px 8px 8px; border-radius: 30px; }
+.gx-pill { width: 100%; height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 2px; padding: 0 6px; border-radius: 28px; }
 .gx-ib { width: 44px; height: 44px; border-radius: 50%; border: 0; background: none; color: var(--t2); display: grid; place-items: center; cursor: pointer; flex: none; padding: 0; }
-.gx-txt { min-width: 0; flex: 1; padding-left: 10px; border-left: var(--hair) solid var(--line); cursor: pointer; }
-.gx-ttl { font-size: 16px; font-weight: 700; letter-spacing: -.025em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gx-sub { font-size: 13px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.3em; }
-.gx-ttl.dots::after { content: ""; }
-.gx-act { height: 44px; display: flex; align-items: center; gap: 7px; padding: 0 14px; border-radius: 999px; border: var(--hair) solid var(--border); background: var(--fill); color: var(--t1); font: 700 14.5px/1 var(--font); letter-spacing: -.02em; cursor: pointer; flex: none; }
-.gx-act.stop { background: var(--inverse-bg); color: var(--inverse-fg); border-color: transparent; }
+.gx-txt { min-width: 0; flex: 1; padding: 0 6px; cursor: pointer; line-height: 1.15; }
+.gx-ttl { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; letter-spacing: -.025em; white-space: nowrap; }
+.gx-sub { font-size: 12.5px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -.01em; }
+.gx-sub.dots::after { content: ""; }
+.gx-act { height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 999px; border: var(--hair) solid var(--border); background: var(--fill); color: var(--t1); font: 700 14px/1 var(--font); letter-spacing: -.02em; cursor: pointer; flex: none; }
+.gx-act.stop { background: var(--inverse-bg); color: var(--inverse-fg); border-color: transparent; min-width: 96px; justify-content: center; }
 .gx-avatar, .gx-mini { position: relative; padding: 0; display: grid; place-items: center; cursor: pointer; flex: none; border: 1.5px solid var(--ring); }
-.gx-avatar { width: 58px; height: 58px; border-radius: 19px; background: var(--fill); }
-.gx-dock.work .gx-avatar::after, .gx-mini.work::after { content: ""; position: absolute; inset: -5px; border-radius: 23px; border: 1.5px solid var(--ring); opacity: .5; pointer-events: none; }
-.gx-usage { margin-top: -1px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; padding: 10px 20px 8px; border-radius: 0 0 20px 20px; font-size: 13px; font-weight: 600; color: var(--t2); box-shadow: none; max-width: 100%; }
-.gx-u { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.gx-bar { width: 44px; height: 5px; border-radius: 9px; background: var(--fill); overflow: hidden; display: inline-block; }
+.gx-avatar { width: 44px; height: 44px; border-radius: 15px; background: var(--fill); margin-left: 2px; }
+.gx-dock.work .gx-avatar::after, .gx-mini.work::after { content: ""; position: absolute; inset: -4px; border-radius: 19px; border: 1.5px solid var(--ring); opacity: .5; pointer-events: none; }
+/* prompts rápidos: pestañita sobre la pastilla, oculta hasta el cursor o el foco (la maqueta final la ajusta) */
+.gx-quick { position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 999px; opacity: 0; pointer-events: none; transition: opacity .12s; white-space: nowrap; }
+.gx-dock:hover .gx-quick, .gx-dock:focus-within .gx-quick { opacity: 1; pointer-events: auto; }
+.gx-chip { min-height: 44px; padding: 0 12px; border-radius: 999px; border: 0; background: none; color: var(--t1); font: 700 13px/1 var(--font); letter-spacing: -.01em; cursor: pointer; }
+/* uso por clave: chip diminuto junto al nombre (barra 28 px + %); desde el 80 % en negrita */
+.gx-u { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; color: var(--t2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.gx-bar { width: 28px; height: 4px; border-radius: 9px; background: var(--fill-2); overflow: hidden; display: inline-block; }
 .gx-bar i { display: block; height: 100%; background: var(--t1); border-radius: 9px; }
 .gx-u.hot { color: var(--t1); font-weight: 800; }
-.gx-u.hot .gx-bar { height: 8px; }
+.gx-u.hot .gx-bar { height: 6px; }
 
-/* ───── minimizada: solo GREX, abajo a la derecha (reserva --dock-mini-size) ───── */
-.gx-mini { position: fixed; z-index: var(--z-chat); right: calc(var(--chat-sr) + 16px); bottom: calc(var(--chat-sb) + var(--dock-bottom) + var(--kb-inset, 0px)); width: var(--dock-mini-size); height: var(--dock-mini-size); border-radius: 22px; box-shadow: var(--shadow); }
+/* ───── minimizada: solo GREX, un cuadrito abajo a la derecha (fijo) ───── */
+.gx-mini { position: fixed; z-index: var(--z-assistant); right: calc(var(--chat-sr) + 16px); bottom: calc(var(--chat-sb) + var(--gx-bottom) + var(--kb-inset, 0px)); width: 56px; height: 56px; border-radius: 19px; box-shadow: var(--shadow); }
 .gx-mini:active, .gx-avatar:active { transform: scale(.95); }
 
-/* ───── botón del teléfono (sin barra) ───── */
-.chat-fab { position: fixed; z-index: var(--z-chat); right: calc(var(--chat-sr) + 12px); bottom: calc(var(--chat-sb) + var(--tabbar-h, 0px) + 18px + var(--kb-inset, 0px)); width: 52px; height: 52px; padding: 0; border-radius: 50%; border: var(--hair) solid var(--border); display: grid; place-items: center; color: var(--t1); cursor: pointer; box-shadow: var(--shadow); }
+/* ───── botón del teléfono (sin pastilla) ───── */
+.chat-fab { position: fixed; z-index: var(--z-assistant); right: calc(var(--chat-sr) + 12px); bottom: calc(var(--chat-sb) + var(--tabbar-h, 0px) + 18px + var(--kb-inset, 0px)); width: 52px; height: 52px; padding: 0; border-radius: 50%; border: var(--hair) solid var(--border); display: grid; place-items: center; color: var(--t1); cursor: pointer; box-shadow: var(--shadow); }
 .chat-fab:active { transform: scale(.94); }
 html.is-phone body:has(.mini-amb:not(.inbar)) .chat-fab { bottom: calc(var(--chat-sb) + var(--tabbar-h, 0px) + 18px + 54px + var(--kb-inset, 0px)); }
 html.is-phone body:has(.mini-amb.open) .chat-fab { visibility: hidden; }
 
-/* ───── panel: encima de la barra ───── */
-.chat-panel { --pb: calc(var(--chat-sb) + var(--dock-bottom) + var(--dock-h-eff) + var(--kb-inset, 0px)); position: fixed; z-index: var(--z-chat); display: flex; flex-direction: column; overflow: hidden; border-radius: var(--r-panel); box-shadow: var(--shadow); animation: up .25s var(--spring); }
-.chat-panel.compact { right: calc(var(--chat-sr) + 16px); bottom: var(--pb); width: min(360px, calc(100vw - 32px)); height: min(520px, calc(100dvh - var(--pb) - 24px - env(safe-area-inset-top))); }
-/* grande: panel lateral; deja libre el borde izquierdo (firma y bandeja) */
-.chat-panel.large { right: calc(var(--chat-sr) + 12px); top: var(--bar-top, calc(env(safe-area-inset-top) + 72px)); bottom: var(--pb); width: min(760px, calc(100vw - 280px)); }
+/* ───── chat: capa superior, se superpone (no desplaza nada) ───── */
+.chat-panel { position: fixed; z-index: var(--z-assistant); display: flex; flex-direction: column; overflow: hidden; border-radius: var(--r-panel); box-shadow: var(--shadow); animation: up .25s var(--spring); }
+.chat-panel.compact { right: calc(var(--chat-sr) + 16px); bottom: calc(var(--chat-sb) + 16px + var(--kb-inset, 0px)); width: min(360px, calc(100vw - 32px)); height: min(520px, calc(100dvh - var(--bar-top, 72px) - 16px - var(--chat-sb) - var(--kb-inset, 0px))); }
+/* grande: lateral, casi toda la altura, por debajo de la barra superior */
+.chat-panel.large { right: calc(var(--chat-sr) + 12px); top: var(--bar-top, calc(env(safe-area-inset-top) + 72px)); bottom: calc(var(--chat-sb) + 16px + var(--kb-inset, 0px)); width: min(760px, calc(100vw - 48px)); }
 
 .chat-h { display: flex; align-items: center; gap: 4px; padding: 6px 6px 6px 12px; border-bottom: var(--hair) solid var(--line); flex: none; }
 .chat-title { flex: 1; min-width: 0; display: grid; margin-left: 4px; }
@@ -92,9 +91,9 @@ html.is-phone .chat-panel { inset: 0 0 var(--kb-inset, 0px) 0; width: auto; heig
 @media print { .chat-fab, .chat-panel, .gx-dock, .gx-mini { display: none !important; } }
 @media (prefers-reduced-motion: no-preference) {
   .gx-dock.work .gx-avatar::after, .gx-mini.work::after { animation: gx-pulse 1.6s ease-out infinite; }
-  .gx-ttl.dots::after { animation: gx-ell 1.2s steps(4) infinite; }
+  .gx-sub.dots::after { animation: gx-ell 1.2s steps(4) infinite; }
 }
-@media (prefers-reduced-motion: reduce) { .chat-panel { animation: none; } .gx-ttl.dots::after { content: "…"; } }
+@media (prefers-reduced-motion: reduce) { .chat-panel { animation: none; } .gx-sub.dots::after { content: "…"; } }
 @keyframes gx-pulse { from { transform: scale(.94); opacity: .6; } to { transform: scale(1.12); opacity: 0; } }
 @keyframes gx-ell { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
 
@@ -122,12 +121,12 @@ html.is-phone .chat-panel { inset: 0 0 var(--kb-inset, 0px) 0; width: auto; heig
 .chat-panel.sty-b.glass { background: #0d0e10; color: #f4f5f7; --t1: #f4f5f7; --t2: rgba(244, 245, 247, .7); --t3: rgba(244, 245, 247, .5); --line: rgba(255, 255, 255, .14); --fill: rgba(255, 255, 255, .1); --fill-2: rgba(255, 255, 255, .06); --border: rgba(255, 255, 255, .25); --border-strong: rgba(255, 255, 255, .5); --inverse-bg: #f4f5f7; --inverse-fg: #0d0e10; }
 
 /* Dictado (voice.ts): botón «Dictar», estado escuchando, texto provisional, mensaje */
-.gx-act.vz.on, .btn.icon.vz.on { background: var(--inverse-bg); color: var(--inverse-fg); border-color: transparent; }
+.gx-ib.vz.on, .btn.icon.vz.on { background: var(--inverse-bg); color: var(--inverse-fg); border-color: transparent; }
 .gx-voz-msg { font-size: 13px; color: var(--t2); text-align: center; min-height: 0; }
 .gx-voz-msg:empty { display: none; }
 .gx-voz-msg { padding: 2px 12px 6px; }
 .chat-form textarea.vz-int { color: var(--t2); font-style: italic; }
 @media (prefers-reduced-motion: no-preference) {
-  .gx-act.vz.on, .btn.icon.vz.on { animation: vz-ring 1.6s ease-out infinite; }
+  .gx-ib.vz.on, .btn.icon.vz.on { animation: vz-ring 1.6s ease-out infinite; }
   @keyframes vz-ring { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--inverse-bg) 40%, transparent); } to { box-shadow: 0 0 0 10px transparent; } }
 }
