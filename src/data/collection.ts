@@ -146,6 +146,7 @@ export async function loadCollection(vault: VaultAdapter, params: SrsParams, now
   }
   for (const [, t] of texts) for (const n of parseDeck(t).notes) if (n.id) taken.add(n.id);
   for (const [path, original] of texts) {
+    if (!original.trim()) continue; // vacío (p. ej. lo dejó «Deshacer» del Asistente): no es un mazo
     let text = original;
     const fixed = ensureIds(text, taken);
     if (fixed.added.length) {

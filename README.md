@@ -92,5 +92,8 @@ Ver `docs/DESIGN.md` (tokens, guardián de legibilidad, cómo añadir un tema ca
 - Una web no puede leer ni escribir en el Calendario de iOS.
 - Más detalle y lo que falta validar en un iPad real: `docs/DECISIONS.md`.
 
+## Asistente (opcional)
+Es un add-on apagado por defecto (Ajustes → Add-ons). Si lo enciendes, puedes pegar tu propia clave de Google Gemini o de Groq. Las preguntas van directamente de tu iPad a ese servicio y la clave se guarda solo en este navegador, nunca en la copia de seguridad. El asistente puede leer tus notas, PDF, mazos y calendario para responder, y propone tarjetas, exámenes o eventos que apruebas antes de guardarlos (con deshacer). Sin clave, o con el add-on apagado, la app no hace ninguna petición de red. El nivel gratuito de Gemini puede usar lo que envías para mejorar sus productos; no envíes datos sensibles.
+
 ## Licencias de terceros
 Preact, fflate, fzstd, ts-fsrs, markdown-it, minisearch, turndown, docx, sql.js, perfect-freehand, pdf-lib (MIT) · Lucide (ISC) · DOMPurify (MPL-2.0 / Apache-2.0) · pdfjs-dist (Apache-2.0) · mammoth (BSD-2). Sin SF Symbols ni recursos de Apple.

@@ -20,12 +20,12 @@ export interface PdfText {
 }
 
 /** Texto por página, agrupado en líneas por coordenada Y (con tamaño de fuente para detectar títulos). */
-export async function pdfText(bytes: Uint8Array): Promise<PdfText> {
+export async function pdfText(bytes: Uint8Array, maxPages = Infinity): Promise<PdfText> {
   const lib = await pdfjs();
   const task = lib.getDocument({ data: bytes.slice() });
   const doc = await task.promise;
   const pages: PdfText['pages'] = [];
-  for (let i = 1; i <= doc.numPages; i++) {
+  for (let i = 1; i <= Math.min(doc.numPages, maxPages); i++) {
     const page = await doc.getPage(i);
     const tc = await page.getTextContent();
     const rows = new Map<number, { x: number; s: string; size: number }[]>();

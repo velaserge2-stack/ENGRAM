@@ -37,6 +37,7 @@
     "perf": "node e2e/rendimiento.mjs",
     "e2e:notaspro": "node e2e/notaspro.mjs",
     "e2e:diagramas": "node e2e/diagramas.mjs",
+    "e2e:chat": "node e2e/chat.mjs",
     "e2e:barra": "node e2e/barra.mjs",
     "e2e:notas-perf": "node e2e/notes-perf.mjs",
     "e2e:share": "node e2e/share.mjs",
@@ -45,6 +46,9 @@
     "e2e:papelera": "node e2e/papelera.mjs"
   },
   "dependencies": {
+    "@ai-sdk/google": "4.0.125",
+    "@ai-sdk/groq": "4.0.86",
+    "ai": "7.0.181",
     "docx": "^9.15.3",
     "dompurify": "^3.4.17",
     "fflate": "^0.8.3",
@@ -59,7 +63,8 @@
     "preact": "^11.2.0",
     "sql.js": "^1.16.0",
     "ts-fsrs": "^5.4.2",
-    "turndown": "^7.2.5"
+    "turndown": "^7.2.5",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.2.0",

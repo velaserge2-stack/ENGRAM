@@ -4,6 +4,8 @@ import { defineConfig, type Plugin } from 'vite';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
 
+const SDK_RE = /node_modules[\\/](ai|@ai-sdk|zod|eventsource-parser|@standard-schema|@vercel|@workflow)[\\/]/;
+
 /**
  * Genera `sw.js` con la lista exacta del "app shell" y una versión derivada
  * de su contenido: cualquier cambio de código produce un SW nuevo → aviso de actualización.
@@ -14,8 +16,10 @@ function serviceWorker(): Plugin {
     apply: 'build',
     generateBundle(_, bundle) {
       const files = Object.keys(bundle).filter((f) => !f.endsWith('.map'));
+      // Asistente: los chunks del SDK se descargan al primer uso (el SW los guarda entonces), no en el precache
+      const sdk = files.filter((f) => { const c = bundle[f]!; return c.type === 'chunk' && c.moduleIds.some((m) => SDK_RE.test(m)); });
       const publicFiles = ['manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png', 'icons/favicon-16.png', 'brand/logo-256.png', 'brand/logo-64.png', 'brand/logo-mark.png'];
-      const assets = ['./', ...files, ...publicFiles].map((f) => (f === './' ? f : './' + f));
+      const assets = ['./', ...files.filter((f) => !sdk.includes(f)), ...publicFiles].map((f) => (f === './' ? f : './' + f));
       const hash = createHash('sha256');
       for (const f of files) {
         const c = bundle[f]!;

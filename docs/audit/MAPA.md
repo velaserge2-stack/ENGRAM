@@ -132,6 +132,28 @@ A nivel de carpeta sí hay ciclos (p. ej. `lib <-> data`, `srs <-> data`, `ui <-
 - Depende de: i18n (4 archivos), ui (`kit`, `overlay`: 2 archivos), lib (`frontmatter`, `canvaszoom`: 2), notes (`diagramtype`: 1), theme (1; solo `canvas.tsx`). Externos: `preact`, `preact/hooks`, `lucide-preact`. Entrada desde fuera: `src/screens/notes.tsx` importa `embed.ts` (estático) y `editor.tsx`/`mount.ts` con `import()` (bajo demanda). Ningún otro módulo importa `view.tsx`.
 - Nota: `mount.ts` es el único punto de carga de la vista; `view.tsx` no debe importarse directamente (ver comentario de `mount.ts`).
 
+### src/chat/ (19 archivos) + src/screens/assistant.tsx · Add-on «Asistente» (apagado por defecto)
+- Propósito: chat con Gemini o Groq con claves propias; único código con red (CSP: 2 hosts). Con el add-on apagado no se importa nada.
+- `providers.ts`: proveedores, modelo y límites por defecto; `loadModel`/`loadCore` (`import()`).
+- `keys.ts`: claves en `localStorage` (`engrama.chat.keys`), `pickKey`/`markKey`, enmascarado y `redact`.
+- `errors.ts`: clasifica errores por proveedor (`quota`, `rate`, `auth`…) y decide rotar, esperar o fallar.
+- `usage.ts`: contador local por clave y ventana, cabeceras de cuota y barra (`engrama.chat.usage`).
+- `session.ts`: `runTurn` en streaming, mutex, rotación de claves y espera ante 429.
+- `turn.ts`: `send`/`stop` sobre `runTurn`, prompt de sistema y `wantsWrite`.
+- `history.ts`: conversación solo en memoria (`add`/`append`/`clear`, `generation`).
+- `system.ts`: prompt de sistema (lectura y escritura).
+- `cites.ts`: enlaza `[[Nota]]` y `[PDF: p.N]` solo si una herramienta los devolvió.
+- `tools.ts`: herramientas de lectura (notas, PDF, mazos, exámenes, calendario) con topes y `fuente`.
+- `tools-write.ts`: herramientas que proponen (tarjetas, examen, evento); nunca escriben.
+- `proposal.ts`: lógica pura de propuestas (sin `ai`).
+- `preview.tsx`: vista previa, Aceptar/Editar/Cancelar y «Deshacer»; escribe por SafeVault.
+- `undo.ts`: guarda `{path, before, after}` antes de escribir y restaura con comprobación.
+- `panel.tsx`: botón flotante, atajos ⌘⌥A / ⌘⌥E y tamaño compacto o grande.
+- `conv.tsx`: conversación con `renderMarkdown` y enlaces seguros (`import()`).
+- `mascot.tsx` + `mascot.css`: mascota SVG estática (error, responde, piensa, escucha, reposo).
+- `chat.css`: estilos del panel y de la conversación.
+- `src/screens/assistant.tsx`: `AssistantBody` (claves, orden, límites, aviso), cargada desde Ajustes con `import()`.
+
 ## 2. Flujos clave
 
 **2.1 Arrancar y abrir la bóveda**

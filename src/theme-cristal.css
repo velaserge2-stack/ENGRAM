@@ -14,7 +14,7 @@
   --k: .7;            /* intensidad del vidrio 0–1 */
   --kb-inset: 0px;
   /* capas: nada usa z-index sueltos fuera de estos tokens (salvo apilados locales 1–5) */
-  --z-base: 0; --z-panel: 10; --z-dock: 100; --z-popover: 200; --z-modal: 300; --z-toast: 400; --z-tooltip: 500;
+  --z-base: 0; --z-panel: 10; --z-dock: 100; --z-chat: 150; --z-popover: 200; --z-modal: 300; --z-toast: 400; --z-tooltip: 500;
   --t-large: 2.125rem; --t-1: 1.75rem; --t-2: 1.375rem; --t-3: 1.25rem; --t-body: 1.0625rem; --t-note: .8125rem; --t-foot: .75rem;
   color-scheme: dark;
 }

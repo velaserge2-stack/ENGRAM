@@ -1,6 +1,6 @@
 import { t as tr, deviceLang, firstDayOfWeek, LANGS, setLang } from '../i18n';
 import { Check, ChevronLeft, ChevronsDownUp, ChevronsUpDown, Crop, FolderOpen, ImagePlus, Trash2 } from 'lucide-preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useContext, useEffect, useRef, useState } from 'preact/hooks';
 import { DEFAULT_FRAMING, framingStyle, FRAMING_PATH, normFraming, parseFramings, type Framing } from '../lib/framing';
 import { addonOn, AddonsGroup, MODULES } from './addons';
 import { StorageSheet } from './storage';
@@ -18,7 +18,7 @@ import { href, useApp, useAsync } from '../state';
 import { BUILTINS, BuiltinThumb, deleteBackground, importBackground, mediaUrl, regenThumb, SOLIDS } from '../ui/background';
 import { FoldCtx, Group, PageTitle, Row, Segmented, Sheet, Switch } from '../ui/kit';
 import { keymap, useKeymap } from '../ui/keys';
-import type { ComponentChildren } from 'preact';
+import type { ComponentChildren, FunctionComponent } from 'preact';
 import { FSAccessBackend } from '../vault/fsaccess';
 import { rememberFolder } from '../vault/open';
 import { readTextOr, walk } from '../vault/util';
@@ -221,9 +221,23 @@ function FramingEditor(props: { path: string; onClose: () => void }) {
 }
 
 /** Secciones plegables de Ajustes, en su orden. */
-const FOLDS = ['idioma', 'fondo', 'acento', 'estudio', 'fsrs', 'pomodoro', 'notas', 'almacenamiento', 'respaldo', 'integridad', 'tinta', 'atajos', 'addons', 'instalar', 'mas', 'acerca'];
+const FOLDS = ['idioma', 'fondo', 'acento', 'estudio', 'fsrs', 'pomodoro', 'notas', 'almacenamiento', 'respaldo', 'integridad', 'tinta', 'atajos', 'addons', 'asistente', 'instalar', 'mas', 'acerca'];
 
 /** Notas-Pro · A1: fotos originales, caché de miniaturas y calidad de las fotos nuevas. */
+/** «Asistente»: el cuerpo (y todo src/chat) se carga con import() solo al desplegar la sección. */
+function AssistantGroup() {
+  const fold = useContext(FoldCtx);
+  const isOpen = !!fold?.isOpen('asistente');
+  const [Body, setBody] = useState<null | FunctionComponent>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { if (isOpen && !Body) void import('./assistant').then((m) => setBody(() => m.AssistantBody), () => setFailed(true)); }, [isOpen]);
+  return (
+    <Group id="asistente" title={tr('chat.titulo')} summary={tr('chat.resumen')}>
+      {Body ? <Body /> : isOpen && <Row k={failed ? tr('chat.no_cargo') : tr('chat.cargando')} />}
+    </Group>
+  );
+}
+
 function PhotoStorage() {
   const app = useApp();
   const [tick, setTick] = useState(0);
@@ -427,6 +441,8 @@ export function SettingsScreen(props: { focus?: string | null } = {}) {
       <KeySettings />
 
       <AddonsGroup />
+
+      {addonOn(s, 'assistant') && <AssistantGroup />}
 
       <Group id="instalar" summary={sum.instalar} title={tr('settings.instalar')}>
         {isStandalone() ? <Row k={tr('settings.engrama_esta_instalada')} sub={tr('settings.abierta_desde_la_pantalla_de_inicio')} /> : <div class="row-i"><div class="k"><InstallSteps /></div></div>}

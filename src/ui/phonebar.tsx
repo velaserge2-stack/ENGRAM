@@ -1,5 +1,5 @@
 import { t } from '../i18n';
-import { Ellipsis, Headphones, UserRound } from 'lucide-preact';
+import { Ellipsis, Headphones, MessageCircle, UserRound } from 'lucide-preact';
 import { addonOn } from '../screens/addons';
 import { useState } from 'preact/hooks';
 import { TABS } from '../nav';
@@ -43,6 +43,11 @@ export function PhoneTabBar(props: { tab: string }) {
             <a class="row-i tap" href="#/perfil" aria-current={props.tab === 'perfil' || props.tab === 'ajustes' ? 'page' : undefined} onClick={() => setMore(false)}>
               <UserRound size={20} aria-hidden="true" /><span class="k">{t('profile.perfil')}</span>
             </a>
+            {addonOn(app.settings, 'assistant') && (
+              <button type="button" class="row-i tap" onClick={() => (setMore(false), dispatchEvent(new Event('engrama:chat')))}>
+                <MessageCircle size={20} aria-hidden="true" /><span class="k">{t('chat.p_titulo')}</span>
+              </button>
+            )}
             {addonOn(app.settings, 'ambient') && (
               <button type="button" class="row-i tap" onClick={() => (setMore(false), app.openSheet('ambient'))}>
                 <Headphones size={20} aria-hidden="true" /><span class="k">{t('addons.n_ambient')}</span>

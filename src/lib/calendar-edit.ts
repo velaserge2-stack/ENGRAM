@@ -5,6 +5,9 @@
  */
 import type { StudyBlock } from './ics';
 
+/** Archivo de las entradas propias del calendario (lo demás en `calendar/` es solo lectura). */
+export const CAL = 'calendar/estudio.ics';
+
 export type Scope = 'one' | 'series';
 
 const ymd = (date: string) => date.split('-').map(Number) as [number, number, number];
@@ -38,4 +41,20 @@ export function editOccurrence(blocks: StudyBlock[], uid: string, date: string, 
   const baseDay = (() => { const d = new Date(b.start); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
   const start = onDate(next.start, baseDay);
   return blocks.map((x) => (x.uid === uid ? { ...next, uid, start, end: start + (next.end - next.start), exdate: next.rrule ? next.exdate : undefined } : x));
+}
+
+/** Milisegundos (hora local) del minuto `min` del día `date` (AAAA-MM-DD). */
+export function atMinutes(date: string, min: number): number {
+  const [y, m, d] = ymd(date);
+  return new Date(y, m - 1, d, 0, min).getTime();
+}
+
+/** Entrada nueva y vacía (por defecto de 18:00 a 19:00), igual que la del calendario. */
+export function blankEvent(date: string, a = 18 * 60, b = 19 * 60): StudyBlock {
+  return { uid: `${Date.now().toString(36)}@engrama`, start: atMinutes(date, a), end: atMinutes(date, b), title: '', subject: '', note: '', rrule: '', until: '', done: [], alarmMin: 10, kind: 'estudio', floating: true };
+}
+
+/** Agrega una entrada (sin tocar las demás). */
+export function addEvent(blocks: StudyBlock[], ev: StudyBlock): StudyBlock[] {
+  return [...blocks, ev];
 }

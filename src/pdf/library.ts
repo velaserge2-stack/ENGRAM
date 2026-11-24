@@ -29,7 +29,7 @@ export function updatePdfMeta(vault: VaultAdapter, path: string, patch: PdfMeta)
 
 export async function listPdfs(vault: VaultAdapter) {
   const meta = await readMeta(vault);
-  return (await walk(vault, 'docs')).filter((f) => /\.pdf$/i.test(f.name)).map((f) => ({ path: f.path, name: f.name.replace(/\.pdf$/i, ''), folder: f.path.split('/').slice(1, -1).join('/'), size: f.size, meta: meta[f.path] ?? {} }));
+  return (await walk(vault, 'docs')).filter((f) => /\.pdf$/i.test(f.name)).map((f) => ({ path: f.path, name: f.name.replace(/\.pdf$/i, ''), folder: f.path.split('/').slice(1, -1).join('/'), size: f.size, mtime: f.mtime, meta: meta[f.path] ?? {} }));
 }
 
 /** Enlace a una página de un PDF (abre el visor de la sección PDFs). */
