@@ -150,6 +150,8 @@ for (const [w, h] of SIZES) {
     for (const [c, t] of [['key-feedback glass strong', '⌨ ⌘B → Negrita'], ['toast glass', 'Guardado']]) { if (!document.querySelector('.' + c.split(' ')[0])) { const k = document.createElement('div'); k.className = c; k.textContent = t; document.body.appendChild(k); } }
   });
   const clearNotice = () => page.evaluate(() => document.querySelectorAll('.key-feedback, .toast').forEach((e) => e.remove()));
+  // tocar el texto de la pastilla abre el chat (ya no hay botón «Escribir»)
+  const openChat = () => page.locator('.gx-txt').click({ timeout: 3000 }).catch(() => found.push(`${w}x${h}: la pastilla no se puede tocar para abrir el chat`));
   const closeChat = async () => { await page.keyboard.press('Escape'); await page.waitForTimeout(250); };
   /** Abrir pastilla/chat compacto/grande, cerrar, minimizar, restaurar: ningún elemento de la página se mueve (±0 px). Parte de la pastilla. */
   const noShift = async (label) => {
@@ -160,7 +162,7 @@ for (const [w, h] of SIZES) {
       const diff = base.length !== now.length ? [`${base.length}→${now.length} elementos`] : base.flatMap((v, i) => (v === now[i] ? [] : [`${v} → ${now[i]}`]));
       if (diff.length) found.push(`${w}x${h} ${label} · ${step}: la interfaz se movió (${diff.slice(0, 3).join(' ; ')})`);
     };
-    await click('Escribir'); await page.getByRole('dialog', { name: 'Asistente' }).waitFor({ timeout: 4000 }).catch(() => found.push(`${w}x${h} ${label}: el chat no abrió`));
+    await openChat(); await page.getByRole('dialog', { name: 'Asistente' }).waitFor({ timeout: 4000 }).catch(() => found.push(`${w}x${h} ${label}: el chat no abrió`));
     await setSize('compact'); await same('chat compacto');
     await setSize('large'); await same('chat grande');
     await setSize('compact'); await closeChat(); await same('cerrar (pastilla)');
@@ -181,7 +183,7 @@ for (const [w, h] of SIZES) {
   await noShift('mazos');
   // 2) chat compacto y grande en Hoy
   await goto(page, '#/hoy');
-  await click('Escribir');
+  await openChat();
   await page.getByRole('dialog', { name: 'Asistente' }).waitFor({ timeout: 4000 }).catch(() => found.push(`${w}x${h}: el chat no abrió`));
   await setSize('compact');
   await measure('chat-compacto');
@@ -217,7 +219,7 @@ for (const [w, h] of SIZES) {
   await page.evaluate(() => window.scrollTo(0, 0)); await page.waitForTimeout(300);
   await noShift('notas (árbol+inspector+buscar)');
   await panel('explorador', false);
-  await click('Escribir'); await page.getByRole('dialog', { name: 'Asistente' }).waitFor({ timeout: 4000 }).catch(() => {}); await setSize('compact');
+  await openChat(); await page.getByRole('dialog', { name: 'Asistente' }).waitFor({ timeout: 4000 }).catch(() => {}); await setSize('compact');
   await measure('notas-inspector+chat-compacto', { scrolls: [0, 600] });
   await notice(); await measure('notas-inspector+chat-compacto+avisos', { scrolls: [600] }); await clearNotice();
   await setSize('large');
@@ -242,7 +244,7 @@ for (const [w, h] of SIZES) {
   await page.locator('.diag-node').first().click({ timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(400);
   await measure('diagrama+floatbar', { scrolls: [0] });
-  await click('Escribir'); await page.getByRole('dialog', { name: 'Asistente' }).waitFor({ timeout: 4000 }).catch(() => {});
+  await openChat(); await page.getByRole('dialog', { name: 'Asistente' }).waitFor({ timeout: 4000 }).catch(() => {});
   await setSize('large');
   await measure('diagrama+chat-grande');
   await notice(); await measure('diagrama+chat-grande+avisos'); await clearNotice();

@@ -28,7 +28,7 @@ try {
   page.on('pageerror', (e) => console.log('PAGEERR', String(e).slice(0, 300)));
   page.on('console', (m) => m.type() === 'error' && console.log('CONERR', m.text().slice(0, 200)));
   page.on('dialog', (d) => d.accept());
-  const apiHits = [], js = new Set(), logs = [];
+  const apiHits = [], genKeys = [], js = new Set(), logs = [];
   let mode = 'ok', lmode = 'ok', lrelease = null;
   const listReqs = [];
   const EX_DATE = new Date(Date.now() + 20 * 864e5).toISOString().slice(0, 10);
@@ -52,6 +52,7 @@ try {
   await page.route(/generativelanguage\.googleapis\.com|api\.groq\.com/, async (r) => {
     if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: CORS });
     apiHits.push(r.request().url());
+    if (!/\/models(\?|$)/.test(r.request().url())) genKeys.push({ url: r.request().url(), key: r.request().headers()['x-goog-api-key'] });
     if (/\/models(\?|$)/.test(r.request().url()) && r.request().method() === 'GET') {
       listReqs.push({ url: r.request().url(), key: r.request().headers()['x-goog-api-key'] });
       if (lmode === 'hold') await new Promise((res) => { lrelease = res; });
@@ -228,7 +229,7 @@ try {
   await fab.waitFor();
   const fb = await fab.boundingBox();
   check(fb.width >= 44 && fb.height >= 44, 'botón flotante ≥ 44 px');
-  check((await page.locator('.dev-sign').boundingBox()).x < 400 && Math.abs(fb.x + fb.width / 2 - 512) < 220, 'la pastilla va al centro, la firma a la izquierda');
+  check((await page.locator('.dev-sign').boundingBox()).x < 400 && Math.abs((await page.locator('.gx-pill').boundingBox()).x + 220 - page.viewportSize().width / 2) < 2 && fb.x > page.viewportSize().width / 2, 'la pastilla va al centro (GREX al final), la firma a la izquierda');
   check(!(await page.evaluate(() => document.querySelector('.gx-dock').closest('.glass'))) && (await page.locator('.gx-pill.glass').count()) === 1, 'la barra no está dentro de otro vidrio (una sola pastilla)');
   await fab.click();
   let panel = page.getByRole('dialog', { name: 'Asistente' });
@@ -566,17 +567,29 @@ try {
     check(tx.includes('GREX') && tx.includes('Toca para escribir') && !tx.includes('Acciones rápidas'), 'pastilla en reposo: «GREX» + «Toca para escribir», sin pestaña de acciones rápidas'); }
   { const pb = await page.locator('.gx-pill').boundingBox();
     check(pb.width <= 440.5 && pb.height <= 56.5, `pastilla ≤ 440×56 (${Math.round(pb.width)}×${Math.round(pb.height)})`); }
-  check((await page.locator('.gx-u').count()) === 1 && (await page.locator('.gx-u .gx-bar').count()) === 1, 'un chip de uso (clave en curso) con barra');
-  { const hot = page.locator('.gx-u.hot');
-    check((await hot.count()) === 1 && /casi al límite/.test(await hot.getAttribute('aria-label')) && !(await hot.innerText()).includes('casi'), '≥ 80 %: «casi al límite» solo como etiqueta');
-    check((await hot.evaluate((e) => +getComputedStyle(e).fontWeight)) >= 700, '≥ 80 %: negrita'); }
+  // uso: tira «unida» bajo la pastilla (no dentro de ella); la pastilla queda a 16 px del borde inferior
+  { const st = page.locator('.gx-ustrip'), pb = await page.locator('.gx-pill').boundingBox(), sb = await st.boundingBox(), vh = page.viewportSize().height;
+    check((await st.count()) === 1 && (await st.getAttribute('role')) === 'status' && (await st.getAttribute('aria-label')) === 'Uso por modelo', 'tira de uso: role=status y «Uso por modelo»');
+    check((await page.locator('.gx-pill .gx-u, .gx-pill .gx-ustrip').count()) === 0 && !(await page.locator('.gx-pill').innerText()).includes('%'), 'el uso ya no está dentro de la pastilla');
+    check(sb.height <= 36.5 && sb.width <= pb.width && sb.x >= pb.x - 1 && sb.x + sb.width <= pb.x + pb.width + 1, `tira ≤ 36 px y dentro del ancho de la pastilla (${Math.round(sb.width)}×${Math.round(sb.height)})`);
+    check(Math.abs(vh - (pb.y + pb.height) - 16) <= 1, `la pastilla queda a 16 px del borde inferior (${Math.round(vh - pb.y - pb.height)})`);
+    check((await page.locator('.gx-ustrip .gx-u').count()) === 2 && (await page.locator('.gx-ustrip .gx-u.on').count()) === 1, 'una entrada por clave, una activa');
+    const hot = page.locator('.gx-ustrip .gx-u.hot');
+    check((await hot.count()) === 1 && /casi al límite/.test(await hot.getAttribute('aria-label')), '≥ 80 %: «casi al límite» solo como etiqueta');
+    const [fw, hh, hn] = await Promise.all([page.locator('.gx-ustrip .gx-u.on').evaluate((e) => +getComputedStyle(e).fontWeight), hot.locator('.gx-bar').evaluate((e) => e.getBoundingClientRect().height), page.locator('.gx-ustrip .gx-u:not(.hot) .gx-bar').evaluate((e) => e.getBoundingClientRect().height)]);
+    check(fw >= 700 && hh > hn, `activa en Bold; ≥ 80 % con barra más gruesa (${fw}, ${hh} > ${hn})`);
+    check((await st.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)), 'la tira no desborda a 440 de ancho'); 
+    check(await page.evaluate(() => /mono|Menlo|ui-monospace/i.test(getComputedStyle(document.querySelector('.gx-ustrip .gx-pc')).fontFamily)), 'el % de la tira va en monoespaciada');
+    check((await page.locator('.gx-ustrip svg.prov-logo').count()) === 2 && (await page.locator('.gx-ustrip [data-provider="gemini"] svg path').count()) > 0, 'logos por proveedor en la tira (decorativos)');
+  }
   check(await page.evaluate(() => getComputedStyle(document.querySelector('.gx-ttl')).fontFamily.includes('Helvetica Neue')), 'tipografía Helvetica Neue');
   // «Escribir» abre el chat y SOLO el chat (la pastilla sale del DOM); no envía nada
   const hitsBefore = apiHits.length;
-  await dock.getByRole('button', { name: 'Escribir', exact: true }).click();
+  check((await dock.getByRole('button', { name: 'Escribir', exact: true }).count()) === 0, 'sin botón «Escribir»: se toca el texto o a GREX');
+  await dock.locator('.gx-txt').click();
   panel = page.getByRole('dialog', { name: 'Asistente' });
   await panel.waitFor();
-  check((await page.locator('.gx-dock, .gx-mini, .chat-fab').count()) === 0 && (await page.locator('.chat-panel').count()) === 1, 'Escribir: solo existe el chat (sin pastilla ni mascota)');
+  check((await page.locator('.gx-dock, .gx-mini, .chat-fab, .gx-ustrip').count()) === 0 && (await page.locator('.chat-panel').count()) === 1, 'tocar el texto: solo existe el chat (sin pastilla, tira ni mascota)');
   check(await panel.getByLabel('Escribe tu mensaje').evaluate((e) => e === document.activeElement) && apiHits.length === hitsBefore, 'el foco va al campo y no se envía nada');
   check((await panel.locator('h2').innerText()) === 'GREX', 'título del asistente: GREX');
   await page.keyboard.press('Escape');
@@ -637,6 +650,151 @@ try {
   await page.goto(URL_ + '#/hoy');
   await dock.waitFor();
   check((await page.locator('.gx-mini').count()) === 0, 'restaurar persiste (barra)');
+
+
+  // ───── Acciones rápidas (pestaña sobre la pastilla) ─────
+  console.log('GREX · acciones rápidas');
+  await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor();
+  { await page.mouse.move(5, 5); await page.waitForTimeout(300);
+    const q = page.locator('.gx-quick'), pb = await page.locator('.gx-pill').boundingBox();
+    check((await q.evaluate((e) => getComputedStyle(e).opacity)) === '0', 'acciones: ocultas en reposo');
+    await page.locator('.gx-pill').hover(); await page.waitForTimeout(350);
+    const qb = await q.boundingBox();
+    check((await q.evaluate((e) => getComputedStyle(e).opacity)) === '1', 'acciones: aparecen con el cursor');
+    check(Math.abs(qb.width - pb.width) <= 1 && Math.abs(pb.y - (qb.y + qb.height) - 8) <= 1, `acciones: mismo ancho que la pastilla y a 8 px (${Math.round(qb.width)}, ${Math.round(pb.y - qb.y - qb.height)})`);
+    check((await q.locator('.gx-qc').count()) === 4, '4 acciones de fábrica');
+    await page.mouse.move(5, 5); await page.waitForTimeout(350);
+    check((await q.evaluate((e) => getComputedStyle(e).opacity)) === '0', 'acciones: se ocultan al salir');
+    await dock.getByRole('button', { name: 'Acciones rápidas', exact: true }).click(); await page.waitForTimeout(300);
+    await page.mouse.move(5, 5);
+    check((await q.evaluate((e) => getComputedStyle(e).opacity)) === '1' && (await dock.getAttribute('class')).includes(' q'), 'acciones: ⚡ las abre (táctil)');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    check((await q.evaluate((e) => getComputedStyle(e).opacity)) === '0', 'acciones: Esc las cierra');
+    await page.keyboard.press('Shift'); await dock.getByRole('button', { name: 'Minimizar a la mascota' }).focus(); await page.waitForTimeout(300);
+    check((await q.evaluate((e) => getComputedStyle(e).opacity)) === '1', 'acciones: aparecen al enfocar con teclado');
+    for (const b of await q.getByRole('button').all()) { const bb = await b.boundingBox(); if (bb.height < 43.5 || bb.width < 43.5) check(false, 'acción < 44 px: ' + ((await b.getAttribute('aria-label')) ?? (await b.innerText()))); }
+    // pulsar una acción: abre el chat con el texto en el campo, [tema] seleccionado, sin enviar
+    const n0 = apiHits.length;
+    await q.getByRole('button', { name: /Crear tarjetas de/ }).click();
+    panel = page.getByRole('dialog', { name: 'Asistente' }); await panel.waitFor();
+    const f = panel.getByLabel('Escribe tu mensaje');
+    check((await f.inputValue()) === 'Crear tarjetas de [tema]' && apiHits.length === n0, 'acción: rellena el campo y no envía');
+    check(await f.evaluate((e) => e.value.slice(e.selectionStart, e.selectionEnd) === '[tema]' && document.activeElement === e), 'acción: [tema] queda seleccionado y con el foco');
+    check((await panel.locator('.chat-hint').count()) === 1, 'aviso de partes editables');
+    await page.keyboard.type('anatomía');
+    check((await f.inputValue()) === 'Crear tarjetas de anatomía', 'escribir sobrescribe el marcador');
+    await f.fill('Registrar examen de [materia] el [fecha]'); await f.evaluate((e) => e.setSelectionRange(0, 0));
+    await page.keyboard.press('Tab'); check(await f.evaluate((e) => e.value.slice(e.selectionStart, e.selectionEnd)) === '[materia]', 'Tab: salta a [materia]');
+    await page.keyboard.press('Tab'); check(await f.evaluate((e) => e.value.slice(e.selectionStart, e.selectionEnd)) === '[fecha]', 'Tab: salta a [fecha]');
+    await f.fill(''); await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
+  }
+  // editar: en el sitio, añadir, quitar, persistir y validar
+  { await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    const q = page.locator('.gx-quick');
+    await q.getByRole('button', { name: 'Editar acciones' }).click();
+    const eds = q.locator('[contenteditable]');
+    check((await eds.count()) === 4 && (await eds.first().getAttribute('aria-label')) === 'Editar la acción', 'editar: cada acción es editable (aria-label)');
+    await eds.first().fill('Mi acción [x]'); await eds.first().press('Enter');
+    check((await q.locator('[contenteditable]').first().innerText()) === 'Mi acción [x]', 'editar: guarda en el sitio');
+    await q.getByRole('button', { name: 'Añadir' }).click();
+    check((await q.locator('[contenteditable]').count()) === 5, 'añadir: 5 acciones');
+    await q.getByRole('button', { name: 'Quitar la acción' }).last().click();
+    check((await q.locator('[contenteditable]').count()) === 4, 'quitar: 4 acciones');
+    await q.locator('[contenteditable]').nth(1).fill('x'.repeat(200)); await q.locator('[contenteditable]').nth(1).press('Enter');
+    check((await q.locator('[contenteditable]').nth(1).innerText()).length === 120, 'validación: máx. 120 caracteres');
+    await q.locator('[contenteditable]').nth(2).fill('línea uno\nlínea dos'); await q.locator('[contenteditable]').nth(2).press('Enter');
+    check(!(await q.locator('[contenteditable]').nth(2).innerText()).includes('\n'), 'validación: sin saltos de línea');
+    for (let i = 0; i < 6 && (await q.getByRole('button', { name: 'Añadir' }).count()); i++) await q.getByRole('button', { name: 'Añadir' }).click();
+    check((await q.locator('[contenteditable]').count()) === 8 && (await q.getByRole('button', { name: 'Añadir' }).count()) === 0, 'validación: máx. 8 acciones');
+    for (let i = 0; i < 4; i++) await q.getByRole('button', { name: 'Quitar la acción' }).last().click();
+    await q.getByRole('button', { name: 'Listo' }).click();
+    await page.waitForTimeout(700);
+    await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    check((await page.locator('.gx-quick .gx-qc').count()) === 4 && (await page.locator('.gx-quick .gx-qc').first().innerText()) === 'Mi acción [x]', 'la lista editada persiste tras recargar');
+    check(await page.evaluate(() => !JSON.stringify(localStorage).includes('Mi acción')), 'las acciones no se guardan en localStorage del navegador (van a Ajustes)');
+  }
+
+  // ───── Modelo y claves (misma pestaña) ─────
+  console.log('GREX · modelo y claves');
+  { await seed(); await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    const q = page.locator('.gx-quick');
+    await q.getByRole('button', { name: 'Modelo y claves' }).click();
+    const rg = q.getByRole('radiogroup'), rs = rg.getByRole('radio');
+    check((await rs.count()) === 2 && (await rs.first().getAttribute('aria-checked')) === 'true', 'claves: una fila por clave; la activa marcada');
+    const qb = await q.boundingBox(), pb = await page.locator('.gx-pill').boundingBox();
+    check(Math.abs(qb.width - pb.width) <= 1 && (await rs.first().evaluate((e) => e.closest('.gx-krow').getBoundingClientRect().height)) >= 46, 'claves: misma geometría de la pestaña y filas ≥ 46 px');
+    check(await page.evaluate(([a, b]) => { const h = document.body.innerHTML; return !h.includes(a) && !h.includes(b) && !h.includes(a.slice(0, -4)); }, [K1, K2]) && (await q.innerText()).includes('••••AAAA'), 'la clave nunca aparece completa (solo ••••últimos 4)');
+    await rs.first().focus(); await page.keyboard.press('ArrowDown');
+    check(await rs.nth(1).evaluate((e) => e === document.activeElement), 'teclado: ↓ mueve entre claves');
+    await page.keyboard.press('Space');
+    check((await rs.first().getAttribute('aria-checked')) === 'true' && (await rs.first().innerText()).includes('Dos') && (await q.getByText('Ahora responde con Dos').count()) === 1, 'elegir: «Ahora responde con Dos» (aria-live)');
+    check(await page.evaluate(() => JSON.parse(localStorage.getItem('engrama.chat.keys')).keys[0].alias === 'Dos'), 'elegir: esa clave pasa a ser la primera (persiste)');
+    check((await page.locator('.gx-ustrip .gx-u.on').getAttribute('data-key')) === 'b', 'la tira de uso marca la clave activa');
+    // la petición siguiente usa esa clave
+    await page.keyboard.press('Escape'); await page.mouse.move(5, 5);
+    mode = 'stream'; genKeys.length = 0;
+    await dock.locator('.gx-txt').click(); panel = page.getByRole('dialog', { name: 'Asistente' }); await panel.waitFor();
+    await panel.getByLabel('Escribe tu mensaje').fill('hola'); await panel.getByLabel('Escribe tu mensaje').press('Enter');
+    await page.locator('.chat-msg.assistant').first().waitFor();
+    check(genKeys.length >= 1 && genKeys[0].key === K2, 'la petición siguiente usa la clave elegida');
+    await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
+    // modelo: «Ver modelos disponibles» + elegir
+    await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    await q.getByRole('button', { name: 'Modelo y claves' }).click();
+    const lr0 = listReqs.length;
+    await q.getByRole('button', { name: 'Ver modelos disponibles' }).click();
+    await page.waitForFunction((n) => true, 0); await page.waitForTimeout(500);
+    check(listReqs.length === lr0 + 1 && listReqs[lr0].key === K2 && !listReqs[lr0].url.includes('AIza'), 'ver modelos: UNA petición, clave solo en cabecera');
+    await q.getByRole('button', { name: /Modelo de Dos/ }).click();
+    const mi = page.getByRole('menuitemradio', { name: 'gemini-2.5-pro' });
+    check((await mi.count()) === 1 && (await page.locator('.popover.gx-menu').evaluate((e) => +getComputedStyle(e).zIndex)) > 250, 'selector de modelo: incluye los obtenidos y queda sobre el asistente');
+    await mi.click();
+    await page.waitForTimeout(700);
+    check((await q.getByRole('button', { name: /Modelo de Dos/ }).innerText()).includes('gemini-2.5-pro'), 'elegir modelo: se ve en la fila');
+    check(await page.evaluate(() => /mono|Menlo|ui-monospace/i.test(getComputedStyle(document.querySelector('.gx-mdl .mono')).fontFamily)), 'el modelo va en monoespaciada');
+    await page.keyboard.press('Escape'); await page.mouse.move(5, 5);
+    genKeys.length = 0;
+    await dock.locator('.gx-txt').click(); await panel.waitFor();
+    await panel.getByLabel('Escribe tu mensaje').fill('otra'); await panel.getByLabel('Escribe tu mensaje').press('Enter');
+    await page.locator('.chat-msg.assistant').nth(1).waitFor().catch(() => {});
+    check(genKeys.length >= 1 && /models\/gemini-2\.5-pro:/.test(genKeys[0].url), 'cambiar de modelo llega a la siguiente petición');
+    await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
+    // claves no elegibles
+    await page.evaluate(() => { const o = JSON.parse(localStorage.getItem('engrama.chat.keys')); o.keys[1].status = 'invalid'; localStorage.setItem('engrama.chat.keys', JSON.stringify(o)); });
+    await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    await q.getByRole('button', { name: 'Modelo y claves' }).click();
+    const bad = q.getByRole('radio').nth(1);
+    check((await bad.getAttribute('aria-disabled')) === 'true' && (await bad.innerText()).includes('inválida'), 'clave inválida: atenuada, con su etiqueta y no elegible');
+    await bad.click({ force: true });
+    check(await page.evaluate(() => JSON.parse(localStorage.getItem('engrama.chat.keys')).keys[0].alias === 'Dos'), 'clave no elegible: no cambia el orden');
+    await q.getByRole('button', { name: 'Volver a las acciones' }).click();
+    check((await q.locator('.gx-qc').count()) === 4, '‹ vuelve a las acciones');
+    // sin claves
+    await page.evaluate(() => localStorage.removeItem('engrama.chat.keys'));
+    await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    await q.getByRole('button', { name: 'Modelo y claves' }).click();
+    check((await q.getByText('Aún no tienes claves').count()) === 1 && (await q.getByRole('button', { name: 'Añadir clave' }).count()) === 1 && (await page.locator('.gx-ustrip').count()) === 0, 'sin claves: aviso + «Añadir clave» y sin tira de uso');
+    await q.getByRole('button', { name: 'Añadir clave' }).click();
+    await page.waitForFunction(() => location.hash.startsWith('#/ajustes'));
+    check(true, '«Añadir clave» lleva a Ajustes');
+    // tira con 1–4 claves: se ajusta al contenido, ≤ pastilla, máx. 3 entradas y «+N»
+    const provs = ['gemini', 'groq', 'openrouter', 'kimi'], ws = [], ds = new Set();
+    for (let n = 1; n <= 4; n++) {
+      await page.evaluate(([n, provs]) => localStorage.setItem('engrama.chat.keys', JSON.stringify({ v: 1, keys: provs.slice(0, n).map((p, i) => ({ id: 'k' + i, alias: 'K' + i, provider: p, key: 'sk-test' + i + 'WXYZ', status: 'active' })) })), [n, provs]);
+      await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.waitForTimeout(200);
+      const st = page.locator('.gx-ustrip'), sb = await st.boundingBox(), pb = await page.locator('.gx-pill').boundingBox();
+      ws.push(sb.width);
+      check((await st.locator('.gx-u:not(.more)').count()) === Math.min(n, 3) && (await st.locator('.more').count()) === (n > 3 ? 1 : 0) && (n < 4 || (await st.locator('.more').innerText()) === '+1'), `tira con ${n} clave(s): ${Math.min(n, 3)} entradas${n > 3 ? ' y «+1»' : ''}`);
+      check(sb.width <= pb.width && (await st.locator('.gx-u.on').count()) === 1 && (await st.locator('.gx-u.on').evaluate((e) => +getComputedStyle(e).fontWeight)) >= 700 && (await st.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)), `tira con ${n}: ≤ ancho de la pastilla (${Math.round(sb.width)}), sin desborde, activa en Bold`);
+      for (const p of provs.slice(0, Math.min(n, 3))) ds.add(p + ':' + await st.locator(`[data-provider="${p}"] svg`).first().innerHTML());
+    }
+    check(ws[0] < ws[1] && ws[1] < ws[2] && ws[3] > ws[2], `ancho adaptable al contenido (${ws.map(Math.round)})`);
+    check(ds.size === 3 && new Set([...ds].map((x) => x.split(':')[1])).size === 3, 'logo propio por proveedor');
+    await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    await page.locator('.gx-quick').getByRole('button', { name: 'Modelo y claves' }).click();
+    check((await page.locator('.gx-quick').getByRole('radio').count()) === 4 && (await page.locator('.gx-quick .gx-lg svg').count()) === 4, 'el selector de claves muestra las 4 con su logo');
+    await seed(); await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor();
+  }
 
   // no solapa la firma ni la barra del editor (1024×768 y 1366×1024); claro y oscuro
   await page.goto(URL_ + '#/notas');

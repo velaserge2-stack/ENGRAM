@@ -6,34 +6,85 @@ html.kb-open { --gx-bottom: 16px; }
 .chat-fab, .gx-dock, .gx-mini, .chat-panel { --chat-sr: env(safe-area-inset-right); --chat-sb: env(safe-area-inset-bottom); font-family: var(--font); letter-spacing: -.012em; --ring: var(--border-strong); }
 html[class*="acc-"] .gx-avatar, html[class*="acc-"] .gx-mini, html[class*="acc-"] .chat-fab { --ring: var(--accent); }
 
-/* ───── pastilla: una fila, ≤ 440 × 56 ───── */
+/* ───── pastilla: una fila fija de 440 × 54 (texto · ⚡ · Dictar · minimizar · GREX) ───── */
 .gx-dock { position: fixed; z-index: var(--z-assistant); left: 50%; transform: translateX(-50%); bottom: calc(var(--chat-sb) + var(--gx-bottom)); width: min(440px, calc(100vw - 24px)); display: grid; justify-items: center; }
 html.kb-open .gx-dock { visibility: hidden; pointer-events: none; }
 body.focus .gx-dock, body.notes-full .gx-dock, body.focus .gx-mini, body.notes-full .gx-mini, body.focus .chat-fab, body.notes-full .chat-fab { display: none; }
-.gx-pill { width: 100%; height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 2px; padding: 0 6px; border-radius: 28px; }
+.gx-pill { width: 100%; height: 54px; box-sizing: border-box; display: flex; align-items: center; gap: 4px; padding: 0 6px 0 16px; border-radius: 27px; }
 .gx-ib { width: 44px; height: 44px; border-radius: 50%; border: 0; background: none; color: var(--t2); display: grid; place-items: center; cursor: pointer; flex: none; padding: 0; }
-.gx-txt { min-width: 0; flex: 1; padding: 0 6px; cursor: pointer; line-height: 1.15; }
-.gx-ttl { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; letter-spacing: -.025em; white-space: nowrap; }
-.gx-sub { font-size: 12.5px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -.01em; }
-.gx-sub.dots::after { content: ""; }
-.gx-act { height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 999px; border: var(--hair) solid var(--border); background: var(--fill); color: var(--t1); font: 700 14px/1 var(--font); letter-spacing: -.02em; cursor: pointer; flex: none; }
+.gx-ib:hover { background: var(--fill); }
+.gx-txt { min-width: 0; flex: 1; padding: 0 4px 0 0; cursor: text; line-height: 1.15; }
+.gx-ttl { font-size: 15px; font-weight: 700; letter-spacing: -.025em; white-space: nowrap; }
+.gx-sub { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--t2); line-height: 1.2; white-space: nowrap; letter-spacing: -.01em; }
+.gx-st { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.gx-st.dots::after { content: ""; }
+.gx-act { height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 999px; border: var(--hair) solid var(--border); background: var(--fill); color: var(--t1); font: 700 13.5px/1 var(--font); letter-spacing: -.02em; cursor: pointer; flex: none; }
 .gx-act.stop { background: var(--inverse-bg); color: var(--inverse-fg); border-color: transparent; min-width: 96px; justify-content: center; }
-.gx-avatar, .gx-mini { position: relative; padding: 0; display: grid; place-items: center; cursor: pointer; flex: none; border: 1.5px solid var(--ring); }
+.gx-avatar, .gx-mini { position: relative; padding: 0; display: grid; place-items: center; cursor: pointer; flex: none; border: 1.2px solid var(--ring); }
 .gx-avatar { width: 44px; height: 44px; border-radius: 15px; background: var(--fill); margin-left: 2px; }
 .gx-dock.work .gx-avatar::after, .gx-mini.work::after { content: ""; position: absolute; inset: -4px; border-radius: 19px; border: 1.5px solid var(--ring); opacity: .5; pointer-events: none; }
-/* prompts rápidos: pestañita sobre la pastilla, oculta hasta el cursor o el foco (la maqueta final la ajusta) */
-.gx-quick { position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 999px; opacity: 0; pointer-events: none; transition: opacity .12s; white-space: nowrap; }
-.gx-dock:hover .gx-quick, .gx-dock:focus-within .gx-quick { opacity: 1; pointer-events: auto; }
-.gx-chip { min-height: 44px; padding: 0 12px; border-radius: 999px; border: 0; background: none; color: var(--t1); font: 700 13px/1 var(--font); letter-spacing: -.01em; cursor: pointer; }
-/* uso por clave: chip diminuto junto al nombre (barra 28 px + %); desde el 80 % en negrita */
-.gx-u { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; color: var(--t2); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.gx-bar { width: 28px; height: 4px; border-radius: 9px; background: var(--fill-2); overflow: hidden; display: inline-block; }
+.mono { font-family: var(--mono, ui-monospace, Menlo, monospace); font-variant-numeric: tabular-nums; letter-spacing: -.02em; font-weight: 500; }
+/* uso por clave: segunda pastilla «unida» bajo la principal (la principal no se mueve; la tira cuelga y puede recortarse en el borde) */
+.gx-pw { position: relative; width: 100%; }
+.gx-ustrip { position: absolute; z-index: -1; top: calc(100% - 16px); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 48px); height: 36px; box-sizing: border-box; padding: 17px 16px 3px; border-radius: 0 0 19px 19px; display: flex; justify-content: center; gap: 14px; font-size: 12px; font-weight: 600; color: var(--t2); white-space: nowrap; overflow: hidden; pointer-events: none; }
+.gx-u { display: inline-flex; align-items: center; gap: 6px; line-height: 1; font-variant-numeric: tabular-nums; flex: none; }
+.gx-u.on { color: var(--t1); font-weight: 700; }
+.gx-u .gx-pc { font-size: 11px; font-weight: inherit; }
+.gx-u.on .gx-pc, .gx-u.hot .gx-pc { font-weight: 700; }
+.gx-ustrip .gx-u svg { opacity: .8; }
+.gx-ustrip .gx-u.on svg { opacity: 1; }
+.gx-u.more { font-weight: 700; }
+.gx-bar { width: 30px; height: 4px; border-radius: 9px; background: var(--fill-2); overflow: hidden; display: inline-block; }
 .gx-bar i { display: block; height: 100%; background: var(--t1); border-radius: 9px; }
-.gx-u.hot { color: var(--t1); font-weight: 800; }
-.gx-u.hot .gx-bar { height: 6px; }
+.gx-u.hot { font-weight: 800; }
+.gx-u.hot .gx-bar { height: 5px; }
 
-/* ───── minimizada: solo GREX, un cuadrito abajo a la derecha (fijo) ───── */
-.gx-mini { position: fixed; z-index: var(--z-assistant); right: calc(var(--chat-sr) + 16px); bottom: calc(var(--chat-sb) + var(--gx-bottom) + var(--kb-inset, 0px)); width: 56px; height: 56px; border-radius: 19px; box-shadow: var(--shadow); }
+/* «Acciones rápidas»: pestaña separada 8 px, mismo ancho que la pastilla, radio concéntrico; sale con cursor, foco o ⚡ */
+.gx-quick { position: absolute; bottom: calc(100% + 8px); left: 0; right: 0; box-sizing: border-box; display: grid; gap: 8px; padding: 10px; border-radius: 24px; opacity: 0; transform: translateY(6px); pointer-events: none; visibility: hidden; transition: opacity .18s, transform .18s cubic-bezier(.3, 1.4, .5, 1), visibility 0s .18s; }
+.gx-quick::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 12px; }
+.gx-dock:hover .gx-quick, .gx-dock:has(.gx-quick :focus-visible, .gx-pill .gx-ib:focus-visible, .gx-pill .gx-act:focus-visible) .gx-quick, .gx-dock.q .gx-quick { opacity: 1; transform: none; pointer-events: auto; visibility: visible; transition-delay: 0s; }
+.gx-qh { display: flex; align-items: center; gap: 2px; height: 30px; padding-left: 6px; font-size: 12px; font-weight: 700; color: var(--t2); letter-spacing: .04em; text-transform: uppercase; }
+.gx-qh > span { flex: 1; display: inline-flex; align-items: center; gap: 5px; }
+.gx-qh .gx-ib { margin: -7px 0; }
+.gx-qs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.gx-qc > span { min-width: 0; overflow-wrap: anywhere; }
+.gx-qc { min-height: 46px; padding: 7px 12px; border-radius: 14px; text-align: left; line-height: 1.2; white-space: normal; display: flex; align-items: center; gap: 6px; border: var(--hair) solid var(--border); background: var(--fill); color: var(--t1); font: 600 13px/1.2 var(--font); letter-spacing: -.015em; cursor: pointer; }
+.gx-qc:hover { background: var(--inverse-bg); color: var(--inverse-fg); }
+.gx-qc em { font-style: normal; opacity: .55; }
+.gx-qc.edit { cursor: default; }
+.gx-qc.edit:hover { background: var(--fill); color: var(--t1); }
+.gx-qc.edit > span { flex: 1; min-width: 0; outline: 1.5px dashed var(--t2); outline-offset: 3px; border-radius: 6px; cursor: text; overflow-wrap: anywhere; font-size: 16px; }
+.gx-qx { width: 44px; height: 44px; margin: -8px -10px -8px 0; border: 0; background: none; color: inherit; display: grid; place-items: center; cursor: pointer; flex: none; }
+.gx-qc.add { border-style: dashed; color: var(--t2); justify-content: center; }
+.gx-qc.add:hover { color: var(--inverse-fg); }
+
+/* «Modelo y claves» (misma pestaña): filas tipo radio ≥ 46 px, clave nunca completa */
+.gx-krows { display: grid; gap: 8px; }
+.gx-krow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; min-height: 52px; padding: 3px 6px 3px 0; border-radius: 14px; border: var(--hair) solid var(--border); background: var(--fill); }
+.gx-krow:has([aria-checked="true"]) { border: 1.5px solid var(--t1); background: var(--glass-2, var(--fill)); }
+.gx-krow.off { opacity: .55; }
+.gx-kmain { display: grid; grid-template-columns: 22px 28px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 46px; padding: 0 0 0 12px; background: none; border: 0; text-align: left; color: var(--t1); font: inherit; cursor: pointer; }
+.gx-kmain[aria-disabled="true"] { cursor: default; }
+.gx-dot { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--t3); display: grid; place-items: center; }
+[aria-checked="true"] > .gx-dot { border-color: var(--t1); }
+[aria-checked="true"] > .gx-dot::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--t1); }
+.gx-lg { width: 28px; height: 28px; border-radius: 10px; background: var(--glass-2, var(--fill)); border: var(--hair) solid var(--border); display: grid; place-items: center; color: var(--t1); }
+.gx-kt { min-width: 0; line-height: 1.2; }
+.gx-kt b { display: block; font-size: 14px; font-weight: 700; letter-spacing: -.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gx-kt small { display: block; font-size: 12px; color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gx-mdl { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; max-width: 150px; padding: 0 10px; border-radius: 10px; border: var(--hair) solid var(--border); background: var(--fill); color: var(--t2); font: 700 12px/1 var(--font); cursor: pointer; }
+.gx-mdl .mono { font-size: 11px; font-weight: 600; }
+.gx-mdl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gx-kfoot { display: flex; gap: 8px; }
+.gx-kfoot .gx-qc { flex: 1; justify-content: center; min-height: 46px; font-size: 12.5px; text-align: center; }
+.gx-kempty { display: grid; justify-items: center; gap: 8px; padding: 8px 0; }
+.gx-kerr { margin: 0; font-size: 12px; color: var(--t2); overflow-wrap: anywhere; }
+.popover.gx-menu { z-index: var(--z-modal); }
+.gx-mi { display: flex; width: 100%; min-height: 44px; align-items: center; padding: 0 12px; border: 0; border-radius: 10px; background: none; color: var(--t1); cursor: pointer; text-align: left; }
+.gx-mi[aria-checked="true"] { font-weight: 800; background: var(--fill); }
+
+/* ───── minimizada: solo GREX, un cuadrito de 56 px abajo a la derecha (fijo) ───── */
+.gx-mini { position: fixed; z-index: var(--z-assistant); right: calc(var(--chat-sr) + 16px); bottom: calc(var(--chat-sb) + var(--gx-bottom) + var(--kb-inset, 0px)); width: 56px; height: 56px; border-radius: 18px; box-shadow: var(--shadow); }
 .gx-mini:active, .gx-avatar:active { transform: scale(.95); }
 
 /* ───── botón del teléfono (sin pastilla) ───── */
@@ -46,7 +97,7 @@ html.is-phone body:has(.mini-amb.open) .chat-fab { visibility: hidden; }
 .chat-panel { position: fixed; z-index: var(--z-assistant); display: flex; flex-direction: column; overflow: hidden; border-radius: var(--r-panel); box-shadow: var(--shadow); animation: up .25s var(--spring); }
 .chat-panel.compact { right: calc(var(--chat-sr) + 16px); bottom: calc(var(--chat-sb) + 16px + var(--kb-inset, 0px)); width: min(360px, calc(100vw - 32px)); height: min(520px, calc(100dvh - var(--bar-top, 72px) - 16px - var(--chat-sb) - var(--kb-inset, 0px))); }
 /* grande: lateral, casi toda la altura, por debajo de la barra superior */
-.chat-panel.large { right: calc(var(--chat-sr) + 12px); top: var(--bar-top, calc(env(safe-area-inset-top) + 72px)); bottom: calc(var(--chat-sb) + 16px + var(--kb-inset, 0px)); width: min(760px, calc(100vw - 48px)); }
+.chat-panel.large { right: calc(var(--chat-sr) + 12px); top: var(--bar-top, calc(env(safe-area-inset-top) + 72px)); bottom: calc(var(--chat-sb) + 16px + var(--kb-inset, 0px)); width: min(640px, calc(100vw - 32px)); }
 
 .chat-h { display: flex; align-items: center; gap: 4px; padding: 6px 6px 6px 12px; border-bottom: var(--hair) solid var(--line); flex: none; }
 .chat-title { flex: 1; min-width: 0; display: grid; margin-left: 4px; }
@@ -85,15 +136,18 @@ html.is-phone body:has(.mini-amb.open) .chat-fab { visibility: hidden; }
 .chat-form { display: flex; align-items: flex-end; gap: 8px; padding: 8px 10px 10px; border-top: var(--hair) solid var(--line); flex: none; }
 .chat-form textarea { flex: 1; min-width: 0; min-height: 44px; max-height: 140px; resize: none; font-size: 16px; line-height: 1.35; border-radius: 22px; }
 
+/* aviso de [marcadores] bajo el registro, solo con partes por editar */
+.chat-hint { margin: 0; padding: 4px 14px 0; font-size: 11.5px; font-weight: 600; color: var(--t2); flex: none; }
+
 /* teléfono: hoja a pantalla completa */
 html.is-phone .chat-panel { inset: 0 0 var(--kb-inset, 0px) 0; width: auto; height: auto; border-radius: 0; padding: env(safe-area-inset-top) var(--chat-sr) var(--chat-sb) env(safe-area-inset-left); box-shadow: none; }
 
 @media print { .chat-fab, .chat-panel, .gx-dock, .gx-mini { display: none !important; } }
 @media (prefers-reduced-motion: no-preference) {
   .gx-dock.work .gx-avatar::after, .gx-mini.work::after { animation: gx-pulse 1.6s ease-out infinite; }
-  .gx-sub.dots::after { animation: gx-ell 1.2s steps(4) infinite; }
+  .gx-st.dots::after { animation: gx-ell 1.2s steps(4) infinite; }
 }
-@media (prefers-reduced-motion: reduce) { .chat-panel { animation: none; } .gx-sub.dots::after { content: "…"; } }
+@media (prefers-reduced-motion: reduce) { .chat-panel { animation: none; } .gx-quick { transition: none; transform: none; } .gx-st.dots::after { content: "…"; } }
 @keyframes gx-pulse { from { transform: scale(.94); opacity: .6; } to { transform: scale(1.12); opacity: 0; } }
 @keyframes gx-ell { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
 
@@ -121,12 +175,12 @@ html.is-phone .chat-panel { inset: 0 0 var(--kb-inset, 0px) 0; width: auto; heig
 .chat-panel.sty-b.glass { background: #0d0e10; color: #f4f5f7; --t1: #f4f5f7; --t2: rgba(244, 245, 247, .7); --t3: rgba(244, 245, 247, .5); --line: rgba(255, 255, 255, .14); --fill: rgba(255, 255, 255, .1); --fill-2: rgba(255, 255, 255, .06); --border: rgba(255, 255, 255, .25); --border-strong: rgba(255, 255, 255, .5); --inverse-bg: #f4f5f7; --inverse-fg: #0d0e10; }
 
 /* Dictado (voice.ts): botón «Dictar», estado escuchando, texto provisional, mensaje */
-.gx-ib.vz.on, .btn.icon.vz.on { background: var(--inverse-bg); color: var(--inverse-fg); border-color: transparent; }
+.gx-act.vz.on, .btn.icon.vz.on { background: var(--inverse-bg); color: var(--inverse-fg); border-color: transparent; }
 .gx-voz-msg { font-size: 13px; color: var(--t2); text-align: center; min-height: 0; }
 .gx-voz-msg:empty { display: none; }
 .gx-voz-msg { padding: 2px 12px 6px; }
 .chat-form textarea.vz-int { color: var(--t2); font-style: italic; }
 @media (prefers-reduced-motion: no-preference) {
-  .gx-ib.vz.on, .btn.icon.vz.on { animation: vz-ring 1.6s ease-out infinite; }
+  .gx-act.vz.on, .btn.icon.vz.on { animation: vz-ring 1.6s ease-out infinite; }
   @keyframes vz-ring { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--inverse-bg) 40%, transparent); } to { box-shadow: 0 0 0 10px transparent; } }
 }

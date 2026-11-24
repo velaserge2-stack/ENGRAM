@@ -10,6 +10,7 @@ import { getStatus, type Msg, messages, clear, subscribe } from './history';
 import { loadKeys, pickKey } from './keys';
 import { citeHref, citeLabel, PDF_CITE, resolveNote, resolvePdf } from './cites';
 import { Mascot, MASCOT_NAME, useMascotState } from './mascot';
+import { MARK } from './quick';
 import { forgetProposals } from './proposal';
 import { Preview } from './preview';
 import type { Source } from './tools';
@@ -84,6 +85,16 @@ function Answer(p: { text: string; sources?: Source[]; onCite: () => void }) {
   );
 }
 
+/** Tab salta al siguiente [marcador] del campo (selecciónalo para sobrescribirlo); sin más marcadores deja el Tab normal. */
+function jumpMark(el: HTMLTextAreaElement): boolean {
+  const re = /\[[^\]]+\]/g;
+  re.lastIndex = el.selectionEnd;
+  const m = re.exec(el.value);
+  if (!m) return false;
+  el.setSelectionRange(m.index, m.index + m[0].length);
+  return true;
+}
+
 function Settings(p: { onClick: () => void }) {
   return <button type="button" class="btn small" onClick={p.onClick}>{t('chat.p_ajustes')}</button>;
 }
@@ -135,14 +146,14 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
   // teléfono = hoja a pantalla completa (modal, foco atrapado); iPad y web = panel que no bloquea la app
   useLayer(p.onClose, { modal: p.phone, el: () => root.current });
   useLayoutEffect(() => { if (!p.phone) input.current?.focus(); }, []);
-  const [foc, setFoc] = useState(false), [has, setHas] = useState(false);
+  const [foc, setFoc] = useState(false), [has, setHas] = useState(false), [marks, setMarks] = useState(false);
   // prompt rápido: rellena el campo (nunca envía) y deja seleccionado el primer [marcador]
   useLayoutEffect(() => {
     const el = input.current;
     if (!p.prefill || !el) return;
     el.value = p.prefill.text; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
-    el.focus(); setHas(true);
-    const m = /\[[^\]]+\]/.exec(el.value);
+    el.focus(); setHas(true); setMarks(true);
+    const m = MARK.exec(el.value);
     if (m) el.setSelectionRange(m.index, m.index + m[0].length); else el.setSelectionRange(el.value.length, el.value.length);
   }, [p.prefill?.n]);
   // dictado: el texto va al campo (base previa + definitivo + provisional); nunca se envía solo
@@ -164,7 +175,7 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
     const el = input.current;
     if (!el || !el.value.trim() || st.busy) return;
     const q = el.value;
-    el.value = ''; el.style.height = ''; setHas(false);
+    el.value = ''; el.style.height = ''; setHas(false); setMarks(false);
     stick.current = true;
     setModels(app.settings.chat.models, app.settings.chat.context);
     run(q);
@@ -199,9 +210,10 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
           {msgs.map((m) => (m.role === 'assistant' && !m.text ? null : <Bubble key={m.id} m={m} onSettings={toSettings} onCite={() => { if (p.phone) p.onClose(); }} onRetry={lastUser && !st.busy ? () => { stick.current = true; setModels(app.settings.chat.models, app.settings.chat.context); run(lastUser); } : undefined} />))}
           {waiting && <p class="chat-note" role="status">{st.waitS ? t('chat.p_espera', { s: st.waitS }) : st.tool ? t('chat.p_buscando') : t('chat.p_pensando')}</p>}
         </div>
+        {marks && <p class="chat-hint">{t('chat.p_marcas')}</p>}
         <form class="chat-form" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-          <textarea ref={input} class={`input${dict.interim ? ' vz-int' : ''}`} rows={1} aria-label={t('chat.p_escribe')} placeholder={t('chat.p_escribe')} onInput={(e) => { grow(e); setHas(!!(e.currentTarget as HTMLTextAreaElement).value.trim()); }} onFocus={() => setFoc(true)} onBlur={() => setFoc(false)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !p.phone) { e.preventDefault(); submit(); } }} />
+          <textarea ref={input} class={`input${dict.interim ? ' vz-int' : ''}`} rows={1} aria-label={t('chat.p_escribe')} placeholder={t('chat.p_escribe')} onInput={(e) => { grow(e); const v = (e.currentTarget as HTMLTextAreaElement).value; setHas(!!v.trim()); setMarks(MARK.test(v)); }} onFocus={() => setFoc(true)} onBlur={() => setFoc(false)}
+            onKeyDown={(e) => { if (e.key === 'Tab' && !e.shiftKey && jumpMark(e.currentTarget as HTMLTextAreaElement)) e.preventDefault(); if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !p.phone) { e.preventDefault(); submit(); } }} />
           <DictButton variant="icon" />
           {/* claves distintas: si no, el mismo <button> pasaría de «Detener» a «Enviar» en pleno clic y lo enviaría */}
           {st.busy

@@ -6,7 +6,7 @@
 <title>GREX · maqueta de la barra y el chat</title>
 <style>
 :root{
-  --font:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --font:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;--mono:ui-monospace,Menlo,monospace;
   --t1:#101113;--t2:rgba(16,17,19,.62);--t3:rgba(16,17,19,.4);
   --glass:rgba(255,255,255,.62);--glass2:rgba(255,255,255,.86);--line:rgba(255,255,255,.8);--hair:rgba(16,17,19,.1);
   --ink:#101113;--ink-t:#fff;--chip:rgba(16,17,19,.06);--shadow:0 16px 44px rgba(20,24,40,.2),0 2px 8px rgba(20,24,40,.1);
@@ -51,10 +51,10 @@ table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}td,th{
 .layer > *{pointer-events:auto}
 .mini{position:absolute;right:16px;bottom:16px;width:56px;height:56px;border-radius:18px;display:grid;place-items:center;cursor:pointer;border:.5px solid var(--line);padding:0}
 .mini:active,.avatar:active{transform:scale(.95)}
-.pillwrap{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:grid;justify-items:center}
-.pill{height:54px;max-width:440px;min-width:380px;border-radius:27px;display:flex;align-items:center;gap:6px;padding:0 8px 0 7px;position:relative}
-.avatar{width:42px;height:42px;border-radius:14px;border:1.2px solid var(--ring);background:var(--glass2);display:grid;place-items:center;cursor:pointer;padding:0;flex:none}
-.pill .txt{min-width:0;flex:1;padding:0 4px 0 6px;cursor:text}
+.pillwrap{position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);display:grid;justify-items:center} /* la pastilla queda a 16 px del borde; la tira de uso cuelga debajo y roza el borde */
+.pill{height:54px;width:440px;max-width:calc(100vw - 24px);border-radius:27px;display:flex;align-items:center;gap:6px;padding:0 6px 0 16px;position:relative}
+.avatar{width:42px;height:42px;border-radius:15px;border:1.2px solid var(--ring);background:var(--glass2);display:grid;place-items:center;cursor:pointer;padding:0;flex:none}
+.pill .txt{min-width:0;flex:1;padding:0 4px 0 0;cursor:text}
 .pill .ttl{font-size:15px;font-weight:700;letter-spacing:-.025em;line-height:1.15;white-space:nowrap}
 .pill .sub{font-size:12px;color:var(--t2);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:7px;align-items:center}
 .u{display:inline-flex;align-items:center;gap:4px;font-weight:600}
@@ -63,17 +63,33 @@ table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}td,th{
 .ib:hover{background:var(--chip)}
 .act{height:36px;display:flex;align-items:center;gap:6px;padding:0 12px;border-radius:999px;border:.5px solid var(--hair);background:var(--chip);color:var(--t1);font:inherit;font-weight:700;font-size:13.5px;letter-spacing:-.02em;cursor:pointer;flex:none}
 .act.p{background:var(--ink);color:var(--ink-t);border-color:transparent}
-.qtab{position:absolute;bottom:calc(100% - 1px);left:50%;transform:translate(-50%,6px);opacity:0;pointer-events:none;transition:.16s cubic-bezier(.3,1.4,.5,1);width:max-content;max-width:min(560px,92vw);border-radius:16px 16px 4px 4px;padding:8px 8px 9px;display:grid;gap:7px}
-.pillwrap:hover .qtab,.pillwrap.q .qtab,.pillwrap:focus-within .qtab{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.qtab{position:absolute;bottom:calc(100% + 8px);left:0;right:0;transform:translateY(6px);opacity:0;pointer-events:none;transition:.18s cubic-bezier(.3,1.4,.5,1);border-radius:24px;padding:10px;display:grid;gap:8px}
+.pillwrap:hover .qtab,.pillwrap.q .qtab,.pillwrap:focus-within .qtab{opacity:1;transform:none;pointer-events:auto}
 .qtab::after{content:"";position:absolute;left:0;right:0;top:100%;height:12px}
-.qh{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--t2);letter-spacing:.02em;text-transform:uppercase;padding:0 4px}
+.pillwrap{width:440px;max-width:calc(100vw - 24px)}
+.qh{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--t2);letter-spacing:.04em;text-transform:uppercase;padding:0 4px 0 6px;height:30px}
 .qh span{flex:1}.qh button{width:30px;height:30px}
-.qs{display:flex;gap:6px;flex-wrap:wrap}
-.qc{min-height:34px;padding:0 12px;border-radius:999px;border:.5px solid var(--hair);background:var(--chip);color:var(--t1);font:inherit;font-weight:600;font-size:13px;letter-spacing:-.015em;cursor:pointer;white-space:nowrap}
+.qs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.qc{min-height:46px;padding:7px 12px;border-radius:14px;text-align:left;line-height:1.2;white-space:normal;display:flex;align-items:center;border:.5px solid var(--hair);background:var(--chip);color:var(--t1);font:inherit;font-weight:600;font-size:13px;letter-spacing:-.015em;cursor:pointer}
 .qc:hover{background:var(--ink);color:var(--ink-t)}
 .qc em{font-style:normal;opacity:.55}
-.qc[contenteditable=true]{outline:1.5px dashed var(--t2);outline-offset:1px;cursor:text}
-.qadd{border-style:dashed;color:var(--t2)}
+.qc span[contenteditable=true]{outline:1.5px dashed var(--t2);outline-offset:3px;border-radius:6px;cursor:text}
+.krow{display:grid;grid-template-columns:22px 28px 1fr auto;gap:10px;align-items:center;min-height:52px;padding:7px 12px;border-radius:14px;border:.5px solid var(--hair);background:var(--chip);cursor:pointer;text-align:left;color:var(--t1);font:inherit}
+.krow[aria-checked=true]{border:1.5px solid var(--ink);background:var(--glass2)}
+.krow .dot{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--t3);display:grid;place-items:center}
+.krow[aria-checked=true] .dot{border-color:var(--ink)}.krow[aria-checked=true] .dot::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--ink)}
+.krow b{display:block;font-size:14px;letter-spacing:-.02em;line-height:1.2}.krow small{display:block;white-space:nowrap;font-size:12px;color:var(--t2);line-height:1.25}
+.krow .mdl{font-size:12px;font-weight:700;color:var(--t2);background:var(--chip);border:.5px solid var(--hair);border-radius:10px;padding:5px 9px;white-space:nowrap}
+.krow .lg{width:28px;height:28px;border-radius:10px;background:var(--glass2);border:.5px solid var(--hair);display:grid;place-items:center;color:var(--t1)}
+.kfoot{display:flex;gap:8px}.kfoot .qc{flex:1;min-height:40px;justify-content:center;font-size:12.5px}
+.ustrip{position:relative;z-index:0;margin-top:-16px;width:max-content;max-width:calc(100% - 48px);padding:17px 16px 3px;height:36px;border-radius:0 0 19px 19px;display:flex;justify-content:center;gap:14px;font-size:12px;font-weight:600;color:var(--t2);white-space:nowrap;overflow:hidden}
+.ustrip span{display:inline-flex;align-items:center;gap:6px;line-height:1}.pl{flex:none;display:block}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em;font-weight:500}
+.ustrip .mono{font-size:11px}.ustrip .on .mono,.ustrip .hot .mono{font-weight:700}.mdl.mono{font-size:11px;font-weight:600}.krow small .mono{font-size:11px}.ustrip .pl{opacity:.8}.ustrip .on .pl{opacity:1}.ustrip .more{font-weight:700;color:var(--t2)}
+.ustrip i{display:inline-block;width:30px;height:4px;border-radius:9px;background:var(--hair);overflow:hidden}.ustrip i b{display:block;height:100%;background:var(--t1);border-radius:9px}
+.ustrip .on{color:var(--t1);font-weight:700}.ustrip .hot i{height:5px}
+.pill{z-index:1}
+.qadd{border-style:dashed;color:var(--t2);justify-content:center;gap:6px}
 .dock-note{position:absolute;left:50%;transform:translateX(-50%);bottom:76px;font-size:11.5px;font-weight:700;color:var(--t2);background:var(--glass2);padding:4px 10px;border-radius:99px;border:.5px solid var(--hair);white-space:nowrap}
 
 .chat{position:absolute;display:grid;grid-template-rows:auto 1fr auto;border-radius:26px;overflow:hidden}
@@ -111,6 +127,7 @@ table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}td,th{
   <div class="seg" id="states" role="group" aria-label="Estado">
     <button data-s="mini" aria-pressed="true">① Mascota</button><button data-s="pill" aria-pressed="false">② Pastilla</button><button data-s="chat" aria-pressed="false">③ Chat compacto</button><button data-s="large" aria-pressed="false">④ Chat grande</button>
   </div>
+  <div class="seg" id="nk" role="group" aria-label="Claves"><button data-n="1" aria-pressed="false">1 clave</button><button data-n="2" aria-pressed="false">2</button><button data-n="3" aria-pressed="true">3</button><button data-n="4" aria-pressed="false">4</button></div>
   <div class="seg"><button id="tl" aria-pressed="true">Claro</button><button id="td" aria-pressed="false">Oscuro</button></div>
 </div>
 <p class="help">Solo un elemento a la vez. Todo flota por <b>encima</b> de la pantalla (la regla de puntos abajo no se mueve nunca). En ② pasa el cursor sobre la pastilla (o toca ⚡) para ver «Acciones rápidas». Pulsa una acción: se escribe en el campo del chat con partes <span class="tok">[editables]</span> y no se envía sola.</p>
@@ -147,17 +164,25 @@ big:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="current
 up:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
 pc:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>'};
 let prompts=[['Crear tarjetas de ','[tema]'],['Resumir la nota ','[nota]'],['Registrar examen de ','[materia]',' el ','[fecha]'],['Explícame ','[concepto]',' en 5 líneas']];
-let state='mini',editQ=false,filled=null,rest='mini';
+const LOGO={gemini:["M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"],groq:["M12.036 2c-3.853-.035-7 3-7.036 6.781-.035 3.782 3.055 6.872 6.908 6.907h2.42v-2.566h-2.292c-2.407.028-4.38-1.866-4.408-4.23-.029-2.362 1.901-4.298 4.308-4.326h.1c2.407 0 4.358 1.915 4.365 4.278v6.305c0 2.342-1.944 4.25-4.323 4.279a4.375 4.375 0 01-3.033-1.252l-1.851 1.818A7 7 0 0012.029 22h.092c3.803-.056 6.858-3.083 6.879-6.816v-6.5C18.907 4.963 15.817 2 12.036 2z"],openrouter:["M18.654 3.87a5.087 5.087 0 110 10.174L23.7 19.09c.64.641.187 1.737-.72 1.737H8.48a8.479 8.479 0 010-16.958h10.175zM8.479 7.26a5.087 5.087 0 100 10.176 5.087 5.087 0 000-10.175z"],kimi:["M21.846 0a1.923 1.923 0 110 3.846H20.15a.226.226 0 01-.227-.226V1.923C19.923.861 20.784 0 21.846 0z", "M11.065 11.199l7.257-7.2c.137-.136.06-.41-.116-.41H14.3a.164.164 0 00-.117.051l-7.82 7.756c-.122.12-.302.013-.302-.179V3.82c0-.127-.083-.23-.185-.23H3.186c-.103 0-.186.103-.186.23V19.77c0 .128.083.23.186.23h2.69c.103 0 .186-.102.186-.23v-3.25c0-.069.025-.135.069-.178l2.424-2.406a.158.158 0 01.205-.023l6.484 4.772a7.677 7.677 0 003.453 1.283c.108.012.2-.095.2-.23v-3.06c0-.117-.07-.212-.164-.227a5.028 5.028 0 01-2.027-.807l-5.613-4.064c-.117-.078-.132-.279-.028-.381z"]};
+const logo=(k,sz=10)=>`<svg class="pl" width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true">${(LOGO[k]||[]).map(d=>`<path d="${d}"/>`).join("")}</svg>`;
+let state='mini',editQ=false,filled=null,rest='mini',qmode='acc',keySel=0;
+const ALLKEYS=[['GREX','Gemini','••••rr4w','gemini-flash-latest','12 %','gemini'],['GREX GROQ','Groq','••••LD91','llama-3.3-70b','0 %','groq'],['Personal','OpenRouter','••••k2Qa','llama-3.3-70b:free','3 %','openrouter'],['Kimi','Kimi','••••m9Xz','kimi-k2-0905-preview','84 %','kimi']];
+let nKeys=3;let KEYS=ALLKEYS.slice(0,nKeys);
 const layer=$('#layer');
-function qc(p,i){return `<button class="qc" data-i="${i}" ${editQ?'contenteditable="true"':''}>${p.map((x,k)=>k%2?`<em>${x}</em>`:x).join('')}</button>`}
+function qc(p,i){return `<button class="qc" data-i="${i}"><span ${editQ?'contenteditable="true"':''}>${p.map((x,k)=>k%2?`<em>${x}</em>`:x).join('')}</span></button>`}
 function render(){
   const full=state==='large'?'large':'chat';
   if(state==='mini') layer.innerHTML=`<button class="mini glass" aria-label="Abrir a GREX" id="m">${mascot('idle',44)}</button>`;
   if(state==='pill') layer.innerHTML=`<div class="pillwrap ${editQ?'q':''}" id="pw">
-    <div class="qtab glass"><div class="qh"><span>⚡ Acciones rápidas</span><button class="ib" aria-label="Ajustes del asistente">${I.set}</button><button class="ib" id="qe" aria-label="Editar acciones">${I.pen}</button></div><div class="qs">${prompts.map(qc).join('')}${editQ?`<button class="qc qadd" id="qa">${I.pc} Añadir</button>`:''}</div></div>
-    <div class="pill glass"><button class="avatar" id="av" aria-label="Abrir el chat">${mascot('idle',34)}</button>
-      <div class="txt" id="tx"><div class="ttl">GREX</div><div class="sub">Toca para escribir <span class="u"><i><b style="width:12%"></b></i>Gemini 12 %</span></div></div>
-      <button class="ib" id="qb" aria-label="Acciones rápidas">${I.bolt}</button><button class="act" id="dc">${I.mic} Dictar</button><button class="ib" id="mn" aria-label="Minimizar a la mascota">${I.min}</button></div></div>`;
+    <div class="qtab glass">${qmode==='acc'?`<div class="qh"><span>⚡ Acciones rápidas</span><button class="ib" id="qs" aria-label="Modelo y claves">${I.set}</button><button class="ib" id="qe" aria-label="Editar acciones">${I.pen}</button></div><div class="qs">${prompts.map(qc).join('')}${editQ?`<button class="qc qadd" id="qa">${I.pc} Añadir</button>`:''}</div>`
+      :`<div class="qh"><button class="ib" id="qbk" aria-label="Volver a las acciones">‹</button><span>Modelo y claves</span></div><div class="qs" style="grid-template-columns:1fr">${KEYS.map((k,i)=>`<button class="krow" role="radio" aria-checked="${i===keySel}" data-k="${i}"><span class="dot"></span><span class="lg">${logo(k[5],12)}</span><span><b>${k[0]}</b><small>${k[1]} · <span class="mono">${k[2]} · ${k[4]}</span></small></span><span class="mdl mono">${k[3]} ⌄</span></button>`).join('')}</div><div class="kfoot"><button class="qc" id="kv">Ver modelos disponibles</button><button class="qc" id="ka">Todos los ajustes…</button></div>`}</div>
+    <div class="pill glass">
+      <div class="txt" id="tx"><div class="ttl">GREX</div><div class="sub">Toca para escribir</div></div>
+      <button class="ib" id="qb" aria-label="Acciones rápidas">${I.bolt}</button>
+      <button class="act" id="dc">${I.mic} Dictar</button><button class="ib" id="mn" aria-label="Minimizar a la mascota">${I.min}</button>
+      <button class="avatar" id="av" aria-label="Abrir el chat">${mascot('idle',34)}</button></div>
+    <div class="ustrip glass" role="status" aria-label="Uso por modelo">${KEYS.slice(0,3).map((k,i)=>`<span class="${i===keySel?'on':''} ${parseInt(k[4])>=80?'hot':''}" title="${k[1]}">${logo(k[5])}<i><b style="width:${parseInt(k[4])}%"></b></i> <span class="mono">${k[4]}</span></span>`).join('')}${KEYS.length>3?`<span class="more">+${KEYS.length-3}</span>`:''}</div></div>`;
   if(state==='chat'||state==='large'){
     const f=filled?`<div class="field">${filled.map((x,k)=>k%2?`<span class="tok">${x}</span>`:x).join('')}</div>`:`<div class="field empty">Escribe un mensaje</div>`;
     layer.innerHTML=`<div class="chat ${full==='large'?'large':'compact'} glass"><div class="chead">${mascot('idle',32)}<b>GREX</b><button class="ib" id="sz" aria-label="Cambiar tamaño">${I.big}</button><button class="ib" id="cl" aria-label="Cerrar">${I.x}</button></div>
@@ -168,7 +193,7 @@ function render(){
   $('#badge').style.display=(state==='large'||state==='chat')?'block':'none';
   $$('#states button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.s===state));
 }
-function go(s){state=s;if(s==='mini'||s==='pill')rest=s;if(s!=='chat'&&s!=='large')filled=null;render()}
+function go(s){state=s;qmode='acc';if(s==='mini'||s==='pill')rest=s;if(s!=='chat'&&s!=='large')filled=null;render()}
 function bind(){
   const on=(id,fn)=>{const e=$(id);if(e)e.onclick=fn};
   on('#m',()=>go('pill'));on('#mn',()=>go('mini'));
@@ -176,10 +201,13 @@ function bind(){
   on('#cl',()=>go(rest));on('#sz',()=>go(state==='large'?'chat':'large'));
   on('#qb',()=>{$('#pw').classList.toggle('q')});
   on('#qe',()=>{editQ=!editQ;render();$('#pw').classList.add('q')});
+  on('#qs',()=>{qmode='mod';render();$('#pw').classList.add('q')});on('#qbk',()=>{qmode='acc';render();$('#pw').classList.add('q')});
+  $$('.krow').forEach(b=>b.onclick=()=>{keySel=+b.dataset.k;render();$('#pw').classList.add('q')});
   on('#qa',()=>{prompts.push(['Nueva acción ','[tema]']);render();$('#pw').classList.add('q')});
   $$('.qc[data-i]').forEach(b=>b.onclick=()=>{if(editQ)return;filled=prompts[+b.dataset.i];go('chat')});
 }
 $$('#states button').forEach(b=>b.onclick=()=>go(b.dataset.s));
+$$('#nk button').forEach(b=>b.onclick=()=>{nKeys=+b.dataset.n;KEYS=ALLKEYS.slice(0,nKeys);if(keySel>=nKeys)keySel=0;$$('#nk button').forEach(x=>x.setAttribute('aria-pressed',x===b));render()});
 $('#tl').onclick=()=>{document.documentElement.classList.remove('dark');$('#tl').setAttribute('aria-pressed',true);$('#td').setAttribute('aria-pressed',false)};
 $('#td').onclick=()=>{document.documentElement.classList.add('dark');$('#td').setAttribute('aria-pressed',true);$('#tl').setAttribute('aria-pressed',false)};
 render();

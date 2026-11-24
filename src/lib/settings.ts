@@ -80,9 +80,16 @@ export interface Settings {
 }
 
 export interface ChatLimits { rpm: number; rpd: number; tpm: number; tpd?: number }
-export interface ChatSettings { limits: Record<ProviderId, ChatLimits>; /** modelo elegido por proveedor; ausente = el de PROVIDERS */ models: Partial<Record<ProviderId, string>>; warnAt: number; /** último tamaño del panel */ size: 'compact' | 'large'; /** tamaño de contexto del Asistente (presupuestos por proveedor en src/chat/providers.ts) */ context: 'normal' | 'amplio'; /** barra del Asistente: completa o minimizada a la mascota GREX */ dock: 'barra' | 'mascota'; /** estilo de las respuestas: A vidrio claro, B alto contraste */ estilo: 'a' | 'b' }
+export interface ChatSettings { limits: Record<ProviderId, ChatLimits>; /** modelo elegido por proveedor; ausente = el de PROVIDERS */ models: Partial<Record<ProviderId, string>>; warnAt: number; /** último tamaño del panel */ size: 'compact' | 'large'; /** tamaño de contexto del Asistente (presupuestos por proveedor en src/chat/providers.ts) */ context: 'normal' | 'amplio'; /** barra del Asistente: completa o minimizada a la mascota GREX */ dock: 'barra' | 'mascota'; /** estilo de las respuestas: A vidrio claro, B alto contraste */ estilo: 'a' | 'b'; /** acciones rápidas de la pastilla (null = las de fábrica, traducidas) */ acciones: string[] | null }
 /** Iguales a `PROVIDERS[*].limits` de src/chat/providers.ts (una prueba lo comprueba; aquí para no cargar src/chat). */
-export const defaultChat = (): ChatSettings => ({ limits: { gemini: { rpm: 10, rpd: 250, tpm: 250_000 }, groq: { rpm: 30, rpd: 1000, tpm: 12_000, tpd: 100_000 }, openrouter: { rpm: 20, rpd: 50, tpm: 100_000 }, kimi: { rpm: 20, rpd: 1000, tpm: 128_000 } }, models: {}, warnAt: 0.8, size: 'compact', context: 'normal', dock: 'barra', estilo: 'a' });
+/** Acciones rápidas: máx. 8, ≤ 120 caracteres, sin saltos de línea (una sola línea; lo demás se descarta). null = las de fábrica. */
+export const MAX_ACTIONS = 8, MAX_ACTION_LEN = 120;
+export const cleanAction = (x: unknown): string => (typeof x === 'string' ? x.replace(/\s+/g, ' ').trim().slice(0, MAX_ACTION_LEN) : '');
+export function normActions(x: unknown): string[] | null {
+  if (!Array.isArray(x)) return null;
+  return x.map(cleanAction).filter(Boolean).slice(0, MAX_ACTIONS);
+}
+export const defaultChat = (): ChatSettings => ({ limits: { gemini: { rpm: 10, rpd: 250, tpm: 250_000 }, groq: { rpm: 30, rpd: 1000, tpm: 12_000, tpd: 100_000 }, openrouter: { rpm: 20, rpd: 50, tpm: 100_000 }, kimi: { rpm: 20, rpd: 1000, tpm: 128_000 } }, models: {}, warnAt: 0.8, size: 'compact', context: 'normal', dock: 'barra', estilo: 'a', acciones: null });
 
 /** Id de modelo válido (cadena corta); si no, '' = el de por defecto. */
 export const normModel = (v: unknown): string => (typeof v === 'string' && /^[A-Za-z0-9._/:-]{1,80}$/.test(v.trim()) ? v.trim() : '');
@@ -212,7 +219,7 @@ export function mergeSettings(raw: unknown): Settings {
   const dc = defaultChat(), c = s.chat as unknown as { limits?: Record<string, Partial<ChatLimits>>; models?: Record<string, unknown>; warnAt?: unknown; size?: unknown };
   const lim = (v: unknown, dv: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1e9, Math.max(1, Math.round(v))) : dv);
   const one = (x: Partial<ChatLimits> | undefined, d: ChatLimits): ChatLimits => ({ rpm: lim(x?.rpm, d.rpm), rpd: lim(x?.rpd, d.rpd), tpm: lim(x?.tpm, d.tpm), ...(d.tpd ? { tpd: lim(x?.tpd, d.tpd) } : {}) });
-  s.chat = { limits: Object.fromEntries((['gemini', 'groq', 'openrouter', 'kimi'] as const).map((p) => [p, one(c?.limits?.[p], dc.limits[p])])) as ChatSettings['limits'], models: Object.fromEntries((['gemini', 'groq', 'openrouter', 'kimi'] as const).map((p) => [p, normModel(c?.models?.[p])]).filter(([, m]) => m)), warnAt: typeof c?.warnAt === 'number' && Number.isFinite(c.warnAt) ? Math.min(0.95, Math.max(0.5, c.warnAt)) : dc.warnAt, size: c?.size === 'large' ? 'large' : 'compact', context: (c as { context?: unknown })?.context === 'amplio' ? 'amplio' : 'normal', dock: (c as { dock?: unknown })?.dock === 'mascota' ? 'mascota' : 'barra', estilo: (c as { estilo?: unknown })?.estilo === 'b' ? 'b' : 'a' };
+  s.chat = { limits: Object.fromEntries((['gemini', 'groq', 'openrouter', 'kimi'] as const).map((p) => [p, one(c?.limits?.[p], dc.limits[p])])) as ChatSettings['limits'], models: Object.fromEntries((['gemini', 'groq', 'openrouter', 'kimi'] as const).map((p) => [p, normModel(c?.models?.[p])]).filter(([, m]) => m)), warnAt: typeof c?.warnAt === 'number' && Number.isFinite(c.warnAt) ? Math.min(0.95, Math.max(0.5, c.warnAt)) : dc.warnAt, size: c?.size === 'large' ? 'large' : 'compact', context: (c as { context?: unknown })?.context === 'amplio' ? 'amplio' : 'normal', dock: (c as { dock?: unknown })?.dock === 'mascota' ? 'mascota' : 'barra', estilo: (c as { estilo?: unknown })?.estilo === 'b' ? 'b' : 'a', acciones: normActions((c as { acciones?: unknown })?.acciones) };
   return s;
 }
 

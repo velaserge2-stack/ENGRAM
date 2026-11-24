@@ -32,7 +32,7 @@ export function DictButton(p: { variant: 'pill' | 'icon'; onStart?: () => void }
     onContextMenu: (e: Event) => e.preventDefault(),
   };
   return pill
-    ? <button type="button" class={`gx-ib vz${on ? ' on' : ''}`} aria-label={label} aria-pressed={on} {...ev}><Mic size={18} aria-hidden="true" /></button>
+    ? <button type="button" class={`gx-act vz${on ? ' on' : ''}`} aria-label={label} aria-pressed={on} {...ev}><Mic size={16} aria-hidden="true" />{t('voz.dictar')}</button>
     : <button type="button" class={`btn icon vz${on ? ' on' : ''}`} aria-label={label} aria-pressed={on} {...ev}><Mic size={18} aria-hidden="true" /></button>;
 }
 
