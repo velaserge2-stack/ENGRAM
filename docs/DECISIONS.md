@@ -938,3 +938,5 @@ Plan y estados en `docs/diagramas/PLAN-22.md` y `docs/diagramas/estado-p22-*.md`
 - Presupuestos por proveedor y ajuste «Contexto» (normal/amplio, global, defecto normal): más tokens por turno agotan antes la cuota gratuita; Groq queda acotado por su TPM de 12 000.
 - Las fuentes que el tope por turno recorta ya estaban en `sources` (se pueden citar aunque el fragmento no llegara al modelo): sin corregir.
 - 🔸 Sin verificar: máximos reales de cada modelo (maxOut 32 768 de Gemini, 16 384 de Kimi, 8192 de OpenRouter según modelo), consumo real de cuota/TPM, ni el texto exacto del 400 por max_tokens de cada API (la regex `LIMIT_RE` es una suposición).
+
+- Logos de proveedores: lobehub/lobe-icons (MIT); las marcas pertenecen a Google, Groq, OpenRouter y Moonshot AI y solo identifican al proveedor.

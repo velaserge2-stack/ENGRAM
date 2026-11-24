@@ -8,7 +8,7 @@ export type { SizeMap } from './layout';
 
 export const MAX_TEXT = 5000;
 export const DEFAULT_MAXW = 220;
-const FONT = 'system-ui, -apple-system, sans-serif';
+const FONT = '"Helvetica Neue", Helvetica, Arial, system-ui, sans-serif';
 const PAD_X = 12, PAD_Y = 8, LINE_H = 1.3, SQ2 = Math.SQRT2;
 const FS = { s: 13, m: 15, l: 18 } as const;
 const CACHE_MAX = 500;

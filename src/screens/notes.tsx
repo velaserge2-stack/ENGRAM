@@ -56,6 +56,7 @@ onNoteSaved(async (vault, path, text) => {
   idxT.set(path, setTimeout(() => (idxT.delete(path), void notesIndex.upsert(path, text)), 500));
 });
 import type { Filters, Result } from '../notes/search-core';
+import './notes-layout.css';
 
 const BOOKMARKS = '.app/bookmarks.json';
 
@@ -953,6 +954,32 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
   }, [full]);
+  // ventana estrecha (< 760 px): árbol e inspector son paneles flotantes y arrancan debajo de la última barra
+  // visible (editor, búsqueda), pegada o aún en su sitio; --side-top lo lee `notes-layout.css`.
+  // Desde 760 px el inspector flotante deja su carril (padding de `.notes`) y no hace falta medir.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (props.embedded || !root) return;
+    let raf = 0;
+    const upd = () => {
+      raf = 0;
+      // altura real de la barra superior (puede partirse en dos renglones en ventanas < 700 px)
+      const tb = document.querySelector('.topbar')?.getBoundingClientRect();
+      document.documentElement.style.setProperty('--topbar-bottom', tb && tb.height ? `${Math.round(tb.bottom)}px` : '0px');
+      if (innerWidth >= 760) return void document.documentElement.style.removeProperty('--side-top');
+      const b = Math.max(0, ...[...root.querySelectorAll('.editorbar, .find-bar')].map((e) => e.getBoundingClientRect().bottom));
+      document.documentElement.style.setProperty('--side-top', b ? `${Math.round(b) + 6}px` : '0px');
+    };
+    const q = () => { if (!raf) raf = requestAnimationFrame(upd); };
+    addEventListener('scroll', q, { passive: true });
+    addEventListener('resize', q);
+    const ro = new ResizeObserver(q);
+    ro.observe(root);
+    const tbEl = document.querySelector('.topbar');
+    if (tbEl) ro.observe(tbEl);
+    q();
+    return () => (removeEventListener('scroll', q), removeEventListener('resize', q), ro.disconnect(), cancelAnimationFrame(raf), document.documentElement.style.removeProperty('--side-top'), document.documentElement.style.removeProperty('--topbar-bottom'));
+  }, [props.embedded, find, mode, insp, full]);
   // los botones de vista no quitan el foco al editor (se conserva el cursor y el bloque abierto)
   const keep = { onPointerDown: (e: PointerEvent) => e.preventDefault(), onMouseDown: (e: MouseEvent) => e.preventDefault() };
   return (

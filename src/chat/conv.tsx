@@ -5,17 +5,20 @@ import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } fro
 import { renderMarkdown } from '../md/render';
 import { dayKey } from '../lib/days';
 import { go, useApp } from '../state';
-import { Portal, useLayer } from '../ui/overlay';
+import { useLayer } from '../ui/overlay';
 import { getStatus, type Msg, messages, clear, subscribe } from './history';
 import { loadKeys, pickKey } from './keys';
 import { citeHref, citeLabel, PDF_CITE, resolveNote, resolvePdf } from './cites';
-import { Mascot, useMascotState } from './mascot';
+import { Mascot, MASCOT_NAME, useMascotState } from './mascot';
+import { MARK } from './quick';
 import { forgetProposals } from './proposal';
 import { Preview } from './preview';
 import type { Source } from './tools';
 import { send, stop } from './turn';
 import { setModels } from './providers';
 import { bar, loadUsage } from './usage';
+import { DictButton, VoiceMsg } from './dictbtn';
+import { joinDictation, useDict } from './voice';
 
 const ERR: Record<string, string> = { nokey: 'nokey', auth: 'auth', quota: 'quota', rate: 'rate', model: 'model', limit: 'limit', timeout: 'timeout', network: 'network', server: 'server', busy: 'busy', empty: 'empty' };
 const NEEDS_SETTINGS = new Set(['nokey', 'auth', 'quota', 'model', 'limit']);
@@ -71,7 +74,25 @@ function Answer(p: { text: string; sources?: Source[]; onCite: () => void }) {
     harden(tpl.content as unknown as HTMLElement, p.sources ?? []);
     return tpl.innerHTML;
   }, [p.text, p.sources?.length]);
-  return <div class="chat-msg assistant md" data-user-content dangerouslySetInnerHTML={{ __html: html }} onClick={(e) => { if ((e.target as HTMLElement).closest('a.chat-cite')) p.onCite(); }} />;
+  return (
+    <div class="chat-a">
+      <span class="chat-av"><Mascot size={30} /></span>
+      <div class="chat-a-b">
+        <div class="chat-who" aria-hidden="true">{MASCOT_NAME}</div>
+        <div class="chat-msg assistant md" data-user-content dangerouslySetInnerHTML={{ __html: html }} onClick={(e) => { if ((e.target as HTMLElement).closest('a.chat-cite')) p.onCite(); }} />
+      </div>
+    </div>
+  );
+}
+
+/** Tab salta al siguiente [marcador] del campo (selecciónalo para sobrescribirlo); sin más marcadores deja el Tab normal. */
+function jumpMark(el: HTMLTextAreaElement): boolean {
+  const re = /\[[^\]]+\]/g;
+  re.lastIndex = el.selectionEnd;
+  const m = re.exec(el.value);
+  if (!m) return false;
+  el.setSelectionRange(m.index, m.index + m[0].length);
+  return true;
 }
 
 function Settings(p: { onClick: () => void }) {
@@ -116,7 +137,7 @@ function Meter(p: { alias?: string; onSettings: () => void }) {
   );
 }
 
-export default function Conversation(p: { size: 'compact' | 'large'; phone: boolean; onClose: () => void; onSize: () => void }) {
+export default function Conversation(p: { size: 'compact' | 'large'; phone: boolean; prefill?: { text: string; n: number } | undefined; onClose: () => void; onSize: () => void }) {
   const app = useApp();
   const [, bump] = useReducer((n: number) => n + 1, 0);
   useEffect(() => subscribe(bump as () => void), []);
@@ -125,8 +146,27 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
   // teléfono = hoja a pantalla completa (modal, foco atrapado); iPad y web = panel que no bloquea la app
   useLayer(p.onClose, { modal: p.phone, el: () => root.current });
   useLayoutEffect(() => { if (!p.phone) input.current?.focus(); }, []);
-  const [foc, setFoc] = useState(false), [has, setHas] = useState(false);
-  const ms = useMascotState(foc || has);
+  const [foc, setFoc] = useState(false), [has, setHas] = useState(false), [marks, setMarks] = useState(false);
+  // prompt rápido: rellena el campo (nunca envía) y deja seleccionado el primer [marcador]
+  useLayoutEffect(() => {
+    const el = input.current;
+    if (!p.prefill || !el) return;
+    el.value = p.prefill.text; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+    el.focus(); setHas(true); setMarks(true);
+    const m = MARK.exec(el.value);
+    if (m) el.setSelectionRange(m.index, m.index + m[0].length); else el.setSelectionRange(el.value.length, el.value.length);
+  }, [p.prefill?.n]);
+  // dictado: el texto va al campo (base previa + definitivo + provisional); nunca se envía solo
+  const dict = useDict(), dbase = useRef({ id: 0, s: '' }), dictOn = dict.state === 'listening';
+  useLayoutEffect(() => {
+    const el = input.current;
+    if (!el || !dict.id) return;
+    if (dbase.current.id !== dict.id) dbase.current = { id: dict.id, s: el.value };
+    const v = joinDictation(dbase.current.s, dict.text, dict.interim);
+    if (el.value !== v) { el.value = v; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`; setHas(!!v.trim()); }
+  }, [dict.id, dict.text, dict.interim]);
+  useLayoutEffect(() => { if (dict.focusN) input.current?.focus(); }, [dict.focusN]);
+  const ms = useMascotState(foc || has || dictOn);
   const stick = useRef(true);
   useLayoutEffect(() => { const l = log.current; if (l && stick.current) l.scrollTop = l.scrollHeight; });
   const toSettings = () => { p.onClose(); go('ajustes'); };
@@ -135,7 +175,7 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
     const el = input.current;
     if (!el || !el.value.trim() || st.busy) return;
     const q = el.value;
-    el.value = ''; el.style.height = ''; setHas(false);
+    el.value = ''; el.style.height = ''; setHas(false); setMarks(false);
     stick.current = true;
     setModels(app.settings.chat.models, app.settings.chat.context);
     run(q);
@@ -147,12 +187,12 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
   const waiting = st.busy && (!!st.tool || (last?.role === 'assistant' && !last.text));
 
   return (
-    <Portal>
-      <section ref={root} class={`chat-panel glass strong ${p.size}`} role="dialog" aria-modal={p.phone ? 'true' : undefined} aria-label={t('chat.p_titulo')} tabIndex={-1}>
+    <>
+      <section ref={root} class={`chat-panel glass strong ${p.size}${app.settings.chat.estilo === 'b' ? ' sty-b' : ''}`} role="dialog" aria-modal={p.phone ? 'true' : undefined} aria-label={t('chat.p_titulo')} tabIndex={-1}>
         <header class="chat-h">
-          <Mascot size={24} state={ms} />
+          <Mascot size={34} state={ms} />
           <div class="chat-title">
-            <h2>{t('chat.p_titulo')}</h2>
+            <h2>{MASCOT_NAME}</h2>
             {st.alias && <span class="foot ellipsis" data-user-content>{t('chat.p_clave_usada', { alias: st.alias })}</span>}
           </div>
           <button type="button" class="btn icon ghost" aria-label={t('chat.p_nueva')} onClick={() => { clear(); forgetProposals(); input.current?.focus(); }}><SquarePen size={18} aria-hidden="true" /></button>
@@ -166,19 +206,22 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
         <Meter alias={st.alias} onSettings={toSettings} />
         <div ref={log} class="chat-log" role="log" aria-live="polite" aria-relevant="additions text" aria-busy={st.busy} aria-label={t('chat.p_conv')} tabIndex={0}
           onScroll={(e) => { const l = e.currentTarget as HTMLElement; stick.current = l.scrollHeight - l.scrollTop - l.clientHeight < 40; }}>
-          {!msgs.length && <div class="chat-empty"><p><b>{t('chat.p_vacio')}</b></p><p class="foot">{t('chat.p_vacio_sub')}</p></div>}
+          {!msgs.length && <div class="chat-empty"><Mascot size={64} state={ms} /><p><b>{t('chat.p_vacio')}</b></p><p class="foot">{t('chat.p_vacio_sub')}</p></div>}
           {msgs.map((m) => (m.role === 'assistant' && !m.text ? null : <Bubble key={m.id} m={m} onSettings={toSettings} onCite={() => { if (p.phone) p.onClose(); }} onRetry={lastUser && !st.busy ? () => { stick.current = true; setModels(app.settings.chat.models, app.settings.chat.context); run(lastUser); } : undefined} />))}
           {waiting && <p class="chat-note" role="status">{st.waitS ? t('chat.p_espera', { s: st.waitS }) : st.tool ? t('chat.p_buscando') : t('chat.p_pensando')}</p>}
         </div>
+        {marks && <p class="chat-hint">{t('chat.p_marcas')}</p>}
         <form class="chat-form" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-          <textarea ref={input} class="input" rows={1} aria-label={t('chat.p_escribe')} placeholder={t('chat.p_escribe')} onInput={(e) => { grow(e); setHas(!!(e.currentTarget as HTMLTextAreaElement).value.trim()); }} onFocus={() => setFoc(true)} onBlur={() => setFoc(false)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !p.phone) { e.preventDefault(); submit(); } }} />
+          <textarea ref={input} class={`input${dict.interim ? ' vz-int' : ''}`} rows={1} aria-label={t('chat.p_escribe')} placeholder={t('chat.p_escribe')} onInput={(e) => { grow(e); const v = (e.currentTarget as HTMLTextAreaElement).value; setHas(!!v.trim()); setMarks(MARK.test(v)); }} onFocus={() => setFoc(true)} onBlur={() => setFoc(false)}
+            onKeyDown={(e) => { if (e.key === 'Tab' && !e.shiftKey && jumpMark(e.currentTarget as HTMLTextAreaElement)) e.preventDefault(); if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !p.phone) { e.preventDefault(); submit(); } }} />
+          <DictButton variant="icon" />
           {/* claves distintas: si no, el mismo <button> pasaría de «Detener» a «Enviar» en pleno clic y lo enviaría */}
           {st.busy
             ? <button key="stop" type="button" class="btn icon" aria-label={t('chat.p_detener')} onClick={stop}><Square size={18} aria-hidden="true" /></button>
             : <button key="send" type="submit" class="btn icon primary" aria-label={t('chat.p_enviar')}><SendHorizontal size={18} aria-hidden="true" /></button>}
         </form>
+        <VoiceMsg />
       </section>
-    </Portal>
+    </>
   );
 }

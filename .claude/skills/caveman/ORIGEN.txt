@@ -1,0 +1,2 @@
+Origen: github.com/JuliusBrussee/caveman (commit 47c61be, 2026-11-23), solo skills/caveman/SKILL.md.
+Licencia: Apache-2.0 / MIT. Sin red, sin hooks, sin escribir settings.json (archivo de texto).

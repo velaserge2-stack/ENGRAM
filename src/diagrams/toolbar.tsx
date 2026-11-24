@@ -7,6 +7,7 @@ import { raw, t } from '../i18n';
 import { Portal } from '../ui/overlay';
 import { Sheet } from '../ui/kit';
 import { SIZE_PRESETS, clampSize, type Size } from './handles';
+import { blockPageZoom, fbarPlace } from './gestures';
 import type { Backdrop, Color, DiagramEdge, DiagramNode, Edit, EdgeAttrs, EdgeEnd, FontSize, Route, Shape } from './types';
 
 export const tx = (k: string, fb: string) => raw(k) ?? fb;
@@ -67,7 +68,7 @@ export const backdropName = (b: Backdrop) => ({ cristal: t('diag.fondo_cristal')
 const endName = (f: EdgeEnd) => ({ sin: t('diag.extremo_sin'), flecha: t('diag.extremo_flecha'), ambos: t('diag.extremo_ambos'), circulo: t('diag.extremo_circulo'), rombo: t('diag.extremo_rombo') })[f];
 const ENDS: EdgeEnd[] = ['sin', 'flecha', 'ambos', 'circulo', 'rombo'];
 
-const bar = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 12px);z-index:var(--z-popover);display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px;border-radius:18px;max-width:calc(100vw - 16px);max-height:70dvh;overflow-y:auto';
+const bar = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + var(--kb-inset,0px) + 12px);z-index:var(--z-popover);display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px;border-radius:18px;max-width:calc(100vw - 16px);max-height:min(70dvh,calc(100dvh - var(--kb-inset,0px) - 96px));overflow-y:auto';
 
 const B = (p: { label: string; on: () => void; icon: JSX.Element; disabled?: boolean; pressed?: boolean }) => (
   <button type="button" class="btn icon ghost" aria-label={p.label} aria-pressed={p.pressed} disabled={p.disabled} onClick={p.on}>{p.icon}</button>
@@ -129,9 +130,31 @@ export function FloatBar(p: { node?: NodeActions; style?: NodeStyle; edge?: Edge
   const n = p.node, e = p.edge, st = p.style;
   const [size, setSize] = useState(false);
   const es = e?.style;
+  const box = useRef<HTMLDivElement>(null);
+  // Zoom de la PÁGINA (pellizco fuera del lienzo): la barra se recoloca en la ventana visual, del mismo tamaño en pantalla.
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    const el = box.current;
+    if (!el) return;
+    const unblock = blockPageZoom(el);
+    if (!vv) return unblock;
+    let raf = 0;
+    const place = () => {
+      raf = 0;
+      const p = fbarPlace(vv);
+      const s = el.style;
+      if (!p) { if (s.cssText !== bar) s.cssText = bar; return; }
+      s.left = p.left + 'px'; s.top = p.top + 'px'; s.bottom = 'auto'; s.transformOrigin = '50% 100%';
+      s.transform = `translate(-50%, -100%) scale(${p.scale})`;
+    };
+    const on = () => { if (!raf) raf = requestAnimationFrame(place); };
+    vv.addEventListener('resize', on); vv.addEventListener('scroll', on);
+    place();
+    return () => { vv.removeEventListener('resize', on); vv.removeEventListener('scroll', on); if (raf) cancelAnimationFrame(raf); unblock(); };
+  }, []);
   return (
     <Portal>
-      <div class="glass strong diag-fbar" role="toolbar" aria-label={tx('diag.barra', 'Edición del diagrama')} style={bar}>
+      <div ref={box} class="glass strong diag-fbar" role="toolbar" aria-label={tx('diag.barra', 'Edición del diagrama')} style={bar}>
         <div class="diag-frow">
           {n && <>
             <B label={tx('diag.hijo', 'Añadir hijo (Tab)')} on={n.child} icon={<CornerDownRight size={20} aria-hidden="true" />} />

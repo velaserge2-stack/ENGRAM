@@ -59,7 +59,7 @@ export interface BlobWriteOptions {
 export class VaultError extends Error {
   constructor(
     message: string,
-    readonly code: 'not-found' | 'invalid-path' | 'io' | 'unsupported' | 'quota',
+    readonly code: 'not-found' | 'invalid-path' | 'io' | 'unsupported' | 'quota' | 'locked',
     readonly path?: string,
   ) {
     super(message);

@@ -18,6 +18,16 @@ describe('Asistente · configuración', () => {
     expect(mergeSettings({}).chat).toEqual(defaultChat());
     expect(mergeSettings({ chat: 7 }).chat).toEqual(defaultChat());
   });
+  it('dock y estilo: defecto barra/a, se conservan y la basura vuelve al defecto', () => {
+    expect(defaultChat().dock).toBe('barra');
+    expect(defaultChat().estilo).toBe('a');
+    const m = mergeSettings({ chat: { dock: 'mascota', estilo: 'b' } });
+    expect(m.chat.dock).toBe('mascota');
+    expect(m.chat.estilo).toBe('b');
+    expect(JSON.parse(serializeSettings(m)).chat.dock).toBe('mascota');
+    const bad = mergeSettings({ chat: { dock: 'x', estilo: 3 } });
+    expect([bad.chat.dock, bad.chat.estilo]).toEqual(['barra', 'a']);
+  });
   it('serializa sin secretos', () => {
     const j = serializeSettings(defaultSettings());
     expect(JSON.parse(j).chat).toEqual(defaultChat());

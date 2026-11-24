@@ -25,8 +25,10 @@ let page;
 try {
   const ctx = await browser.newContext({ viewport: { width: 1180, height: 900 }, locale: 'es-MX' });
   page = await ctx.newPage();
+  page.on('pageerror', (e) => console.log('PAGEERR', String(e).slice(0, 300)));
+  page.on('console', (m) => m.type() === 'error' && console.log('CONERR', m.text().slice(0, 200)));
   page.on('dialog', (d) => d.accept());
-  const apiHits = [], js = new Set(), logs = [];
+  const apiHits = [], genKeys = [], js = new Set(), logs = [];
   let mode = 'ok', lmode = 'ok', lrelease = null;
   const listReqs = [];
   const EX_DATE = new Date(Date.now() + 20 * 864e5).toISOString().slice(0, 10);
@@ -50,6 +52,7 @@ try {
   await page.route(/generativelanguage\.googleapis\.com|api\.groq\.com/, async (r) => {
     if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: CORS });
     apiHits.push(r.request().url());
+    if (!/\/models(\?|$)/.test(r.request().url())) genKeys.push({ url: r.request().url(), key: r.request().headers()['x-goog-api-key'] });
     if (/\/models(\?|$)/.test(r.request().url()) && r.request().method() === 'GET') {
       listReqs.push({ url: r.request().url(), key: r.request().headers()['x-goog-api-key'] });
       if (lmode === 'hold') await new Promise((res) => { lrelease = res; });
@@ -226,8 +229,8 @@ try {
   await fab.waitFor();
   const fb = await fab.boundingBox();
   check(fb.width >= 44 && fb.height >= 44, 'botón flotante ≥ 44 px');
-  check((await page.locator('.dev-sign').boundingBox()).x < 400 && fb.x > 700, 'el botón va a la derecha, la firma a la izquierda');
-  check(!(await page.evaluate(() => document.querySelector('.chat-fab').closest('.glass:not(.chat-fab)'))), 'el botón flotante no está dentro de otro vidrio');
+  check((await page.locator('.dev-sign').boundingBox()).x < 400 && Math.abs((await page.locator('.gx-pill').boundingBox()).x + 220 - page.viewportSize().width / 2) < 2 && fb.x > page.viewportSize().width / 2, 'la pastilla va al centro (GREX al final), la firma a la izquierda');
+  check(!(await page.evaluate(() => document.querySelector('.gx-dock').closest('.glass'))) && (await page.locator('.gx-pill.glass').count()) === 1, 'la barra no está dentro de otro vidrio (una sola pastilla)');
   await fab.click();
   let panel = page.getByRole('dialog', { name: 'Asistente' });
   await panel.waitFor();
@@ -537,21 +540,299 @@ try {
   await dl.getByRole('button', { name: 'Deshacer' }).click();
   await dl.getByText('Restaurado.').waitFor();
   check((await deckThere()) && (await inTrash()) === 0, 'Deshacer: el mazo vuelve y la papelera queda vacía');
-  // Mini reproductor simulado: el botón y el panel no lo tapan; ni la firma
+  // panel grande: no tapa la firma ni la barra
   await page.keyboard.press('Escape');
-  await page.evaluate(() => document.body.insertAdjacentHTML('beforeend', '<div class="mini-amb docked glass on" id="fake-mini"><div class="mini-amb-pill"><button class="mini-amb-main" type="button">Mini</button></div></div>'));
-  const mini = await page.locator('#fake-mini').boundingBox();
   const hit = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
-  await page.waitForTimeout(150);
-  check(!hit(await fab.boundingBox(), mini), 'con el mini reproductor, el botón no lo tapa');
   await fab.click(); await panel.waitFor(); await page.waitForTimeout(400);
-  { const pbx = await panel.boundingBox(); check(!hit(pbx, mini), `con el mini reproductor, el panel compacto no lo tapa (${JSON.stringify(pbx)} vs ${JSON.stringify(mini)})`); }
-  await page.screenshot({ path: `${SHOTS}/1024-compacto-mini.png` });
-  await panel.getByRole('button', { name: 'Panel grande' }).click();
+  await panel.getByRole('button', { name: /Panel grande|Panel compacto/ }).click();
   await page.waitForTimeout(350);
+  if ((await panel.boundingBox()).width < 500) { await panel.getByRole('button', { name: 'Panel grande' }).click(); await page.waitForTimeout(350); }
   check(!hit(await panel.boundingBox(), await page.locator('.dev-sign').boundingBox()), 'el panel grande no tapa la firma');
-  await page.screenshot({ path: `${SHOTS}/1024-grande-mini.png` });
-  await page.evaluate(() => document.getElementById('fake-mini').remove());
+  check((await page.locator('.gx-dock, .gx-mini, .chat-fab').count()) === 0, 'con el chat abierto no existe ni la pastilla ni la mascota (solo el chat)');
+  { const bar = await page.locator('.topbar').boundingBox(), pg = await panel.boundingBox();
+    check(pg.y >= bar.y + bar.height - 1 && pg.y + pg.height <= page.viewportSize().height, 'el chat grande queda bajo la barra superior y dentro de la pantalla'); }
+  await page.screenshot({ path: `${SHOTS}/1024-grande-dock.png` });
+  await panel.getByRole('button', { name: 'Panel compacto' }).click();
+  await page.waitForTimeout(350);
+
+  // ───── GREX: barra, atajos, minimizar, posición estable ─────
+  console.log('GREX · barra');
+  await page.keyboard.press('Escape');
+  await panel.waitFor({ state: 'detached' });
+  await page.evaluate(() => { const d = new Date().toISOString().slice(0, 10); localStorage.setItem('engrama.chat.usage', JSON.stringify({ v: 1, perKey: { a: { day: d, req: 230, tok: 0, min: { t: 0, req: 0, tok: 0 } } } })); });
+  await page.goto(URL_ + '#/hoy');
+  const dock = page.locator('.gx-dock');
+  await dock.waitFor();
+  { const tx = await dock.innerText();
+    check(tx.includes('GREX') && tx.includes('Toca para escribir') && !tx.includes('Acciones rápidas'), 'pastilla en reposo: «GREX» + «Toca para escribir», sin pestaña de acciones rápidas'); }
+  { const pb = await page.locator('.gx-pill').boundingBox();
+    check(pb.width <= 440.5 && pb.height <= 56.5, `pastilla ≤ 440×56 (${Math.round(pb.width)}×${Math.round(pb.height)})`); }
+  // uso: tira «unida» bajo la pastilla (no dentro de ella); la pastilla queda a 16 px del borde inferior
+  { const st = page.locator('.gx-ustrip'), pb = await page.locator('.gx-pill').boundingBox(), sb = await st.boundingBox(), vh = page.viewportSize().height;
+    check((await st.count()) === 1 && (await st.getAttribute('role')) === 'status' && (await st.getAttribute('aria-label')) === 'Uso por modelo', 'tira de uso: role=status y «Uso por modelo»');
+    check((await page.locator('.gx-pill .gx-u, .gx-pill .gx-ustrip').count()) === 0 && !(await page.locator('.gx-pill').innerText()).includes('%'), 'el uso ya no está dentro de la pastilla');
+    check(sb.height <= 36.5 && sb.width <= pb.width && sb.x >= pb.x - 1 && sb.x + sb.width <= pb.x + pb.width + 1, `tira ≤ 36 px y dentro del ancho de la pastilla (${Math.round(sb.width)}×${Math.round(sb.height)})`);
+    check(Math.abs(vh - (pb.y + pb.height) - 16) <= 1, `la pastilla queda a 16 px del borde inferior (${Math.round(vh - pb.y - pb.height)})`);
+    check((await page.locator('.gx-ustrip .gx-u').count()) === 2 && (await page.locator('.gx-ustrip .gx-u.on').count()) === 1, 'una entrada por clave, una activa');
+    const hot = page.locator('.gx-ustrip .gx-u.hot');
+    check((await hot.count()) === 1 && /casi al límite/.test(await hot.getAttribute('aria-label')), '≥ 80 %: «casi al límite» solo como etiqueta');
+    const [fw, hh, hn] = await Promise.all([page.locator('.gx-ustrip .gx-u.on').evaluate((e) => +getComputedStyle(e).fontWeight), hot.locator('.gx-bar').evaluate((e) => e.getBoundingClientRect().height), page.locator('.gx-ustrip .gx-u:not(.hot) .gx-bar').evaluate((e) => e.getBoundingClientRect().height)]);
+    check(fw >= 700 && hh > hn, `activa en Bold; ≥ 80 % con barra más gruesa (${fw}, ${hh} > ${hn})`);
+    check((await st.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)), 'la tira no desborda a 440 de ancho'); 
+    check(await page.evaluate(() => /mono|Menlo|ui-monospace/i.test(getComputedStyle(document.querySelector('.gx-ustrip .gx-pc')).fontFamily)), 'el % de la tira va en monoespaciada');
+    check((await page.locator('.gx-ustrip svg.prov-logo').count()) === 2 && (await page.locator('.gx-ustrip [data-provider="gemini"] svg path').count()) > 0, 'logos por proveedor en la tira (decorativos)');
+  }
+  check(await page.evaluate(() => getComputedStyle(document.querySelector('.gx-ttl')).fontFamily.includes('Helvetica Neue')), 'tipografía Helvetica Neue');
+  // «Escribir» abre el chat y SOLO el chat (la pastilla sale del DOM); no envía nada
+  const hitsBefore = apiHits.length;
+  check((await dock.getByRole('button', { name: 'Escribir', exact: true }).count()) === 0, 'sin botón «Escribir»: se toca el texto o a GREX');
+  await dock.locator('.gx-txt').click();
+  panel = page.getByRole('dialog', { name: 'Asistente' });
+  await panel.waitFor();
+  check((await page.locator('.gx-dock, .gx-mini, .chat-fab, .gx-ustrip').count()) === 0 && (await page.locator('.chat-panel').count()) === 1, 'tocar el texto: solo existe el chat (sin pastilla, tira ni mascota)');
+  check(await panel.getByLabel('Escribe tu mensaje').evaluate((e) => e === document.activeElement) && apiHits.length === hitsBefore, 'el foco va al campo y no se envía nada');
+  check((await panel.locator('h2').innerText()) === 'GREX', 'título del asistente: GREX');
+  await page.keyboard.press('Escape');
+  await panel.waitFor({ state: 'detached' });
+  await dock.waitFor();
+  check((await page.locator('.gx-avatar').evaluate((e) => e === document.activeElement)) && (await page.locator('.gx-mini').count()) === 0, 'cerrar: vuelve la pastilla (reposo) con el foco en GREX');
+
+  // trabajando: estado + Detener en la barra
+  mode = 'hold'; apiHits.length = 0;
+  await page.locator('.gx-avatar').click();
+  await panel.waitFor();
+  await panel.getByLabel('Escribe tu mensaje').fill('espera');
+  await panel.getByLabel('Escribe tu mensaje').press('Enter');
+  await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
+  await page.locator('.gx-dock.work').waitFor();
+  check((await dock.innerText()).includes('Pensando') && (await dock.getByRole('button', { name: 'Detener' }).count()) === 1, 'trabajando: «Pensando…» y botón «Detener» en la barra');
+  await dock.getByRole('button', { name: 'Detener' }).click();
+  await page.locator('.gx-dock.work').waitFor({ state: 'detached' });
+  if (release) release();
+  check((await dock.innerText()).includes('Toca para escribir'), 'Detener desde la barra: vuelve al reposo');
+  { const pb = await page.locator('.gx-pill').boundingBox(); check(pb.width <= 440.5 && pb.height <= 56.5, 'trabajando: la pastilla no crece'); }
+  mode = 'stream';
+
+  // posición estable: abrir teclado simulado y abrir/cerrar el panel no mueven la barra (≤ 1 px)
+  const rect = () => dock.evaluate((e) => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; });
+  const same = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 1);
+  const r0 = await rect();
+  await page.locator('.gx-avatar').click(); await panel.waitFor(); await page.waitForTimeout(400);
+  await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' }); await dock.waitFor();
+  const r1 = await rect();
+  await page.evaluate(() => { document.documentElement.classList.add('kb-open'); document.documentElement.style.setProperty('--kb-inset', '320px'); });
+  await page.waitForTimeout(150);
+  const r2 = await rect();
+  check((await dock.evaluate((e) => getComputedStyle(e).visibility)) === 'hidden', 'con el teclado abierto la barra se oculta (no estorba el campo)');
+  await page.evaluate(() => { document.documentElement.classList.remove('kb-open'); document.documentElement.style.removeProperty('--kb-inset'); });
+  await page.waitForTimeout(150);
+  const r3 = await rect();
+  check(same(r0, r1) && same(r0, r2) && same(r0, r3), `posición estable ≤ 1 px: ${r0.map(Math.round)} / ${r1.map(Math.round)} / ${r2.map(Math.round)} / ${r3.map(Math.round)}`);
+
+  // minimizar a la mascota (abajo a la derecha), persistencia y restaurar
+  await dock.getByRole('button', { name: 'Minimizar a la mascota' }).click();
+  const mini = page.locator('.gx-mini');
+  await mini.waitFor();
+  check((await dock.count()) === 0, 'minimizada: la barra desaparece');
+  check(await mini.evaluate((e) => e === document.activeElement), 'minimizar: el foco pasa a la mascota');
+  { const m = await mini.boundingBox(), vw = page.viewportSize().width, vh = page.viewportSize().height;
+    check(Math.abs(m.width - 56) <= 1 && Math.abs(m.height - 56) <= 1 && Math.abs(vw - (m.x + m.width) - 16) <= 1 && Math.abs(vh - (m.y + m.height) - 16) <= 1, `GREX minimizada abajo a la derecha (${Math.round(m.x)},${Math.round(m.y)} ${m.width}×${m.height})`); }
+  await page.waitForTimeout(600);
+  await page.goto(URL_ + '#/hoy');
+  await page.locator('.gx-mini').waitFor();
+  check((await page.locator('.gx-dock').count()) === 0, 'minimizar persiste (settings.chat.dock = mascota)');
+  await page.setViewportSize({ width: 1024, height: 768 }); await page.waitForTimeout(200);
+  await page.screenshot({ path: `${SHOTS}/1024-mascota.png` });
+  await page.locator('.gx-mini').click();
+  await dock.waitFor();
+  check(await page.locator('.gx-avatar').evaluate((e) => e === document.activeElement), 'restaurar: el foco pasa a la barra');
+  await page.waitForTimeout(600);
+  await page.goto(URL_ + '#/hoy');
+  await dock.waitFor();
+  check((await page.locator('.gx-mini').count()) === 0, 'restaurar persiste (barra)');
+
+
+  // ───── Acciones rápidas (pestaña sobre la pastilla) ─────
+  console.log('GREX · acciones rápidas');
+  await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor();
+  { await page.mouse.move(5, 5); await page.waitForTimeout(300);
+    const q = page.locator('.gx-quick'), pb = await page.locator('.gx-pill').boundingBox();
+    check((await q.evaluate((e) => getComputedStyle(e).opacity)) === '0', 'acciones: ocultas en reposo');
+    await page.locator('.gx-pill').hover(); await page.waitForTimeout(350);
+    const qb = await q.boundingBox();
+    check((await q.evaluate((e) => getComputedStyle(e).opacity)) === '1', 'acciones: aparecen con el cursor');
+    check(Math.abs(qb.width - pb.width) <= 1 && Math.abs(pb.y - (qb.y + qb.height) - 8) <= 1, `acciones: mismo ancho que la pastilla y a 8 px (${Math.round(qb.width)}, ${Math.round(pb.y - qb.y - qb.height)})`);
+    check((await q.locator('.gx-qc').count()) === 4, '4 acciones de fábrica');
+    await page.mouse.move(5, 5); await page.waitForTimeout(350);
+    check((await q.evaluate((e) => getComputedStyle(e).opacity)) === '0', 'acciones: se ocultan al salir');
+    await dock.getByRole('button', { name: 'Acciones rápidas', exact: true }).click(); await page.waitForTimeout(300);
+    await page.mouse.move(5, 5);
+    check((await q.evaluate((e) => getComputedStyle(e).opacity)) === '1' && (await dock.getAttribute('class')).includes(' q'), 'acciones: ⚡ las abre (táctil)');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    check((await q.evaluate((e) => getComputedStyle(e).opacity)) === '0', 'acciones: Esc las cierra');
+    await page.keyboard.press('Shift'); await dock.getByRole('button', { name: 'Minimizar a la mascota' }).focus(); await page.waitForTimeout(300);
+    check((await q.evaluate((e) => getComputedStyle(e).opacity)) === '1', 'acciones: aparecen al enfocar con teclado');
+    for (const b of await q.getByRole('button').all()) { const bb = await b.boundingBox(); if (bb.height < 43.5 || bb.width < 43.5) check(false, 'acción < 44 px: ' + ((await b.getAttribute('aria-label')) ?? (await b.innerText()))); }
+    // pulsar una acción: abre el chat con el texto en el campo, [tema] seleccionado, sin enviar
+    const n0 = apiHits.length;
+    await q.getByRole('button', { name: /Crear tarjetas de/ }).click();
+    panel = page.getByRole('dialog', { name: 'Asistente' }); await panel.waitFor();
+    const f = panel.getByLabel('Escribe tu mensaje');
+    check((await f.inputValue()) === 'Crear tarjetas de [tema]' && apiHits.length === n0, 'acción: rellena el campo y no envía');
+    check(await f.evaluate((e) => e.value.slice(e.selectionStart, e.selectionEnd) === '[tema]' && document.activeElement === e), 'acción: [tema] queda seleccionado y con el foco');
+    check((await panel.locator('.chat-hint').count()) === 1, 'aviso de partes editables');
+    await page.keyboard.type('anatomía');
+    check((await f.inputValue()) === 'Crear tarjetas de anatomía', 'escribir sobrescribe el marcador');
+    await f.fill('Registrar examen de [materia] el [fecha]'); await f.evaluate((e) => e.setSelectionRange(0, 0));
+    await page.keyboard.press('Tab'); check(await f.evaluate((e) => e.value.slice(e.selectionStart, e.selectionEnd)) === '[materia]', 'Tab: salta a [materia]');
+    await page.keyboard.press('Tab'); check(await f.evaluate((e) => e.value.slice(e.selectionStart, e.selectionEnd)) === '[fecha]', 'Tab: salta a [fecha]');
+    await f.fill(''); await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
+  }
+  // editar: en el sitio, añadir, quitar, persistir y validar
+  { await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    const q = page.locator('.gx-quick');
+    await q.getByRole('button', { name: 'Editar acciones' }).click();
+    const eds = q.locator('[contenteditable]');
+    check((await eds.count()) === 4 && (await eds.first().getAttribute('aria-label')) === 'Editar la acción', 'editar: cada acción es editable (aria-label)');
+    await eds.first().fill('Mi acción [x]'); await eds.first().press('Enter');
+    check((await q.locator('[contenteditable]').first().innerText()) === 'Mi acción [x]', 'editar: guarda en el sitio');
+    await q.getByRole('button', { name: 'Añadir' }).click();
+    check((await q.locator('[contenteditable]').count()) === 5, 'añadir: 5 acciones');
+    await q.getByRole('button', { name: 'Quitar la acción' }).last().click();
+    check((await q.locator('[contenteditable]').count()) === 4, 'quitar: 4 acciones');
+    await q.locator('[contenteditable]').nth(1).fill('x'.repeat(200)); await q.locator('[contenteditable]').nth(1).press('Enter');
+    check((await q.locator('[contenteditable]').nth(1).innerText()).length === 120, 'validación: máx. 120 caracteres');
+    await q.locator('[contenteditable]').nth(2).fill('línea uno\nlínea dos'); await q.locator('[contenteditable]').nth(2).press('Enter');
+    check(!(await q.locator('[contenteditable]').nth(2).innerText()).includes('\n'), 'validación: sin saltos de línea');
+    for (let i = 0; i < 6 && (await q.getByRole('button', { name: 'Añadir' }).count()); i++) await q.getByRole('button', { name: 'Añadir' }).click();
+    check((await q.locator('[contenteditable]').count()) === 8 && (await q.getByRole('button', { name: 'Añadir' }).count()) === 0, 'validación: máx. 8 acciones');
+    for (let i = 0; i < 4; i++) await q.getByRole('button', { name: 'Quitar la acción' }).last().click();
+    await q.getByRole('button', { name: 'Listo' }).click();
+    await page.waitForTimeout(700);
+    await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    check((await page.locator('.gx-quick .gx-qc').count()) === 4 && (await page.locator('.gx-quick .gx-qc').first().innerText()) === 'Mi acción [x]', 'la lista editada persiste tras recargar');
+    check(await page.evaluate(() => !JSON.stringify(localStorage).includes('Mi acción')), 'las acciones no se guardan en localStorage del navegador (van a Ajustes)');
+  }
+
+  // ───── Modelo y claves (misma pestaña) ─────
+  console.log('GREX · modelo y claves');
+  { await seed(); await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    const q = page.locator('.gx-quick');
+    await q.getByRole('button', { name: 'Modelo y claves' }).click();
+    const rg = q.getByRole('radiogroup'), rs = rg.getByRole('radio');
+    check((await rs.count()) === 2 && (await rs.first().getAttribute('aria-checked')) === 'true', 'claves: una fila por clave; la activa marcada');
+    const qb = await q.boundingBox(), pb = await page.locator('.gx-pill').boundingBox();
+    check(Math.abs(qb.width - pb.width) <= 1 && (await rs.first().evaluate((e) => e.closest('.gx-krow').getBoundingClientRect().height)) >= 46, 'claves: misma geometría de la pestaña y filas ≥ 46 px');
+    check(await page.evaluate(([a, b]) => { const h = document.body.innerHTML; return !h.includes(a) && !h.includes(b) && !h.includes(a.slice(0, -4)); }, [K1, K2]) && (await q.innerText()).includes('••••AAAA'), 'la clave nunca aparece completa (solo ••••últimos 4)');
+    await rs.first().focus(); await page.keyboard.press('ArrowDown');
+    check(await rs.nth(1).evaluate((e) => e === document.activeElement), 'teclado: ↓ mueve entre claves');
+    await page.keyboard.press('Space');
+    check((await rs.first().getAttribute('aria-checked')) === 'true' && (await rs.first().innerText()).includes('Dos') && (await q.getByText('Ahora responde con Dos').count()) === 1, 'elegir: «Ahora responde con Dos» (aria-live)');
+    check(await page.evaluate(() => JSON.parse(localStorage.getItem('engrama.chat.keys')).keys[0].alias === 'Dos'), 'elegir: esa clave pasa a ser la primera (persiste)');
+    check((await page.locator('.gx-ustrip .gx-u.on').getAttribute('data-key')) === 'b', 'la tira de uso marca la clave activa');
+    // la petición siguiente usa esa clave
+    await page.keyboard.press('Escape'); await page.mouse.move(5, 5);
+    mode = 'stream'; genKeys.length = 0;
+    await dock.locator('.gx-txt').click(); panel = page.getByRole('dialog', { name: 'Asistente' }); await panel.waitFor();
+    await panel.getByLabel('Escribe tu mensaje').fill('hola'); await panel.getByLabel('Escribe tu mensaje').press('Enter');
+    await page.locator('.chat-msg.assistant').first().waitFor();
+    check(genKeys.length >= 1 && genKeys[0].key === K2, 'la petición siguiente usa la clave elegida');
+    await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
+    // modelo: «Ver modelos disponibles» + elegir
+    await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    await q.getByRole('button', { name: 'Modelo y claves' }).click();
+    const lr0 = listReqs.length;
+    await q.getByRole('button', { name: 'Ver modelos disponibles' }).click();
+    await page.waitForFunction((n) => true, 0); await page.waitForTimeout(500);
+    check(listReqs.length === lr0 + 1 && listReqs[lr0].key === K2 && !listReqs[lr0].url.includes('AIza'), 'ver modelos: UNA petición, clave solo en cabecera');
+    await q.getByRole('button', { name: /Modelo de Dos/ }).click();
+    const mi = page.getByRole('menuitemradio', { name: 'gemini-2.5-pro' });
+    check((await mi.count()) === 1 && (await page.locator('.popover.gx-menu').evaluate((e) => +getComputedStyle(e).zIndex)) > 250, 'selector de modelo: incluye los obtenidos y queda sobre el asistente');
+    await mi.click();
+    await page.waitForTimeout(700);
+    check((await q.getByRole('button', { name: /Modelo de Dos/ }).innerText()).includes('gemini-2.5-pro'), 'elegir modelo: se ve en la fila');
+    check(await page.evaluate(() => /mono|Menlo|ui-monospace/i.test(getComputedStyle(document.querySelector('.gx-mdl .mono')).fontFamily)), 'el modelo va en monoespaciada');
+    await page.keyboard.press('Escape'); await page.mouse.move(5, 5);
+    genKeys.length = 0;
+    await dock.locator('.gx-txt').click(); await panel.waitFor();
+    await panel.getByLabel('Escribe tu mensaje').fill('otra'); await panel.getByLabel('Escribe tu mensaje').press('Enter');
+    await page.locator('.chat-msg.assistant').nth(1).waitFor().catch(() => {});
+    check(genKeys.length >= 1 && /models\/gemini-2\.5-pro:/.test(genKeys[0].url), 'cambiar de modelo llega a la siguiente petición');
+    await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
+    // claves no elegibles
+    await page.evaluate(() => { const o = JSON.parse(localStorage.getItem('engrama.chat.keys')); o.keys[1].status = 'invalid'; localStorage.setItem('engrama.chat.keys', JSON.stringify(o)); });
+    await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    await q.getByRole('button', { name: 'Modelo y claves' }).click();
+    const bad = q.getByRole('radio').nth(1);
+    check((await bad.getAttribute('aria-disabled')) === 'true' && (await bad.innerText()).includes('inválida'), 'clave inválida: atenuada, con su etiqueta y no elegible');
+    await bad.click({ force: true });
+    check(await page.evaluate(() => JSON.parse(localStorage.getItem('engrama.chat.keys')).keys[0].alias === 'Dos'), 'clave no elegible: no cambia el orden');
+    await q.getByRole('button', { name: 'Volver a las acciones' }).click();
+    check((await q.locator('.gx-qc').count()) === 4, '‹ vuelve a las acciones');
+    // sin claves
+    await page.evaluate(() => localStorage.removeItem('engrama.chat.keys'));
+    await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    await q.getByRole('button', { name: 'Modelo y claves' }).click();
+    check((await q.getByText('Aún no tienes claves').count()) === 1 && (await q.getByRole('button', { name: 'Añadir clave' }).count()) === 1 && (await page.locator('.gx-ustrip').count()) === 0, 'sin claves: aviso + «Añadir clave» y sin tira de uso');
+    await q.getByRole('button', { name: 'Añadir clave' }).click();
+    await page.waitForFunction(() => location.hash.startsWith('#/ajustes'));
+    check(true, '«Añadir clave» lleva a Ajustes');
+    // tira con 1–4 claves: se ajusta al contenido, ≤ pastilla, máx. 3 entradas y «+N»
+    const provs = ['gemini', 'groq', 'openrouter', 'kimi'], ws = [], ds = new Set();
+    for (let n = 1; n <= 4; n++) {
+      await page.evaluate(([n, provs]) => localStorage.setItem('engrama.chat.keys', JSON.stringify({ v: 1, keys: provs.slice(0, n).map((p, i) => ({ id: 'k' + i, alias: 'K' + i, provider: p, key: 'sk-test' + i + 'WXYZ', status: 'active' })) })), [n, provs]);
+      await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.waitForTimeout(200);
+      const st = page.locator('.gx-ustrip'), sb = await st.boundingBox(), pb = await page.locator('.gx-pill').boundingBox();
+      ws.push(sb.width);
+      check((await st.locator('.gx-u:not(.more)').count()) === Math.min(n, 3) && (await st.locator('.more').count()) === (n > 3 ? 1 : 0) && (n < 4 || (await st.locator('.more').innerText()) === '+1'), `tira con ${n} clave(s): ${Math.min(n, 3)} entradas${n > 3 ? ' y «+1»' : ''}`);
+      check(sb.width <= pb.width && (await st.locator('.gx-u.on').count()) === 1 && (await st.locator('.gx-u.on').evaluate((e) => +getComputedStyle(e).fontWeight)) >= 700 && (await st.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)), `tira con ${n}: ≤ ancho de la pastilla (${Math.round(sb.width)}), sin desborde, activa en Bold`);
+      for (const p of provs.slice(0, Math.min(n, 3))) ds.add(p + ':' + await st.locator(`[data-provider="${p}"] svg`).first().innerHTML());
+    }
+    check(ws[0] < ws[1] && ws[1] < ws[2] && ws[3] > ws[2], `ancho adaptable al contenido (${ws.map(Math.round)})`);
+    check(ds.size === 3 && new Set([...ds].map((x) => x.split(':')[1])).size === 3, 'logo propio por proveedor');
+    await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    await page.locator('.gx-quick').getByRole('button', { name: 'Modelo y claves' }).click();
+    check((await page.locator('.gx-quick').getByRole('radio').count()) === 4 && (await page.locator('.gx-quick .gx-lg svg').count()) === 4, 'el selector de claves muestra las 4 con su logo');
+    await seed(); await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor();
+  }
+
+  // no solapa la firma ni la barra del editor (1024×768 y 1366×1024); claro y oscuro
+  await page.goto(URL_ + '#/notas');
+  await page.getByRole('button', { name: 'Nueva nota', exact: true }).first().click();
+  await page.locator('.sheet').getByLabel('Título').fill('Nota GREX');
+  await page.locator('.sheet').getByLabel('Título').press('Enter');
+  await page.locator('.doc').waitFor();
+  for (const [w, h] of [[1024, 768], [1366, 1024]]) {
+    await page.setViewportSize({ width: w, height: h }); await page.waitForTimeout(250);
+    for (const dark of [false, true]) {
+      await page.evaluate((d) => document.documentElement.classList.toggle('dark', d), dark);
+      await page.waitForTimeout(100);
+      const eb = page.locator('.editorbar').first(), sg = await page.locator('.dev-sign').boundingBox();
+      const d = await page.locator('.gx-dock').boundingBox();
+      check(!hit(d, sg), `${w}×${h}${dark ? ' oscuro' : ''}: la barra no tapa la firma`);
+      check((await eb.count()) > 0 && !hit(d, await eb.boundingBox()), `${w}×${h}${dark ? ' oscuro' : ''}: la barra no tapa la barra del editor`);
+      await page.screenshot({ path: `${SHOTS}/${w}-notas-${dark ? 'oscuro' : 'claro'}.png` });
+    }
+    await page.locator('.gx-dock .gx-minimize, .gx-dock [aria-label="Minimizar a la mascota"]').click();
+    await page.locator('.gx-mini').waitFor();
+    { const m = await page.locator('.gx-mini').boundingBox(), eb = await page.locator('.editorbar').first().boundingBox(), sg = await page.locator('.dev-sign').boundingBox();
+      check(!hit(m, eb) && !hit(m, sg), `${w}×${h}: la mascota minimizada no tapa la barra del editor ni la firma`); }
+    await page.screenshot({ path: `${SHOTS}/${w}-notas-mascota.png` });
+    await page.locator('.gx-mini').click();
+    await page.locator('.gx-dock').waitFor();
+  }
+  await page.evaluate(() => document.documentElement.classList.remove('dark'));
+  await page.setViewportSize({ width: 1180, height: 900 });
+
+  // reduced-motion: mascota y barra sin animación
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(URL_ + '#/hoy');
+  await page.locator('.gx-dock').waitFor();
+  check(await page.evaluate(() => [...document.querySelectorAll('.gx-dock *, .gx-dock')].every((e) => getComputedStyle(e).animationName === 'none' && !/after/.test('')) && getComputedStyle(document.querySelector('.gx-dock .blink')).animationName === 'none'), 'reduced-motion: sin animaciones en la barra ni en GREX');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto(URL_ + '#/hoy');
+  await page.locator('.gx-dock').waitFor();
+  check(await page.evaluate(() => getComputedStyle(document.querySelector('.gx-dock .blink')).animationName === 'm-blink'), 'con movimiento: GREX parpadea');
 
   // pseudo-idioma +40 %: sin desbordes
   await page.keyboard.press('Escape');
@@ -609,6 +890,7 @@ try {
   await page.locator('#asistente').waitFor();
   if ((await page.locator('#asistente').getAttribute('class')).includes('open') === false) await page.locator('#asistente .fold-btn').click();
   const s2 = page.locator('#asistente');
+  await s2.getByLabel('Proveedor').waitFor(); // el cuerpo de la sección se carga con import() al desplegarla
   const provs = await s2.getByLabel('Proveedor').locator('option').allInnerTexts();
   check(provs.join() === 'Gemini,Groq,OpenRouter,Kimi', 'selector con los 4 proveedores: ' + provs.join());
   check((await s2.innerText()).includes('Hasta 4'), 'texto «Hasta 4»');
@@ -664,12 +946,101 @@ try {
   check(!(await page.content()).includes(ORK) && !logs.some((l) => l.includes(ORK) || l.includes(KMK)), 'la clave no está en el DOM ni en la consola');
   await page.keyboard.press('Escape');
   await panel.waitFor({ state: 'detached' });
+  // ───── Dictado (voz del sistema, simulada) ─────
+  console.log('Dictado');
+  await page.context().addInitScript(() => {
+    const m = localStorage.getItem('e2e-sr');
+    if (!m) { delete window.SpeechRecognition; delete window.webkitSpeechRecognition; try { Object.defineProperty(window, 'SpeechRecognition', { value: undefined, configurable: true }); Object.defineProperty(window, 'webkitSpeechRecognition', { value: undefined, configurable: true }); } catch { /* */ } return; }
+    const FK = class {
+      start() { window.__sr = this; window.__srN = (window.__srN || 0) + 1; this.lang0 = this.lang; if (m === 'denied') setTimeout(() => { this.onerror?.({ error: 'not-allowed' }); this.onend?.(); }, 20); }
+      stop() { this.onend?.(); } abort() { this.onend?.(); }
+      say(t, f) { this.onresult?.({ results: [Object.assign([{ transcript: t }], { isFinal: f })] }); }
+    };
+    window.webkitSpeechRecognition = FK; window.SpeechRecognition = FK; // Chromium ya trae el suyo
+  });
+  const sr = async (mode) => { await page.evaluate((m) => { m ? localStorage.setItem('e2e-sr', m) : localStorage.removeItem('e2e-sr'); }, mode); await page.reload(); await page.locator('.gx-dock').waitFor(); };
+  const field = () => page.locator('.chat-panel textarea');
+  const apiBefore = apiHits.length;
+  await sr('ok');
+  const dk = page.locator('.gx-dock');
+  const dbtn = dk.getByRole('button', { name: 'Dictar' });
+  check((await dbtn.boundingBox()).height >= 44, 'Dictar: ≥ 44 px');
+  check((await dbtn.getAttribute('aria-pressed')) === 'false' && !(await dbtn.getAttribute('title')), 'Dictar: aria-pressed false y sin title');
+  await page.screenshot({ path: `${SHOTS}/1024-dictar-reposo.png` });
+  await dbtn.click({ position: { x: 20, y: 20 }, delay: 30 });  // toque
+  await field().waitFor();
+  check(await page.evaluate(() => window.__srN === 1 && window.__sr.lang0 === 'es-MX'), 'toque: empieza el reconocimiento (es-MX)');
+  await page.evaluate(() => window.__sr.say('hola gre', false));
+  check((await field().inputValue()) === 'hola gre', 'texto provisional en el campo');
+  check((await field().getAttribute('class')).includes('vz-int'), 'provisional en gris/cursiva');
+  check((await page.locator('.chat-panel .mascot').first().getAttribute('data-state')) === 'listening' , 'la mascota pasa a listening');
+  { const b = page.getByRole('button', { name: 'Escuchando… · Detener' }).first();
+    check((await b.count()) >= 1 && (await b.getAttribute('aria-pressed')) === 'true', 'botón: «Escuchando… · Detener» (pressed)'); }
+  await page.screenshot({ path: `${SHOTS}/1024-dictar-escuchando.png` });
+  await page.evaluate(() => window.__sr.say('hola grex', true));
+  await page.evaluate(() => window.__sr.onend());
+  check((await field().inputValue()) === 'hola grex' && !(await field().getAttribute('class')).includes('vz-int'), 'texto definitivo en el campo');
+  await page.waitForTimeout(300);
+  check(!(await page.locator('.chat-msg.user').count()) && apiHits.length === apiBefore, 'NO se envía solo');
+  // con texto previo: se añade con espacio
+  await page.locator('.chat-form .vz').click({ delay: 30 });
+  await page.evaluate(() => window.__sr.say('otra frase', true)); await page.evaluate(() => window.__sr.onend());
+  check((await field().inputValue()) === 'hola grex otra frase', 'si ya hay texto, se añade con un espacio');
+  // el botón del campo del panel
+  await field().fill('');
+  const vpb = page.locator('.chat-form .vz');
+  check((await vpb.boundingBox()).height >= 44, 'botón del campo: ≥ 44 px');
+  await vpb.dispatchEvent('pointerdown', { pointerId: 1, isPrimary: true, button: 0 });
+  await page.waitForTimeout(450);
+  check(await page.evaluate(() => window.__srN === 3), 'mantener: empieza al pulsar');
+  await page.evaluate(() => window.__sr.say('mantenido', true));
+  await vpb.dispatchEvent('pointerup', { pointerId: 1, isPrimary: true });
+  await page.waitForTimeout(100);
+  check((await field().inputValue()) === 'mantenido' && (await page.locator('.chat-form .vz.on').count()) === 0, 'mantener ≥ 350 ms: al soltar se detiene');
+  // toque corto en el campo: sigue escuchando hasta otro toque
+  await vpb.dispatchEvent('pointerdown', { pointerId: 2, isPrimary: true, button: 0 });
+  await vpb.dispatchEvent('pointerup', { pointerId: 2, isPrimary: true });
+  check((await page.locator('.chat-form .vz.on').count()) === 1, 'toque corto: sigue escuchando');
+  await vpb.dispatchEvent('pointerdown', { pointerId: 3, isPrimary: true, button: 0 });
+  await vpb.dispatchEvent('pointerup', { pointerId: 3, isPrimary: true });
+  check((await page.locator('.chat-form .vz.on').count()) === 0, 'segundo toque: detiene');
+  await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
+  // permiso denegado
+  await sr('denied');
+  await page.locator('.gx-dock').getByRole('button', { name: 'Dictar' }).click({ delay: 30 });
+  await page.getByText('Activa el micrófono para Engrama en Ajustes de Safari').first().waitFor();
+  check((await page.locator('.gx-voz-msg[role=status][aria-live=polite]').count()) >= 1, 'permiso denegado: mensaje claro con aria-live');
+  await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
+  // sin soporte
+  await sr(null);
+  await page.locator('.gx-dock').getByRole('button', { name: 'Dictar' }).click({ delay: 30 });
+  await panel.waitFor();
+  await page.getByText('Usa el micrófono del teclado para dictar').first().waitFor();
+  check(await page.evaluate(() => document.activeElement?.tagName === 'TEXTAREA'), 'sin soporte: el campo queda enfocado y hay aviso');
+  await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
+  // teléfono
+  await sr('ok');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('.chat-fab').click();
+  await panel.waitFor();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${SHOTS}/390-dictar-reposo.png` });
+  await page.locator('.chat-form').getByRole('button', { name: 'Dictar' }).click({ delay: 30 });
+  await page.evaluate(() => window.__sr.say('hola desde el teléfono', false));
+  await page.screenshot({ path: `${SHOTS}/390-dictar-escuchando.png` });
+  check((await field().inputValue()) === 'hola desde el teléfono', 'teléfono: el texto llega al campo');
+  await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' }).catch(() => {});
+  await page.setViewportSize({ width: 1180, height: 900 });
+  await sr(null);
+
   // toda la sesión: solo localhost y los 4 hosts del Asistente (incluida la carga del SDK)
   { const bad = [...hosts].filter((h) => !/^localhost(:\d+)?$/.test(h) && h !== 'generativelanguage.googleapis.com' && h !== 'api.groq.com' && h !== 'openrouter.ai' && h !== 'api.moonshot.ai'); check(bad.length === 0, 'peticiones solo a self y 4 hosts ' + bad.join(',')); }
 } catch (e) {
   failed++;
   console.error(e);
-  try { console.error(await page.locator('.chat-panel').first().evaluate((el) => el.innerText + '\n' + [...el.querySelectorAll('button')].map((b) => b.getAttribute('aria-label')).join('|'))); } catch { /* sin panel */ }
+  try { await page.screenshot({ path: '/tmp/claude-0/fail.png' }); } catch { /* */ }
+  try { console.error('DBGPAGE', await page.evaluate(() => document.body.innerText.slice(0, 400) + ' | ' + [...document.querySelectorAll('h1,h2')].map((h) => h.tagName + ':' + h.textContent).join(';'))); } catch { /* */ }
+  try { console.error(await page.locator('.chat-panel').first().first().evaluate((el) => el.innerText + '\n' + [...el.querySelectorAll('button')].map((b) => b.getAttribute('aria-label')).join('|'))); } catch { /* sin panel */ }
 } finally {
   await browser.close();
   server.kill();

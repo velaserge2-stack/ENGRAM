@@ -292,39 +292,32 @@ try {
     {
       const { ctx, page } = await fresh();
       await start(page);
-      // arreglo del reproductor: una sola pieza fija en la esquina inferior derecha (antes, en la barra superior)
+      // Mejoras UI·A: pastilla en la barra superior, junto al reloj; los controles salen en un Popover
       const mb = await page.locator('.mini-amb').boundingBox();
-      check(await page.locator('.mini-amb.docked').count() === 1 && 1180 - (mb.x + mb.width) <= 20 && 820 - (mb.y + mb.height) <= 20, 'está fijo en la esquina inferior derecha, en una sola pieza');
-      await page.locator('.mini-amb').hover();
-      await page.locator('.mini-amb-x').waitFor();
-      check(true, 'al pasar el cursor se extiende');
-      const x = await page.locator('.mini-amb-x').boundingBox();
-      check(x.x >= 0 && x.y >= 0 && x.x + x.width <= 1180 && x.y + x.height <= 820, 'el panel extendido queda dentro de la pantalla');
-      await page.locator('.mini-amb-x').getByRole('slider', { name: 'Volumen general' }).fill('50');
+      check(await page.locator('.topbar .mini-amb.inbar').count() === 1 && mb.y < 80, 'está en la barra superior, no fija abajo');
+      const pop = page.locator('.mini-amb-pop');
+      const openPop = async () => { await page.locator('.mini-amb-main').click(); await pop.waitFor(); };
+      await openPop();
+      const x = await pop.boundingBox();
+      check(x.x >= 0 && x.y >= 0 && x.x + x.width <= 1180 && x.y + x.height <= 820, 'el Popover queda dentro de la pantalla');
+      await pop.getByRole('slider', { name: 'Volumen general' }).fill('50');
       check(await page.evaluate(() => window.__ambient.volume === 0.5), 'cambia el volumen general sin abrir el panel');
-      await page.locator('.mini-amb-x').getByRole('slider', { name: 'Volumen de Lluvia' }).fill('30');
+      await pop.getByRole('slider', { name: 'Volumen de Lluvia' }).fill('30');
       check(await page.evaluate(() => window.__ambient.levels().rain === 0.3), 'y el volumen de cada capa activa');
-      await page.locator('.mini-amb-x').getByRole('button', { name: 'Pausar' }).click();
+      await pop.getByRole('button', { name: 'Pausar' }).click();
       check(await page.evaluate(() => !window.__ambient.playing && window.__ambient.paused), 'pausar sin abrir el panel');
       check(await page.locator('.mini-amb').count() === 1, 'en pausa sigue visible para reanudar');
-      await page.locator('.mini-amb-x').getByRole('button', { name: 'Reanudar' }).click();
+      await pop.getByRole('button', { name: 'Reanudar' }).click();
       check(await page.evaluate(() => window.__ambient.playing && window.__ambient.state() === 'running'), 'reanudar: el mismo motor (AudioContext) vuelve a sonar');
-      await page.mouse.move(600, 600);
-      await page.waitForTimeout(150);
-      check(await page.locator('.mini-amb-x').count() === 1, 'al salir hay gracia (no se cierra de golpe)');
-      await page.waitForTimeout(400);
-      check(await page.locator('.mini-amb-x').count() === 0, 'y luego se contrae');
-      // teclado
-      // el mini va al final del documento (capa flotante): Mayús+Tab desde el principio llega a él
-      await page.evaluate(() => { document.activeElement?.blur(); document.body.focus(); });
-      await page.keyboard.press('Shift+Tab');
-      await page.locator('.mini-amb-x').waitFor();
-      check(true, 'con el foco del teclado también se extiende');
       await page.keyboard.press('Escape');
-      await page.locator('.mini-amb-x').waitFor({ state: 'detached' });
-      check(true, 'Esc lo contrae');
-      await page.locator('.mini-amb').hover();
-      await page.locator('.mini-amb-x').getByRole('button', { name: 'Abrir panel' }).click();
+      await pop.waitFor({ state: 'detached' });
+      check(true, 'Esc cierra el Popover');
+      await openPop();
+      await page.mouse.click(600, 600);
+      await pop.waitFor({ state: 'detached' });
+      check(true, 'tocar fuera lo cierra');
+      await openPop();
+      await pop.getByRole('button', { name: 'Abrir panel' }).click();
       const sh = page.getByRole('dialog', { name: 'Sonido ambiente' });
       await sh.waitFor();
       check(true, '«Abrir panel» abre el panel de Sonido ambiente');

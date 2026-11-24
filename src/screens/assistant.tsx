@@ -205,8 +205,12 @@ export function AssistantBody() {
         <select aria-label={t('chat.contexto')} value={s.chat.context} onChange={(e) => app.update({ chat: { ...s.chat, context: (e.target as HTMLSelectElement).value === 'amplio' ? 'amplio' : 'normal' } })}><option value="normal">{t('chat.contexto_normal')}</option><option value="amplio">{t('chat.contexto_amplio')}</option></select>
       </Row>
 
+      <Row k={t('chat.estilo')} sub={t('chat.estilo_sub')}>
+        <select aria-label={t('chat.estilo')} value={s.chat.estilo} onChange={(e) => app.update({ chat: { ...s.chat, estilo: (e.target as HTMLSelectElement).value === 'b' ? 'b' : 'a' } })}><option value="a">{t('chat.estilo_a')}</option><option value="b">{t('chat.estilo_b')}</option></select>
+      </Row>
+
       <div class="row-i"><div class="k"><strong>{t('chat.privacidad')}</strong>
-        <small>{t('chat.priv_gemini')}</small><small>{t('chat.priv_groq')}</small><small>{t('chat.priv_openrouter')}</small><small>{t('chat.priv_kimi')}</small><small>{t('chat.priv_consejo')}</small><small>{t('chat.priv_local')}</small></div></div>
+        <small>{t('chat.priv_gemini')}</small><small>{t('chat.priv_groq')}</small><small>{t('chat.priv_openrouter')}</small><small>{t('chat.priv_kimi')}</small><small>{t('chat.priv_consejo')}</small><small>{t('chat.priv_local')}</small><small>{t('voz.priv')}</small></div></div>
       <Row k={t('chat.olvidar')} sub={t('chat.olvidar_sub')}><button type="button" class="btn danger" onClick={forget} disabled={!store.keys.length}>{t('chat.olvidar')}</button></Row>
     </>
   );

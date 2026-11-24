@@ -22,6 +22,25 @@ export const clampHeight = (h: number) => Math.min(H_MAX, Math.max(H_MIN, Math.r
 /** Alto del lienzo de una nota completa: lo que queda de la ventana desde el borde superior del tablero. */
 export const fillHeight = (innerH: number, top: number, bottom = 16) => Math.max(FILL_MIN, Math.floor(innerH - Math.max(0, top) - bottom));
 
+/** Ventana visual (pellizco de la página): posición de la barra flotante para que siga fija y del mismo tamaño en pantalla.
+ *  Sin zoom de página (escala ≈ 1) devuelve null: manda el CSS (`bottom` + `--kb-inset`). Abajo-centro de la ventana visual, con margen. */
+export interface VV { scale: number; offsetLeft: number; offsetTop: number; width: number; height: number }
+export function fbarPlace(vv: VV, margin = 12): { left: number; top: number; scale: number } | null {
+  if (!(vv.scale > 1.01)) return null;
+  const k = 1 / vv.scale;
+  return { left: vv.offsetLeft + vv.width / 2, top: vv.offsetTop + vv.height - margin * k, scale: k };
+}
+
+/** Dentro de `el` el pellizco (ctrl+rueda del trackpad, `gesture*` de Safari) no escala la página: la barra y los controles no se pierden. */
+export function blockPageZoom(el: HTMLElement): () => void {
+  const wheel = (e: WheelEvent) => { if (e.ctrlKey || e.metaKey) e.preventDefault(); };
+  const no = (e: Event) => e.preventDefault();
+  const G = ['gesturestart', 'gesturechange', 'gestureend'];
+  el.addEventListener('wheel', wheel, { passive: false });
+  for (const g of G) el.addEventListener(g, no);
+  return () => { el.removeEventListener('wheel', wheel); for (const g of G) el.removeEventListener(g, no); };
+}
+
 export const isDrag = (a: Pt, b: Pt, slop = DRAG_SLOP) => Math.hypot(b.x - a.x, b.y - a.y) >= slop;
 
 export const toWorld = (v: View, p: Pt): Pt => ({ x: (p.x - v.x) / v.k, y: (p.y - v.y) / v.k });

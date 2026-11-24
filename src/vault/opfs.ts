@@ -4,8 +4,8 @@ import { toBytes } from './util';
 import type { WorkerRequest, WorkerResponse } from './opfs.worker';
 
 /** Nombre del error del Worker → código de VaultError (NotFound se distingue de un fallo real). */
-const codeOf = (c?: string): VaultError['code'] =>
-  c === 'not-found' || c === 'NotFoundError' || c === 'TypeMismatchError' ? 'not-found' : c === 'quota' || c === 'QuotaExceededError' ? 'quota' : c === 'invalid-path' ? 'invalid-path' : 'io';
+export const codeOf = (c?: string): VaultError['code'] =>
+  c === 'not-found' || c === 'NotFoundError' || c === 'TypeMismatchError' ? 'not-found' : c === 'quota' || c === 'QuotaExceededError' ? 'quota' : c === 'invalid-path' ? 'invalid-path' : c === 'NoModificationAllowedError' || c === 'InvalidStateError' ? 'locked' : 'io';
 
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 

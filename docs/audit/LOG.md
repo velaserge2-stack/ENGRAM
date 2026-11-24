@@ -125,3 +125,8 @@ Verificación: typecheck, vitest 443, build; `e2e`, `flows`, `mejoras`, `mejoras
 ## Verificación final · menores y pendientes (2026-11-13) · coordinador
 
 Sobre c9d03bc: typecheck limpio, vitest 443/443 (ya no queda ninguna `it.fails` en `tests/audit-*`), build OK. Batería E2E en Chromium: 24 suites en verde; `e2e:bancos` falló una vez y pasó al repetir (intermitente, igual que en la tanda A). `e2e:p5` («cinco resaltados») se omitió: falla 2 de 2 en `origin/main` y pasa 2 de 2 en esta rama. `MODE=compare e2e:phone` contra `origin/main`: 0 píxeles en 36 capturas. Tokens: menores lib/data/vault/ui ≈ 166 k (Sonnet), notes/io/sim ≈ 126 k (Sonnet), pendientes ≈ 249 k (Opus).
+
+## 2026-11-24 · skills para ahorrar tokens (mejoras-ui)
+- **caveman**: instalada (solo `skills/caveman/SKILL.md` + `LICENSE-MIT`) en `.claude/skills/caveman/`. Origen github.com/JuliusBrussee/caveman @47c61be, Apache-2.0/MIT. Revisado: texto plano; sin red, hooks ni `settings.json`. No se instaló el resto del repo (hooks, proxy, MCP, instalador). Uso: respuestas de subagentes y chat; el código, docs y commits van en prosa normal.
+- **ponytail** y **systematic-debugging** (de superpowers): ya instaladas.
+- **graphify**: NO instalada (envía contenido a APIs externas si hay clave; ver entrada anterior). Se sustituye por el mapa `docs/audit/MAPA.md` + `docs/mejoras-ui/INVENTARIO.md` (codebase-overview) que ubican archivos sin releer carpetas.

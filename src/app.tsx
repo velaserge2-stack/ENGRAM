@@ -17,6 +17,7 @@ import { ExamSheet } from './screens/exams';
 import { type AppCtx, Ctx, go, useApp as ctxHook, useRoute } from './state';
 import { applyTheme, onSchemeChange, resolvedMode, watchFrames } from './theme';
 import { BackgroundLayer, guard, sampleBackground, toneSign } from './ui/background';
+import { storageErrorText, takePendingSaves } from './vault/errinfo';
 import { checkIntegrity, type IntegrityReport } from './vault/integrity';
 import { type OpenedVault, reconnectFolder } from './vault/open';
 import { onUpdateReady } from './sw-register';
@@ -115,11 +116,15 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   useEffect(() => {
     const onRejection = (ev: PromiseRejectionEvent) => {
       const e = ev.reason as { name?: string; message?: string } | null;
-      if (e && (e.name === 'VaultError' || (e instanceof DOMException && e.name !== 'AbortError'))) toast(t('app.error_de_almacenamiento', { e: e.message ?? '' }));
+      if (e && (e.name === 'VaultError' || (e instanceof DOMException && e.name !== 'AbortError'))) toast(t('app.error_de_almacenamiento', { e: storageErrorText(e) }));
     };
     addEventListener('unhandledrejection', onRejection);
     // autoguardado de notas y mazos (también el del temporizador): aviso una vez por archivo hasta que vuelva a guardar
-    onNoteSaveFailed((path, e) => toast(t('app.no_se_guardo_nota', { name: path.split('/').pop()!.replace(/\.md$/, ''), e: String((e as Error)?.message ?? e) })));
+    onNoteSaveFailed((path, e) => toast(t('app.no_se_guardo_nota', { name: path.split('/').pop()!.replace(/\.md$/, ''), e: storageErrorText(e) })));
+    // sesión anterior: guardados que fallaron al cerrar; y memoria por fallo de OPFS (el aviso fijo ya existe: `temporary`)
+    const lost = takePendingSaves();
+    if (lost.length) toast(t('vault.pending_save', { paths: lost.map((p) => p.split('/').pop()!.replace(/\.md$/, '')).join(', ') }));
+    if (vault.kind === 'memory') toast(t('vault.memory'), { label: t('vault.reintentar'), run: () => location.reload() });
     return () => (removeEventListener('unhandledrejection', onRejection), onNoteSaveFailed(() => {}));
   }, []);
   useEffect(() => {
@@ -327,6 +332,8 @@ function TopBar(props: { tab: string }) {
     const measure = () => {
       const a = nav.current?.querySelector<HTMLElement>('a[aria-current="page"]');
       setSlider(a ? { x: a.offsetLeft, w: a.offsetWidth } : null);
+      const n = nav.current;
+      if (a && n && n.scrollWidth > n.clientWidth + 1) n.scrollLeft = Math.max(0, a.offsetLeft - (n.clientWidth - a.offsetWidth) / 2);
     };
     measure();
     addEventListener('resize', measure);
@@ -356,25 +363,26 @@ function TopBar(props: { tab: string }) {
       <button type="button" class="pill glass mini-pomo" onClick={() => (p.state.running ? p.pause() : p.start())} aria-label={p.state.running ? t('app.pausar_enfoque') : t('app.iniciar_enfoque')} data-tip={p.state.running ? t('app.pausar_enfoque') : t('app.iniciar_enfoque')}>
         {p.state.running ? <Pause size={16} /> : <Play size={16} />} {mm}
       </button>
+      {addonOn(app.settings, 'ambient') && !phoneBar && <MiniAmbient inbar />}
       <button type="button" class="pill glass" onClick={() => app.openSheet('palette')} aria-label={t('app.buscar_k')}>
         <Search size={18} />
       </button>
-      {addonOn(app.settings, 'inbox') && <a class="pill glass" href="#/bandeja" aria-label={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })} data-tip={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })}>
+      {addonOn(app.settings, 'inbox') && <a class="pill glass mid-hide" href="#/bandeja" aria-label={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })} data-tip={t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })}>
         <Inbox size={18} /> <span class={`count${app.inboxCount ? '' : ' zero'}`}>{app.inboxCount}</span>
       </a>}
       {/* Ajustes y Respaldo viven en Perfil (Prompt 6 · B). iPad (601–1100 px): Sonido ambiente pasa a «⋯» */}
-      {addonOn(app.settings, 'ambient') && (
+      {(addonOn(app.settings, 'ambient') || addonOn(app.settings, 'inbox')) && (
         <button type="button" class="pill glass more-pill" aria-label={t('phone.mas')} aria-haspopup="menu" aria-expanded={!!moreAt} onClick={(e) => setMoreAt(moreAt ? null : (e.currentTarget as HTMLElement))}>
           <Ellipsis size={18} />
         </button>
       )}
       {moreAt && (
         <Popover anchor={moreAt} onClose={() => setMoreAt(null)} label={t('phone.mas')} role="menu" class="glass strong add-menu">
-          <button type="button" role="menuitem" onClick={() => (setMoreAt(null), app.openSheet('ambient'))}><Headphones size={18} />{' '}{t('addons.n_ambient')}</button>
+          {addonOn(app.settings, 'ambient') && <button type="button" role="menuitem" onClick={() => (setMoreAt(null), app.openSheet('ambient'))}><Headphones size={18} />{' '}{t('addons.n_ambient')}</button>}
+          {addonOn(app.settings, 'inbox') && <a role="menuitem" href="#/bandeja" onClick={() => setMoreAt(null)}><Inbox size={18} />{' '}{t('app.bandeja_inboxcount_pendientes', { inboxCount: app.inboxCount })}</a>}
         </Popover>
       )}
       {addonOn(app.settings, 'ambient') && <button type="button" class="pill glass ph-hide mid-hide" aria-label={t('addons.n_ambient')} onClick={() => app.openSheet('ambient')}><Headphones size={18} /></button>}
-      {addonOn(app.settings, 'ambient') && !phoneBar && <MiniAmbient />}
       <a class="pill glass avatar-pill ph-hide" href="#/perfil" aria-label={t('profile.perfil')} aria-current={props.tab === 'perfil' || props.tab === 'ajustes' ? 'page' : undefined}>
         <Avatar profile={profile} size={32} />
       </a>

@@ -121,7 +121,7 @@ html.is-phone .diag-board .diag-node { cursor: default; }
 
 /* Nodos: el CSS reproduce la medición (measure.ts): relleno 12×8 (+8 laterales en io/round), interlínea 1.3, misma fuente,
    borde descontado del relleno, texto sin overflow:hidden y con corte por caracteres. */
-.diag-node { --bw: 1px; --px: 12px; font-family: system-ui, -apple-system, sans-serif; line-height: 1.3; border-width: var(--bw);
+.diag-node { --bw: 1px; --px: 12px; font-family: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif; letter-spacing: -0.012em; line-height: 1.3; border-width: var(--bw);
   padding: calc(8px - var(--bw)) calc(var(--px) - var(--bw)); font-size: 15px; }
 .diag-root, .diag-l1 { --bw: 2px; }
 .diag-round, .diag-io { --px: 20px; }
@@ -248,3 +248,15 @@ html.is-phone .diag-handles { display: none; }
   .diag-frame-body { height: auto !important; overflow: visible !important; }
 }
 /* ==/F== */
+
+/* ==UI-D== interfaz fija: el zoom, el pan y el pellizco actúan SOLO sobre el lienzo */
+/* Sin pellizco de página dentro del editor ni de la barra flotante (Chrome/Safari 13+); el desplazamiento sigue. */
+.diag-editor, .diag-fbar { touch-action: pan-x pan-y; }
+.diag-board { overscroll-behavior: contain; }
+.diag-editor.diag-fill { scroll-margin-top: calc(var(--diag-top, 64px) + 8px); }
+/* Zoom del lienzo: −, %, +, Ajustar; fijo en la esquina del tablero y del mismo tamaño siempre (el tablero no escala, solo su escenario). */
+.diag-tools { align-items: center; }
+.diag-pct { min-width: 48px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; color: var(--t1); }
+/* La barra de formato de Markdown (pegajosa bajo la barra superior) no aplica a un diagrama y tapaba la barra del editor. */
+body:has(.diag-editor.diag-fill) .editorbar { display: none; }
+/* ==/UI-D== */

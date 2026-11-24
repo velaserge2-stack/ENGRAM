@@ -11,7 +11,7 @@ import { DiagramCanvas, type CanvasControl, type DiagramSelection } from './canv
 import { layoutLayered, layoutTree } from './layout';
 import { parseDiagram, readBackdrop } from './parse';
 import { History } from './history';
-import { fillHeight } from './gestures';
+import { blockPageZoom, fillHeight } from './gestures';
 import { AskDialog, BackdropPicker, FloatBar, colorEdit, edgeStyleEdit, fsEdit, maxwEdit, presetEdit, sizeFieldEdit, tx, type Ask } from './toolbar';
 import { keyResize, nodeMin, sizeEdit } from './handles';
 import { measureDoc } from './measure';
@@ -71,13 +71,18 @@ export function DiagramEditor({ kind, src, onText, fill, height, backdrop, onBac
       // alto útil = ventana − barra superior fija − barra de herramientas del editor (el tablero se alcanza desplazando la nota)
       const bar = document.querySelector<HTMLElement>('.topbar')?.getBoundingClientRect().bottom ?? 72;
       const tools = el.querySelector<HTMLElement>('[role="toolbar"]')?.offsetHeight ?? 52;
+      el.style.setProperty('--diag-top', Math.max(0, bar) + 'px');
       el.style.setProperty('--diag-h', fillHeight(innerHeight, Math.max(0, bar) + tools + 20, 16) + 'px');
     };
     measure();
-    const t = setTimeout(measure, 200); // tras cargar fuentes e imágenes del encabezado
+    // tras cargar fuentes e imágenes del encabezado: medir de nuevo y poner el editor bajo la barra superior, de modo que
+    // barra de herramientas + lienzo llenen justo lo que queda de pantalla (sin quedar tapado por la barra fija)
+    const t = setTimeout(() => { measure(); el.scrollIntoView({ block: 'start', behavior: 'instant' as ScrollBehavior }); }, 200);
     addEventListener('resize', measure);
     return () => { clearTimeout(t); removeEventListener('resize', measure); };
   }, [fill, height, asText]);
+
+  useLayoutEffect(() => (root.current ? blockPageZoom(root.current) : undefined), []);
 
   const write = (next: string | null) => { if (next !== null && next !== cur.current) { cur.current = next; onText(next, 'action'); } bump((n) => n + 1); };
   const apply = (edits: Edit[]) => write(hist.current.apply(cur.current, kind, edits));
