@@ -162,3 +162,10 @@ Límites gratuitos, nombres de modelo y forma de errores 🔸 · CORS · políti
 - Examen con fecha: AAAA-MM-DD hoy o futura, temas existentes (mazo, carpeta o `tag:x`; si no, error con sugerencias), `exists` si ya hay archivo. «Editar» revalida con los mismos validadores.
 - Deshacer de un archivo NUEVO (comprueba que sigue igual): notas y diagramas van a la papelera de notas (no quedan vacíos); el examen se quita (uno vacío estorbaría en Exámenes). Si cambió → `changed`.
 - Sin verificar: Gemini/Groq reales llamando estas herramientas, Safari/iPad.
+
+## OpenRouter y Kimi (rama `asistente-proveedores`)
+- Proveedores `openrouter` (`https://openrouter.ai/api/v1`) y `kimi` (`https://api.moonshot.ai/v1`), ambos Bearer, con `@ai-sdk/openai-compatible` 3.0.94 (Apache-2.0; compatible con `ai` 7.0.181: `@ai-sdk/provider` 4.0.39) vía `createOpenAICompatible`, con `import()` bajo demanda. Sin `@openrouter/ai-sdk-provider` (no hace falta). Sin cabeceras `HTTP-Referer`/`X-Title` (opcionales; privacidad).
+- Las claves de platform.moonshot.cn usan `api.moonshot.cn` y NO están soportadas por ahora. CSP `connect-src`: los 4 hosts. Máximo de claves: 4.
+- Modelos por defecto (editables): `meta-llama/llama-3.3-70b-instruct:free` (gratis, con herramientas) y `kimi-k2-0905-preview` (K2 con herramientas). Listado `GET {base}/models`; OpenRouter pone primero `:free`/precio 0.
+- Errores: OpenRouter 401 auth, 402 quota, 403 other (moderación, con detalle), 429 rate (quota si dice «per day»), 404/400 modelo; Kimi 401 auth, 429 quota si `exceeded_current_quota`/`insufficient balance`, si no rate, 400/404 modelo. `redact` cubre `sk-or-…` y `sk-…`.
+- 🔸 Sin verificar: CORS real de ambos hosts desde Safari, que los modelos por defecto sigan existiendo y con herramientas, límites por defecto (OpenRouter 20/min 50/día; Kimi 20/min, según saldo), cuerpos de error reales (límite diario, saldo), avisos de privacidad.

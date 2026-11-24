@@ -1,5 +1,6 @@
 import { locale } from '../i18n';
 import type { VaultAdapter } from '../vault/types';
+import type { ProviderId } from '../chat/providers';
 import { readText } from '../vault/util';
 
 export const SETTINGS_PATH = '.app/settings.json';
@@ -79,9 +80,9 @@ export interface Settings {
 }
 
 export interface ChatLimits { rpm: number; rpd: number; tpm: number; tpd?: number }
-export interface ChatSettings { limits: { gemini: ChatLimits; groq: ChatLimits }; /** modelo elegido por proveedor; ausente = el de PROVIDERS */ models: { gemini?: string; groq?: string }; warnAt: number; /** último tamaño del panel */ size: 'compact' | 'large' }
+export interface ChatSettings { limits: Record<ProviderId, ChatLimits>; /** modelo elegido por proveedor; ausente = el de PROVIDERS */ models: Partial<Record<ProviderId, string>>; warnAt: number; /** último tamaño del panel */ size: 'compact' | 'large' }
 /** Iguales a `PROVIDERS[*].limits` de src/chat/providers.ts (una prueba lo comprueba; aquí para no cargar src/chat). */
-export const defaultChat = (): ChatSettings => ({ limits: { gemini: { rpm: 10, rpd: 250, tpm: 250_000 }, groq: { rpm: 30, rpd: 1000, tpm: 12_000, tpd: 100_000 } }, models: {}, warnAt: 0.8, size: 'compact' });
+export const defaultChat = (): ChatSettings => ({ limits: { gemini: { rpm: 10, rpd: 250, tpm: 250_000 }, groq: { rpm: 30, rpd: 1000, tpm: 12_000, tpd: 100_000 }, openrouter: { rpm: 20, rpd: 50, tpm: 100_000 }, kimi: { rpm: 20, rpd: 1000, tpm: 128_000 } }, models: {}, warnAt: 0.8, size: 'compact' });
 
 /** Id de modelo válido (cadena corta); si no, '' = el de por defecto. */
 export const normModel = (v: unknown): string => (typeof v === 'string' && /^[A-Za-z0-9._/:-]{1,80}$/.test(v.trim()) ? v.trim() : '');
@@ -211,7 +212,7 @@ export function mergeSettings(raw: unknown): Settings {
   const dc = defaultChat(), c = s.chat as unknown as { limits?: Record<string, Partial<ChatLimits>>; models?: Record<string, unknown>; warnAt?: unknown; size?: unknown };
   const lim = (v: unknown, dv: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1e9, Math.max(1, Math.round(v))) : dv);
   const one = (x: Partial<ChatLimits> | undefined, d: ChatLimits): ChatLimits => ({ rpm: lim(x?.rpm, d.rpm), rpd: lim(x?.rpd, d.rpd), tpm: lim(x?.tpm, d.tpm), ...(d.tpd ? { tpd: lim(x?.tpd, d.tpd) } : {}) });
-  s.chat = { limits: { gemini: one(c?.limits?.gemini, dc.limits.gemini), groq: one(c?.limits?.groq, dc.limits.groq) }, models: Object.fromEntries((['gemini', 'groq'] as const).map((p) => [p, normModel(c?.models?.[p])]).filter(([, m]) => m)), warnAt: typeof c?.warnAt === 'number' && Number.isFinite(c.warnAt) ? Math.min(0.95, Math.max(0.5, c.warnAt)) : dc.warnAt, size: c?.size === 'large' ? 'large' : 'compact' };
+  s.chat = { limits: Object.fromEntries((['gemini', 'groq', 'openrouter', 'kimi'] as const).map((p) => [p, one(c?.limits?.[p], dc.limits[p])])) as ChatSettings['limits'], models: Object.fromEntries((['gemini', 'groq', 'openrouter', 'kimi'] as const).map((p) => [p, normModel(c?.models?.[p])]).filter(([, m]) => m)), warnAt: typeof c?.warnAt === 'number' && Number.isFinite(c.warnAt) ? Math.min(0.95, Math.max(0.5, c.warnAt)) : dc.warnAt, size: c?.size === 'large' ? 'large' : 'compact' };
   return s;
 }
 

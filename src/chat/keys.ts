@@ -2,7 +2,7 @@
 import type { ProviderId } from './providers';
 
 export const KEYS_STORAGE = 'engrama.chat.keys';
-export const MAX_KEYS = 3;
+export const MAX_KEYS = 4;
 /** Claves de localStorage que «Olvidar» borra junto con las claves. */
 export const USAGE_RESET = ['engrama.chat.usage'];
 export type KeyStatus = 'active' | 'exhausted' | 'invalid' | 'paused';
@@ -15,7 +15,7 @@ export const mask = (k: string): string => '••••' + last4(k);
 function isEntry(e: unknown): e is KeyEntry {
   const x = e as KeyEntry;
   return !!x && typeof x.id === 'string' && typeof x.key === 'string' && typeof x.alias === 'string'
-    && (x.provider === 'gemini' || x.provider === 'groq')
+    && ['gemini', 'groq', 'openrouter', 'kimi'].includes(x.provider)
     && ['active', 'exhausted', 'invalid', 'paused'].includes(x.status);
 }
 
@@ -39,7 +39,7 @@ export function markKey(s: KeyStore, id: string, status: KeyStatus, until?: numb
   return { v: 1, keys: s.keys.map((k) => (k.id === id ? { ...k, status, until } : k)) };
 }
 
-/** Añade una clave (null si ya hay 3 o está vacía). */
+/** Añade una clave (null si ya hay 4 o está vacía). */
 export function addKey(s: KeyStore, provider: ProviderId, alias: string, key: string): KeyStore | null {
   const k = key.trim();
   if (!k || s.keys.length >= MAX_KEYS) return null;

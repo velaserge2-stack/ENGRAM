@@ -45,3 +45,4 @@ Total registrado ≈ 1,32 M tokens (sin 0 ni 1a).
 - Borrar · sonnet · borrar_nota/mazo/banco/evento con confirmación y papelera ~173K
 - Borrar · opus revisión (~106K) · sonnet arreglos 7 hallazgos (~114K)
 - Crear · sonnet · crear_nota, crear_diagrama, registrar_examen con vista previa y deshacer ~197K
+- Proveedores · sonnet · OpenRouter + Kimi (openai-compatible), 4 claves, CSP 4 hosts ~134K

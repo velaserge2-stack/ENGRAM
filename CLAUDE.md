@@ -10,7 +10,7 @@ Diseño: tema **Cristal** (`docs/DESIGN.md`, `src/theme-cristal.css`): la interf
 - Los archivos del usuario (`.md`, `.jsonl`, `.json`) son la fuente de verdad. IndexedDB solo como caché reconstruible.
 - Toda escritura pasa por `SafeVault` (diario + temporal + suma de verificación). Nunca escribir directo al backend.
 - La comprobación de integridad reporta; nunca borra ni corrige.
-- Sin peticiones de red en tiempo de ejecución, sin telemetría (hay CSP en `index.html`). Única excepción: el add-on «Asistente» (apagado por defecto), con clave propia y solo a `generativelanguage.googleapis.com` y `api.groq.com` (CSP exacta).
+- Sin peticiones de red en tiempo de ejecución, sin telemetría (hay CSP en `index.html`). Única excepción: el add-on «Asistente» (apagado por defecto), con clave propia y solo a `generativelanguage.googleapis.com`, `api.groq.com`, `openrouter.ai` y `api.moonshot.ai` (CSP exacta).
 - Sin SF Symbols, ni logotipo, nombre o marcas de Apple. Iconos: Lucide (ISC).
 - Tarjetas generadas por IA: siempre revisión humana, `origen: ia`.
 - Feature detection (`'x' in window`), nunca asumir el navegador. Sin `beforeunload`.
