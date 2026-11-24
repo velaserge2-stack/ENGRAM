@@ -2178,6 +2178,8 @@
  "chat.p_err_server": "The provider had an error. Try again later.",
  "chat.p_err_busy": "A reply is already in progress.",
  "chat.p_err_other": "Couldn't get a reply.",
+ "chat.p_err_empty": "The model returned no reply. Try again or ask for fewer questions at a time.",
+ "chat.p_reintentar": "Retry",
  "chat.pv_t_tarjetas": "New cards · {dest}",
  "chat.pv_t_examen": "New question bank · {dest}",
  "chat.pv_t_evento": "New event",

@@ -136,3 +136,9 @@ Límites gratuitos, nombres de modelo y forma de errores 🔸 · CORS · políti
 - No se reprodujo en memoria (SafeVault real, `tests/chat-examen-real.test.ts`) ni en Chromium/OPFS (`e2e/chat.mjs`, bloque «Examen»: `exams-bank/` nueva, escribir, Simulacros, nombre repetido → `exists`). Frontmatter `origen: ia` único y reparseable.
 - `preview.tsx` ya no esconde la causa: `other` muestra `Nombre: mensaje` (≤160, `redact`); `QuotaExceededError`, `NotAllowedError`/`SecurityError`, `NotFoundError` tienen aviso propio (`chat.pv_werr_quota|denied|notfound`).
 - Hipótesis pendiente (Safari): lo único distinto de las tarjetas es crear la carpeta `exams-bank/` (no existe hasta el primer banco) y el nombre con acentos codificado `%C3%AD`; probar en el iPad y leer la línea técnica.
+
+## Turno sin respuesta (fix-asistente-sin-respuesta)
+- Un turno sin texto ni propuesta devuelve `code: 'empty'` (`detail.msg` = «motivo: <finishReason> · pasos N · <tool-error>», redactado); la interfaz muestra error + «Reintentar» (reenvía el último mensaje). Nunca silencio.
+- `MAX_OUT` 8192; Gemini con `thinkingBudget: 1024`, `includeThoughts: false`. `stopWhen` 6 pasos; el último con `toolChoice: 'none'` (el SDK falla si el modelo aun así llama una herramienta: queda como error visible).
+- `crear_examen`: máx. 15 preguntas por llamada (`MAX_QUESTIONS`); el resultado avisa al modelo del recorte y `SYSTEM_WRITE` pide proponer por partes con nombres distintos.
+- Sin verificar: Gemini real (thinkingBudget aceptado por `flash-latest`), Safari/iPad. Tests: `tests/chat-vacio.test.ts`, `e2e:chat`.

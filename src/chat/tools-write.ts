@@ -2,7 +2,7 @@
 // PROPUESTA que la interfaz muestra en una vista previa; se escribe únicamente cuando el usuario pulsa «Aceptar» (preview.tsx).
 // Solo se ofrecen si el último mensaje del usuario pide crear/agregar/modificar (`wantsWrite`) y cada una lo vuelve a comprobar.
 import { jsonSchema, tool, type ToolSet } from 'ai';
-import { MAX_PROPOSALS, buildCards, buildEvent, buildEventEdit, buildExam, isBad, type CardIn, type EventFields, type Proposal, type QIn } from './proposal';
+import { MAX_PROPOSALS, MAX_QUESTIONS, buildCards, buildEvent, buildEventEdit, buildExam, isBad, type CardIn, type EventFields, type Proposal, type QIn } from './proposal';
 import type { ToolCtx } from './tools';
 
 export interface WriteCtx extends ToolCtx {
@@ -33,9 +33,13 @@ export function makeWriteTools(ctx: WriteCtx): ToolSet {
       },
     }),
     crear_examen: tool({
-      description: 'Propone un banco de preguntas de opción múltiple (simulacro) nuevo. No guarda: el usuario revisa y acepta. Máx. 30 preguntas.',
+      description: 'Propone un banco de preguntas de opción múltiple (simulacro) nuevo. No guarda: el usuario revisa y acepta. Máx. 15 preguntas por llamada: para más, propón varios bancos («… · Parte 1», «… · Parte 2»).',
       inputSchema: jsonSchema<{ nombre: string; minutos?: number; preguntas: QIn[] }>({ type: 'object', properties: { nombre: str, minutos: { type: 'number' }, preguntas: { type: 'array', items: { type: 'object', properties: { texto: str, opciones: { type: 'array', items: str }, correcta: { ...str, description: 'Letra A–F de la opción correcta' }, explicacion: str, tema: str }, required: ['texto', 'opciones', 'correcta'], additionalProperties: false } } }, required: ['nombre', 'preguntas'], additionalProperties: false }),
-      execute: async ({ nombre, minutos, preguntas }) => (ctx.allowed() ? out(buildExam(nombre, minutos, preguntas)) : NO),
+      execute: async ({ nombre, minutos, preguntas }) => {
+        if (!ctx.allowed()) return NO;
+        const r = out(buildExam(nombre, minutos, preguntas));
+        return preguntas.length > MAX_QUESTIONS && !('error' in r) ? { ...r, aviso: `Solo se tomaron las primeras ${MAX_QUESTIONS} preguntas. Díselo al usuario y ofrece proponer el resto como otra parte.` } : r;
+      },
     }),
     agregar_evento: tool({
       description: 'Propone un evento nuevo en el calendario del usuario. No guarda: el usuario revisa y acepta.',
