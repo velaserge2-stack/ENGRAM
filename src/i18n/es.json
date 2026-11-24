@@ -2300,5 +2300,16 @@
  "chat.estilo": "Estilo de las respuestas",
  "chat.estilo_sub": "A: vidrio claro. B: alto contraste.",
  "chat.estilo_a": "A · Vidrio claro",
- "chat.estilo_b": "B · Alto contraste"
+ "chat.estilo_b": "B · Alto contraste",
+ "voz.dictar": "Dictar",
+ "voz.escuchando_detener": "Escuchando… · Detener",
+ "voz.escuchando": "Escuchando…",
+ "voz.sub": "Habla; revisa el texto y envíalo tú",
+ "voz.sin_soporte": "Usa el micrófono del teclado para dictar",
+ "voz.err_denied": "Activa el micrófono para Engrama en Ajustes de Safari",
+ "voz.err_nospeech": "No se oyó nada. Inténtalo de nuevo",
+ "voz.err_capture": "No se encontró un micrófono disponible",
+ "voz.err_network": "El dictado del sistema no tiene conexión ahora",
+ "voz.err_other": "No se pudo dictar. Escribe o usa el micrófono del teclado",
+ "voz.priv": "🔸 Dictar usa el reconocimiento de voz del sistema (Safari, iPadOS, macOS), no Engrama: el audio no pasa por la app ni se guarda. Según el ajuste de Dictado de tu dispositivo, el sistema puede procesarlo en servidores de Apple."
 }

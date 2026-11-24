@@ -16,6 +16,8 @@ import type { Source } from './tools';
 import { send, stop } from './turn';
 import { setModels } from './providers';
 import { bar, loadUsage } from './usage';
+import { DictButton, VoiceMsg } from './dictbtn';
+import { joinDictation, useDict } from './voice';
 
 const ERR: Record<string, string> = { nokey: 'nokey', auth: 'auth', quota: 'quota', rate: 'rate', model: 'model', limit: 'limit', timeout: 'timeout', network: 'network', server: 'server', busy: 'busy', empty: 'empty' };
 const NEEDS_SETTINGS = new Set(['nokey', 'auth', 'quota', 'model', 'limit']);
@@ -141,7 +143,17 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
     el.value = p.prefill.text; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
     el.focus(); el.setSelectionRange(el.value.length, el.value.length); setHas(true);
   }, [p.prefill?.n]);
-  const ms = useMascotState(foc || has);
+  // dictado: el texto va al campo (base previa + definitivo + provisional); nunca se envía solo
+  const dict = useDict(), dbase = useRef({ id: 0, s: '' }), dictOn = dict.state === 'listening';
+  useLayoutEffect(() => {
+    const el = input.current;
+    if (!el || !dict.id) return;
+    if (dbase.current.id !== dict.id) dbase.current = { id: dict.id, s: el.value };
+    const v = joinDictation(dbase.current.s, dict.text, dict.interim);
+    if (el.value !== v) { el.value = v; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`; setHas(!!v.trim()); }
+  }, [dict.id, dict.text, dict.interim]);
+  useLayoutEffect(() => { if (dict.focusN) input.current?.focus(); }, [dict.focusN]);
+  const ms = useMascotState(foc || has || dictOn);
   const stick = useRef(true);
   useLayoutEffect(() => { const l = log.current; if (l && stick.current) l.scrollTop = l.scrollHeight; });
   const toSettings = () => { p.onClose(); go('ajustes'); };
@@ -186,13 +198,15 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
           {waiting && <p class="chat-note" role="status">{st.waitS ? t('chat.p_espera', { s: st.waitS }) : st.tool ? t('chat.p_buscando') : t('chat.p_pensando')}</p>}
         </div>
         <form class="chat-form" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-          <textarea ref={input} class="input" rows={1} aria-label={t('chat.p_escribe')} placeholder={t('chat.p_escribe')} onInput={(e) => { grow(e); setHas(!!(e.currentTarget as HTMLTextAreaElement).value.trim()); }} onFocus={() => setFoc(true)} onBlur={() => setFoc(false)}
+          <textarea ref={input} class={`input${dict.interim ? ' vz-int' : ''}`} rows={1} aria-label={t('chat.p_escribe')} placeholder={t('chat.p_escribe')} onInput={(e) => { grow(e); setHas(!!(e.currentTarget as HTMLTextAreaElement).value.trim()); }} onFocus={() => setFoc(true)} onBlur={() => setFoc(false)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !p.phone) { e.preventDefault(); submit(); } }} />
+          <DictButton variant="icon" />
           {/* claves distintas: si no, el mismo <button> pasaría de «Detener» a «Enviar» en pleno clic y lo enviaría */}
           {st.busy
             ? <button key="stop" type="button" class="btn icon" aria-label={t('chat.p_detener')} onClick={stop}><Square size={18} aria-hidden="true" /></button>
             : <button key="send" type="submit" class="btn icon primary" aria-label={t('chat.p_enviar')}><SendHorizontal size={18} aria-hidden="true" /></button>}
         </form>
+        <VoiceMsg />
       </section>
     </Portal>
   );

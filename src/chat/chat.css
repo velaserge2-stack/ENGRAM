@@ -120,3 +120,14 @@ html.is-phone .chat-panel { inset: 0 0 var(--kb-inset, 0px) 0; width: auto; heig
 
 /* estilo B: alto contraste (opcional, Ajustes → Asistente) */
 .chat-panel.sty-b.glass { background: #0d0e10; color: #f4f5f7; --t1: #f4f5f7; --t2: rgba(244, 245, 247, .7); --t3: rgba(244, 245, 247, .5); --line: rgba(255, 255, 255, .14); --fill: rgba(255, 255, 255, .1); --fill-2: rgba(255, 255, 255, .06); --border: rgba(255, 255, 255, .25); --border-strong: rgba(255, 255, 255, .5); --inverse-bg: #f4f5f7; --inverse-fg: #0d0e10; }
+
+/* Dictado (voice.ts): botón «Dictar», estado escuchando, texto provisional, mensaje */
+.gx-act.vz.on, .btn.icon.vz.on { background: var(--inverse-bg); color: var(--inverse-fg); border-color: transparent; }
+.gx-voz-msg { font-size: 13px; color: var(--t2); text-align: center; min-height: 0; }
+.gx-voz-msg:empty { display: none; }
+.gx-voz-msg { padding: 2px 12px 6px; }
+.chat-form textarea.vz-int { color: var(--t2); font-style: italic; }
+@media (prefers-reduced-motion: no-preference) {
+  .gx-act.vz.on, .btn.icon.vz.on { animation: vz-ring 1.6s ease-out infinite; }
+  @keyframes vz-ring { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--inverse-bg) 40%, transparent); } to { box-shadow: 0 0 0 10px transparent; } }
+}
