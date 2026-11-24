@@ -25,6 +25,8 @@ let page;
 try {
   const ctx = await browser.newContext({ viewport: { width: 1180, height: 900 }, locale: 'es-MX' });
   page = await ctx.newPage();
+  page.on('pageerror', (e) => console.log('PAGEERR', String(e).slice(0, 300)));
+  page.on('console', (m) => m.type() === 'error' && console.log('CONERR', m.text().slice(0, 200)));
   page.on('dialog', (d) => d.accept());
   const apiHits = [], js = new Set(), logs = [];
   let mode = 'ok', lmode = 'ok', lrelease = null;
@@ -781,12 +783,101 @@ try {
   check(!(await page.content()).includes(ORK) && !logs.some((l) => l.includes(ORK) || l.includes(KMK)), 'la clave no está en el DOM ni en la consola');
   await page.keyboard.press('Escape');
   await panel.waitFor({ state: 'detached' });
+  // ───── Dictado (voz del sistema, simulada) ─────
+  console.log('Dictado');
+  await page.context().addInitScript(() => {
+    const m = localStorage.getItem('e2e-sr');
+    if (!m) { delete window.SpeechRecognition; delete window.webkitSpeechRecognition; try { Object.defineProperty(window, 'SpeechRecognition', { value: undefined, configurable: true }); Object.defineProperty(window, 'webkitSpeechRecognition', { value: undefined, configurable: true }); } catch { /* */ } return; }
+    const FK = class {
+      start() { window.__sr = this; window.__srN = (window.__srN || 0) + 1; this.lang0 = this.lang; if (m === 'denied') setTimeout(() => { this.onerror?.({ error: 'not-allowed' }); this.onend?.(); }, 20); }
+      stop() { this.onend?.(); } abort() { this.onend?.(); }
+      say(t, f) { this.onresult?.({ results: [Object.assign([{ transcript: t }], { isFinal: f })] }); }
+    };
+    window.webkitSpeechRecognition = FK; window.SpeechRecognition = FK; // Chromium ya trae el suyo
+  });
+  const sr = async (mode) => { await page.evaluate((m) => { m ? localStorage.setItem('e2e-sr', m) : localStorage.removeItem('e2e-sr'); }, mode); await page.reload(); await page.locator('.gx-dock').waitFor(); };
+  const field = () => page.locator('.chat-panel textarea');
+  const apiBefore = apiHits.length;
+  await sr('ok');
+  const dk = page.locator('.gx-dock');
+  const dbtn = dk.getByRole('button', { name: 'Dictar' });
+  check((await dbtn.boundingBox()).height >= 44, 'Dictar: ≥ 44 px');
+  check((await dbtn.getAttribute('aria-pressed')) === 'false' && !(await dbtn.getAttribute('title')), 'Dictar: aria-pressed false y sin title');
+  await page.screenshot({ path: `${SHOTS}/1024-dictar-reposo.png` });
+  await dbtn.click({ position: { x: 20, y: 20 }, delay: 30 });  // toque
+  await field().waitFor();
+  check(await page.evaluate(() => window.__srN === 1 && window.__sr.lang0 === 'es-MX'), 'toque: empieza el reconocimiento (es-MX)');
+  await page.evaluate(() => window.__sr.say('hola gre', false));
+  check((await field().inputValue()) === 'hola gre', 'texto provisional en el campo');
+  check((await field().getAttribute('class')).includes('vz-int'), 'provisional en gris/cursiva');
+  check((await page.locator('.chat-panel .mascot').first().getAttribute('data-state')) === 'listening' && (await page.locator('.gx-avatar .mascot').getAttribute('data-state')) === 'listening', 'la mascota pasa a listening');
+  { const b = page.getByRole('button', { name: 'Escuchando… · Detener' }).first();
+    check((await b.count()) >= 1 && (await b.getAttribute('aria-pressed')) === 'true', 'botón: «Escuchando… · Detener» (pressed)'); }
+  await page.screenshot({ path: `${SHOTS}/1024-dictar-escuchando.png` });
+  await page.evaluate(() => window.__sr.say('hola grex', true));
+  await page.evaluate(() => window.__sr.onend());
+  check((await field().inputValue()) === 'hola grex' && !(await field().getAttribute('class')).includes('vz-int'), 'texto definitivo en el campo');
+  await page.waitForTimeout(300);
+  check(!(await page.locator('.chat-msg.user').count()) && apiHits.length === apiBefore, 'NO se envía solo');
+  // con texto previo: se añade con espacio
+  await dk.getByRole('button', { name: 'Dictar' }).click({ delay: 30 });
+  await page.evaluate(() => window.__sr.say('otra frase', true)); await page.evaluate(() => window.__sr.onend());
+  check((await field().inputValue()) === 'hola grex otra frase', 'si ya hay texto, se añade con un espacio');
+  // el botón del campo del panel
+  await field().fill('');
+  const vpb = page.locator('.chat-form .vz');
+  check((await vpb.boundingBox()).height >= 44, 'botón del campo: ≥ 44 px');
+  await vpb.dispatchEvent('pointerdown', { pointerId: 1, isPrimary: true, button: 0 });
+  await page.waitForTimeout(450);
+  check(await page.evaluate(() => window.__srN === 3), 'mantener: empieza al pulsar');
+  await page.evaluate(() => window.__sr.say('mantenido', true));
+  await vpb.dispatchEvent('pointerup', { pointerId: 1, isPrimary: true });
+  await page.waitForTimeout(100);
+  check((await field().inputValue()) === 'mantenido' && (await page.locator('.chat-form .vz.on').count()) === 0, 'mantener ≥ 350 ms: al soltar se detiene');
+  // toque corto en el campo: sigue escuchando hasta otro toque
+  await vpb.dispatchEvent('pointerdown', { pointerId: 2, isPrimary: true, button: 0 });
+  await vpb.dispatchEvent('pointerup', { pointerId: 2, isPrimary: true });
+  check((await page.locator('.chat-form .vz.on').count()) === 1, 'toque corto: sigue escuchando');
+  await vpb.dispatchEvent('pointerdown', { pointerId: 3, isPrimary: true, button: 0 });
+  await vpb.dispatchEvent('pointerup', { pointerId: 3, isPrimary: true });
+  check((await page.locator('.chat-form .vz.on').count()) === 0, 'segundo toque: detiene');
+  await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
+  // permiso denegado
+  await sr('denied');
+  await page.locator('.gx-dock').getByRole('button', { name: 'Dictar' }).click({ delay: 30 });
+  await page.getByText('Activa el micrófono para Engrama en Ajustes de Safari').first().waitFor();
+  check((await page.locator('.gx-voz-msg[role=status][aria-live=polite]').count()) >= 1, 'permiso denegado: mensaje claro con aria-live');
+  await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
+  // sin soporte
+  await sr(null);
+  await page.locator('.gx-dock').getByRole('button', { name: 'Dictar' }).click({ delay: 30 });
+  await panel.waitFor();
+  await page.getByText('Usa el micrófono del teclado para dictar').first().waitFor();
+  check(await page.evaluate(() => document.activeElement?.tagName === 'TEXTAREA'), 'sin soporte: el campo queda enfocado y hay aviso');
+  await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
+  // teléfono
+  await sr('ok');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('.chat-fab').click();
+  await panel.waitFor();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${SHOTS}/390-dictar-reposo.png` });
+  await page.locator('.chat-form').getByRole('button', { name: 'Dictar' }).click({ delay: 30 });
+  await page.evaluate(() => window.__sr.say('hola desde el teléfono', false));
+  await page.screenshot({ path: `${SHOTS}/390-dictar-escuchando.png` });
+  check((await field().inputValue()) === 'hola desde el teléfono', 'teléfono: el texto llega al campo');
+  await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' }).catch(() => {});
+  await page.setViewportSize({ width: 1180, height: 900 });
+  await sr(null);
+
   // toda la sesión: solo localhost y los 4 hosts del Asistente (incluida la carga del SDK)
   { const bad = [...hosts].filter((h) => !/^localhost(:\d+)?$/.test(h) && h !== 'generativelanguage.googleapis.com' && h !== 'api.groq.com' && h !== 'openrouter.ai' && h !== 'api.moonshot.ai'); check(bad.length === 0, 'peticiones solo a self y 4 hosts ' + bad.join(',')); }
 } catch (e) {
   failed++;
   console.error(e);
-  try { console.error(await page.locator('.chat-panel').first().evaluate((el) => el.innerText + '\n' + [...el.querySelectorAll('button')].map((b) => b.getAttribute('aria-label')).join('|'))); } catch { /* sin panel */ }
+  try { await page.screenshot({ path: '/tmp/claude-0/fail.png' }); } catch { /* */ }
+  try { console.error('DBGPAGE', await page.evaluate(() => document.body.innerText.slice(0, 400) + ' | ' + [...document.querySelectorAll('h1,h2')].map((h) => h.tagName + ':' + h.textContent).join(';'))); } catch { /* */ }
+  try { console.error(await page.locator('.chat-panel').first().first().evaluate((el) => el.innerText + '\n' + [...el.querySelectorAll('button')].map((b) => b.getAttribute('aria-label')).join('|'))); } catch { /* sin panel */ }
 } finally {
   await browser.close();
   server.kill();

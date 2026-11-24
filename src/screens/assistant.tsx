@@ -210,7 +210,7 @@ export function AssistantBody() {
       </Row>
 
       <div class="row-i"><div class="k"><strong>{t('chat.privacidad')}</strong>
-        <small>{t('chat.priv_gemini')}</small><small>{t('chat.priv_groq')}</small><small>{t('chat.priv_openrouter')}</small><small>{t('chat.priv_kimi')}</small><small>{t('chat.priv_consejo')}</small><small>{t('chat.priv_local')}</small></div></div>
+        <small>{t('chat.priv_gemini')}</small><small>{t('chat.priv_groq')}</small><small>{t('chat.priv_openrouter')}</small><small>{t('chat.priv_kimi')}</small><small>{t('chat.priv_consejo')}</small><small>{t('chat.priv_local')}</small><small>{t('voz.priv')}</small></div></div>
       <Row k={t('chat.olvidar')} sub={t('chat.olvidar_sub')}><button type="button" class="btn danger" onClick={forget} disabled={!store.keys.length}>{t('chat.olvidar')}</button></Row>
     </>
   );

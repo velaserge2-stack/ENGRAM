@@ -175,3 +175,9 @@ Límites gratuitos, nombres de modelo y forma de errores 🔸 · CORS · políti
 - Historial: `trimMessages` por tokens (acorta respuestas viejas, luego descarta las más antiguas; conserva el último mensaje del usuario y añade «(Se omitieron N mensajes antiguos…)»). La instrucción de sistema va aparte y no se recorta.
 - Herramientas de lectura: tope por turno `toolCap = 4 × histTokens` caracteres (al agotarse devuelven `tope: true`); `leer_nota` pagina con `desde`/`siguiente_desde` (`truncado: true`); `leer_pdf` acepta `desde`/`hasta`. `crear_nota` hasta `writeChars` (20 000 normal; 100 000 Gemini amplio); más largo → por partes (prompt de sistema).
 - 400 por max_tokens → `Kind` `limit`: se reintenta UNA vez con `maxOut/2`, misma clave, sin rotar. Groq: total estimado ≤ 10 000 tokens en ambos modos (prueba).
+
+## Dictado (`src/chat/voice.ts`)
+- Reconocimiento de voz DEL SISTEMA (`SpeechRecognition`/`webkitSpeechRecognition` por feature detection); `continuous=false`, parciales, idioma es-MX/en-US/fr-FR; `start()` solo dentro del gesto del botón «Dictar» (barra y campo del panel). Toque = empezar/detener; mantener ≥ 350 ms = hablar mientras se mantiene.
+- El texto va al campo (provisional en gris/cursiva) y nunca se envía solo. No se guarda audio ni texto de dictado fuera del campo. Sin red nuestra nueva (CSP intacta).
+- Sin soporte: el botón sigue visible; enfoca el campo y avisa «Usa el micrófono del teclado para dictar».
+- 🔸 Sin verificar: el reconocimiento real en iPad/iPhone/Mac (Safari) y el permiso de micrófono/Dictado. 🔸 El sistema puede procesar el audio en servidores de Apple según el ajuste de Dictado del dispositivo (nota en Ajustes → Asistente, `voz.priv`); no se afirma más.

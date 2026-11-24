@@ -6,6 +6,7 @@ import { useKeyScope } from '../ui/keys';
 import { Portal } from '../ui/overlay';
 import { usePhone } from '../ui/kit';
 import { Dock, DockMini } from './dock';
+import { useDict } from './voice';
 import { Mascot, useMascotState } from './mascot';
 import './chat.css';
 
@@ -23,7 +24,9 @@ export default function ChatHost() {
   const [pre, setPre] = useState<{ text: string; n: number } | undefined>();
   const fab = useRef<HTMLButtonElement>(null);
   const mini = useRef<HTMLButtonElement>(null);
-  const ms = useMascotState();
+  const base = useMascotState();
+  const dictating = useDict().state === 'listening';
+  const ms = base === 'idle' && dictating ? 'listening' : base;
   const was = useRef(false);
   const size = app.settings.chat.size;
   const minimized = !phone && app.settings.chat.dock === 'mascota';
@@ -63,7 +66,7 @@ export default function ChatHost() {
         <Portal>
           {minimized
             ? <DockMini ms={ms} btnRef={mini} onRestore={() => setDock('barra')} />
-            : <Dock open={open} ms={ms} avatarRef={fab} onToggle={() => setOpen(!open)} onMin={minimize} onQuick={(text) => { setPre({ text, n: (pre?.n ?? 0) + 1 }); setOpen(true); }} />}
+            : <Dock open={open} ms={ms} avatarRef={fab} onToggle={() => setOpen(!open)} onMin={minimize} onDictate={() => setOpen(true)} onQuick={(text) => { setPre({ text, n: (pre?.n ?? 0) + 1 }); setOpen(true); }} />}
         </Portal>
       )}
       {open && (

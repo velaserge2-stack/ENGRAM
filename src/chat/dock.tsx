@@ -7,6 +7,8 @@ import { loadKeys } from './keys';
 import { Mascot, MASCOT_NAME, type MascotState } from './mascot';
 import { PROVIDERS } from './providers';
 import { stop } from './turn';
+import { DictButton, VoiceMsg } from './dictbtn';
+import { useDict } from './voice';
 import { bar, loadUsage } from './usage';
 import type { Ref } from 'preact';
 
@@ -41,8 +43,9 @@ function Usage() {
 }
 
 /** Barra del Asistente: fija abajo al centro (una sola posición, `--dock-bottom`). Reposo, trabajando (estado + Detener) y error. */
-export function Dock(p: { open: boolean; ms: MascotState; avatarRef: Ref<HTMLButtonElement>; onToggle: () => void; onMin: () => void; onQuick: (text: string) => void }) {
+export function Dock(p: { open: boolean; ms: MascotState; avatarRef: Ref<HTMLButtonElement>; onToggle: () => void; onMin: () => void; onDictate: () => void; onQuick: (text: string) => void }) {
   const root = useRef<HTMLDivElement>(null);
+  const dictating = useDict().state === 'listening';
   const [tab, setTab] = useState(false);
   const st = getStatus(), msgs = messages(), last = msgs[msgs.length - 1];
   const err = !st.busy && last?.role === 'error';
@@ -70,7 +73,8 @@ export function Dock(p: { open: boolean; ms: MascotState; avatarRef: Ref<HTMLBut
     dots = !st.waitS;
     ttl = st.waitS ? t('chat.p_espera', { s: st.waitS }) : st.tool ? t('dock.buscando') : last?.role === 'assistant' && last.text ? t('dock.escribiendo') : t('dock.pensando');
     sub = st.tool ?? t('dock.sub_trabajando');
-  } else if (err) { ttl = t('dock.error'); sub = t('dock.error_sub'); }
+  } else if (dictating) { ttl = t('voz.escuchando'); sub = t('voz.sub'); }
+  else if (err) { ttl = t('dock.error'); sub = t('dock.error_sub'); }
   else { ttl = t('dock.reposo', { nombre: MASCOT_NAME }); sub = t('dock.reposo_sub'); }
 
   return (
@@ -89,12 +93,13 @@ export function Dock(p: { open: boolean; ms: MascotState; avatarRef: Ref<HTMLBut
         </div>
         {st.busy
           ? <button type="button" class="gx-act stop" onClick={stop}><Square size={14} fill="currentColor" aria-hidden="true" />{t('chat.p_detener')}</button>
-          : <button type="button" class="gx-act" onClick={p.onToggle}><PenLine size={17} aria-hidden="true" />{t('dock.escribir')}</button>}
+          : <><DictButton variant="pill" onStart={p.onDictate} />{!dictating && <button type="button" class="gx-act" onClick={p.onToggle}><PenLine size={17} aria-hidden="true" />{t('dock.escribir')}</button>}</>}
         <button type="button" class="gx-ib" aria-label={t('dock.minimizar')} onClick={p.onMin}><Minus size={22} aria-hidden="true" /></button>
         <button ref={p.avatarRef} type="button" class="gx-avatar" aria-label={p.open ? t('chat.p_cerrar') : t('chat.p_abrir')} aria-haspopup="dialog" aria-expanded={p.open} onClick={p.onToggle}>
           <Mascot size={46} state={p.ms} />
         </button>
       </div>
+      <VoiceMsg />
       <Usage />
     </div>
   );
