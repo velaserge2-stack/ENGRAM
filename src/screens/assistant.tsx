@@ -18,7 +18,7 @@ const IDS = Object.keys(PROVIDERS) as ProviderId[];
 const TEST_MS = 20_000;
 // claves literales (el test de i18n las busca por texto)
 const ST = () => ({ active: t('chat.st_active'), exhausted: t('chat.st_exhausted'), invalid: t('chat.st_invalid'), paused: t('chat.st_paused') });
-const ERR = (): Record<Kind, string> => ({ quota: t('chat.err_quota'), rate: t('chat.err_rate'), auth: t('chat.err_auth'), model: t('chat.err_model'), timeout: t('chat.err_timeout'), network: t('chat.err_network'), server: t('chat.err_server'), aborted: t('chat.err_aborted'), other: t('chat.err_other') });
+const ERR = (): Record<Kind, string> => ({ quota: t('chat.err_quota'), rate: t('chat.err_rate'), auth: t('chat.err_auth'), model: t('chat.err_model'), timeout: t('chat.err_timeout'), network: t('chat.err_network'), server: t('chat.err_server'), aborted: t('chat.err_aborted'), empty: t('chat.p_err_empty'), other: t('chat.err_other') });
 const LIM = (): Record<keyof ChatLimits, string> => ({ rpm: t('chat.lim_rpm'), rpd: t('chat.lim_rpd'), tpm: t('chat.lim_tpm'), tpd: t('chat.lim_tpd') });
 
 async function probe(k: KeyEntry, signal: AbortSignal): Promise<{ kind: 'ok' | Kind; resetAt?: number; detail?: Detail }> {

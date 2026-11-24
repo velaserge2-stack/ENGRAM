@@ -1,7 +1,7 @@
 // Clasificación de errores (contrato §5). Devuelve códigos, nunca frases. Sin importar el SDK.
 import type { ProviderId } from './providers';
 
-export type Kind = 'quota' | 'rate' | 'auth' | 'model' | 'network' | 'timeout' | 'server' | 'aborted' | 'other';
+export type Kind = 'quota' | 'rate' | 'auth' | 'model' | 'network' | 'timeout' | 'server' | 'aborted' | 'empty' | 'other';
 /** Diagnóstico seguro (ya redactado y truncado) para mostrar en la interfaz. */
 export interface Detail { status?: number; code?: string; msg?: string; model?: string }
 export interface Classified { kind: Kind; retryAfterMs?: number; resetAt?: number; detail?: Detail }

@@ -19,6 +19,7 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>): Promis
   const gen = generation();
   add('user', q);
   const sources: Source[] = [];
+  let proposed = false;
   const reply = add('assistant', '', { sources });
   setStatus({ busy: true, waitS: undefined });
   const mine = new AbortController(); // propio del turno: un turno viejo que termine tarde no toca el de otro
@@ -29,9 +30,9 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>): Promis
     // las herramientas se cargan junto al SDK, ya con el panel abierto
     // las de escritura solo si ESTE mensaje pide crear/agregar/modificar; aun así solo proponen (la UI escribe tras «Aceptar»)
     const writes = wantsWrite(q);
-    const tools = env ? { ...(await import('./tools')).makeTools({ ...env, sources }), ...(writes ? (await import('./tools-write')).makeWriteTools({ ...env, sources, allowed: () => writes, propose: (p) => { if (writes && generation() === gen) add('proposal', '', { proposal: p, pstate: 'pending' }); } }) : {}) } : undefined;
+    const tools = env ? { ...(await import('./tools')).makeTools({ ...env, sources }), ...(writes ? (await import('./tools-write')).makeWriteTools({ ...env, sources, allowed: () => writes, propose: (p) => { if (writes && generation() === gen) proposed = true; add('proposal', '', { proposal: p, pstate: 'pending' }); } }) : {}) } : undefined;
     r = await runTurn({
-      messages: history, system: writes ? SYSTEM + ' ' + SYSTEM_WRITE : SYSTEM, tools, signal: mine.signal,
+      messages: history, system: writes ? SYSTEM + ' ' + SYSTEM_WRITE : SYSTEM, tools, signal: mine.signal, produced: () => proposed,
       onTool: (name) => { if (generation() === gen) setStatus({ tool: name }); },
       onText: (d) => { if (generation() !== gen) return; if (getStatus().tool) setStatus({ tool: undefined }); append(reply.id, d); },
       onStatus: (s) => {
