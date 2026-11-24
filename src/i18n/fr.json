@@ -2271,5 +2271,10 @@
  "chat.dl_err_changed": "Il a changé après la proposition ; rien n’a été déplacé. Redemandez.",
  "chat.dl_err_gone": "Il n’existe plus (ou n’est plus dans la corbeille).",
  "chat.dl_err_open": "Il est ouvert dans l’éditeur ; fermez-le et réessayez.",
- "chat.dl_err_other": "Impossible de le déplacer ; rien n’a été modifié."
+ "chat.dl_err_other": "Impossible de le déplacer ; rien n’a été modifié.",
+ "vault.locked": "Le fichier est utilisé par un autre onglet ou une autre fenêtre ; fermez-le et réessayez.",
+ "vault.tech": "Détail : {line}",
+ "vault.pending_save": "La session précédente s'est terminée sans enregistrer : {paths}. Vérifiez ces notes.",
+ "vault.memory": "Mode temporaire : vos modifications ne sont pas enregistrées.",
+ "vault.reintentar": "Réessayer"
 }

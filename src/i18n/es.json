@@ -2271,5 +2271,10 @@
  "chat.dl_err_changed": "Cambió después de proponerlo; no se movió nada. Pídelo de nuevo.",
  "chat.dl_err_gone": "Ya no existe (o ya no está en la papelera).",
  "chat.dl_err_open": "Está abierto en el editor; ciérralo e inténtalo de nuevo.",
- "chat.dl_err_other": "No se pudo mover; no se cambió nada."
+ "chat.dl_err_other": "No se pudo mover; no se cambió nada.",
+ "vault.locked": "El archivo está en uso por otra pestaña o ventana; ciérrala e inténtalo de nuevo.",
+ "vault.tech": "Detalle: {line}",
+ "vault.pending_save": "La sesión anterior terminó sin guardar: {paths}. Revisa esas notas.",
+ "vault.memory": "Modo temporal: tus cambios no se guardan.",
+ "vault.reintentar": "Reintentar"
 }

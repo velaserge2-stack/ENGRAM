@@ -17,6 +17,7 @@ import { ExamSheet } from './screens/exams';
 import { type AppCtx, Ctx, go, useApp as ctxHook, useRoute } from './state';
 import { applyTheme, onSchemeChange, resolvedMode, watchFrames } from './theme';
 import { BackgroundLayer, guard, sampleBackground, toneSign } from './ui/background';
+import { storageErrorText, takePendingSaves } from './vault/errinfo';
 import { checkIntegrity, type IntegrityReport } from './vault/integrity';
 import { type OpenedVault, reconnectFolder } from './vault/open';
 import { onUpdateReady } from './sw-register';
@@ -115,11 +116,15 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   useEffect(() => {
     const onRejection = (ev: PromiseRejectionEvent) => {
       const e = ev.reason as { name?: string; message?: string } | null;
-      if (e && (e.name === 'VaultError' || (e instanceof DOMException && e.name !== 'AbortError'))) toast(t('app.error_de_almacenamiento', { e: e.message ?? '' }));
+      if (e && (e.name === 'VaultError' || (e instanceof DOMException && e.name !== 'AbortError'))) toast(t('app.error_de_almacenamiento', { e: storageErrorText(e) }));
     };
     addEventListener('unhandledrejection', onRejection);
     // autoguardado de notas y mazos (también el del temporizador): aviso una vez por archivo hasta que vuelva a guardar
-    onNoteSaveFailed((path, e) => toast(t('app.no_se_guardo_nota', { name: path.split('/').pop()!.replace(/\.md$/, ''), e: String((e as Error)?.message ?? e) })));
+    onNoteSaveFailed((path, e) => toast(t('app.no_se_guardo_nota', { name: path.split('/').pop()!.replace(/\.md$/, ''), e: storageErrorText(e) })));
+    // sesión anterior: guardados que fallaron al cerrar; y memoria por fallo de OPFS (el aviso fijo ya existe: `temporary`)
+    const lost = takePendingSaves();
+    if (lost.length) toast(t('vault.pending_save', { paths: lost.map((p) => p.split('/').pop()!.replace(/\.md$/, '')).join(', ') }));
+    if (vault.kind === 'memory') toast(t('vault.memory'), { label: t('vault.reintentar'), run: () => location.reload() });
     return () => (removeEventListener('unhandledrejection', onRejection), onNoteSaveFailed(() => {}));
   }, []);
   useEffect(() => {

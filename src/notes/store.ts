@@ -6,6 +6,7 @@
  * pendientes, el documento se vuelve a leer.
  */
 import { createAutosave, type Autosaver } from '../lib/autosave';
+import { clearPendingSave, markPendingSave } from '../vault/errinfo';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr } from '../vault/util';
 
@@ -28,10 +29,12 @@ const saverFor = (vault: VaultAdapter, path: string) => createAutosave(async (t:
   try {
     await vault.write(path, t);
   } catch (e) {
+    markPendingSave(path); // si la página se cierra ahora, el próximo arranque avisa
     if (!failed.has(path)) (failed.add(path), onFail(path, e));
     throw e;
   }
   failed.delete(path);
+  clearPendingSave(path);
   if (!path.startsWith('decks/')) await afterSave(vault, path, t);
 });
 
