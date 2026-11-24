@@ -73,6 +73,8 @@ export const noteStore = {
     };
   },
   /** Hay cambios sin escribir en esa ruta (programados o en vuelo). */
+  /** Hay un panel suscrito (abierto en un editor) a esa ruta. */
+  listening: (path: string) => (docs.get(path)?.listeners.size ?? 0) > 0,
   pending: (path: string) => !docs.get(path)?.closed && (docs.get(path)?.saver.pending ?? false),
   flush: (path: string) => docs.get(path)?.saver.flush() ?? Promise.resolve(),
   /** El archivo pudo cambiar por fuera: recargar si no hay cambios sin guardar. */

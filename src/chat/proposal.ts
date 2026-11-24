@@ -10,9 +10,10 @@ import { noteStore } from '../notes/store';
 import { clampMinutes, finalize, parseBankMarkdown, serializeBank, type Question } from '../sim/parse';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr } from '../vault/util';
+import { applyDelete, safeDeleteDest } from './delete';
 import { tracked, undo, type Entry } from './undo';
 
-export type Kind = 'tarjetas' | 'examen' | 'evento';
+export type Kind = 'tarjetas' | 'examen' | 'evento' | 'borrar';
 export interface EventFields { titulo: string; fecha: string; inicio: string; fin: string; materia: string; nota: string; tipo: EventKind }
 export interface Proposal {
   tipo: Kind;
@@ -27,6 +28,13 @@ export interface Proposal {
   evento?: EventFields;
   /** modificar: la entrada y la fecha de la ocurrencia que cambia */
   op?: { uid: string; fecha: string; scope: 'one' | 'series' };
+  /** borrar: qué se mueve a la papelera (siempre reversible; nunca definitivo) */
+  objetivo?: 'nota' | 'mazo' | 'banco' | 'evento';
+  /** borrar: huella del objetivo al proponer; si cambia antes de confirmar, `changed` */
+  huella?: string;
+  reversible?: true;
+  /** borrar: cifras para la tarjeta de confirmación (se traducen en la interfaz) */
+  datos?: Record<string, number>;
 }
 export type Bad = { error: string; detail?: string };
 export const isBad = (x: unknown): x is Bad => typeof x === 'object' && x !== null && 'error' in x;
@@ -46,6 +54,7 @@ const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCas
 /** Una línea, sin comentarios HTML (no se puede forjar `origen:`), con tope. */
 const one = (s: unknown, max = 600) => String(s ?? '').replace(/<!--|-->/g, '').replace(/\s*[\r\n]+\s*/g, ' ').trim().slice(0, max);
 const ID_END = /\s\^[A-Za-z0-9_-]{2,40}\s*$/;
+export { wantsDelete, MAX_DELETES } from './delete';
 export const MAX_CARDS = 30, MAX_QUESTIONS = 15, MAX_PROPOSALS = 3;
 
 // ───────── tarjetas ─────────
@@ -169,10 +178,11 @@ export function revalidate(p: Proposal, edit: { contenido?: string; evento?: Par
 }
 
 // ───────── aplicar y deshacer (solo la interfaz, tras «Aceptar») ─────────
-const OKPATH: Record<Kind, [string, RegExp]> = { tarjetas: ['decks', /\.md$/], examen: ['exams-bank', /\.md$/], evento: ['calendar', /\.ics$/] };
-const safeDest = (p: Proposal) => { const [pre, re] = OKPATH[p.tipo]; return p.destino.startsWith(pre + '/') && re.test(p.destino) && p.destino.split('/').every((s) => s !== '' && s !== '.' && s !== '..') && !/[\\\u0000-\u001f]/.test(p.destino) && (p.tipo !== 'evento' || p.destino === CAL); };
+const OKPATH: Record<Exclude<Kind, 'borrar'>, [string, RegExp]> = { tarjetas: ['decks', /\.md$/], examen: ['exams-bank', /\.md$/], evento: ['calendar', /\.ics$/] };
+const safeDest = (p: Proposal) => { if (p.tipo === 'borrar') return safeDeleteDest(p); const [pre, re] = OKPATH[p.tipo]; return p.destino.startsWith(pre + '/') && re.test(p.destino) && p.destino.split('/').every((s) => s !== '' && s !== '.' && s !== '..') && !/[\\\u0000-\u001f]/.test(p.destino) && (p.tipo !== 'evento' || p.destino === CAL); };
 const inflight = new Map<number, Promise<Entry[]>>();
 const groups = new Map<number, Entry[]>();
+const restorers = new Map<number, () => Promise<void>>(); // borrar: restaurar desde la papelera
 
 async function write(vault: VaultAdapter, col: Collection | null, p: Proposal, w: (path: string, text: string) => Promise<void>): Promise<void> {
   if (p.tipo === 'tarjetas') {
@@ -210,7 +220,7 @@ export function applyProposal(vault: VaultAdapter, col: Collection | null, p: Pr
   const prev = inflight.get(id);
   if (prev) return prev;
   if (!safeDest(p)) return Promise.reject(new Error('path'));
-  const run = serial(() => tracked(vault, (w) => write(vault, col, p, w))).then((g) => (groups.set(id, g), g), (e) => (inflight.delete(id), Promise.reject(e)));
+  const run = serial(() => tracked(vault, async (w) => { if (p.tipo === 'borrar') { const a = await applyDelete(vault, col, p, w); if (p.objetivo !== 'evento') restorers.set(id, a.restore); } else await write(vault, col, p, w); })).then((g) => (groups.set(id, g), g), (e) => (inflight.delete(id), Promise.reject(e)));
   inflight.set(id, run);
   return run;
 }
@@ -218,11 +228,12 @@ export function applyProposal(vault: VaultAdapter, col: Collection | null, p: Pr
 /** Restaura el «antes» de lo que escribió `id`. Un archivo que era nuevo queda vacío (no se borra). Si el archivo cambió después, lanza `changed`. */
 export function undoProposal(vault: VaultAdapter, id: number): Promise<{ emptied: string[] }> {
   return serial(async () => {
-    const g = groups.get(id);
+    const g = groups.get(id), rs = restorers.get(id);
     if (!g) return { emptied: [] };
+    if (rs) { await rs(); restorers.delete(id); groups.delete(id); return { emptied: [] }; }
     const r = await undo(vault, g);
     groups.delete(id);
     return r;
   });
 }
-export const forgetProposals = (): void => { inflight.clear(); groups.clear(); };
+export const forgetProposals = (): void => { inflight.clear(); groups.clear(); restorers.clear(); };

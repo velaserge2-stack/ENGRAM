@@ -1,6 +1,6 @@
 // Vista previa de una propuesta de escritura del Asistente: Aceptar escribe (por SafeVault), Editar revalida, Cancelar no escribe.
 // Todo se pinta como TEXTO (Preact escapa); nada de innerHTML. El deshacer queda visible hasta «Nueva conversación».
-import { Check, Pencil, Undo2, X } from 'lucide-preact';
+import { Check, Pencil, Trash2, Undo2, X } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { useApp } from '../state';
@@ -8,7 +8,7 @@ import { redact } from './errors';
 import { type Msg, patch } from './history';
 import { applyProposal, type EventFields, isBad, revalidate, undoProposal } from './proposal';
 
-const TITLE = { tarjetas: 'chat.pv_t_tarjetas', examen: 'chat.pv_t_examen', evento: 'chat.pv_t_evento' } as const;
+const TITLE: Record<'tarjetas' | 'examen' | 'evento', string> = { tarjetas: 'chat.pv_t_tarjetas', examen: 'chat.pv_t_examen', evento: 'chat.pv_t_evento' } as const;
 const FIELDS = ['titulo', 'fecha', 'inicio', 'fin', 'materia', 'nota'] as const;
 const TYPE: Record<string, 'date' | 'time'> = { fecha: 'date', inicio: 'time', fin: 'time' };
 
@@ -20,7 +20,12 @@ const werr = (e: unknown): string => {
 /** «Nombre: mensaje» corto y sin claves, para diagnosticar fallos no clasificados. */
 const tech = (e: unknown): string => redact(e instanceof Error ? `${e.name}: ${e.message}` : String(e)).replace(/\s+/g, ' ').slice(0, 160);
 
+/** Las propuestas de borrado tienen su propia tarjeta (confirmación explícita, foco en Cancelar). */
 export function Preview({ m }: { m: Msg }) {
+  return m.proposal!.tipo === 'borrar' ? <DeleteCard m={m} /> : <WritePreview m={m} />;
+}
+
+function WritePreview({ m }: { m: Msg }) {
   const app = useApp();
   const p = m.proposal!;
   const st = m.pstate ?? 'pending';
@@ -70,7 +75,7 @@ export function Preview({ m }: { m: Msg }) {
     queueMicrotask(() => editBtn.current?.focus());
   };
 
-  const title = p.tipo === 'evento' ? t(p.op ? 'chat.pv_t_evento_mod' : 'chat.pv_t_evento') : t(TITLE[p.tipo], { dest: p.mazo ?? p.destino.replace(/^.*\//, '').replace(/\.md$/, '') });
+  const title = p.tipo === 'evento' ? t(p.op ? 'chat.pv_t_evento_mod' : 'chat.pv_t_evento') : t(TITLE[p.tipo as keyof typeof TITLE], { dest: p.mazo ?? p.destino.replace(/^.*\//, '').replace(/\.md$/, '') });
   const busy = st === 'saving';
   return (
     <section ref={root} class="chat-pv" tabIndex={-1} aria-label={title}>
@@ -108,6 +113,76 @@ export function Preview({ m }: { m: Msg }) {
         </div>
       ) : (
         <p class="foot" role="status">{st === 'canceled' ? t('chat.pv_cancelado') : t(m.code === 'emptied' ? 'chat.pv_deshecho_vacio' : 'chat.pv_deshecho')}</p>
+      )}
+    </section>
+  );
+}
+
+const DERR: Record<string, string> = { changed: 'changed', gone: 'gone', open: 'open' };
+const derr = (e: unknown) => DERR[e instanceof Error ? e.message : ''] ?? 'other';
+
+/** «Confirmar borrado»: nada se mueve hasta pulsar «Mover a la papelera»; no hay atajos ni Enter global; el foco inicial va en «Cancelar». */
+function DeleteCard({ m }: { m: Msg }) {
+  const app = useApp();
+  const p = m.proposal!;
+  const st = m.pstate ?? 'pending';
+  const lock = useRef(false);
+  const root = useRef<HTMLElement>(null), cancel = useRef<HTMLButtonElement>(null);
+  const seen = useRef(st);
+  useEffect(() => { if (st === 'pending') cancel.current?.focus({ preventScroll: true }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (seen.current === st) return;
+    seen.current = st;
+    const a = document.activeElement;
+    if (!a || a === document.body || root.current?.contains(a)) root.current?.focus();
+  }, [st]);
+  const refresh = () => (p.objetivo === 'nota' ? app.changed('notes') : app.changed());
+  const confirm = async () => {
+    if (lock.current || st !== 'pending') return;
+    lock.current = true;
+    patch(m.id, { pstate: 'saving', perr: undefined });
+    try {
+      await applyProposal(app.vault, app.col, p, m.id);
+      patch(m.id, { pstate: 'saved' });
+      refresh();
+    } catch (e) { patch(m.id, { pstate: 'pending', perr: derr(e), pdet: tech(e) }); } finally { lock.current = false; }
+  };
+  const undo = async () => {
+    if (lock.current || st !== 'saved') return;
+    lock.current = true;
+    try { await undoProposal(app.vault, m.id); patch(m.id, { pstate: 'undone', perr: undefined }); refresh(); } catch (e) { patch(m.id, { perr: derr(e), pdet: tech(e) }); } finally { lock.current = false; }
+  };
+  const d = p.datos ?? {}, days = app.settings.deckTrashDays;
+  const info = p.objetivo === 'nota' ? t('chat.dl_info_nota', { n: d.chars ?? 0 })
+    : p.objetivo === 'mazo' ? t('chat.dl_info_mazo', { cards: d.cards ?? 0, reviews: d.reviews ?? 0 })
+    : p.objetivo === 'banco' ? t('chat.dl_info_banco', { n: d.questions ?? 0 })
+    : t(d.serie ? 'chat.dl_info_evento_serie' : 'chat.dl_info_evento_uno');
+  const name = p.resumen, busy = st === 'saving';
+  const title = t('chat.dl_titulo', { nombre: name });
+  return (
+    <section ref={root} class="chat-pv chat-dl" tabIndex={-1} aria-label={title} aria-live="polite">
+      <b class="chat-pv-t" data-user-content>{title}</b>
+      {(st === 'pending' || st === 'saving') && (<>
+        <p class="foot">{t(`chat.dl_obj_${p.objetivo}`)}</p>
+        <ul class="chat-pv-list" data-user-content>{p.items.map((x, i) => <li key={i}>{x}</li>)}</ul>
+        <p class="foot">{info}</p>
+        <p style={{ fontWeight: 600 }}>{t('chat.dl_aviso')} {p.objetivo === 'evento' ? '' : p.objetivo === 'nota' || !days ? t('chat.dl_sin_purga') : t('chat.dl_purga', { n: days })}</p>
+        {p.objetivo === 'mazo' && <p class="foot">{t('chat.dl_sin_sub')}</p>}
+        {p.objetivo !== 'evento' && <p class="foot">{t('chat.dl_rotos')}</p>}
+      </>)}
+      {m.perr && st !== 'undone' && <p class="chat-pv-err" role="alert">{t(`chat.dl_err_${m.perr}`)}{m.perr === 'other' && m.pdet && <small class="foot" style={{ display: 'block', fontWeight: 400 }} data-user-content>{m.pdet}</small>}</p>}
+      {st === 'pending' || st === 'saving' ? (
+        <div class="chat-pv-act">
+          <button ref={cancel} type="button" class="btn primary" aria-label={t('chat.dl_cancelar')} disabled={busy} onClick={() => patch(m.id, { pstate: 'canceled' })}><X size={18} aria-hidden="true" /> {t('chat.dl_cancelar')}</button>
+          <button type="button" class="btn" aria-label={t('chat.dl_confirmar')} disabled={busy} onClick={() => void confirm()}><Trash2 size={18} aria-hidden="true" /> {busy ? t('chat.dl_moviendo') : t('chat.dl_confirmar')}</button>
+        </div>
+      ) : st === 'saved' ? (
+        <div class="chat-pv-act" role="status">
+          <span class="chat-pv-ok" data-user-content>{t('chat.dl_hecho', { nombre: name })}</span>
+          <button type="button" class="btn" aria-label={t('chat.dl_deshacer')} onClick={() => void undo()}><Undo2 size={18} aria-hidden="true" /> {t('chat.dl_deshacer')}</button>
+        </div>
+      ) : (
+        <p class="foot" role="status">{t(st === 'canceled' ? 'chat.dl_cancelado' : 'chat.dl_deshecho')}</p>
       )}
     </section>
   );

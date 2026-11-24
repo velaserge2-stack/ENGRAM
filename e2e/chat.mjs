@@ -78,6 +78,11 @@ try {
           const args = { mazo: 'ECG IA', tarjetas: [{ pregunta: '¿Cuántas derivaciones tiene el ECG?', respuesta: '12' }, { pregunta: '<b>x</b> ¿Eje normal?', respuesta: '-30 a +90' }] };
           return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: 'data: ' + JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ functionCall: { name: 'crear_tarjetas', args } }] }, finishReason: 'STOP', index: 0 }], usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 3, totalTokenCount: 6 } }) + '\n\n' });
         }
+        if (mode === 'del' || mode === 'delno') {
+          const done = (r.request().postData() ?? '').includes('functionResponse');
+          if (done) return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse('Te dejo la confirmación.') });
+          return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: 'data: ' + JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ functionCall: { name: 'borrar_mazo', args: { nombre: 'ECG IA' } } }] }, finishReason: 'STOP', index: 0 }], usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 3, totalTokenCount: 6 } }) + '\n\n' });
+        }
         if (mode === 'empty') return await r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: 'data: ' + JSON.stringify({ candidates: [{ content: { role: 'model', parts: [] }, finishReason: 'MAX_TOKENS', index: 0 }], usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 0, totalTokenCount: 3 } }) + '\n\n' });
         const dead = mode === 'all429' || (mode === 'q1' && key === K1);
         if (dead) return await r.fulfill({ status: 429, headers: CORS, contentType: 'application/json', body: JSON.stringify(day429) });
@@ -422,6 +427,41 @@ try {
   await panel.getByRole('button', { name: 'Nueva conversación' }).click();
   mode = 'stream';
 
+  // Borrar desde el Asistente = papelera + confirmación
+  console.log('Borrar');
+  const inTrash = () => page.evaluate(async () => { try { let d = await navigator.storage.getDirectory(); for (const part of ['.app', 'papelera-mazos']) d = await d.getDirectoryHandle(part); let n = 0; for await (const k of d.keys()) n++; return n; } catch { return 0; } });
+  const deckThere = async () => (await deckText()) !== null;
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  mode = 'write'; // un mazo con tarjetas reales que borrar
+  await ta.fill('Crea tarjetas de mi nota Clase 1 - ECG básico'); await ta.press('Enter');
+  { const w = panel.locator('.chat-pv'); await w.getByRole('button', { name: 'Aceptar' }).click(); await w.getByRole('button', { name: 'Deshacer' }).waitFor(); }
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  mode = 'delno';
+  await ta.fill('¿Cuántas derivaciones tiene el ECG?'); await ta.press('Enter');
+  await panel.getByText('Te dejo la confirmación').waitFor().catch(() => {});
+  await page.waitForTimeout(600);
+  check((await panel.locator('.chat-dl').count()) === 0 && (await deckThere()), 'el modelo intenta borrar sin petición: no hay tarjeta y no se tocó nada');
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  mode = 'del';
+  await ta.fill('Borra el mazo ECG IA'); await ta.press('Enter');
+  const dl = panel.locator('.chat-dl');
+  await dl.waitFor();
+  check((await dl.innerText()).includes('Confirmar borrado') && (await dl.innerText()).includes('papelera'), 'tarjeta «Confirmar borrado»');
+  check(await dl.getByRole('button', { name: 'Cancelar' }).evaluate((b) => document.activeElement === b), 'el foco inicial está en «Cancelar»');
+  for (const n of ['Mover a la papelera', 'Cancelar']) check((await dl.getByRole('button', { name: n }).boundingBox()).height >= 43.5, `«${n}» ≥ 44 px`);
+  check((await deckThere()) && (await inTrash()) === 0, 'proponer no cambia nada');
+  await dl.getByRole('button', { name: 'Cancelar' }).click();
+  await dl.getByText(/Cancelado/).waitFor();
+  check((await deckThere()) && (await inTrash()) === 0, 'Cancelar no borra');
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  await ta.fill('Borra el mazo ECG IA'); await ta.press('Enter');
+  await dl.waitFor();
+  await dl.getByRole('button', { name: 'Mover a la papelera' }).dblclick();
+  await dl.getByRole('button', { name: 'Deshacer' }).waitFor();
+  check(!(await deckThere()) && (await inTrash()) === 1, 'confirmar: el mazo está en la papelera de mazos (una vez)');
+  await dl.getByRole('button', { name: 'Deshacer' }).click();
+  await dl.getByText('Restaurado.').waitFor();
+  check((await deckThere()) && (await inTrash()) === 0, 'Deshacer: el mazo vuelve y la papelera queda vacía');
   // Mini reproductor simulado: el botón y el panel no lo tapan; ni la firma
   await page.keyboard.press('Escape');
   await page.evaluate(() => document.body.insertAdjacentHTML('beforeend', '<div class="mini-amb docked glass on" id="fake-mini"><div class="mini-amb-pill"><button class="mini-amb-main" type="button">Mini</button></div></div>'));
