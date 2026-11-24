@@ -14,6 +14,7 @@ import { forgetProposals } from './proposal';
 import { Preview } from './preview';
 import type { Source } from './tools';
 import { send, stop } from './turn';
+import { setModels } from './providers';
 import { bar, loadUsage } from './usage';
 
 const ERR: Record<string, string> = { nokey: 'nokey', auth: 'auth', quota: 'quota', rate: 'rate', model: 'model', timeout: 'timeout', network: 'network', server: 'server', busy: 'busy' };
@@ -135,6 +136,7 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
     const q = el.value;
     el.value = ''; el.style.height = ''; setHas(false);
     stick.current = true;
+    setModels(app.settings.chat.models);
     void send(q, { vault: app.vault, col: app.col, today: dayKey(Date.now(), app.settings.timeZone, app.settings.dayStartHour) });
   };
   const grow = (e: Event) => { const el = e.currentTarget as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`; };

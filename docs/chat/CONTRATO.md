@@ -23,7 +23,7 @@ Rama `asistente`. Fase 1 = proveedores, claves con rotación, uso/barra, sesión
 `loadModel(p, apiKey): Promise<LanguageModel>` (import() del proveedor) · `loadCore(): Promise<typeof import('ai')>`
 | | modelo por defecto | límites por defecto 🔸 (editables) |
 |---|---|---|
-| gemini | `gemini-3.5-flash` 🔸 (¿gratuito?) | rpm 10 · rpd 250 · tpm 250 000 |
+| gemini | `gemini-flash-latest` 🔸 (alias; ¿gratuito? no verificado en doc oficial) | rpm 10 · rpd 250 · tpm 250 000 |
 | groq | `llama-3.3-70b-versatile` (tools en el SDK) | rpm 30 · rpd 1 000 · tpm 12 000 · tpd 100 000 |
 
 ## 4 · Claves (`src/chat/keys.ts`)
@@ -125,3 +125,9 @@ Límites gratuitos, nombres de modelo y forma de errores 🔸 · CORS · políti
 - Kinds nuevos: `model` (404, o 400 «model not found / not supported / decommissioned»; `decide` = `fail`: no rota ni toca la clave) y `timeout` (120 s; ya no es «Sin conexión»).
 - 403: la prueba pausa la clave (`paused`), igual que la sesión; solo 401 la marca `invalid`.
 - UI: «Probar conexión» y el chat muestran el texto traducido más `[HTTP 404 · NOT_FOUND] mensaje` (`techLine`, seleccionable; en el chat dentro de «Detalles»). `TurnResult` y `Msg` conservan `detail`.
+
+## Modelo elegible y «Ver modelos disponibles»
+- `settings.chat.models` (`gemini?`, `groq?`; cadena `[A-Za-z0-9._/:-]{1,80}`, vacío = `PROVIDERS[p].model`). `setModels`/`modelOf` en `providers.ts`; `loadModel`, la sesión y la prueba lo usan; la interfaz lo fija antes de cada turno.
+- `src/chat/models.ts`: un GET (Gemini `/v1beta/models?pageSize=200`, `x-goog-api-key`, hasta 5 páginas; Groq `/openai/v1/models`, `Bearer`), nunca la clave en la URL. Filtra `generateContent` / quita whisper, guard, tts, `active:false`. Sugerido = primer `flash` / `llama`; solo se fija al tocar.
+- Errores con `classify`/`detail` redactado. Misma exclusión mutua que «Probar» (una petición a la vez). La CSP no cambia (mismos hosts).
+- 🔸 Sin verificar: forma real de ambos listados, que `gemini-flash-latest` exista/sea gratuito, ids de Groq no-chat (heurística por nombre), CORS del GET en Safari.

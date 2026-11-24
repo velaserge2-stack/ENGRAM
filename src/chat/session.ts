@@ -2,7 +2,7 @@
 import type { ModelMessage, ToolSet } from 'ai';
 import { classify, decide, redact, type Detail, type Kind } from './errors';
 import { loadKeys, markKey, pickKey, saveKeys } from './keys';
-import { loadCore, loadModel, PROVIDERS } from './providers';
+import { loadCore, loadModel, modelOf } from './providers';
 import { fromHeaders, loadUsage, record, saveUsage, setHdr } from './usage';
 
 export const MAX_WAIT_MS = 60_000;
@@ -92,7 +92,7 @@ async function run(o: TurnOpts): Promise<TurnResult> {
 
     const c = o.signal?.aborted ? { kind: 'aborted' as Kind } : timedOut ? { kind: 'timeout' as Kind, detail: undefined as Detail | undefined } : classify(k.provider, err, now(), store.keys.map((x) => x.key));
     const message = String((err as { message?: string } | undefined)?.message ?? c.kind);
-    const detail = c.kind === 'model' ? { ...c.detail, model: PROVIDERS[k.provider].model } : c.detail;
+    const detail = c.kind === 'model' ? { ...c.detail, model: modelOf(k.provider) } : c.detail;
     last = { code: c.kind, message, detail };
     const d = decide(c.kind);
     if (text || stepped || d === 'fail') return fail(c.kind, message, detail);

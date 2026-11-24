@@ -29,7 +29,7 @@ describe('Asistente · configuración', () => {
   });
   it.skipIf(!existsSync('dist/sw.js'))('dist: el SW no precachea chunks del SDK, y el SDK sí está en dist', () => {
     const sw = readFileSync('dist/sw.js', 'utf8');
-    const sdk = readdirSync('dist/assets').filter((f) => f.endsWith('.js') && /APICallError|x-goog-api-key/.test(readFileSync(`dist/assets/${f}`, 'utf8')));
+    const sdk = readdirSync('dist/assets').filter((f) => f.endsWith('.js') && /APICallError/.test(readFileSync(`dist/assets/${f}`, 'utf8')));
     expect(sdk.length).toBeGreaterThan(0);
     for (const f of sdk) expect(sw).not.toContain(f);
   });

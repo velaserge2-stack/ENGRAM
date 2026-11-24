@@ -27,7 +27,8 @@ try {
   page = await ctx.newPage();
   page.on('dialog', (d) => d.accept());
   const apiHits = [], js = new Set(), logs = [];
-  let mode = 'ok';
+  let mode = 'ok', lmode = 'ok', lrelease = null;
+  const listReqs = [];
   const hosts = new Set();
   page.on('request', (r) => { /\.(js|css)(\?|$)/.test(r.url()) && js.add(r.url()); try { const u = new URL(r.url()); if (/^https?:$/.test(u.protocol)) hosts.add(u.host); } catch { /* data:, blob: */ } });
   page.on('console', (m) => logs.push(m.text()));
@@ -42,6 +43,14 @@ try {
   await page.route(/generativelanguage\.googleapis\.com|api\.groq\.com/, async (r) => {
     if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: CORS });
     apiHits.push(r.request().url());
+    if (/\/models(\?|$)/.test(r.request().url()) && r.request().method() === 'GET') {
+      listReqs.push({ url: r.request().url(), key: r.request().headers()['x-goog-api-key'] });
+      if (lmode === 'hold') await new Promise((res) => { lrelease = res; });
+      if (lmode === '403') return r.fulfill({ status: 403, headers: CORS, contentType: 'application/json', body: JSON.stringify({ error: { code: 403, status: 'PERMISSION_DENIED', message: 'nope' } }) });
+      if (lmode === 'empty') return r.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify({ models: [] }) });
+      const g = (n, m = ['generateContent']) => ({ name: 'models/' + n, supportedGenerationMethods: m });
+      return r.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify({ models: [g('gemini-2.5-pro'), g('gemini-2.5-flash'), g('text-embedding-004', ['embedContent'])] }) });
+    }
     if (mode !== 'ok' && mode !== '401' && mode !== '404') {
       const key = r.request().headers()['x-goog-api-key'];
       inflight++; maxInflight = Math.max(maxInflight, inflight);
@@ -81,7 +90,7 @@ try {
   await page.waitForTimeout(500);
   check(!(await page.locator('#asistente').count()), 'sin sección «Asistente»');
   check(apiHits.length === 0, 'ninguna petición a los proveedores');
-  const sdkLoaded = async () => { for (const u of js) { const t = await (await fetch(u)).text(); if (/x-goog-api-key|APICallError/.test(t)) return true; } return false; };
+  const sdkLoaded = async () => { for (const u of js) { const t = await (await fetch(u)).text(); if (/APICallError/.test(t)) return true; } return false; };
   check(!(await sdkLoaded()), 'el SDK no se descargó');
   const chatCode = async () => { for (const u of js) { const t = await (await fetch(u)).text(); if (/chat-fab|chat-panel/.test(t)) return true; } return false; };
   check(!(await chatCode()) && !(await page.locator('.chat-fab, .chat-panel').count()), 'apagado: ni botón ni código del panel');
@@ -124,10 +133,43 @@ try {
 
   mode = '404';
   await sec.getByRole('button', { name: 'Probar conexión' }).click();
-  await sec.getByText(/El modelo «gemini-3\.5-flash» no está disponible/).waitFor();
+  await sec.getByText(/El modelo «gemini-flash-latest» no está disponible/).waitFor();
   await sec.getByText('[HTTP 404 · NOT_FOUND] models/gemini-3.5-flash is not found for API version v1beta').waitFor();
   check(!(await sec.innerText()).includes(SECRET), 'el detalle técnico no muestra la clave');
   check((await sec.innerText()).includes('inválida'), 'un 404 de modelo no cambia el estado de la clave (sigue inválida de la prueba 401, no se tocó)');
+
+  await sec.getByText(/Prueba «Ver modelos disponibles»/).waitFor();
+
+  console.log('Ver modelos');
+  const ver = sec.getByRole('button', { name: 'Ver modelos disponibles' }).first();
+  check((await ver.boundingBox()).height >= 44, 'botón «Ver modelos» ≥ 44 px');
+  const before = apiHits.length;
+  lmode = 'hold';
+  await ver.click();
+  await sec.getByText('Consultando modelos…').waitFor();
+  check(await sec.getByRole('button', { name: 'Probar conexión' }).first().isDisabled(), 'una sola petición: «Probar» deshabilitado mientras lista');
+  lrelease(); lmode = 'ok';
+  const lm = sec.locator('.chat-models');
+  await lm.getByText('2 modelos disponibles').waitFor();
+  check(apiHits.length === before + 1 && listReqs.length === 1, 'Ver modelos = una sola petición');
+  check(listReqs[0].key === SECRET && !listReqs[0].url.includes(SECRET) && !/key=/.test(listReqs[0].url), 'la clave va en cabecera, no en la URL');
+  const items = await lm.locator('button code').allInnerTexts();
+  check(items.join() === 'gemini-2.5-flash,gemini-2.5-pro', `filtrada y ordenada (${items})`);
+  check((await lm.locator('button').first().boundingBox()).height >= 44, 'opciones ≥ 44 px');
+  check((await lm.innerText()).includes('sugerido') && (await lm.innerText()).includes('Modelo en uso: gemini-flash-latest'), 'sugiere sin fijar');
+  await lm.getByRole('button', { name: /gemini-2\.5-flash/ }).click();
+  await lm.getByText('Modelo en uso: gemini-2.5-flash').waitFor();
+  mode = 'ok';
+  await lm.getByRole('button', { name: 'Probar conexión' }).click();
+  await sec.getByText('Conexión correcta.').waitFor();
+  check(/models\/gemini-2\.5-flash:/.test(apiHits[apiHits.length - 1]), 'la prueba usa el modelo elegido');
+  lmode = '403';
+  await sec.getByRole('button', { name: 'Ver modelos disponibles' }).first().click();
+  await sec.getByText('[HTTP 403 · PERMISSION_DENIED] nope').waitFor();
+  lmode = 'empty';
+  await sec.getByRole('button', { name: 'Ver modelos disponibles' }).first().click();
+  await sec.getByText(/no devolvió modelos de texto/).waitFor();
+  lmode = 'ok';
 
   // reordenar: segunda clave y subir
   await sec.getByLabel('Apodo (opcional)').fill('Otra');
