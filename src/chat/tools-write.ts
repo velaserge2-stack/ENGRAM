@@ -49,7 +49,7 @@ export function makeWriteTools(ctx: WriteCtx): ToolSet {
       },
     }),
     crear_nota: tool({
-      description: 'Propone una NOTA nueva (Markdown) en la sección Notas. Solo si el usuario pidió crear una nota; úsala tras leer sus fuentes. No guarda: el usuario revisa y acepta. Nunca sobrescribe (si el título existe, añade « (2)»). Máx. 20 000 caracteres.',
+      description: 'Propone una NOTA nueva (Markdown) en la sección Notas. Solo si el usuario pidió crear una nota; úsala tras leer sus fuentes. No guarda: el usuario revisa y acepta. Nunca sobrescribe (si el título existe, añade « (2)»). Máx. 20 000 caracteres (hasta 100 000 si el contexto es «amplio»; si no cabe, créala por partes).',
       inputSchema: jsonSchema<NoteIn>({ type: 'object', properties: { titulo: str, contenido: { ...str, description: 'Markdown; sin frontmatter' }, materia: { ...str, description: 'Opcional; sin materia queda en «Sin clasificar»' }, tema: { ...str, description: 'Opcional' }, tags: { type: 'array', items: str } }, required: ['titulo', 'contenido'], additionalProperties: false }),
       execute: async (a) => (ctx.allowed() ? out(await buildNote(free, a)) : NO),
     }),

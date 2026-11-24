@@ -1,7 +1,7 @@
 // Clasificación de errores (contrato §5). Devuelve códigos, nunca frases. Sin importar el SDK.
 import type { ProviderId } from './providers';
 
-export type Kind = 'quota' | 'rate' | 'auth' | 'model' | 'network' | 'timeout' | 'server' | 'aborted' | 'empty' | 'other';
+export type Kind = 'quota' | 'rate' | 'auth' | 'model' | 'limit' | 'network' | 'timeout' | 'server' | 'aborted' | 'empty' | 'other';
 /** Diagnóstico seguro (ya redactado y truncado) para mostrar en la interfaz. */
 export interface Detail { status?: number; code?: string; msg?: string; model?: string }
 export interface Classified { kind: Kind; retryAfterMs?: number; resetAt?: number; detail?: Detail }
@@ -36,6 +36,8 @@ function hdr(h: Record<string, string> | undefined, name: string): string | unde
   return k ? h[k] : undefined;
 }
 
+// 400 por pedir más tokens de salida (o de contexto) de los que admite el modelo
+const LIMIT_RE = /max[_ ]?(completion[_ ]|output[_ ])?tokens|maxOutputTokens|maximum (number of )?(output |completion )?tokens/i;
 const MODEL_RE = /model[_ ]not[_ ]found|decommission|models\/\S+ is not found|is not found for API version|not supported for (generateContent|this)|model .{0,80}(does not exist|not supported)|not a valid model|not found the model/i;
 
 /** statusCode + `error.status|code|type|message` del cuerpo JSON; todo redactado y truncado. */
@@ -94,6 +96,7 @@ function classify0(p: ProviderId, e: unknown, now: number): Classified {
       return { kind: 'rate', retryAfterMs };
     }
   }
+  if (st === 400 && LIMIT_RE.test(body)) return { kind: 'limit' };
   if (st === 404 || (st === 400 && MODEL_RE.test(body))) return { kind: 'model' };
   if (st === 401 || st === 403) return { kind: 'auth' };
   if (st === 400 && /API_KEY_INVALID|API key not valid|invalid_api_key/i.test(body)) return { kind: 'auth' };

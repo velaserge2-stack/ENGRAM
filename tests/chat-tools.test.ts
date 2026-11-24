@@ -3,7 +3,8 @@ import { citeHref, PDF_CITE, resolveNote, resolvePdf } from '../src/chat/cites';
 import { addKey, loadKeys, saveKeys } from '../src/chat/keys';
 import { runTurn } from '../src/chat/session';
 import { SYSTEM } from '../src/chat/system';
-import { makeTools, MAX_CHARS, MAX_FRAGS, pick, type Source, type ToolCtx, validPath } from '../src/chat/tools';
+import { budget } from '../src/chat/providers';
+import { makeTools, pick, type Source, type ToolCtx, validPath } from '../src/chat/tools';
 import { MemoryBackend } from '../src/vault/memory';
 
 vi.mock('../src/io/extract', () => ({
@@ -32,6 +33,7 @@ const run = async (tools: any, name: string, input: object) => tools[name].execu
 
 describe('Asistente · herramientas de lectura', () => {
   it('buscar_notas: ≤ 6 fragmentos de ≤ 700 caracteres, con fuente válida', async () => {
+    const MAX_FRAGS = budget().frag.n, MAX_CHARS = budget().frag.chars;
     const c = ctxOf(await vault()), tools = makeTools(c);
     const r = await run(tools, 'buscar_notas', { consulta: 'mitosis' });
     expect(r.fragmentos.length).toBeGreaterThan(0);
@@ -47,6 +49,7 @@ describe('Asistente · herramientas de lectura', () => {
     expect(c.sources).toEqual([]);
   });
   it('leer_nota: nunca devuelve la nota entera y rechaza rutas hostiles', async () => {
+    const MAX_FRAGS = budget().frag.n, MAX_CHARS = budget().frag.chars;
     const c = ctxOf(await vault()), tools = makeTools(c);
     const r = await run(tools, 'leer_nota', { titulo: 'Mitosis', consulta: 'división celular' });
     expect(r.fragmentos.length).toBeLessThanOrEqual(MAX_FRAGS);

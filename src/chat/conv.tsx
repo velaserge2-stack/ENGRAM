@@ -17,8 +17,8 @@ import { send, stop } from './turn';
 import { setModels } from './providers';
 import { bar, loadUsage } from './usage';
 
-const ERR: Record<string, string> = { nokey: 'nokey', auth: 'auth', quota: 'quota', rate: 'rate', model: 'model', timeout: 'timeout', network: 'network', server: 'server', busy: 'busy', empty: 'empty' };
-const NEEDS_SETTINGS = new Set(['nokey', 'auth', 'quota', 'model']);
+const ERR: Record<string, string> = { nokey: 'nokey', auth: 'auth', quota: 'quota', rate: 'rate', model: 'model', limit: 'limit', timeout: 'timeout', network: 'network', server: 'server', busy: 'busy', empty: 'empty' };
+const NEEDS_SETTINGS = new Set(['nokey', 'auth', 'quota', 'model', 'limit']);
 
 /** Cita tocable (≥ 44 px, vía CSS) si la fuente la devolvió una herramienta en este turno; si no, texto inerte con aviso. */
 function citeEl(label: string, src: Source | null): HTMLElement {
@@ -137,7 +137,7 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
     const q = el.value;
     el.value = ''; el.style.height = ''; setHas(false);
     stick.current = true;
-    setModels(app.settings.chat.models);
+    setModels(app.settings.chat.models, app.settings.chat.context);
     run(q);
   };
   const run = (q: string) => void send(q, { vault: app.vault, col: app.col, today: dayKey(Date.now(), app.settings.timeZone, app.settings.dayStartHour) });
@@ -167,7 +167,7 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
         <div ref={log} class="chat-log" role="log" aria-live="polite" aria-relevant="additions text" aria-busy={st.busy} aria-label={t('chat.p_conv')} tabIndex={0}
           onScroll={(e) => { const l = e.currentTarget as HTMLElement; stick.current = l.scrollHeight - l.scrollTop - l.clientHeight < 40; }}>
           {!msgs.length && <div class="chat-empty"><p><b>{t('chat.p_vacio')}</b></p><p class="foot">{t('chat.p_vacio_sub')}</p></div>}
-          {msgs.map((m) => (m.role === 'assistant' && !m.text ? null : <Bubble key={m.id} m={m} onSettings={toSettings} onCite={() => { if (p.phone) p.onClose(); }} onRetry={lastUser && !st.busy ? () => { stick.current = true; setModels(app.settings.chat.models); run(lastUser); } : undefined} />))}
+          {msgs.map((m) => (m.role === 'assistant' && !m.text ? null : <Bubble key={m.id} m={m} onSettings={toSettings} onCite={() => { if (p.phone) p.onClose(); }} onRetry={lastUser && !st.busy ? () => { stick.current = true; setModels(app.settings.chat.models, app.settings.chat.context); run(lastUser); } : undefined} />))}
           {waiting && <p class="chat-note" role="status">{st.waitS ? t('chat.p_espera', { s: st.waitS }) : st.tool ? t('chat.p_buscando') : t('chat.p_pensando')}</p>}
         </div>
         <form class="chat-form" onSubmit={(e) => { e.preventDefault(); submit(); }}>

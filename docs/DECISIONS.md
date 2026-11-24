@@ -933,3 +933,8 @@ Plan y estados en `docs/diagramas/PLAN-22.md` y `docs/diagramas/estado-p22-*.md`
 - `@ai-sdk/openai-compatible` 3.0.94 (la línea 1.x/2.x es de `ai` 5/6; la 3.x usa `@ai-sdk/provider` 4 como `ai` 7). Chunk bajo demanda ≈ 8,3 kB gzip (el núcleo `ai` + zod se comparte); fuera del precache (el patrón `@ai-sdk` ya lo cubre; `tests/chat-config.test.ts` lo comprueba sobre `dist/`). Un solo chunk para ambos proveedores (mismo paquete), no uno por proveedor.
 - Sin paquete de OpenRouter ni cabeceras de atribución. Modelos por defecto y límites: 🔸 sin verificar (ver `docs/chat/CONTRATO.md`).
 
+
+## Asistente · contexto ampliable
+- Presupuestos por proveedor y ajuste «Contexto» (normal/amplio, global, defecto normal): más tokens por turno agotan antes la cuota gratuita; Groq queda acotado por su TPM de 12 000.
+- Las fuentes que el tope por turno recorta ya estaban en `sources` (se pueden citar aunque el fragmento no llegara al modelo): sin corregir.
+- 🔸 Sin verificar: máximos reales de cada modelo (maxOut 32 768 de Gemini, 16 384 de Kimi, 8192 de OpenRouter según modelo), consumo real de cuota/TPM, ni el texto exacto del 400 por max_tokens de cada API (la regex `LIMIT_RE` es una suposición).

@@ -18,7 +18,7 @@ const IDS = Object.keys(PROVIDERS) as ProviderId[];
 const TEST_MS = 20_000;
 // claves literales (el test de i18n las busca por texto)
 const ST = () => ({ active: t('chat.st_active'), exhausted: t('chat.st_exhausted'), invalid: t('chat.st_invalid'), paused: t('chat.st_paused') });
-const ERR = (): Record<Kind, string> => ({ quota: t('chat.err_quota'), rate: t('chat.err_rate'), auth: t('chat.err_auth'), model: t('chat.err_model'), timeout: t('chat.err_timeout'), network: t('chat.err_network'), server: t('chat.err_server'), aborted: t('chat.err_aborted'), empty: t('chat.p_err_empty'), other: t('chat.err_other') });
+const ERR = (): Record<Kind, string> => ({ quota: t('chat.err_quota'), rate: t('chat.err_rate'), auth: t('chat.err_auth'), model: t('chat.err_model'), limit: t('chat.p_err_limit'), timeout: t('chat.err_timeout'), network: t('chat.err_network'), server: t('chat.err_server'), aborted: t('chat.err_aborted'), empty: t('chat.p_err_empty'), other: t('chat.err_other') });
 const LIM = (): Record<keyof ChatLimits, string> => ({ rpm: t('chat.lim_rpm'), rpd: t('chat.lim_rpd'), tpm: t('chat.lim_tpm'), tpd: t('chat.lim_tpd') });
 
 async function probe(k: KeyEntry, signal: AbortSignal): Promise<{ kind: 'ok' | Kind; resetAt?: number; detail?: Detail }> {
@@ -34,7 +34,7 @@ async function probe(k: KeyEntry, signal: AbortSignal): Promise<{ kind: 'ok' | K
 export function AssistantBody() {
   const app = useApp();
   const s = app.settings;
-  setModels(s.chat.models); // la prueba y la lista usan el modelo elegido
+  setModels(s.chat.models, s.chat.context); // la prueba y la lista usan el modelo elegido
   const [store, setStore] = useState<KeyStore>(loadKeys);
   const [provider, setProvider] = useState<ProviderId>('gemini');
   const [alias, setAlias] = useState('');
@@ -199,6 +199,10 @@ export function AssistantBody() {
       ))}
       <Row k={t('chat.avisar_en')} sub={t('chat.avisar_en_sub')}>
         <select aria-label={t('chat.avisar_en')} value={String(s.chat.warnAt)} onChange={(e) => app.update({ chat: { ...s.chat, warnAt: Number((e.target as HTMLSelectElement).value) } })}>{[0.6, 0.7, 0.8, 0.9].map((v) => <option value={String(v)}>{Math.round(v * 100)} %</option>)}</select>
+      </Row>
+
+      <Row k={t('chat.contexto')} sub={t('chat.contexto_sub')}>
+        <select aria-label={t('chat.contexto')} value={s.chat.context} onChange={(e) => app.update({ chat: { ...s.chat, context: (e.target as HTMLSelectElement).value === 'amplio' ? 'amplio' : 'normal' } })}><option value="normal">{t('chat.contexto_normal')}</option><option value="amplio">{t('chat.contexto_amplio')}</option></select>
       </Row>
 
       <div class="row-i"><div class="k"><strong>{t('chat.privacidad')}</strong>

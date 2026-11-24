@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { add, append, clear, generation, getStatus, messages, remove, setStatus, subscribe, toModel, MAX_SENT } from '../src/chat/history';
+import { add, append, clear, generation, getStatus, messages, remove, setStatus, subscribe, toModel, trimMessages } from '../src/chat/history';
 import { ACTIONS, conflicts, defaultConfig, resolve } from '../src/lib/keys';
 import { defaultChat, mergeSettings } from '../src/lib/settings';
 
@@ -32,10 +32,10 @@ describe('Asistente · historial en memoria', () => {
     add('assistant', 'r'); add('notice', '', { code: 'rotated', alias: 'B' }); add('assistant', '');
     expect(toModel()).toEqual([{ role: 'user', content: 'uno\n\ndos' }, { role: 'assistant', content: 'r' }]);
   });
-  it('toModel respeta el máximo', () => {
-    for (let i = 0; i < 60; i++) add(i % 2 ? 'assistant' : 'user', 'm' + i);
-    const out = toModel();
-    expect(out.length).toBeLessThanOrEqual(MAX_SENT);
+  it('trimMessages respeta el presupuesto y empieza por usuario', () => {
+    for (let i = 0; i < 60; i++) add(i % 2 ? 'assistant' : 'user', 'm' + i + ' ' + 'x'.repeat(100));
+    const out = trimMessages(toModel(), 400);
+    expect(out.length).toBeLessThan(60);
     expect(out[0]!.role).toBe('user');
   });
 });
