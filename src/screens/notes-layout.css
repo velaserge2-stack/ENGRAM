@@ -1,0 +1,33 @@
+/* Notas: una sola pila de barras fijas. Las alturas se acumulan con variables (sin números sueltos):
+   barra superior (--bar-top) → barra del editor (--eb-h) → búsqueda → paneles laterales (--bars-bottom).
+   Z: barras del editor = --z-panel; paneles laterales = --z-popover; botón de salir = --z-dock.
+   Teléfono: no se define nada (cada regla cae a su valor anterior con var(--x, valor)). */
+html:not(.is-phone) {
+  --bar-top: max(calc(env(safe-area-inset-top) + 72px), calc(var(--topbar-bottom, 0px) + 14px));
+  --eb-h: 52px;
+  --bar-gap: 6px;
+  /* lo que se reserva abajo para el asistente (barra al centro) y la mascota (esquina): variables de B, con valores por omisión */
+  --dock-reserve: calc(var(--dock-bottom, 16px) + var(--dock-mini-size, 56px) + 16px + 52px /* avisos de teclas */);
+  --bars-bottom: calc(var(--bar-top) + var(--eb-h) + var(--bar-gap));
+  --panels-top: var(--bars-bottom); /* debajo de la última barra pegada */
+}
+/* pantalla completa: la barra superior no existe; el botón de salir ocupa la franja de arriba (10 + 44 px) */
+html:not(.is-phone) body.notes-full { --bar-top: calc(env(safe-area-inset-top) + 58px); }
+/* --vv-top lo publica la barra del editor en :root (teclado en pantalla) */
+.editorbar { position: sticky; top: calc(var(--bar-top, env(safe-area-inset-top) + 72px) + var(--vv-top, 0px)); z-index: var(--z-panel); display: flex; align-items: center; gap: 4px; min-height: var(--eb-h, 52px); padding: 4px; border-radius: 18px; }
+.note-panel .editorbar { top: 0; border-radius: 14px; }
+html.is-phone .editorbar { top: calc(env(safe-area-inset-top) + 4px + var(--vv-top, 0px)); border-radius: 14px; }
+.find-bar { padding: 4px 6px 4px 14px; border-radius: var(--r-pill); gap: 4px; position: sticky; top: calc(var(--bars-bottom, env(safe-area-inset-top) + 64px) + var(--vv-top, 0px)); z-index: var(--z-panel); }
+.note-panel .find-bar { top: calc(var(--eb-h, 52px) + 6px); }
+/* paneles laterales (árbol, inspector): arrancan debajo de las barras, no las tapan */
+.insp-over { position: fixed; z-index: var(--z-popover); top: max(var(--panels-top, calc(env(safe-area-inset-top) + 72px)), var(--side-top, 0px)); right: calc(env(safe-area-inset-right) + 12px); width: min(340px, calc(100vw - 24px)); max-height: max(160px, calc(100dvh - max(var(--panels-top, 72px), var(--side-top, 0px)) - var(--dock-reserve, 24px) - var(--kb-inset, 0px))); overflow: auto; animation: up .25s var(--spring); }
+.tree-over { position: fixed; z-index: var(--z-popover); top: max(var(--panels-top, calc(env(safe-area-inset-top) + 72px)), var(--side-top, 0px)); left: calc(env(safe-area-inset-left) + 12px); width: min(300px, calc(100vw - 24px)); max-height: max(160px, calc(100dvh - max(var(--panels-top, 72px), var(--side-top, 0px)) - var(--dock-reserve, 24px) - var(--kb-inset, 0px))); overflow: auto; }
+.notes-exit { position: fixed; z-index: var(--z-dock); top: calc(env(safe-area-inset-top) + 10px); right: calc(env(safe-area-inset-right) + 12px); }
+/* árbol e inspector a la vez (ventana estrecha): cada uno ocupa como mucho la mitad */
+html:not(.is-phone) .insp-over { width: min(340px, calc(50vw - 18px)); }
+html:not(.is-phone) .tree-over { width: min(300px, calc(50vw - 18px)); }
+/* inspector flotante (< 1100 px): la nota cede su carril; así no tapa ni la cabecera ni la barra del editor */
+@media (min-width: 760px) { html:not(.is-phone) .notes:has(> .insp-over) { padding-right: calc(min(340px, 50vw - 18px) + 24px); } }
+/* con el teclado abierto la barra ya está pegada: los paneles parten de ella */
+html.kb-open .insp-over, html.kb-open .tree-over { top: var(--panels-top, calc(env(safe-area-inset-top) + 72px)); max-height: max(160px, calc(100dvh - var(--panels-top, 72px) - var(--dock-reserve, 24px) - var(--kb-inset, 0px))); }
+html:not(.is-phone):has(.find-bar) { --panels-top: calc(var(--bars-bottom) + 50px + var(--bar-gap)); }

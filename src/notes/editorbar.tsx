@@ -50,13 +50,13 @@ export function EditorBar(p: { s: BarState; folded: boolean; onFold: (v: boolean
   // con el teclado virtual abierto, la barra sigue a la parte visible (iPad/iPhone)
   useEffect(() => {
     const vv = window.visualViewport;
-    const el = bar.current;
-    if (!vv || !el) return;
+    const el = document.documentElement; // en :root: la barra de búsqueda también lo lee
+    if (!vv) return;
     const on = () => el.style.setProperty('--vv-top', `${Math.max(0, vv.offsetTop)}px`);
     vv.addEventListener('resize', on);
     vv.addEventListener('scroll', on);
     on();
-    return () => (vv.removeEventListener('resize', on), vv.removeEventListener('scroll', on));
+    return () => (vv.removeEventListener('resize', on), vv.removeEventListener('scroll', on), el.style.removeProperty('--vv-top'));
   }, []);
 
   // un solo tab-stop: las flechas recorren los botones habilitados
