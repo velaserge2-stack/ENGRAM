@@ -1,8 +1,8 @@
 // Sesión en streaming (contrato §6). Una petición a la vez; rotación solo ante quota/auth y antes de recibir texto.
 import type { ModelMessage, ToolSet } from 'ai';
-import { classify, decide, redact, type Kind } from './errors';
+import { classify, decide, redact, type Detail, type Kind } from './errors';
 import { loadKeys, markKey, pickKey, saveKeys } from './keys';
-import { loadCore, loadModel } from './providers';
+import { loadCore, loadModel, modelOf } from './providers';
 import { fromHeaders, loadUsage, record, saveUsage, setHdr } from './usage';
 
 export const MAX_WAIT_MS = 60_000;
@@ -27,7 +27,7 @@ export interface TurnOpts {
 }
 export type TurnResult =
   | { ok: true; text: string; alias: string; rotated: boolean; tokens: number }
-  | { ok: false; code: 'busy' | 'nokey' | Kind; message: string; rotated: boolean };
+  | { ok: false; code: 'busy' | 'nokey' | Kind; message: string; rotated: boolean; detail?: Detail };
 
 let inflight = false;
 export const busy = (): boolean => inflight;
@@ -52,12 +52,12 @@ async function run(o: TurnOpts): Promise<TurnResult> {
   let store = loadKeys();
   const skip = new Set<string>();
   let rotated = false, waited = false;
-  let last: { code: Kind; message: string } | null = null;
-  const fail = (code: 'nokey' | Kind, message: string): TurnResult => ({ ok: false, code, message: redact(message, store.keys.map((k) => k.key)), rotated });
+  let last: { code: Kind; message: string; detail?: Detail } | null = null;
+  const fail = (code: 'nokey' | Kind, message: string, detail?: Detail): TurnResult => ({ ok: false, code, message: redact(message, store.keys.map((k) => k.key)), rotated, detail });
 
   for (;;) {
     const k = pickKey(store.keys, now(), skip);
-    if (!k) return last ? fail(last.code, last.message) : fail('nokey', 'nokey');
+    if (!k) return last ? fail(last.code, last.message, last.detail) : fail('nokey', 'nokey');
     let text = '', err: unknown, stepped = false, timedOut = false;
     // un AbortController por intento: Detener o 120 s sin señales del servidor lo cortan
     const ac = new AbortController();
@@ -90,11 +90,12 @@ async function run(o: TurnOpts): Promise<TurnResult> {
       }
     } catch (e) { err = e; } finally { clearTimeout(timer); o.signal?.removeEventListener('abort', onAbort); }
 
-    const c = o.signal?.aborted ? { kind: 'aborted' as Kind } : timedOut ? { kind: 'network' as Kind } : classify(k.provider, err, now());
+    const c = o.signal?.aborted ? { kind: 'aborted' as Kind } : timedOut ? { kind: 'timeout' as Kind, detail: undefined as Detail | undefined } : classify(k.provider, err, now(), store.keys.map((x) => x.key));
     const message = String((err as { message?: string } | undefined)?.message ?? c.kind);
-    last = { code: c.kind, message };
+    const detail = c.kind === 'model' ? { ...c.detail, model: modelOf(k.provider) } : c.detail;
+    last = { code: c.kind, message, detail };
     const d = decide(c.kind);
-    if (text || stepped || d === 'fail') return fail(c.kind, message);
+    if (text || stepped || d === 'fail') return fail(c.kind, message, detail);
     if (d === 'rotate') {
       // se relee: una clave borrada u «Olvidada» durante el turno no debe reaparecer. 403 puede ser región/permisos: se pausa, no se invalida
       const st = (err as { statusCode?: number } | undefined)?.statusCode;
@@ -106,7 +107,7 @@ async function run(o: TurnOpts): Promise<TurnResult> {
       continue;
     }
     // wait: misma clave, una sola vez
-    if (waited) return fail(c.kind, message);
+    if (waited) return fail(c.kind, message, detail);
     waited = true;
     const ms = Math.min(c.retryAfterMs ?? DEFAULT_WAIT_MS, MAX_WAIT_MS);
     o.onStatus?.({ code: 'waiting', alias: k.alias, waitMs: ms });

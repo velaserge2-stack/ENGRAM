@@ -81,6 +81,18 @@ describe('chat session', () => {
     expect(await runTurn({ ...base, fetch: f, signal: ac.signal })).toMatchObject({ ok: false, code: 'aborted' });
     expect(calls.length).toBeLessThanOrEqual(1);
   });
+  it('404 de modelo: no rota, no marca la clave y el detalle no filtra la clave', async () => {
+    const { f, calls } = fake(err(404, `{"error":{"code":"model_not_found","message":"The model does not exist ${SK1}"}}`));
+    const r = await runTurn({ ...base, fetch: f });
+    expect(r).toMatchObject({ ok: false, code: 'model', detail: { status: 404, code: 'model_not_found', model: 'llama-3.3-70b-versatile' } });
+    expect(JSON.stringify(r)).not.toContain(SK1);
+    expect(calls).toHaveLength(1);
+    expect(loadKeys().keys.every((k) => k.status === 'active')).toBe(true);
+  });
+  it('sin respuesta a tiempo: kind timeout', async () => {
+    const f = ((_u: unknown, init?: RequestInit) => new Promise((_, rej) => init?.signal?.addEventListener('abort', () => rej(Object.assign(new Error('a'), { name: 'AbortError' }))))) as typeof fetch;
+    expect(await runTurn({ ...base, fetch: f, timeoutMs: 20 })).toMatchObject({ ok: false, code: 'timeout' });
+  });
   it('busy: la segunda llamada simultánea se rechaza', async () => {
     const { f } = fake(sse('a'));
     const p = runTurn({ ...base, fetch: f });

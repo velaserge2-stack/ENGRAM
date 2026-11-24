@@ -79,9 +79,12 @@ export interface Settings {
 }
 
 export interface ChatLimits { rpm: number; rpd: number; tpm: number; tpd?: number }
-export interface ChatSettings { limits: { gemini: ChatLimits; groq: ChatLimits }; warnAt: number; /** último tamaño del panel */ size: 'compact' | 'large' }
+export interface ChatSettings { limits: { gemini: ChatLimits; groq: ChatLimits }; /** modelo elegido por proveedor; ausente = el de PROVIDERS */ models: { gemini?: string; groq?: string }; warnAt: number; /** último tamaño del panel */ size: 'compact' | 'large' }
 /** Iguales a `PROVIDERS[*].limits` de src/chat/providers.ts (una prueba lo comprueba; aquí para no cargar src/chat). */
-export const defaultChat = (): ChatSettings => ({ limits: { gemini: { rpm: 10, rpd: 250, tpm: 250_000 }, groq: { rpm: 30, rpd: 1000, tpm: 12_000, tpd: 100_000 } }, warnAt: 0.8, size: 'compact' });
+export const defaultChat = (): ChatSettings => ({ limits: { gemini: { rpm: 10, rpd: 250, tpm: 250_000 }, groq: { rpm: 30, rpd: 1000, tpm: 12_000, tpd: 100_000 } }, models: {}, warnAt: 0.8, size: 'compact' });
+
+/** Id de modelo válido (cadena corta); si no, '' = el de por defecto. */
+export const normModel = (v: unknown): string => (typeof v === 'string' && /^[A-Za-z0-9._/:-]{1,80}$/.test(v.trim()) ? v.trim() : '');
 
 export const ACCENT_USES = ['nav', 'progreso', 'enlaces', 'seleccion', 'calor', 'boton', 'calendario'] as const;
 export type AccentUse = (typeof ACCENT_USES)[number];
@@ -205,10 +208,10 @@ export function mergeSettings(raw: unknown): Settings {
   s.share.places = Array.isArray(s.share.places) ? s.share.places.filter((x): x is string => typeof x === 'string' && !!x.trim()).slice(0, 5) : [];
   s.share.rememberPlace = s.share.rememberPlace === true;
   s.share.lastPlace = s.share.rememberPlace && typeof s.share.lastPlace === 'string' ? s.share.lastPlace : '';
-  const dc = defaultChat(), c = s.chat as unknown as { limits?: Record<string, Partial<ChatLimits>>; warnAt?: unknown; size?: unknown };
+  const dc = defaultChat(), c = s.chat as unknown as { limits?: Record<string, Partial<ChatLimits>>; models?: Record<string, unknown>; warnAt?: unknown; size?: unknown };
   const lim = (v: unknown, dv: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1e9, Math.max(1, Math.round(v))) : dv);
   const one = (x: Partial<ChatLimits> | undefined, d: ChatLimits): ChatLimits => ({ rpm: lim(x?.rpm, d.rpm), rpd: lim(x?.rpd, d.rpd), tpm: lim(x?.tpm, d.tpm), ...(d.tpd ? { tpd: lim(x?.tpd, d.tpd) } : {}) });
-  s.chat = { limits: { gemini: one(c?.limits?.gemini, dc.limits.gemini), groq: one(c?.limits?.groq, dc.limits.groq) }, warnAt: typeof c?.warnAt === 'number' && Number.isFinite(c.warnAt) ? Math.min(0.95, Math.max(0.5, c.warnAt)) : dc.warnAt, size: c?.size === 'large' ? 'large' : 'compact' };
+  s.chat = { limits: { gemini: one(c?.limits?.gemini, dc.limits.gemini), groq: one(c?.limits?.groq, dc.limits.groq) }, models: Object.fromEntries((['gemini', 'groq'] as const).map((p) => [p, normModel(c?.models?.[p])]).filter(([, m]) => m)), warnAt: typeof c?.warnAt === 'number' && Number.isFinite(c.warnAt) ? Math.min(0.95, Math.max(0.5, c.warnAt)) : dc.warnAt, size: c?.size === 'large' ? 'large' : 'compact' };
   return s;
 }
 
