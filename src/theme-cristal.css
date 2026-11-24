@@ -320,9 +320,6 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 .md pre code { display: block; padding: 10px; overflow-x: auto; }
 .md a.wl { text-decoration: underline dotted; }
 /* Prompt 17 · barra del editor: fija arriba de la nota, un renglón de alto constante, una sola superficie de vidrio */
-.editorbar { position: sticky; top: calc(env(safe-area-inset-top) + 72px + var(--vv-top, 0px)); z-index: var(--z-panel); display: flex; align-items: center; gap: 4px; min-height: 52px; padding: 4px; border-radius: 18px; }
-body.notes-full .editorbar, .note-panel .editorbar { top: calc(env(safe-area-inset-top) + var(--vv-top, 0px)); }
-.note-panel .editorbar { top: 0; border-radius: 14px; }
 .editorbar .eb-scroll { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
 .editorbar .eb-scroll::-webkit-scrollbar { display: none; }
 .editorbar .eb-end { display: flex; gap: 2px; padding-left: 4px; border-left: var(--hair) solid var(--line); flex: none; }
@@ -338,7 +335,6 @@ body.notes-full .editorbar, .note-panel .editorbar { top: calc(env(safe-area-ins
 .eb-grid button.on { background: var(--inverse-bg); }
 .eb-grid-wrap { display: grid; justify-items: center; gap: 4px; padding-bottom: 6px; }
 @media (prefers-reduced-motion: no-preference) { .editorbar .eb-scroll > * { transition: opacity .15s; } }
-html.is-phone .editorbar { top: calc(env(safe-area-inset-top) + 4px + var(--vv-top, 0px)); border-radius: 14px; }
 /* Prompt 17: tamaños relativos (respetan el tamaño de texto del usuario) y alineación de párrafo */
 .md .t-pequeno { font-size: .85em; } .md .t-grande { font-size: 1.25em; } .md .t-muygrande { font-size: 1.6em; line-height: 1.25; }
 .md .al-centro { text-align: center; } .md .al-der { text-align: right; } .md .al-justificado { text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
@@ -468,14 +464,11 @@ html.is-phone .md img[data-align] { float: none; display: block; width: 100% !im
 .notes { display: grid; gap: 14px; align-items: start; }
 .page:has(> .notes) { max-width: none; }
 .doc-inner { margin: 0 auto; }
-.insp-over { position: fixed; z-index: var(--z-popover); top: calc(env(safe-area-inset-top) + 72px); right: calc(env(safe-area-inset-right) + 12px); width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 96px); overflow: auto; animation: up .25s var(--spring); }
-.tree-over { position: fixed; z-index: var(--z-popover); top: calc(env(safe-area-inset-top) + 72px); left: calc(env(safe-area-inset-left) + 12px); width: min(300px, calc(100vw - 24px)); max-height: calc(100dvh - 96px); overflow: auto; }
 /* pantalla completa de notas: oculta barra superior, riel, dock y explorador */
 body.notes-full .topbar, body.notes-full .rail, body.notes-full .dock, body.notes-full .notes > div:has(> .tree), body.notes-full .notes > .divider, body.notes-full .banner { display: none !important; }
 body.notes-full .notes { grid-template-columns: minmax(0, 1fr) auto !important; }
 body.notes-full .doc { min-height: calc(100dvh - 160px); }
 body.notes-full .app { padding-top: calc(env(safe-area-inset-top) + 64px); }
-.notes-exit { position: fixed; z-index: var(--z-dock); top: calc(env(safe-area-inset-top) + 10px); right: calc(env(safe-area-inset-right) + 12px); }
 .tree a, .tree button.ti { display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border-radius: 10px; text-decoration: none; font-size: .9375rem; width: 100%; text-align: left; border: 0; background: none; }
 .tree a[aria-current="page"] { background: var(--inverse-bg); color: var(--inverse-fg); }
 .tree button.ti > b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .tree .ti > svg { flex: none; }
@@ -717,7 +710,6 @@ hr.sep { border: 0; border-top: var(--hair) solid var(--line); margin: 4px 0; wi
 .search-hit:first-of-type { border-top: 0; }
 .search-hit:active { background: var(--fill); }
 mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border-radius: 3px; padding: 0 1px; }
-.find-bar { padding: 4px 6px 4px 14px; border-radius: var(--r-pill); gap: 4px; position: sticky; top: calc(env(safe-area-inset-top) + 64px); z-index: 3; }
 .find-bar .input { border: 0; background: transparent; min-width: 120px; }
 ::highlight(engrama-find) { background-color: rgba(128, 128, 128, .38); }
 ::highlight(engrama-find-cur) { background-color: rgba(128, 128, 128, .85); color: #fff; }
@@ -812,7 +804,7 @@ mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border
 .key-row .kbd, .shortcut-grid .kbd { font-size: 12px; padding: 2px 6px; }
 .shortcut-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
 .shortcut-grid .v { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
-.key-feedback { position: fixed; z-index: var(--z-toast); right: calc(env(safe-area-inset-right) + 16px); top: calc(env(safe-area-inset-top) + 72px); padding: 8px 14px; border-radius: var(--r-pill); font-size: var(--t-note); font-weight: 600; animation: fade .12s; pointer-events: none; }
+.key-feedback { position: fixed; z-index: var(--z-toast); left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom) + var(--dock-bottom, 28px) + 72px + var(--kb-inset, 0px)); padding: 8px 14px; border-radius: var(--r-pill); font-size: var(--t-note); font-weight: 600; animation: fade .12s; white-space: nowrap; max-width: calc(100vw - 32px); pointer-events: none; }
 /* iPad (601–1100 px, no teléfono): Respaldo y Ajustes van en «⋯» para que la barra de secciones quepa entera */
 .topbar .more-pill { display: none; }
 @media (min-width: 601px) and (max-width: 1100px) {
