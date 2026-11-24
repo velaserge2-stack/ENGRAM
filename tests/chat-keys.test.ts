@@ -27,9 +27,9 @@ describe('chat keys', () => {
     expect(s.keys[0]!.status).toBe('active');
     expect(t.keys[0]).toMatchObject({ status: 'exhausted', until: 5 });
   });
-  it('tope 3 y mask', () => {
+  it('tope 4 y mask', () => {
     let s = loadKeys();
-    for (let i = 0; i < 3; i++) s = addKey(s, 'groq', '', 'gsk_secret' + i)!;
+    for (let i = 0; i < 4; i++) s = addKey(s, 'groq', '', 'gsk_secret' + i)!;
     expect(addKey(s, 'groq', '', 'x')).toBeNull();
     expect(addKey(loadKeys(), 'groq', '', '  ')).toBeNull();
     expect(mask('gsk_abcd1234')).toBe('••••1234');

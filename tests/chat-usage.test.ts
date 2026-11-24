@@ -37,6 +37,6 @@ describe('chat usage', () => {
     expect(bar(u, 'a', L, T + 2000).pct).toBeCloseTo(0.1); // cabecera vencida → local (1/10 por minuto)
   });
   it('proveedores con host exacto', () => {
-    expect(Object.values(PROVIDERS).map((p) => p.host).sort()).toEqual(['api.groq.com', 'generativelanguage.googleapis.com']);
+    expect(Object.values(PROVIDERS).map((p) => p.host).sort()).toEqual(['api.groq.com', 'api.moonshot.ai', 'generativelanguage.googleapis.com', 'openrouter.ai']);
   });
 });

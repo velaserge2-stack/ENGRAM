@@ -1,7 +1,7 @@
 // Clasificación de errores (contrato §5). Devuelve códigos, nunca frases. Sin importar el SDK.
 import type { ProviderId } from './providers';
 
-export type Kind = 'quota' | 'rate' | 'auth' | 'model' | 'network' | 'timeout' | 'server' | 'aborted' | 'empty' | 'other';
+export type Kind = 'quota' | 'rate' | 'auth' | 'model' | 'limit' | 'network' | 'timeout' | 'server' | 'aborted' | 'empty' | 'other';
 /** Diagnóstico seguro (ya redactado y truncado) para mostrar en la interfaz. */
 export interface Detail { status?: number; code?: string; msg?: string; model?: string }
 export interface Classified { kind: Kind; retryAfterMs?: number; resetAt?: number; detail?: Detail }
@@ -36,7 +36,9 @@ function hdr(h: Record<string, string> | undefined, name: string): string | unde
   return k ? h[k] : undefined;
 }
 
-const MODEL_RE = /model[_ ]not[_ ]found|decommission|models\/\S+ is not found|is not found for API version|not supported for (generateContent|this)|model .{0,80}(does not exist|not supported)/i;
+// 400 por pedir más tokens de salida (o de contexto) de los que admite el modelo
+const LIMIT_RE = /max[_ ]?(completion[_ ]|output[_ ])?tokens|maxOutputTokens|maximum (number of )?(output |completion )?tokens/i;
+const MODEL_RE = /model[_ ]not[_ ]found|decommission|models\/\S+ is not found|is not found for API version|not supported for (generateContent|this)|model .{0,80}(does not exist|not supported)|not a valid model|not found the model/i;
 
 /** statusCode + `error.status|code|type|message` del cuerpo JSON; todo redactado y truncado. */
 export function detailOf(x: Errish, keys: readonly string[] = []): Detail {
@@ -81,6 +83,20 @@ function classify0(p: ProviderId, e: unknown, now: number): Classified {
   const body = x.responseBody ?? '';
   const retryAfterMs = parseDuration(hdr(x.responseHeaders, 'retry-after')) ?? parseDuration(/"retryDelay"\s*:\s*"([^"]+)"/.exec(body)?.[1]);
   if (st >= 500) return { kind: 'server' };
+  if (p === 'openrouter' || p === 'kimi') {
+    if (st === 401) return { kind: 'auth' };
+    if (st === 402) return { kind: 'quota', resetAt: now + 3_600_000 };
+    if (st === 403) return { kind: 'other' }; // moderación del modelo/entrada: no es la clave; el detalle explica
+    if (st === 429) {
+      if (p === 'openrouter' && /per[- ]day|daily|free-models-per-day/i.test(body)) {
+        const reset = Number(/X-RateLimit-Reset"\s*:\s*"?(\d{10,13})/.exec(body)?.[1]);
+        return { kind: 'quota', resetAt: reset ? (reset < 1e12 ? reset * 1000 : reset) : now + 3_600_000 };
+      }
+      if (p === 'kimi' && /exceeded_current_quota|insufficient[_ ]balance|insufficient_quota/i.test(body)) return { kind: 'quota', resetAt: now + 3_600_000 };
+      return { kind: 'rate', retryAfterMs };
+    }
+  }
+  if (st === 400 && LIMIT_RE.test(body)) return { kind: 'limit' };
   if (st === 404 || (st === 400 && MODEL_RE.test(body))) return { kind: 'model' };
   if (st === 401 || st === 403) return { kind: 'auth' };
   if (st === 400 && /API_KEY_INVALID|API key not valid|invalid_api_key/i.test(body)) return { kind: 'auth' };
@@ -97,7 +113,7 @@ function classify0(p: ProviderId, e: unknown, now: number): Classified {
   return { kind: 'other' };
 }
 
-const KEY_PATTERNS = [/(?:x-goog-[a-z]+-key|api-key|authorization)["']?\s*[:=]\s*["']?[^\s"',}]+/gi, /AIza[\w-]{20,}/g, /gsk_[\w-]{16,}/g, /(key|token)=[^&\s"']+/gi, /Bearer\s+[\w.~+/=-]{12,}/gi];
+const KEY_PATTERNS = [/(?:x-goog-[a-z]+-key|api-key|authorization)["']?\s*[:=]\s*["']?[^\s"',}]+/gi, /AIza[\w-]{20,}/g, /gsk_[\w-]{16,}/g, /sk-or-[\w-]{16,}/g, /sk-[\w-]{20,}/g, /(key|token)=[^&\s"']+/gi, /Bearer\s+[\w.~+/=-]{12,}/gi];
 
 /** Quita cualquier clave (conocida o con forma de clave) de un texto. */
 export function redact(s: string, keys: readonly string[] = []): string {

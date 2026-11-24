@@ -8,7 +8,7 @@ describe('Asistente · configuración', () => {
   it('add-on apagado por defecto', () => expect(MODULES().find((m) => m.id === 'assistant')?.defaultOn).toBe(false));
   it('los límites por defecto son los de PROVIDERS', () => {
     expect(defaultChat().limits.gemini).toEqual(PROVIDERS.gemini.limits);
-    expect(defaultChat().limits.groq).toEqual(PROVIDERS.groq.limits);
+    for (const p of ['groq', 'openrouter', 'kimi'] as const) expect(defaultChat().limits[p]).toEqual(PROVIDERS[p].limits);
   });
   it('merge: valores válidos se conservan, basura vuelve al defecto', () => {
     const s = mergeSettings({ chat: { limits: { gemini: { rpm: 5.4, rpd: 'x' }, groq: { tpd: -3 } }, warnAt: 5 } });
@@ -21,11 +21,11 @@ describe('Asistente · configuración', () => {
   it('serializa sin secretos', () => {
     const j = serializeSettings(defaultSettings());
     expect(JSON.parse(j).chat).toEqual(defaultChat());
-    expect(j).not.toMatch(/apiKey|"key"|AIza|gsk_/);
+    expect(j).not.toMatch(/apiKey|"key"|AIza|gsk_|sk-or-/);
   });
-  it('CSP: connect-src con exactamente los dos hosts', () => {
+  it('CSP: connect-src con exactamente los cuatro hosts', () => {
     const csp = /Content-Security-Policy" content="([^"]+)"/.exec(readFileSync('index.html', 'utf8'))![1]!;
-    expect(/connect-src ([^;]+)/.exec(csp)![1]).toBe("'self' https://generativelanguage.googleapis.com https://api.groq.com");
+    expect(/connect-src ([^;]+)/.exec(csp)![1]).toBe("'self' https://generativelanguage.googleapis.com https://api.groq.com https://openrouter.ai https://api.moonshot.ai");
   });
   it.skipIf(!existsSync('dist/sw.js'))('dist: el SW no precachea chunks del SDK, y el SDK sí está en dist', () => {
     const sw = readFileSync('dist/sw.js', 'utf8');

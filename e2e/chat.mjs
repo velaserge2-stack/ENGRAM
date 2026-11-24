@@ -328,6 +328,7 @@ try {
   await panel.getByText('Pregúntame lo que quieras').waitFor();
   check(true, 'Nueva conversación vacía el historial');
 
+
   // Fase 3a: herramienta de lectura + cita tocable
   console.log('Herramientas');
   await panel.getByRole('button', { name: 'Nueva conversación' }).click();
@@ -586,8 +587,85 @@ try {
   await page.screenshot({ path: `${SHOTS}/390-telefono.png` });
   await page.keyboard.press('Escape');
   await panel.waitFor({ state: 'detached' });
-  // toda la sesión: solo localhost y los 2 hosts del Asistente (incluida la carga del SDK)
-  { const bad = [...hosts].filter((h) => !/^localhost(:\d+)?$/.test(h) && h !== 'generativelanguage.googleapis.com' && h !== 'api.groq.com'); check(bad.length === 0, 'peticiones solo a self y 2 hosts ' + bad.join(',')); }
+
+  // OpenRouter y Kimi (claves de prueba; el servidor es falso y habla el dialecto OpenAI)
+  console.log('OpenRouter y Kimi');
+  const ORK = 'sk-or-v1-FAKEOPENROUTERKEY0123456789', KMK = 'sk-FAKEKIMIKEY0123456789abcdefABCD';
+  const oai = { hits: [], mode: 'ok' };
+  await page.route(/openrouter\.ai|api\.moonshot\.ai/, async (r) => {
+    const rq = r.request(), u = new URL(rq.url());
+    if (rq.method() === 'OPTIONS') return r.fulfill({ status: 204, headers: CORS });
+    const auth = rq.headers()['authorization'] ?? '';
+    oai.hits.push({ url: rq.url(), auth, h: Object.keys(rq.headers()), max: (() => { try { return rq.postDataJSON()?.max_tokens; } catch { return undefined; } })() });
+    const json = (status, body) => r.fulfill({ status, headers: CORS, contentType: 'application/json', body: JSON.stringify(body) });
+    if (oai.mode === '401') return json(401, { error: { message: 'bad key', code: 401 } });
+    if (u.pathname.endsWith('/models')) return json(200, { data: [{ id: 'x/pago', pricing: { prompt: '0.001', completion: '0.001' } }, { id: 'y/gratis:free', pricing: { prompt: '0', completion: '0' } }, { id: 'kimi-k2-0905-preview' }] });
+    const c = (delta, fin = null) => 'data: ' + JSON.stringify({ id: '1', object: 'chat.completion.chunk', created: 1, model: 'm', choices: [{ index: 0, delta, finish_reason: fin }] }) + '\n\n';
+    if (rq.postDataJSON()?.stream) return r.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: c({ role: 'assistant', content: 'Hola ' }) + c({ content: 'desde OpenRouter' }) + c({}, 'stop') + 'data: [DONE]\n\n' });
+    return json(200, { id: '1', object: 'chat.completion', created: 1, model: 'm', choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } });
+  });
+  await page.setViewportSize({ width: 1180, height: 900 });
+  await page.goto(URL_ + '#/ajustes');
+  await page.locator('#asistente').waitFor();
+  if ((await page.locator('#asistente').getAttribute('class')).includes('open') === false) await page.locator('#asistente .fold-btn').click();
+  const s2 = page.locator('#asistente');
+  const provs = await s2.getByLabel('Proveedor').locator('option').allInnerTexts();
+  check(provs.join() === 'Gemini,Groq,OpenRouter,Kimi', 'selector con los 4 proveedores: ' + provs.join());
+  check((await s2.innerText()).includes('Hasta 4'), 'texto «Hasta 4»');
+  check((await s2.innerText()).includes('OpenRouter reenvía') && (await s2.innerText()).includes('Kimi (Moonshot AI)'), 'avisos de privacidad por proveedor');
+  for (const [prov, alias, key] of [['openrouter', 'Cuenta-OR', ORK], ['kimi', 'Cuenta-KM', KMK]]) {
+    await s2.getByLabel('Proveedor').selectOption(prov);
+    await s2.getByLabel('Apodo (opcional)').fill(alias);
+    await s2.getByLabel('Clave de API').fill(key);
+    await s2.getByRole('button', { name: 'Añadir clave' }).click();
+  }
+  const rowOf = (a) => s2.locator('.chat-key', { hasText: a });
+  oai.hits.length = 0; oai.mode = '401';
+  await rowOf('Cuenta-KM').getByRole('button', { name: 'Probar conexión' }).click();
+  await rowOf('Cuenta-KM').getByText('El proveedor rechazó la clave', { exact: false }).waitFor();
+  check(oai.hits[0].url === 'https://api.moonshot.ai/v1/chat/completions' && oai.hits[0].auth === 'Bearer ' + KMK, 'Kimi: petición a api.moonshot.ai/v1 con Bearer');
+  oai.mode = 'ok';
+  await rowOf('Cuenta-KM').getByRole('button', { name: 'Reactivar' }).click();
+  await rowOf('Cuenta-KM').getByRole('button', { name: 'Probar conexión' }).click();
+  await rowOf('Cuenta-KM').getByText('Conexión correcta.').waitFor();
+  oai.hits.length = 0;
+  await rowOf('Cuenta-OR').getByRole('button', { name: 'Ver modelos disponibles' }).click();
+  await rowOf('Cuenta-OR').getByText('3 modelos disponibles').waitFor();
+  check(oai.hits[0].url === 'https://openrouter.ai/api/v1/models' && !oai.hits[0].url.includes('sk-'), 'OpenRouter: GET /models, clave solo en cabecera');
+  check((await rowOf('Cuenta-OR').locator('.chat-models code').first().innerText()) === 'y/gratis:free', 'OpenRouter: gratuitos primero');
+  await rowOf('Cuenta-OR').getByRole('button', { name: 'Probar conexión' }).first().click();
+  await rowOf('Cuenta-OR').getByText('Conexión correcta.').waitFor();
+  check(!oai.hits.some((h) => h.h.includes('http-referer') || h.h.includes('x-title')), 'sin cabeceras HTTP-Referer/X-Title');
+  // chat con OpenRouter en streaming (solo esa clave)
+  await page.evaluate((k) => { localStorage.removeItem('engrama.chat.usage'); localStorage.setItem('engrama.chat.keys', JSON.stringify({ v: 1, keys: [{ id: 'o', alias: 'OR', provider: 'openrouter', key: k, status: 'active' }] })); }, ORK);
+  await page.goto(URL_ + '#/hoy');
+  await page.keyboard.press('Control+Alt+a');
+  await panel.waitFor();
+  await panel.getByLabel('Escribe tu mensaje').fill('hola'); await panel.getByLabel('Escribe tu mensaje').press('Enter');
+  await panel.getByText('Hola desde OpenRouter').waitFor();
+  check(true, 'chat con OpenRouter en streaming');
+  const chatMax = () => oai.hits.filter((h) => h.url.endsWith('/chat/completions') && h.max !== undefined && h.max > 100).at(-1)?.max;
+  check(chatMax() === 4096, 'contexto normal: max_tokens de OpenRouter = 4096 (' + chatMax() + ')');
+  await page.keyboard.press('Escape');
+  await panel.waitFor({ state: 'detached' });
+  await page.goto(URL_ + '#/ajustes');
+  await page.locator('#asistente').waitFor();
+  if ((await page.locator('#asistente').getAttribute('class')).includes('open') === false) await page.locator('#asistente .fold-btn').click();
+  check((await s2.getByLabel('Contexto del Asistente').inputValue()) === 'normal', 'Ajustes: contexto «Normal» por defecto');
+  check((await s2.innerText()).includes('la cuota gratuita se agota antes'), 'Ajustes: línea del coste del contexto amplio');
+  await s2.getByLabel('Contexto del Asistente').selectOption('amplio');
+  await page.goto(URL_ + '#/hoy');
+  await page.keyboard.press('Control+Alt+a');
+  await panel.waitFor();
+  await panel.getByRole('button', { name: 'Nueva conversación' }).click();
+  await panel.getByLabel('Escribe tu mensaje').fill('otra vez'); await panel.getByLabel('Escribe tu mensaje').press('Enter');
+  await panel.getByText('Hola desde OpenRouter').waitFor();
+  check(chatMax() === 8192, 'contexto amplio: max_tokens de OpenRouter = 8192 (' + chatMax() + ')');
+  check(!(await page.content()).includes(ORK) && !logs.some((l) => l.includes(ORK) || l.includes(KMK)), 'la clave no está en el DOM ni en la consola');
+  await page.keyboard.press('Escape');
+  await panel.waitFor({ state: 'detached' });
+  // toda la sesión: solo localhost y los 4 hosts del Asistente (incluida la carga del SDK)
+  { const bad = [...hosts].filter((h) => !/^localhost(:\d+)?$/.test(h) && h !== 'generativelanguage.googleapis.com' && h !== 'api.groq.com' && h !== 'openrouter.ai' && h !== 'api.moonshot.ai'); check(bad.length === 0, 'peticiones solo a self y 4 hosts ' + bad.join(',')); }
 } catch (e) {
   failed++;
   console.error(e);

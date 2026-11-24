@@ -927,3 +927,14 @@ Plan y estados en `docs/diagramas/PLAN-22.md` y `docs/diagramas/estado-p22-*.md`
 - `createNote`/`planNote` en `src/notes/create.ts` sustituyen el bucle «(2)» repetido en Notas e Inbox; el asistente usa `planNote` (sin escribir) para la vista previa y `applyProposal` escribe lo mismo.
 - Deshacer de archivos nuevos: antes «queda vacío»; para notas/diagramas ahora va a la papelera de notas (restaurable) y el examen con fecha se quita, porque un examen vacío aparecería roto. Solo si el archivo sigue igual que lo escrito.
 - `wantsWrite`: «nota/apunte» con verbo de crear (incl. «haz»), «resumen» solo con crear/genera/agrega (no «haz»/«dame»); mapa mental, diagrama, organigrama y registrar (examen) añadidos. Falsos positivos posibles («escribe una nota musical») solo abren las herramientas: nada se guarda sin Aceptar.
+
+## Asistente · OpenRouter y Kimi
+- `connect-src` pasa a 4 hosts: `generativelanguage.googleapis.com`, `api.groq.com`, `openrouter.ai`, `api.moonshot.ai`. Claves: máx. 4.
+- `@ai-sdk/openai-compatible` 3.0.94 (la línea 1.x/2.x es de `ai` 5/6; la 3.x usa `@ai-sdk/provider` 4 como `ai` 7). Chunk bajo demanda ≈ 8,3 kB gzip (el núcleo `ai` + zod se comparte); fuera del precache (el patrón `@ai-sdk` ya lo cubre; `tests/chat-config.test.ts` lo comprueba sobre `dist/`). Un solo chunk para ambos proveedores (mismo paquete), no uno por proveedor.
+- Sin paquete de OpenRouter ni cabeceras de atribución. Modelos por defecto y límites: 🔸 sin verificar (ver `docs/chat/CONTRATO.md`).
+
+
+## Asistente · contexto ampliable
+- Presupuestos por proveedor y ajuste «Contexto» (normal/amplio, global, defecto normal): más tokens por turno agotan antes la cuota gratuita; Groq queda acotado por su TPM de 12 000.
+- Las fuentes que el tope por turno recorta ya estaban en `sources` (se pueden citar aunque el fragmento no llegara al modelo): sin corregir.
+- 🔸 Sin verificar: máximos reales de cada modelo (maxOut 32 768 de Gemini, 16 384 de Kimi, 8192 de OpenRouter según modelo), consumo real de cuota/TPM, ni el texto exacto del 400 por max_tokens de cada API (la regex `LIMIT_RE` es una suposición).

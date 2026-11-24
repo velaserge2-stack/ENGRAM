@@ -10,11 +10,13 @@ import { headOf, parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatt
 import { planNote } from '../notes/create';
 import { diagramFence, diagramKindOf, type DiagramKind } from '../notes/diagramtype';
 import { DAILY, safeSegment } from '../notes/model';
+import { budget, MAX_WRITE } from './providers';
 import type { Proposal } from './proposal';
 
 type Bad = { error: string; detail?: string };
 const bad = (x: unknown): x is Bad => typeof x === 'object' && x !== null && 'error' in x;
-export const MAX_NOTE = 20000;
+/** Tope por llamada: `budget().writeChars` (20 000 en normal; hasta 100 000 en amplio). Tras «Editar» vale el mayor de todos. */
+export const MAX_NOTE = MAX_WRITE;
 export const DIAGRAMS: readonly DiagramKind[] = ['mapa', 'flujo', 'diagrama'];
 
 /** Una línea, sin comentarios HTML, con tope. */
@@ -40,7 +42,7 @@ export async function buildNote(exists: Exists, a: NoteIn, now = new Date()): Pr
   let body = clean(a.contenido).trim();
   if (headOf(body) !== null) body = parseFrontmatter(body).body.trim(); // el modelo no fija el frontmatter
   if (!body) return { error: 'vacio' };
-  if (body.length > MAX_NOTE) return { error: 'largo', detail: `${MAX_NOTE}` };
+  if (body.length > budget().writeChars) return { error: 'largo', detail: `${budget().writeChars}` };
   if (!/^#\s/.test(body)) body = `# ${titulo}\n\n${body}`;
   const { path, text } = await planNote(exists, { ...at, titulo, tags: tagsOf(a.tags), texto: body + '\n', extra: { origen: 'ia' } }, now);
   return { tipo: 'nota', destino: path, contenido: text, items: [path], resumen: `${titulo} → ${path.replace(/^notes\//, '')}` };
@@ -66,7 +68,7 @@ export async function buildDiagram(exists: Exists, a: DiagIn, now = new Date()):
   let src = clean(a.fuente).replace(/^\s*\n/, '').trimEnd();
   const f = diagramFence(src.trim());
   if (f) src = f.src.trimEnd(); // si el modelo envolvió la fuente en ```mapa
-  if (src.length > MAX_NOTE) return { error: 'largo', detail: `${MAX_NOTE}` };
+  if (src.length > budget().writeChars) return { error: 'largo', detail: `${budget().writeChars}` };
   const e = checkDiagram(src + '\n', kind);
   if (e) return e;
   const { path, text } = await planNote(exists, { ...at, titulo, kind, texto: src + '\n', extra: { origen: 'ia' } }, now);

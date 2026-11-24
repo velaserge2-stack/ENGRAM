@@ -2,11 +2,12 @@
 import type { ModelMessage, ToolSet } from 'ai';
 import { classify, decide, redact, type Detail, type Kind } from './errors';
 import { loadKeys, markKey, pickKey, saveKeys } from './keys';
-import { loadCore, loadModel, modelOf } from './providers';
+import { trimMessages } from './history';
+import { budget, loadCore, loadModel, modelOf, setActive } from './providers';
 import { fromHeaders, loadUsage, record, saveUsage, setHdr } from './usage';
 
 export const MAX_WAIT_MS = 60_000;
-export const TIMEOUT_MS = 120_000, MAX_OUT = 8192;
+export const TIMEOUT_MS = 120_000;
 const DEFAULT_WAIT_MS = 5_000;
 
 export interface TurnOpts {
@@ -53,7 +54,7 @@ async function run(o: TurnOpts): Promise<TurnResult> {
   const now = o.now ?? Date.now, sleep = o.sleep ?? sleepAbortable;
   let store = loadKeys();
   const skip = new Set<string>();
-  let rotated = false, waited = false;
+  let rotated = false, waited = false, halved = false; // halved: ya se reintentó con la mitad de salida (400 por max_tokens)
   let last: { code: Kind; message: string; detail?: Detail } | null = null;
   const fail = (code: 'nokey' | Kind, message: string, detail?: Detail): TurnResult => ({ ok: false, code, message: redact(message, store.keys.map((k) => k.key)), rotated, detail });
 
@@ -69,13 +70,15 @@ async function run(o: TurnOpts): Promise<TurnResult> {
     const arm = () => { clearTimeout(timer); timer = setTimeout(() => { timedOut = true; ac.abort(); }, o.timeoutMs ?? TIMEOUT_MS); };
     try {
       arm();
+      setActive(k.provider);
+      const b = budget(k.provider), maxOut = halved ? Math.max(256, b.maxOut >> 1) : b.maxOut;
       const [core, model] = await Promise.all([loadCore(), loadModel(k.provider, k.key, o.fetch)]);
       const r = core.streamText({
-        model, system: o.system, messages: o.messages, tools: o.tools,
-        stopWhen: core.stepCountIs(6),
+        model, system: o.system, messages: trimMessages(o.messages, b.histTokens), tools: o.tools,
+        stopWhen: core.stepCountIs(b.steps),
         // último paso sin herramientas: obliga a cerrar con texto
-        prepareStep: ({ stepNumber }) => (stepNumber >= 5 ? { toolChoice: 'none' as const } : undefined),
-        ...(k.provider === 'gemini' ? { providerOptions: { google: { thinkingConfig: { thinkingBudget: 1024, includeThoughts: false } } } } : {}), maxRetries: 0, maxOutputTokens: MAX_OUT, abortSignal: ac.signal,
+        prepareStep: ({ stepNumber }) => (stepNumber >= b.steps - 1 ? { toolChoice: 'none' as const } : undefined),
+        ...(k.provider === 'gemini' ? { providerOptions: { google: { thinkingConfig: { thinkingBudget: Math.min(4096, Math.max(1024, maxOut >> 3)), includeThoughts: false } } } } : {}), maxRetries: 0, maxOutputTokens: maxOut, abortSignal: ac.signal,
         onError: ({ error }) => { err = err ?? error; },
       });
       for await (const part of r.fullStream) {
@@ -106,6 +109,8 @@ async function run(o: TurnOpts): Promise<TurnResult> {
     const message = String((err as { message?: string } | undefined)?.message ?? c.kind);
     const detail = c.kind === 'model' ? { ...c.detail, model: modelOf(k.provider) } : c.detail;
     last = { code: c.kind, message, detail };
+    // 400 por max_tokens: una sola vez con la mitad, misma clave, sin rotar
+    if (c.kind === 'limit' && !halved && !text && !stepped) { halved = true; continue; }
     const d = decide(c.kind);
     if (text || stepped || d === 'fail') return fail(c.kind, message, detail);
     if (d === 'rotate') {
