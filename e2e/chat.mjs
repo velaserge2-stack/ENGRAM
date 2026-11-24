@@ -42,7 +42,7 @@ try {
   await page.route(/generativelanguage\.googleapis\.com|api\.groq\.com/, async (r) => {
     if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: CORS });
     apiHits.push(r.request().url());
-    if (mode !== 'ok' && mode !== '401') {
+    if (mode !== 'ok' && mode !== '401' && mode !== '404') {
       const key = r.request().headers()['x-goog-api-key'];
       inflight++; maxInflight = Math.max(maxInflight, inflight);
       try {
@@ -67,6 +67,7 @@ try {
       } catch { /* petición cancelada */ } finally { inflight--; }
       return;
     }
+    if (mode === '404') return r.fulfill({ status: 404, headers: CORS, contentType: 'application/json', body: JSON.stringify({ error: { code: 404, message: 'models/gemini-3.5-flash is not found for API version v1beta', status: 'NOT_FOUND' } }) });
     if (mode === '401') return r.fulfill({ status: 401, headers: CORS, contentType: 'application/json', body: JSON.stringify({ error: { code: 401, message: 'bad key', status: 'UNAUTHENTICATED' } }) });
     return r.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text: 'ok' }] }, finishReason: 'STOP', index: 0 }], usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1, totalTokenCount: 2 } }) });
   });
@@ -120,6 +121,13 @@ try {
   await sec.getByText(/rechazó la clave/).waitFor();
   check((await sec.innerText()).includes('inválida'), 'estado inválida tras 401');
   check(apiHits.length === 2, 'segunda prueba = una petición más');
+
+  mode = '404';
+  await sec.getByRole('button', { name: 'Probar conexión' }).click();
+  await sec.getByText(/El modelo «gemini-3\.5-flash» no está disponible/).waitFor();
+  await sec.getByText('[HTTP 404 · NOT_FOUND] models/gemini-3.5-flash is not found for API version v1beta').waitFor();
+  check(!(await sec.innerText()).includes(SECRET), 'el detalle técnico no muestra la clave');
+  check((await sec.innerText()).includes('inválida'), 'un 404 de modelo no cambia el estado de la clave (sigue inválida de la prueba 401, no se tocó)');
 
   // reordenar: segunda clave y subir
   await sec.getByLabel('Apodo (opcional)').fill('Otra');

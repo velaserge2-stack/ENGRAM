@@ -90,7 +90,7 @@ describe('PDF y tiempo', () => {
     const f = ((_u: unknown, init?: RequestInit) => new Promise((_, rej) => init?.signal?.addEventListener('abort', () => rej(Object.assign(new Error('abort'), { name: 'AbortError' }))))) as typeof fetch;
     const p = runTurn({ ...base, fetch: f });
     await vi.advanceTimersByTimeAsync(120_001);
-    expect(await p).toMatchObject({ ok: false, code: 'network' });
+    expect(await p).toMatchObject({ ok: false, code: 'timeout' });
     expect(loadKeys().keys.every((k) => k.status === 'active')).toBe(true);
   });
   it('(h) la clave no aparece en el mensaje con responseBody/requestBodyValues/cabeceras', async () => {

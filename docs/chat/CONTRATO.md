@@ -119,3 +119,9 @@ Límites gratuitos, nombres de modelo y forma de errores 🔸 · CORS · políti
 - Banco: `origen: ia` en el frontmatter (el parser lo ignora); el editor de bancos (`serializeBank`) lo pierde al regrabar: aceptado, `serializeBank` no se toca.
 - Un `.md` vacío (lo deja «Deshacer») no cuenta como mazo (`loadCollection`), ni como banco (`loadBanks`), ni bloquea el nombre del banco; un mazo vacío se reutiliza con su frontmatter.
 - Sin verificar: Safari/iPad reales, teclado virtual real (solo viewport reducido), MiniAmbient con audio.
+
+### Diagnóstico de errores (fix-asistente-probar)
+- `classify` devuelve también `detail {status, code, msg, model?}` (de `statusCode` y `error.status|code|type|message` del cuerpo), siempre por `redact()` y ≤ 200 caracteres; la clave nunca llega al detalle, a la interfaz ni a la consola.
+- Kinds nuevos: `model` (404, o 400 «model not found / not supported / decommissioned»; `decide` = `fail`: no rota ni toca la clave) y `timeout` (120 s; ya no es «Sin conexión»).
+- 403: la prueba pausa la clave (`paused`), igual que la sesión; solo 401 la marca `invalid`.
+- UI: «Probar conexión» y el chat muestran el texto traducido más `[HTTP 404 · NOT_FOUND] mensaje` (`techLine`, seleccionable; en el chat dentro de «Detalles»). `TurnResult` y `Msg` conservan `detail`.

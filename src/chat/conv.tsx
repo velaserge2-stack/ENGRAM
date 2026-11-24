@@ -1,4 +1,5 @@
 import { t } from '../i18n';
+import { techLine } from './errors';
 import { CircleAlert, Maximize2, Minimize2, SendHorizontal, Square, SquarePen, X } from 'lucide-preact';
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'preact/hooks';
 import { renderMarkdown } from '../md/render';
@@ -15,8 +16,8 @@ import type { Source } from './tools';
 import { send, stop } from './turn';
 import { bar, loadUsage } from './usage';
 
-const ERR: Record<string, string> = { nokey: 'nokey', auth: 'auth', quota: 'quota', rate: 'rate', network: 'network', server: 'server', busy: 'busy' };
-const NEEDS_SETTINGS = new Set(['nokey', 'auth', 'quota']);
+const ERR: Record<string, string> = { nokey: 'nokey', auth: 'auth', quota: 'quota', rate: 'rate', model: 'model', timeout: 'timeout', network: 'network', server: 'server', busy: 'busy' };
+const NEEDS_SETTINGS = new Set(['nokey', 'auth', 'quota', 'model']);
 
 /** Cita tocable (≥ 44 px, vía CSS) si la fuente la devolvió una herramienta en este turno; si no, texto inerte con aviso. */
 function citeEl(label: string, src: Source | null): HTMLElement {
@@ -88,8 +89,9 @@ function Bubble(p: { m: Msg; onSettings: () => void; onCite: () => void }) {
   return (
     <div class="chat-err">
       <CircleAlert size={18} aria-hidden="true" />
-      <b>{t(`chat.p_err_${k}`)}</b>
+      <b>{k === 'model' ? t('chat.p_err_model', { modelo: m.detail?.model ?? '' }) : t(`chat.p_err_${k}`)}</b>
       {NEEDS_SETTINGS.has(m.code ?? '') && <Settings onClick={p.onSettings} />}
+      {m.detail && techLine(m.detail) && <details class="chat-tech"><summary>{t('chat.detalle')}</summary><code>{techLine(m.detail)}</code></details>}
     </div>
   );
 }

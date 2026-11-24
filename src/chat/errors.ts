@@ -1,8 +1,10 @@
 // Clasificación de errores (contrato §5). Devuelve códigos, nunca frases. Sin importar el SDK.
 import type { ProviderId } from './providers';
 
-export type Kind = 'quota' | 'rate' | 'auth' | 'network' | 'server' | 'aborted' | 'other';
-export interface Classified { kind: Kind; retryAfterMs?: number; resetAt?: number }
+export type Kind = 'quota' | 'rate' | 'auth' | 'model' | 'network' | 'timeout' | 'server' | 'aborted' | 'other';
+/** Diagnóstico seguro (ya redactado y truncado) para mostrar en la interfaz. */
+export interface Detail { status?: number; code?: string; msg?: string; model?: string }
+export interface Classified { kind: Kind; retryAfterMs?: number; resetAt?: number; detail?: Detail }
 export type Decision = 'rotate' | 'wait' | 'fail';
 
 export const decide = (k: Kind): Decision => (k === 'quota' || k === 'auth' ? 'rotate' : k === 'rate' ? 'wait' : 'fail');
@@ -34,11 +36,40 @@ function hdr(h: Record<string, string> | undefined, name: string): string | unde
   return k ? h[k] : undefined;
 }
 
-export function classify(p: ProviderId, e: unknown, now = Date.now()): Classified {
+const MODEL_RE = /model[_ ]not[_ ]found|decommission|models\/\S+ is not found|is not found for API version|not supported for (generateContent|this)|model .{0,80}(does not exist|not supported)/i;
+
+/** statusCode + `error.status|code|type|message` del cuerpo JSON; todo redactado y truncado. */
+export function detailOf(x: Errish, keys: readonly string[] = []): Detail {
+  const cut = (v: unknown, n: number) => (v === undefined || v === null || v === '' ? undefined : redact(String(v), keys).slice(0, n));
+  let j: unknown;
+  try { j = JSON.parse(x.responseBody ?? ''); } catch { /* no es JSON */ }
+  if (Array.isArray(j)) j = j[0];
+  const o = (j as { error?: Record<string, unknown> } | undefined)?.error ?? (j as Record<string, unknown> | undefined);
+  const d: Detail = {};
+  if (typeof x.statusCode === 'number') d.status = x.statusCode;
+  const code = cut(o && typeof o === 'object' ? (o.status ?? o.code ?? o.type) : undefined, 60);
+  if (code) d.code = code;
+  const msg = cut(o && typeof o === 'object' && o.message ? o.message : x.message ?? (j === undefined ? x.responseBody : undefined), 200);
+  if (msg) d.msg = msg;
+  return d;
+}
+
+/** `[HTTP 404 · NOT_FOUND] mensaje` (sin traducir: es texto técnico del proveedor). */
+export function techLine(d: Detail): string {
+  const head = [d.status !== undefined ? `HTTP ${d.status}` : '', d.code ?? ''].filter(Boolean).join(' · ');
+  return [head && `[${head}]`, d.msg ?? ''].filter(Boolean).join(' ');
+}
+
+export function classify(p: ProviderId, e: unknown, now = Date.now(), keys: readonly string[] = []): Classified {
+  const r = classify0(p, e, now);
+  return r.kind === 'aborted' ? r : { ...r, detail: detailOf(((e as Errish)?.statusCode === undefined && (e as Errish)?.lastError ? (e as Errish).lastError : e ?? {}) as Errish, keys) };
+}
+
+function classify0(p: ProviderId, e: unknown, now: number): Classified {
   const x = (e ?? {}) as Errish;
   if (x.name === 'AbortError' || x.name === 'TimeoutError') return { kind: 'aborted' };
   // RetryError (por si maxRetries se subiera) trae el último fallo.
-  if (x.statusCode === undefined && x.lastError) return classify(p, x.lastError, now);
+  if (x.statusCode === undefined && x.lastError) return classify0(p, x.lastError, now);
   const st = x.statusCode;
   if (st === undefined) {
     const c = x.cause as Errish | undefined;
@@ -50,6 +81,7 @@ export function classify(p: ProviderId, e: unknown, now = Date.now()): Classifie
   const body = x.responseBody ?? '';
   const retryAfterMs = parseDuration(hdr(x.responseHeaders, 'retry-after')) ?? parseDuration(/"retryDelay"\s*:\s*"([^"]+)"/.exec(body)?.[1]);
   if (st >= 500) return { kind: 'server' };
+  if (st === 404 || (st === 400 && MODEL_RE.test(body))) return { kind: 'model' };
   if (st === 401 || st === 403) return { kind: 'auth' };
   if (st === 400 && /API_KEY_INVALID|API key not valid|invalid_api_key/i.test(body)) return { kind: 'auth' };
   if (st === 429) {

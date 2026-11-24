@@ -50,6 +50,6 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>): Promis
   if (r.ok) setStatus({ busy: false, alias: r.alias, waitS: undefined, tool: undefined });
   else {
     setStatus({ busy: false, waitS: undefined, tool: undefined });
-    add(r.code === 'aborted' ? 'notice' : 'error', '', { code: r.code });
+    add(r.code === 'aborted' ? 'notice' : 'error', '', { code: r.code, detail: r.detail });
   }
 }
