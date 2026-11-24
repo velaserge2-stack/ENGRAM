@@ -9,7 +9,7 @@ import type { Backdrop, DiagramDoc, Dir, EdgeEnd, Layout, Shape } from './types'
 
 const PAD = 24, GRID = 24, GRID_MAX = 20000, PAD_X = 12, LABEL_FS = 12;
 const FS = { s: 13, m: 15, l: 18 } as const;
-export const SVG_FONT = "system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif";
+export const SVG_FONT = "'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif";
 
 export type TextStyle = '' | 'b' | 'i' | 'bi';
 export interface SceneNode {

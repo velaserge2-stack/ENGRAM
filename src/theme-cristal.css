@@ -119,7 +119,7 @@ body.focus .bg-veil { background: rgba(0, 0, 0, .35) !important; }
 .seg-nav { display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: var(--r-pill); position: relative; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
 .seg-nav::-webkit-scrollbar { display: none; }
 .seg-nav a { position: relative; z-index: 1; display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: var(--r-pill); text-decoration: none; color: var(--t2); font-size: .9375rem; font-weight: 500; white-space: nowrap; transition: color .2s; }
-.seg-nav a[aria-current="page"] { color: var(--inverse-fg); }
+.seg-nav a[aria-current="page"] { color: var(--inverse-fg); font-weight: 700; }
 .seg-nav .slider { position: absolute; z-index: 0; top: 4px; bottom: 4px; border-radius: var(--r-pill); background: var(--inverse-bg); transition: transform .38s var(--spring), width .38s var(--spring); }
 .seg-nav a .lbl { display: inline; }
 /* no teléfono: solo iconos; la etiqueta (.lbl) solo en la pestaña activa, el resto la muestra como tooltip */
