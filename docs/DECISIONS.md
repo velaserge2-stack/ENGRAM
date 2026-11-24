@@ -917,3 +917,9 @@ Plan y estados en `docs/diagramas/PLAN-22.md` y `docs/diagramas/estado-p22-*.md`
 - **Herramientas que solo proponen**: escribir exige Aceptar en la vista previa. Deshacer compara el contenido `after` y no escribe si el archivo cambió. Un archivo nuevo queda vacío; nunca se borra.
 - **Límites y modelos por defecto sin verificar** (🔸): `gemini-3.5-flash`, `llama-3.3-70b-versatile` y sus cuotas. Las docs oficiales de Google y Groq no eran accesibles al escribir esto.
 - **Aviso de datos**: el nivel gratuito de Gemini puede usar lo enviado para mejorar productos y puede tener revisión humana; el aviso está en Ajustes («no envíes datos sensibles»).
+
+## Asistente · borrar (rama `asistente-borrar`)
+- **Cambia la regla «el asistente nunca borra»**: ahora puede, pero solo si el usuario lo pide en su último mensaje (`wantsDelete`) y confirma en una tarjeta aparte. Borrar = **mover a la papelera existente** (mazos, bancos, notas) o quitar del `.ics` propio con «antes» guardado (eventos); siempre con Deshacer.
+- **Sigue sin poder** vaciar la papelera, eliminar definitivamente, tocar `reviews.jsonl`, `.app/`, `media/` ni borrar tarjetas sueltas. Un objetivo y máx. 3 propuestas por turno; si el objetivo cambió entre proponer y confirmar, no se mueve (`changed`).
+- Diferencia con el diseño: un mazo se mueve sin sus submazos (la app los incluye al borrar desde Mazos); la tarjeta pone el énfasis visual en «Cancelar».
+
