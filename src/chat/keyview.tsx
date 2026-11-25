@@ -1,11 +1,12 @@
-import { ChevronDown, ChevronLeft, List } from 'lucide-preact';
+import { ChevronDown, ChevronLeft, List, Plus } from 'lucide-preact';
 import { useRef, useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { normModel } from '../lib/settings';
 import { go, useApp } from '../state';
 import { Popover } from '../ui/overlay';
 import { techLine, type Classified } from './errors';
-import { loadKeys, mask, saveKeys, type KeyEntry } from './keys';
+import { loadKeys, mask, MAX_KEYS, saveKeys, type KeyEntry } from './keys';
+import { AddKeySheet } from './addkey';
 import { listModels, LIST_MS } from './models';
 import { PROVIDERS, type ProviderId } from './providers';
 import { bar, loadUsage } from './usage';
@@ -25,6 +26,7 @@ export function KeyView(p: { onBack: () => void; onChange: () => void }) {
   const [live, setLive] = useState('');
   const [menu, setMenu] = useState<{ id: string; el: HTMLElement } | null>(null);
   const [lst, setLst] = useState<{ busy?: boolean; err?: Classified } | null>(null);
+  const [adding, setAdding] = useState(false);
   const rows = useRef<HTMLDivElement>(null);
   const now = Date.now(), keys = store.keys;
   const modelOf = (prov: ProviderId) => app.settings.chat.models[prov] || PROVIDERS[prov].model; // lo elegido en Ajustes o el de fábrica
@@ -73,7 +75,7 @@ export function KeyView(p: { onBack: () => void; onChange: () => void }) {
         <span>{t('dock.modelo_claves')}</span>
       </div>
       {keys.length === 0
-        ? <div class="gx-kempty"><b>{t('dock.sin_claves')}</b><button type="button" class="gx-qc add" onClick={() => go('ajustes')}>{t('dock.anadir_clave')}</button></div>
+        ? <div class="gx-kempty"><b>{t('dock.sin_claves')}</b><button type="button" class="gx-qc add" onClick={() => setAdding(true)}>{t('dock.anadir_clave')}</button></div>
         : (
           <div class="gx-krows" role="radiogroup" aria-label={t('dock.modelo_claves')} ref={rows} onKeyDown={arrows}>
             {keys.map((k) => {
@@ -95,11 +97,13 @@ export function KeyView(p: { onBack: () => void; onChange: () => void }) {
           </div>
         )}
       <div class="gx-kfoot">
+        {keys.length > 0 && keys.length < MAX_KEYS && <button type="button" class="gx-qc" onClick={() => setAdding(true)}><Plus size={14} aria-hidden="true" />{t('dock.anadir_clave')}</button>}
         <button type="button" class="gx-qc" disabled={!keys.length} onClick={() => void list()}><List size={14} aria-hidden="true" />{lst?.busy ? t('chat.cancelar_prueba') : t('chat.ver_modelos')}</button>
         <button type="button" class="gx-qc" onClick={() => go('ajustes')}>{t('dock.todos_ajustes')}</button>
       </div>
       {lst?.err && <p class="gx-kerr" role="status">{lst.err.kind === 'aborted' ? t('chat.err_aborted') : lst.err.kind === 'model' ? t('chat.p_err_model', { modelo: lst.err.detail?.model ?? '' }) : t(`chat.p_err_${lst.err.kind}`)}{lst.err.detail && lst.err.kind !== 'aborted' ? <> <code>{techLine(lst.err.detail)}</code></> : null}</p>}
       <div class="sr-only" role="status" aria-live="polite">{live}</div>
+      {adding && <AddKeySheet onClose={() => setAdding(false)} onAdded={(n) => { setStore(n); p.onChange(); }} />}
       {menu && (() => {
         const k = keys.find((x) => x.id === menu.id);
         if (!k) return null;

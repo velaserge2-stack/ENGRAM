@@ -1,16 +1,17 @@
 // Ajustes → Asistente (Fase 1b). Se carga con import() solo al abrir la sección con el add-on encendido.
 // La clave nunca aparece en toasts, errores ni registros: los mensajes salen del tipo de error (t('chat.err_*')).
-import { Eye, EyeOff, GripVertical, List, Pause, Play, Plug, Trash2, ArrowUp, ArrowDown } from 'lucide-preact';
+import { GripVertical, Plus, List, Pause, Play, Plug, Trash2, ArrowUp, ArrowDown } from 'lucide-preact';
 import { useRef, useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { classify, techLine, type Detail, type Kind } from '../chat/errors';
-import { addKey, loadKeys, markKey, mask, MAX_KEYS, saveKeys, USAGE_RESET, type KeyEntry, type KeyStore } from '../chat/keys';
+import { loadKeys, markKey, mask, MAX_KEYS, saveKeys, USAGE_RESET, type KeyEntry, type KeyStore } from '../chat/keys';
 import { loadCore, loadModel, modelOf, PROVIDERS, setModels, type ProviderId } from '../chat/providers';
 import { listModels, LIST_MS } from '../chat/models';
 import { bar, loadUsage } from '../chat/usage';
 import { busy } from '../chat/session';
 import { normModel, type ChatLimits } from '../lib/settings';
 import { useApp } from '../state';
+import { AddKeySheet } from '../chat/addkey';
 import { Row } from '../ui/kit';
 import { usePressDrag } from '../ui/pressdrag';
 
@@ -36,10 +37,7 @@ export function AssistantBody() {
   const s = app.settings;
   setModels(s.chat.models, s.chat.context); // la prueba y la lista usan el modelo elegido
   const [store, setStore] = useState<KeyStore>(loadKeys);
-  const [provider, setProvider] = useState<ProviderId>('gemini');
-  const [alias, setAlias] = useState('');
-  const [secret, setSecret] = useState('');
-  const [shown, setShown] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [test, setTest] = useState<{ id: string; kind: 'busy' | 'ok' | Kind; detail?: Detail } | null>(null);
   const [lst, setLst] = useState<{ id: string; busy?: boolean; ids?: string[]; suggested?: string; kind?: Kind; detail?: Detail } | null>(null);
   const abort = useRef<AbortController | null>(null);
@@ -60,11 +58,6 @@ export function AssistantBody() {
     label: (id) => store.keys.find((k) => k.id === id)?.alias ?? '',
   });
 
-  const add = () => {
-    const n = addKey(store, provider, alias, secret);
-    if (!n) return;
-    put(n); setSecret(''); setAlias(''); setShown(false);
-  };
   const run = async (k: KeyEntry) => {
     if (abort.current) return abort.current.abort();
     if (busy()) return; // un turno en curso: una sola petición a la vez
@@ -170,14 +163,11 @@ export function AssistantBody() {
       })}
       {pd.ghost}
 
-      <form class="row-i" style={{ flexWrap: 'wrap' }} onSubmit={(e) => { e.preventDefault(); add(); }}>
-        <select aria-label={t('chat.proveedor')} value={provider} disabled={full} onChange={(e) => setProvider((e.target as HTMLSelectElement).value as ProviderId)}>{IDS.map((p) => <option value={p}>{PROVIDERS[p].name}</option>)}</select>
-        <input class="input" aria-label={t('chat.alias')} placeholder={t('chat.alias')} value={alias} disabled={full} maxLength={30} autocomplete="off" onInput={(e) => setAlias((e.target as HTMLInputElement).value)} style={{ flex: '1 1 8rem', minWidth: 0 }} />
-        <input class="input" aria-label={t('chat.clave')} placeholder={t('chat.clave')} {...(shown ? { type: 'text' as const } : { type: 'password' as const })} value={secret} disabled={full} autocomplete="off" autocapitalize="none" spellcheck={false} onInput={(e) => setSecret((e.target as HTMLInputElement).value)} style={{ flex: '2 1 12rem', minWidth: 0 }} />
-        <button type="button" class="btn icon" aria-label={shown ? t('chat.ocultar') : t('chat.mostrar')} aria-pressed={shown} onClick={() => setShown(!shown)}>{shown ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}</button>
-        <button type="submit" class="btn primary" disabled={full || !secret.trim()}>{t('chat.anadir')}</button>
+      <div class="row-i" style={{ flexWrap: 'wrap' }}>
+        <button type="button" class="btn primary" disabled={full} onClick={() => setAdding(true)}><Plus size={16} aria-hidden="true" />{' '}{t('chat.anadir')}</button>
         {full && <small class="t3" style={{ flexBasis: '100%' }}>{t('chat.maximo', { n: MAX_KEYS })}</small>}
-      </form>
+      </div>
+      {adding && <AddKeySheet onClose={() => setAdding(false)} onAdded={setStore} />}
 
       <div class="row-i"><div class="k"><strong>{t('chat.limites')}</strong><small>{t('chat.limites_sub')}</small></div></div>
       {IDS.map((p) => (

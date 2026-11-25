@@ -138,14 +138,19 @@ try {
   if ((await sec.getAttribute('class')).includes('open') === false) await sec.locator('.fold-btn').click();
   await sec.getByText('Aún no hay claves.').waitFor();
   check(apiHits.length === 0, 'abrir la sección no hace peticiones');
-  await sec.getByLabel('Apodo (opcional)').fill('Mi clave');
-  const pass = sec.getByLabel('Clave de API');
+  const dlg = page.getByRole('dialog', { name: 'Añadir clave' });
+  await sec.getByRole('button', { name: 'Añadir clave' }).click();
+  await dlg.waitFor();
+  check(apiHits.length === 0, 'abrir la hoja no hace peticiones');
+  await dlg.getByLabel('Apodo (opcional)').fill('Mi clave');
+  const pass = dlg.getByLabel('Clave de API');
   check((await pass.getAttribute('type')) === 'password', 'el campo es de contraseña');
   check((await pass.evaluate((e) => parseFloat(getComputedStyle(e).fontSize))) >= 16, 'input ≥ 16 px');
   await pass.fill(SECRET);
-  await sec.getByRole('button', { name: 'Mostrar clave' }).click();
+  await dlg.getByRole('button', { name: 'Mostrar clave' }).click();
   check((await pass.getAttribute('type')) === 'text', 'mostrar clave');
-  await sec.getByRole('button', { name: 'Añadir clave' }).click();
+  await dlg.getByRole('button', { name: 'Añadir clave' }).click();
+  await dlg.waitFor({ state: 'detached' });
   await sec.getByText('••••ABCD').waitFor();
   check(!(await sec.innerText()).includes(SECRET), 'la clave no se muestra completa');
 
@@ -203,9 +208,11 @@ try {
   lmode = 'ok';
 
   // reordenar: segunda clave y subir
-  await sec.getByLabel('Apodo (opcional)').fill('Otra');
-  await sec.getByLabel('Clave de API').fill('AIzaSyOTHER0123456789abcdefWXYZ');
   await sec.getByRole('button', { name: 'Añadir clave' }).click();
+  await dlg.getByLabel('Apodo (opcional)').fill('Otra');
+  await dlg.getByLabel('Clave de API').fill('AIzaSyOTHER0123456789abcdefWXYZ');
+  await dlg.getByRole('button', { name: 'Añadir clave' }).click();
+  await dlg.waitFor({ state: 'detached' });
   await sec.getByRole('button', { name: 'Subir prioridad de Otra' }).click();
   const order = await sec.locator('.chat-key [data-user-content]').allInnerTexts();
   check(order.join() === 'Otra,Mi clave', `reordenar con el botón (${order})`);
@@ -776,8 +783,14 @@ try {
     await q.getByRole('button', { name: 'Modelo y claves' }).click();
     check((await q.getByText('Aún no tienes claves').count()) === 1 && (await q.getByRole('button', { name: 'Añadir clave' }).count()) === 1 && (await page.locator('.gx-ustrip').count()) === 0, 'sin claves: aviso + «Añadir clave» y sin tira de uso');
     await q.getByRole('button', { name: 'Añadir clave' }).click();
-    await page.waitForFunction(() => location.hash.startsWith('#/ajustes'));
-    check(true, '«Añadir clave» lleva a Ajustes');
+    const kd = page.getByRole('dialog', { name: 'Añadir clave' });
+    await kd.waitFor();
+    check(page.url().includes('#/hoy'), '«Añadir clave» abre la hoja sin salir de Hoy');
+    await kd.getByLabel('Clave de API').fill('gsk_HOJA0123456789abcdefHOJA');
+    await kd.getByLabel('Proveedor').selectOption('groq');
+    await kd.getByRole('button', { name: 'Añadir clave' }).click();
+    await kd.waitFor({ state: 'detached' });
+    check((await q.locator('.gx-krow').count()) === 1 && (await q.innerText()).includes('••••HOJA'), 'la hoja añade la clave y aparece en Modelo y claves');
     // tira con 1–4 claves: se ajusta al contenido, ≤ pastilla, máx. 3 entradas y «+N»
     const provs = ['gemini', 'groq', 'openrouter', 'kimi'], ws = [], ds = new Set();
     for (let n = 1; n <= 4; n++) {
@@ -891,16 +904,21 @@ try {
   await page.locator('#asistente').waitFor();
   if ((await page.locator('#asistente').getAttribute('class')).includes('open') === false) await page.locator('#asistente .fold-btn').click();
   const s2 = page.locator('#asistente');
-  await s2.getByLabel('Proveedor').waitFor(); // el cuerpo de la sección se carga con import() al desplegarla
-  const provs = await s2.getByLabel('Proveedor').locator('option').allInnerTexts();
+  await s2.getByRole('button', { name: 'Añadir clave' }).waitFor(); // el cuerpo de la sección se carga con import() al desplegarla
+  const d2 = page.getByRole('dialog', { name: 'Añadir clave' });
+  await s2.getByRole('button', { name: 'Añadir clave' }).click();
+  const provs = await d2.getByLabel('Proveedor').locator('option').allInnerTexts();
+  await d2.getByRole('button', { name: 'Cerrar' }).click();
   check(provs.join() === 'Gemini,Groq,OpenRouter,Kimi', 'selector con los 4 proveedores: ' + provs.join());
   check((await s2.innerText()).includes('Hasta 4'), 'texto «Hasta 4»');
   check((await s2.innerText()).includes('OpenRouter reenvía') && (await s2.innerText()).includes('Kimi (Moonshot AI)'), 'avisos de privacidad por proveedor');
   for (const [prov, alias, key] of [['openrouter', 'Cuenta-OR', ORK], ['kimi', 'Cuenta-KM', KMK]]) {
-    await s2.getByLabel('Proveedor').selectOption(prov);
-    await s2.getByLabel('Apodo (opcional)').fill(alias);
-    await s2.getByLabel('Clave de API').fill(key);
     await s2.getByRole('button', { name: 'Añadir clave' }).click();
+    await d2.getByLabel('Proveedor').selectOption(prov);
+    await d2.getByLabel('Apodo (opcional)').fill(alias);
+    await d2.getByLabel('Clave de API').fill(key);
+    await d2.getByRole('button', { name: 'Añadir clave' }).click();
+    await d2.waitFor({ state: 'detached' });
   }
   const rowOf = (a) => s2.locator('.chat-key', { hasText: a });
   oai.hits.length = 0; oai.mode = '401';

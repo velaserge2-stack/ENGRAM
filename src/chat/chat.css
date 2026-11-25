@@ -75,7 +75,7 @@ body.focus .gx-dock, body.notes-full .gx-dock, body.focus .gx-mini, body.notes-f
 .gx-mdl { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; max-width: 124px; padding: 0 8px; border-radius: 10px; border: var(--hair) solid var(--border); background: var(--fill); color: var(--t2); font: 700 12px/1 var(--font); cursor: pointer; }
 .gx-mdl .mono { font-size: 11px; font-weight: 600; }
 .gx-mdl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gx-kfoot { display: flex; gap: 8px; }
+.gx-kfoot { display: flex; flex-wrap: wrap; gap: 8px; }
 .gx-kfoot .gx-qc { flex: 1; justify-content: center; min-height: 46px; font-size: 12.5px; text-align: center; }
 .gx-kempty { display: grid; justify-items: center; gap: 8px; padding: 8px 0; }
 .gx-kerr { margin: 0; font-size: 12px; color: var(--t2); overflow-wrap: anywhere; }
