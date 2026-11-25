@@ -11,7 +11,7 @@ import { redact } from './errors';
 import { type Msg, patch } from './history';
 import { applyProposal, type EventFields, isBad, revalidate, undoProposal } from './proposal';
 
-const TITLE: Record<'tarjetas' | 'examen' | 'evento' | 'nota' | 'diagrama' | 'fecha', string> = { tarjetas: 'chat.pv_t_tarjetas', examen: 'chat.pv_t_examen', evento: 'chat.pv_t_evento', nota: 'chat.pv_t_nota', diagrama: 'chat.pv_t_diagrama', fecha: 'chat.pv_t_fecha' } as const;
+const TITLE: Record<'tarjetas' | 'examen' | 'evento' | 'nota' | 'diagrama' | 'fecha' | 'edicion', string> = { edicion: 'asist2.pv_t_edicion', tarjetas: 'chat.pv_t_tarjetas', examen: 'chat.pv_t_examen', evento: 'chat.pv_t_evento', nota: 'chat.pv_t_nota', diagrama: 'chat.pv_t_diagrama', fecha: 'chat.pv_t_fecha' } as const;
 const NEWFILE = new Set(['nota', 'diagrama', 'fecha']);
 
 /** Vista del diagrama propuesto con el visor de siempre, cargado bajo demanda; si falla, queda el código. */
@@ -30,7 +30,7 @@ const TYPE: Record<string, 'date' | 'time'> = { fecha: 'date', inicio: 'time', f
 /** Código de aviso (i18n `chat.pv_werr_*`) de un fallo al guardar; los DOMException de almacenamiento tienen mensaje propio. */
 const werr = (e: unknown): string => {
   const n = e instanceof Error ? (e.name === 'Error' ? e.message : e.name) : '';
-  return ({ open: 'open', exists: 'exists', gone: 'gone', QuotaExceededError: 'quota', NotAllowedError: 'denied', SecurityError: 'denied', NotFoundError: 'notfound' } as Record<string, string>)[n] ?? 'other';
+  return ({ open: 'open', changed: 'changed', exists: 'exists', gone: 'gone', QuotaExceededError: 'quota', NotAllowedError: 'denied', SecurityError: 'denied', NotFoundError: 'notfound' } as Record<string, string>)[n] ?? 'other';
 };
 /** «Nombre: mensaje» corto y sin claves, para diagnosticar fallos no clasificados. */
 const tech = (e: unknown): string => redact(e instanceof Error ? `${e.name}: ${e.message}` : String(e)).replace(/\s+/g, ' ').slice(0, 160);
@@ -60,7 +60,7 @@ function WritePreview({ m }: { m: Msg }) {
   }, [st]);
   useEffect(() => { if (edit) first.current?.focus(); }, [edit]);
 
-  const refresh = () => (p.tipo === 'nota' || p.tipo === 'diagrama' ? app.changed('notes') : app.changed());
+  const refresh = () => (p.tipo === 'nota' || p.tipo === 'diagrama' || (p.tipo === 'edicion' && p.destino.startsWith('notes/')) ? app.changed('notes') : app.changed());
   const accept = async () => {
     if (lock.current || st !== 'pending' || edit) return; // doble toque: una sola escritura (applyProposal también es idempotente)
     lock.current = true;

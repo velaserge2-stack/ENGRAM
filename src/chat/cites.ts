@@ -16,3 +16,13 @@ export function resolvePdf(name: string, page: number, sources: readonly Source[
 }
 export const citeHref = (s: Source): string => (s.tipo === 'pdf' ? pdfLink(s.ruta, s.pagina) : '#/notas/' + s.ruta.slice(6).split('/').map(encodeURIComponent).join('/'));
 export const citeLabel = (s: Source): string => (s.tipo === 'pdf' ? `${s.titulo} p.${s.pagina}` : s.titulo);
+
+const ANY_CITE = /\[\[[^\]]+\]\]|\[PDF:[^\]]+\]/;
+/** Líneas con afirmaciones (≥ 40 letras, no preguntas) sin ninguna cita; para el chip «Sin fuente» del rol Investigador.
+ *  shortcut: por línea/párrafo, no por frase; subir a frases si hace falta más precisión. */
+export function unsourced(text: string): number {
+  return text.split(/\n+/).filter((l) => {
+    const s = l.replace(/^[\s>*#\-\d.)]+/, '').trim();
+    return s.length >= 40 && !s.endsWith('?') && !ANY_CITE.test(s) && !/no lo encontr|not find|ne trouve|^(nota|note|info)/i.test(s);
+  }).length;
+}
