@@ -947,3 +947,10 @@ Plan y estados en `docs/diagramas/PLAN-22.md` y `docs/diagramas/estado-p22-*.md`
 - Asistente: toda escritura/ajuste/acción solo PROPONE (vista previa, Aceptar, deshacer). Catálogo de ajustes cerrado (sin claves API, vault, respaldo, borrado, papelera). Contexto de notas como DATOS en el mensaje del usuario, nunca en el `system`. Escritura «pegajosa» solo tras oferta del asistente + «sí» exacto. Apagar el Asistente exige nombrarlo en el último mensaje.
 - Voz de lectura solo con voces locales (`localService`), para que el texto no salga a terceros.
 - Revisión de seguridad (solo lectura): sin hallazgos altos; 6 medios y 6 bajos cerrados; pendiente `review.ts` (validar forma de `x.q` al cargar pendientes).
+
+## PDF, anotador y barra de novedades (rama `pdf-integra`)
+- Marcador libre = `highlighter` con `free:true` (una build vieja lo ve como resaltador, no lo pierde); el resaltador inteligente sigue ajustándose al texto. Render con tercer lienzo `multiply` fuera del contexto de apilamiento de `.ink-layer`; el PDF exportado usa `BlendMode.Multiply`.
+- `Mark.lc` opcional: color de subrayado/tachado (`--mark-c`); sin él, azul/rojo de siempre.
+- Áreas de toque: `::before` con inset negativo bajo `:where()` (especificidad 0) para no pisar a los botones que ya son `absolute`/`fixed`; botones de texto solo en vertical para no crear desborde horizontal.
+- Barra de actualización: la app que corre es la vieja, así que las novedades se piden a `novedades.json` del mismo origen (`cache: no-store`; `sw.js` lo deja pasar). Solo texto plano validado y acotado (≤ 3 puntos de ≤ 90 caracteres); si falla, la barra sale sin ellas. Al pulsar «Actualizar» se guarda el `id` para no repetirlas. La primera actualización hacia esta versión no las mostrará (la versión instalada aún no sabe pedirlas).
+- Confirmaciones nativas (`confirm`/`prompt`) en pantallas: se dejan (≈ 32 e2e las aceptan con `page.on('dialog')`); pasarlas a `Sheet` es un cambio aparte.
