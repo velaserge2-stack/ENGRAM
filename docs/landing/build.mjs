@@ -34,9 +34,9 @@ const html = `<!doctype html>
 </head>
 <body>
 <div class="bg"></div>
+<div class="maqueta glass" role="note">Maqueta · precios, cuentas y acceso son de ejemplo; esta página no envía nada.</div>
 ${rd('landing.fragment.html').replaceAll('{{LOGO}}', logo)}
 ${rd('acceso.fragment.html').replaceAll('{{LOGO}}', logo)}
-<div class="maqueta glass" role="note">Maqueta · precios, cuentas y acceso son marcadores de posición: Engrama hoy no usa cuentas y esta página no envía nada.</div>
 <script>${router}</script>
 </body>
 </html>`;
