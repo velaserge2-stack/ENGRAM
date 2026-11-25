@@ -5,7 +5,7 @@
 import { State } from 'ts-fsrs';
 import type { Collection, Deck } from '../data/collection';
 import { isCorrect } from '../sim/parse';
-import { scheduler, type SrsParams } from '../srs/engine';
+import { type LogEntry, scheduler, type SrsParams } from '../srs/engine';
 import { dayKey } from './days';
 import { type Exam, examCids, newPerDayMap, pace } from './exams';
 
@@ -23,14 +23,23 @@ const live = (col: Collection, cid: string) => {
   const st = col.states.get(cid);
   return st && col.byCid.has(cid) && !st.suspended && st.card.state !== State.New ? st : null;
 };
-/** Repasos reales (sin los deshechos), en orden cronológico estable. */
-function reviewLog(col: Collection) {
-  const undone = new Set(col.log.filter((e) => e.op === 'undo').map((e) => `${e.id}@${e.ref}`));
-  return col.log
+/** Firma barata del historial: reviews.jsonl solo se añade (undo/suspender también son líneas), así que longitud + último ts basta. */
+const logSig = (col: Collection) => `${col.log.length}:${col.log[col.log.length - 1]?.ts ?? 0}`;
+const reviewCache = new WeakMap<Collection, { sig: string; v: LogEntry[] }>();
+/** Repasos reales (sin los deshechos), en orden cronológico estable. Un solo recorrido por firma, compartido entre funciones. */
+function reviewLog(col: Collection): LogEntry[] {
+  const sig = logSig(col);
+  const hit = reviewCache.get(col);
+  if (hit?.sig === sig) return hit.v;
+  const undone = new Set<string>();
+  for (const e of col.log) if (e.op === 'undo') undone.add(`${e.id}@${e.ref}`);
+  const v = col.log
     .map((e, i) => [e, i] as const)
     .filter(([e]) => e.rating && !undone.has(`${e.id}@${e.ts}`))
     .sort((a, b) => a[0].ts - b[0].ts || a[1] - b[1])
     .map(([e]) => e);
+  reviewCache.set(col, { sig, v });
+  return v;
 }
 /** Prefijos de la ruta: «A/B/C» → A, A/B, A/B/C. */
 const prefixes = (full: string) => full.split('/').map((_, i, a) => a.slice(0, i + 1).join('/'));
@@ -188,20 +197,23 @@ export function confusions(col: Collection, attempts: AttemptLike[] = []): Confu
   const out: Confusion[] = [];
   // (a) lapsos de mazos distintos en una sesión corta, repetidos: un recuento por episodio
   const fails = reviewLog(col).filter((e) => e.rating === 1 && col.byCid.has(e.id));
-  const pairs = new Map<string, { count: number; lastTs: number; a: string; b: string }>();
+  const deckOf = fails.map((e) => col.byCid.get(e.id)!.deck.path);
+  type Pair = { count: number; lastTs: number; a: string; b: string };
+  const pairs = new Map<string, Map<string, Pair>>(); // anidado: evita crear una cadena por par
   fails.forEach((e, i) => {
     for (let j = i + 1; j < fails.length && fails[j]!.ts - e.ts <= SESSION_MS; j++) {
       const o = fails[j]!;
-      if (o.id === e.id || col.byCid.get(o.id)!.deck.path === col.byCid.get(e.id)!.deck.path) continue;
+      if (o.id === e.id || deckOf[j] === deckOf[i]) continue;
       const [a, b] = cmp(e.id, o.id) < 0 ? [e.id, o.id] : [o.id, e.id];
-      const k = `${a}\u0000${b}`;
-      const p = pairs.get(k) ?? { count: 0, lastTs: -Infinity, a, b };
+      let row = pairs.get(a);
+      if (!row) pairs.set(a, (row = new Map()));
+      let p = row.get(b);
+      if (!p) row.set(b, (p = { count: 0, lastTs: -Infinity, a, b }));
       if (o.ts - p.lastTs > SESSION_MS) p.count++;
       p.lastTs = o.ts;
-      pairs.set(k, p);
     }
   });
-  for (const p of pairs.values()) if (p.count >= 2) out.push({ kind: 'cards', a: p.a, b: p.b, count: p.count, score: p.count });
+  for (const row of pairs.values()) for (const p of row.values()) if (p.count >= 2) out.push({ kind: 'cards', a: p.a, b: p.b, count: p.count, score: p.count });
   // (b) distractor elegido repetidamente en simulacros (cuenta intentos terminados)
   const dist = new Map<string, number>();
   for (const at of attempts) {
@@ -264,3 +276,27 @@ export function smartNewGoals(col: Collection, exams: Exam[], now: number, p: Go
     return { deck: d.full, path: d.path, goal, cap, newLeft, why };
   }).sort((a, b) => b.goal - a.goal || cmp(a.path, b.path));
 }
+
+/* Memoización por firma: el mismo (col, historial, ahora, parámetros) no se recalcula con cada `app.tick`.
+   Una sola entrada por función y colección (memoria acotada); el resultado es idéntico al directo. */
+const memos = new WeakMap<Collection, Map<string, { key: string; v: unknown }>>();
+function memo<T>(col: Collection, name: string, extra: string, f: () => T): T {
+  const key = `${logSig(col)}|${col.states.size}|${col.decks.length}|${extra}`;
+  let m = memos.get(col);
+  if (!m) memos.set(col, (m = new Map()));
+  const hit = m.get(name);
+  if (hit?.key === key) return hit.v as T;
+  const v = f();
+  m.set(name, { key, v });
+  return v;
+}
+const pk = (p: SrsParams) => JSON.stringify([p.retention, p.learningSteps, p.relearningSteps, p.maxInterval, p.w, p.fuzz]);
+const attKey = (a: AttemptLike[]) => `${a.length}:${a.reduce((n, x) => n + (x.finishedAt ?? 0), 0)}`;
+export const cached = {
+  weaknesses: (col: Collection, now: number) => memo(col, 'weak', `${now}`, () => weaknesses(col, now)),
+  masteryTree: (col: Collection, now: number, p: SrsParams) => memo(col, 'tree', `${now}|${pk(p)}`, () => masteryTree(col, now, p)),
+  forecastRetention: (col: Collection, now: number, hz: number[], p: SrsParams) => memo(col, 'fc', `${now}|${hz}|${pk(p)}`, () => forecastRetention(col, now, hz, p)),
+  relapses: (col: Collection) => memo(col, 'rel', '', () => relapses(col)),
+  confusions: (col: Collection, at: AttemptLike[] = []) => memo(col, 'conf', attKey(at), () => confusions(col, at)),
+  smartNewGoals: (col: Collection, exams: Exam[], now: number, p: GoalParams) => memo(col, 'goals', `${now}|${JSON.stringify(exams)}|${JSON.stringify(p)}`, () => smartNewGoals(col, exams, now, p)),
+};
