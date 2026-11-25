@@ -110,7 +110,7 @@ export function ReviewSheet(p: { b: BankRef; onClose: () => void }) {
   const cur = items?.[0];
   const next = async (rest: Pending[]) => { setItems(rest); setChk([false, false, false]); setEdit(false); await savePending(app.vault, p.b.path, rest); app.changed(); if (!rest.length) p.onClose(); };
   const accept = async () => {
-    if (!cur) return;
+    if (!cur || !chk.every(Boolean) || validateGenerated(cur.q, bank).length) return; // la validación y la revisión son obligatorias, no solo un botón deshabilitado
     const text = acceptInto(await readTextOr(app.vault, p.b.path, ''), p.b.bank.name, cur.q);
     await app.vault.write(p.b.path, text);
     setBank([...bank, cur.q]);

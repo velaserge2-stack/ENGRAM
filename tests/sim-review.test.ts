@@ -43,3 +43,16 @@ describe('revisión IA', () => {
     expect(t).toContain('Pregunta');
   });
 });
+
+describe('pendientes dañadas', () => {
+  it('loadPending descarta lo que no tiene forma de pregunta y revalida', async () => {
+    const v = new MemoryBackend();
+    const good = mk(1, 'Mate');
+    await v.write('.app/exam-pending/b.json', JSON.stringify([{ q: null }, { q: { text: 5 } }, { q: { text: 'x', options: [null] } }, { q: good }, 7]));
+    const r = await loadPending(v, 'b');
+    expect(r).toHaveLength(1);
+    expect(r[0]!.q.text).toBe('Pregunta 1');
+    await v.write('.app/exam-pending/c.json', '{no es json');
+    expect(await loadPending(v, 'c')).toEqual([]);
+  });
+});

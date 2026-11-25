@@ -62,8 +62,10 @@ const DIR = '.app/exam-pending';
 export const pendingPath = (bank: string) => `${DIR}/${bank.replace(/[\\/]/g, '__')}.json`;
 export async function loadPending(vault: VaultAdapter, bank: string): Promise<Pending[]> {
   try {
-    const raw = JSON.parse(await readTextOr(vault, pendingPath(bank), '[]')) as { q: Question }[];
-    return Array.isArray(raw) ? raw.map((x) => ({ q: x.q, errors: [] })) : [];
+    const raw = JSON.parse(await readTextOr(vault, pendingPath(bank), '[]')) as { q?: Question }[];
+    // un JSON dañado o editado a mano no debe romper la hoja: se descarta lo que no tenga forma de pregunta y se revalida
+    const ok = (q: unknown): q is Question => { const x = q as Question | null; return !!x && typeof x.text === 'string' && Array.isArray(x.options) && x.options.every((o) => !!o && typeof o.text === 'string'); };
+    return Array.isArray(raw) ? raw.filter((x) => ok(x?.q)).map((x) => ({ q: x.q!, errors: validateGenerated(x.q!, []) })) : [];
   } catch { return []; }
 }
 export async function savePending(vault: VaultAdapter, bank: string, items: Pending[]): Promise<void> {
