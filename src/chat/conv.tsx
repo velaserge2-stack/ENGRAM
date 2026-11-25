@@ -17,6 +17,7 @@ import type { Source } from './tools';
 import { send, stop } from './turn';
 import { setModels } from './providers';
 import { bar, loadUsage } from './usage';
+import { useTick } from './tick';
 import { DictButton, VoiceMsg } from './dictbtn';
 import { joinDictation, useDict } from './voice';
 
@@ -121,6 +122,7 @@ function Bubble(p: { m: Msg; onSettings: () => void; onCite: () => void; onRetry
 
 /** Barra de uso: solo al acercarse al límite; con todas las claves agotadas o inválidas, además, el botón a Ajustes. */
 function Meter(p: { alias?: string; onSettings: () => void }) {
+  useTick();
   const { settings } = useApp();
   const now = Date.now(), keys = loadKeys().keys;
   const used = keys.find((k) => k.alias === p.alias) ?? pickKey(keys, now) ?? keys[0];

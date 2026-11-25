@@ -38,3 +38,14 @@ describe('uso real según el proveedor', () => {
     expect(calls).toHaveLength(1);
   });
 });
+
+describe('reinicio solo', () => {
+  const H = { 'x-ratelimit-remaining-requests': '900', 'x-ratelimit-limit-requests': '1000', 'x-ratelimit-reset-requests': '2h', 'x-ratelimit-remaining-tokens': '0', 'x-ratelimit-limit-tokens': '12000', 'x-ratelimit-reset-tokens': '30s' };
+  const u = setHdr(emptyUsage(), 'g', fromHeaders('groq', H, 0));
+  it('Groq: los tokens del minuto se recargan antes que las peticiones del día', () => {
+    expect(bar(u, 'g', LIM, 10_000, 0.8, 'groq').pct).toBe(1); // a los 10 s: sin tokens
+    expect(bar(u, 'g', LIM, 31_000, 0.8, 'groq').pct).toBeCloseTo(0.1); // a los 31 s: solo cuentan las peticiones
+    expect(realLine(u, 'g', 'groq', 31_000)).toMatch(/quedan 900 de 1[,.]?000 peticiones · 12[,.]?000 tokens/);
+    expect(realLine(u, 'g', 'groq', 2 * 3_600_000 + 1)).toMatch(/quedan 1[,.]?000 de 1[,.]?000/);
+  });
+});

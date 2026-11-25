@@ -13,6 +13,7 @@ import { busy } from '../chat/session';
 import { normModel, type ChatLimits } from '../lib/settings';
 import { useApp } from '../state';
 import { AddKeySheet } from '../chat/addkey';
+import { useTick } from '../chat/tick';
 import { Row } from '../ui/kit';
 import { usePressDrag } from '../ui/pressdrag';
 
@@ -39,6 +40,7 @@ export function AssistantBody() {
   setModels(s.chat.models, s.chat.context); // la prueba y la lista usan el modelo elegido
   const [store, setStore] = useState<KeyStore>(loadKeys);
   const [adding, setAdding] = useState(false);
+  useTick();
   const [test, setTest] = useState<{ id: string; kind: 'busy' | 'ok' | Kind; detail?: Detail; groq?: boolean } | null>(null);
   const [lst, setLst] = useState<{ id: string; busy?: boolean; ids?: string[]; suggested?: string; kind?: Kind; detail?: Detail } | null>(null);
   const abort = useRef<AbortController | null>(null);
@@ -115,7 +117,7 @@ export function AssistantBody() {
   };
   const usage = loadUsage();
   const full = store.keys.length >= MAX_KEYS;
-  const stLabel = (k: KeyEntry) => k.status === 'exhausted' && k.until ? t('chat.st_exhausted_hasta', { h: new Date(k.until).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }) }) : ST()[k.status];
+  const stLabel = (k: KeyEntry) => k.status === 'exhausted' && k.until !== undefined && k.until <= Date.now() ? ST().active : k.status === 'exhausted' && k.until ? t('chat.st_exhausted_hasta', { h: new Date(k.until).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }) }) : ST()[k.status];
 
   return (
     <>
