@@ -9,10 +9,17 @@ import { checksum } from '../vault/util';
 
 export type MarkKind = 'highlight' | 'underline' | 'strike';
 export type Rect = [number, number, number, number]; // x, y, w, h en fracción de la página
-export interface Mark { id: string; kind: MarkKind; color: string; rects: Rect[]; text: string; ts: number }
+/** `lc` (opcional): color elegido para subrayar/tachar; sin él, el de siempre (azul/rojo). */
+export interface Mark { id: string; kind: MarkKind; color: string; rects: Rect[]; text: string; ts: number; lc?: string }
 export interface Sticky { id: string; x: number; y: number; text: string; ts: number }
 export interface PageAnn { rot: number; ink: InkDoc; marks: Mark[]; notes: Sticky[] }
 export interface Annots { v: 1; pdf: { size: number; hash: string } | null; pages: Record<string, PageAnn> }
+
+/**
+ * Color de la línea de una marca. Fase 2: el Visor pone `--mark-c: m.lc` en `.pdf-mark` (solo si hay `lc`;
+ * el CSS ya usa `var(--mark-c, azul|rojo)`) y `exportPdf` usa este helper en vez del color fijo.
+ */
+export const markLineColor = (m: Pick<Mark, 'kind' | 'lc'>) => m.lc ?? (m.kind === 'underline' ? '#0a5cd6' : '#c4262e');
 
 export const annotsPath = (pdf: string) => `${pdf}.annots.json`;
 export const legacyPath = (pdf: string) => `.app/annotations/${pdf.replace(/\//g, '__')}.json`;
