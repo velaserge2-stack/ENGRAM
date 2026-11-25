@@ -16,6 +16,7 @@ import { LIMITS } from '../limits';
 import { deliver, stamp } from '../share';
 import { deckNameOf, mapDeck, type MapResult } from './map';
 import { buildSched, cardIdMapOf } from './sched';
+import { bundleZip, containsFsrs, historyCsv } from './bundle';
 import { crtOf, type BuildStats } from './write';
 import type { ExportRequest } from './worker';
 
@@ -29,12 +30,13 @@ export function ExportAnkiSheet(props: { onClose: () => void }) {
   const [pct, setPct] = useState<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [stats, setStats] = useState<BuildStats | null>(null);
+  const [saved, setSaved] = useState(false);
   const [err, setErr] = useState('');
   const worker = useRef<Worker | null>(null);
   useEffect(() => () => worker.current?.terminate(), []);
   const usable = decks.filter((d) => d.cards.length);
   const busy = pct !== null;
-  const reset = () => { setFile(null); setStats(null); setErr(''); };
+  const reset = () => { setFile(null); setStats(null); setErr(''); setSaved(false); };
   const toggle = (p: string) => { reset(); setSel((s) => { const x = new Set(s); x.has(p) ? x.delete(p) : x.add(p); return x; }); };
   const all = usable.length > 0 && usable.every((d) => sel.has(d.path));
   const total = decks.filter((d) => sel.has(d.path)).reduce((n, d) => n + d.cards.length, 0);
@@ -64,8 +66,9 @@ export function ExportAnkiSheet(props: { onClose: () => void }) {
         media.set(orig, b);
       }
       const req: ExportRequest = { decks: mapped, media };
+      const ids = cardIdMapOf(mapped);
       if (history) {
-        const { sched, revlog } = buildSched(col, cardIdMapOf(mapped), crtOf(Date.now()));
+        const { sched, revlog } = buildSched(col, ids, crtOf(Date.now()));
         req.sched = sched;
         req.revlog = revlog;
       }
@@ -84,7 +87,11 @@ export function ExportAnkiSheet(props: { onClose: () => void }) {
         w.postMessage(req, [...media.values()].map((b) => b.buffer as ArrayBuffer));
       });
       const label = picked.length === 1 ? safeSegment(picked[0]!.name) || 'mazo' : all ? 'todos' : 'mazos';
-      setFile(new File([r.bytes as BlobPart], `Engrama-${label}-${stamp().slice(0, 10)}.apkg`, { type: 'application/octet-stream' }));
+      const base = `Engrama-${label}-${stamp().slice(0, 10)}`;
+      if (containsFsrs({ history, revlog: r.stats.revlog, sched: req.sched ?? new Map() })) {
+        const zip = await bundleZip({ apkg: r.bytes, baseName: base, historyCsv: historyCsv(col.log, new Set(ids.keys())), readme: t('apkgexport.leeme') });
+        setFile(new File([zip], `${base}.zip`, { type: 'application/zip' }));
+      } else setFile(new File([r.bytes as BlobPart], `${base}.apkg`, { type: 'application/octet-stream' }));
       setStats(r.stats);
     } catch (e) {
       setErr((e as { code?: string }).code === 'apkg_export_too_big' ? t('apkgexport.demasiado_grande') : t('apkgexport.error', { msg: errMsg(e) }));
@@ -94,6 +101,7 @@ export function ExportAnkiSheet(props: { onClose: () => void }) {
     setPct(null);
   };
 
+  const isZip = !!file?.name.endsWith('.zip');
   const conv = stats ? Object.values(stats.converted).reduce((a, b) => a + (b ?? 0), 0) : 0;
   const parts = stats && [
     tn('apkgexport.mazos', stats.decks), tn('apkgexport.tarjetas', stats.cards), tn('apkgexport.imagenes', stats.media), tn('apkgexport.repasos', stats.revlog),
@@ -134,11 +142,12 @@ export function ExportAnkiSheet(props: { onClose: () => void }) {
           </div>
         )}
         {err && <p role="alert" class="import-fail" style={{ margin: 0 }}>{err}</p>}
-        {file && stats && <p class="import-sum" role="status" style={{ margin: 0 }}><b>{parts!.join(' · ')}</b></p>}
+        {file && stats && <p class="import-sum" role="status" style={{ margin: 0 }}><b>{parts!.join(' · ')}</b><br />{t('apkgexport.archivo', { name: file.name })}</p>}
+        {(isZip || (history && file && !isZip)) && <p role="note" class="t2" style={{ margin: 0 }}>{isZip ? t('apkgexport.aviso_zip') : t('apkgexport.sin_repasos')}</p>}
         {file ? (
-          <button type="button" class="btn primary" onClick={async () => { const r = await deliver(file); if (r !== 'cancelled') app.toast(t('apkgexport.listo')); }}><Download size={18} />{' '}{t('apkgexport.guardar_compartir')}</button>
+          <button type="button" class="btn primary" onClick={async () => { const r = await deliver(file); if (r !== 'cancelled') { setSaved(true); app.toast(t('apkgexport.listo')); } }}><Download size={18} />{' '}{saved ? t('apkgexport.guardar_de_nuevo') : t('apkgexport.guardar_compartir')}</button>
         ) : (
-          <button type="button" class="btn primary" disabled={busy || sel.size === 0 || total === 0} onClick={prepare}>{t('apkgexport.preparar')}</button>
+          <button type="button" class="btn primary" disabled={busy || sel.size === 0 || total === 0} onClick={prepare}>{history ? t('apkgexport.preparar_zip') : t('apkgexport.preparar')}</button>
         )}
       </div>
     </Sheet>

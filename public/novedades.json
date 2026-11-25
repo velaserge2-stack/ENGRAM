@@ -1,15 +1,27 @@
 {
-  "id": "2026-11-25",
+  "id": "2026-11-25b",
   "es": {
-    "mejoro": ["Visor de PDF sin trabas ni hojas en blanco", "Anotador más claro y toques más fáciles"],
-    "nuevo": ["Marcador libre que raya sobre cualquier cosa", "Dominio, predicción y sesiones adaptativas"]
+    "mejoro": [
+      "Exportar Anki entrega un solo archivo: .apkg, o .zip si incluye historial"
+    ],
+    "nuevo": [
+      "El .zip incluye historial-repasos.csv y un LEEME"
+    ]
   },
   "en": {
-    "mejoro": ["PDF viewer with no lag or blank pages", "Clearer annotator and easier touch targets"],
-    "nuevo": ["Free marker that draws over anything", "Mastery, forecasts and adaptive sessions"]
+    "mejoro": [
+      "Anki export gives a single file: .apkg, or .zip when it includes history"
+    ],
+    "nuevo": [
+      "The .zip includes historial-repasos.csv and a README"
+    ]
   },
   "fr": {
-    "mejoro": ["Lecteur PDF sans saccades ni pages blanches", "Annotateur plus clair et zones tactiles plus grandes"],
-    "nuevo": ["Marqueur libre qui trace sur n'importe quoi", "Maîtrise, prévisions et séances adaptatives"]
+    "mejoro": [
+      "L'export Anki donne un seul fichier : .apkg, ou .zip avec l'historique"
+    ],
+    "nuevo": [
+      "Le .zip inclut historial-repasos.csv et un LISEZ-MOI"
+    ]
   }
 }
