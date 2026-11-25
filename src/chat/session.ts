@@ -97,7 +97,7 @@ async function run(o: TurnOpts): Promise<TurnResult> {
         try { tokens = (await r.totalUsage).totalTokens ?? 0; } catch { /* sin cifra */ }
         try { headers = (await (r as unknown as { response: PromiseLike<{ headers?: Record<string, string> }> }).response).headers; } catch { /* sin cabeceras */ }
         const t = now();
-        saveUsage(setHdr(record(loadUsage(), k.id, tokens, t), k.id, fromHeaders(k.provider, headers, t)));
+        saveUsage(setHdr(record(loadUsage(), k.id, tokens, t, k.provider), k.id, fromHeaders(k.provider, headers, t)));
         if (!text.trim() && !o.produced?.()) {
           let why = '', steps = 0;
           try { why = String(await r.finishReason); steps = (await r.steps).length; } catch { /* sin motivo */ }

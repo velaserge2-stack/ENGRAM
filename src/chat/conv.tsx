@@ -125,7 +125,7 @@ function Meter(p: { alias?: string; onSettings: () => void }) {
   const now = Date.now(), keys = loadKeys().keys;
   const used = keys.find((k) => k.alias === p.alias) ?? pickKey(keys, now) ?? keys[0];
   const dead = keys.length > 0 && !pickKey(keys, now);
-  const b = used ? bar(loadUsage(), used.id, settings.chat.limits[used.provider], now, settings.chat.warnAt) : null;
+  const b = used ? bar(loadUsage(), used.id, settings.chat.limits[used.provider], now, settings.chat.warnAt, used.provider) : null;
   if (!dead && !b?.show) return null;
   const pct = dead ? 100 : Math.round((b?.pct ?? 0) * 100);
   return (
