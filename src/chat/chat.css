@@ -194,3 +194,13 @@ html.is-phone .chat-panel { inset: 0 0 var(--kb-inset, 0px) 0; width: auto; heig
   @keyframes vz-ring { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--inverse-bg) 40%, transparent); } to { box-shadow: 0 0 0 10px transparent; } }
 }
 .gx-kt small.gx-real { color: var(--t1); }
+
+/* Roles, contexto y voz (asist2) */
+.chat-opts { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 12px; align-items: center; }
+.chat-opts .input { width: auto; flex: 0 1 auto; min-height: 44px; font-size: 16px; }
+.chat-opts .btn { min-height: 44px; }
+.chat-ctx { padding: 0 12px 4px; }
+.chat-ctx .chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; }
+.chat-ctx .chip-x { min-width: 44px; min-height: 44px; margin: -12px -8px -12px 0; border: 0; background: none; color: inherit; display: grid; place-items: center; cursor: pointer; }
+.chat-a-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
+.chat-a-tools .btn { min-height: 44px; }

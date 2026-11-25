@@ -44,8 +44,8 @@ export function named(userText: string, p: Proposal): boolean {
 }
 
 // ───────── resolver el objetivo (solo contra lo que EXISTE) ─────────
-interface Cand { key: string; names: string[]; label: string }
-function pick(list: Cand[], q: string): Cand | Bad {
+export interface Cand { key: string; names: string[]; label: string }
+export function pick(list: Cand[], q: string): Cand | Bad {
   const n = norm(q);
   if (!n) return { error: 'nombre' };
   const hits = list.filter((c) => c.names.some((x) => norm(x) === n));

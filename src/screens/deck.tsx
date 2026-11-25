@@ -1,4 +1,5 @@
 import { locale, t as tr, tn } from '../i18n';
+import { AskButton } from '../chat/ask';
 import { BookOpen, FileSpreadsheet, FolderOutput, ImagePlus, ListChecks, Plus, Settings2, Share } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { cardsOf, type Note, type NoteType, parseDeck, type Rect } from '../cards/parse';
@@ -192,6 +193,7 @@ export function DeckEditor(props: { path: string; onGear?: () => void }) {
       <PageTitle title={name} sub={tr('deck.path_n_notas_n2_tarjetas', { path: props.path, n: parsed.notes.length, n2: parsed.notes.flatMap(cardsOf).length })}>
         <Segmented label={tr('deck.modo')} value={mode} onChange={setMode} options={[['visual', tr('deck.visual')], ['md', tr('deck.ver_markdown')]]} />
         <DeckEvents path={props.path} />
+        <AskButton ctx={{ kind: 'mazo', ref: props.path }} />
         <a class="btn primary" href={href('estudiar', ...props.path.split('/'))}><BookOpen size={18} />{' '}{tr('today.estudiar')}</a>
         <button type="button" class="btn" onClick={() => setCsv(true)}><FileSpreadsheet size={18} /> CSV</button>
         <button type="button" class="btn" onClick={async () => { await saver.flush(); const r = await deliver(new File([text], props.path.split('/').pop()!, { type: 'text/markdown' })); if (r !== 'cancelled') app.toast(tr('deck.mazo_exportado')); }}><Share size={18} />{' '}{tr('deck.exportar')}</button>

@@ -9,9 +9,10 @@ import { renderMarkdown } from '../md/render';
 import { useApp } from '../state';
 import { redact } from './errors';
 import { type Msg, patch } from './history';
+import { applySetting, appLists } from './tools-app';
 import { applyProposal, type EventFields, isBad, revalidate, undoProposal } from './proposal';
 
-const TITLE: Record<'tarjetas' | 'examen' | 'evento' | 'nota' | 'diagrama' | 'fecha', string> = { tarjetas: 'chat.pv_t_tarjetas', examen: 'chat.pv_t_examen', evento: 'chat.pv_t_evento', nota: 'chat.pv_t_nota', diagrama: 'chat.pv_t_diagrama', fecha: 'chat.pv_t_fecha' } as const;
+const TITLE: Record<'tarjetas' | 'examen' | 'evento' | 'nota' | 'diagrama' | 'fecha' | 'edicion' | 'ajuste', string> = { edicion: 'asist2.pv_t_edicion', ajuste: 'asist2.pv_t_ajuste', tarjetas: 'chat.pv_t_tarjetas', examen: 'chat.pv_t_examen', evento: 'chat.pv_t_evento', nota: 'chat.pv_t_nota', diagrama: 'chat.pv_t_diagrama', fecha: 'chat.pv_t_fecha' } as const;
 const NEWFILE = new Set(['nota', 'diagrama', 'fecha']);
 
 /** Vista del diagrama propuesto con el visor de siempre, cargado bajo demanda; si falla, queda el código. */
@@ -30,7 +31,7 @@ const TYPE: Record<string, 'date' | 'time'> = { fecha: 'date', inicio: 'time', f
 /** Código de aviso (i18n `chat.pv_werr_*`) de un fallo al guardar; los DOMException de almacenamiento tienen mensaje propio. */
 const werr = (e: unknown): string => {
   const n = e instanceof Error ? (e.name === 'Error' ? e.message : e.name) : '';
-  return ({ open: 'open', exists: 'exists', gone: 'gone', QuotaExceededError: 'quota', NotAllowedError: 'denied', SecurityError: 'denied', NotFoundError: 'notfound' } as Record<string, string>)[n] ?? 'other';
+  return ({ open: 'open', changed: 'changed', exists: 'exists', gone: 'gone', QuotaExceededError: 'quota', NotAllowedError: 'denied', SecurityError: 'denied', NotFoundError: 'notfound' } as Record<string, string>)[n] ?? 'other';
 };
 /** «Nombre: mensaje» corto y sin claves, para diagnosticar fallos no clasificados. */
 const tech = (e: unknown): string => redact(e instanceof Error ? `${e.name}: ${e.message}` : String(e)).replace(/\s+/g, ' ').slice(0, 160);
@@ -60,13 +61,13 @@ function WritePreview({ m }: { m: Msg }) {
   }, [st]);
   useEffect(() => { if (edit) first.current?.focus(); }, [edit]);
 
-  const refresh = () => (p.tipo === 'nota' || p.tipo === 'diagrama' ? app.changed('notes') : app.changed());
+  const refresh = () => (p.tipo === 'nota' || p.tipo === 'diagrama' || (p.tipo === 'edicion' && p.destino.startsWith('notes/')) ? app.changed('notes') : app.changed());
   const accept = async () => {
     if (lock.current || st !== 'pending' || edit) return; // doble toque: una sola escritura (applyProposal también es idempotente)
     lock.current = true;
     patch(m.id, { pstate: 'saving', perr: undefined });
     try {
-      await applyProposal(app.vault, app.col, p, m.id);
+      if (p.tipo === 'ajuste') applySetting(app, await appLists(app.vault), p); else await applyProposal(app.vault, app.col, p, m.id);
       patch(m.id, { pstate: 'saved' });
       refresh();
     } catch (e) {
@@ -77,7 +78,8 @@ function WritePreview({ m }: { m: Msg }) {
     if (lock.current || st !== 'saved') return;
     lock.current = true;
     try {
-      const r = await undoProposal(app.vault, m.id);
+      if (p.tipo === 'ajuste') applySetting(app, await appLists(app.vault), p, true);
+      const r = p.tipo === 'ajuste' ? { emptied: [] as string[] } : await undoProposal(app.vault, m.id);
       patch(m.id, { pstate: 'undone', code: r.emptied.length ? 'emptied' : undefined });
       refresh();
     } catch (e) { patch(m.id, { perr: e instanceof Error && e.message === 'changed' ? 'changed' : werr(e), pdet: tech(e) }); } finally { lock.current = false; }
@@ -124,7 +126,7 @@ function WritePreview({ m }: { m: Msg }) {
           {edit
             ? <button type="button" class="btn primary" aria-label={t('chat.pv_revisar')} onClick={check}><Check size={18} aria-hidden="true" /> {t('chat.pv_revisar')}</button>
             : <button type="button" class="btn primary" aria-label={t('chat.pv_aceptar')} disabled={busy} onClick={() => void accept()}><Check size={18} aria-hidden="true" /> {busy ? t('chat.pv_guardando') : t('chat.pv_aceptar')}</button>}
-          {!edit && <button ref={editBtn} type="button" class="btn" aria-label={t('chat.pv_editar')} disabled={busy} onClick={open}><Pencil size={18} aria-hidden="true" /> {t('chat.pv_editar')}</button>}
+          {!edit && p.tipo !== 'ajuste' && <button ref={editBtn} type="button" class="btn" aria-label={t('chat.pv_editar')} disabled={busy} onClick={open}><Pencil size={18} aria-hidden="true" /> {t('chat.pv_editar')}</button>}
           <button type="button" class="btn" aria-label={t('chat.pv_cancelar')} disabled={busy} onClick={() => patch(m.id, { pstate: 'canceled' })}><X size={18} aria-hidden="true" /> {t('chat.pv_cancelar')}</button>
         </div>
       ) : st === 'saved' ? (

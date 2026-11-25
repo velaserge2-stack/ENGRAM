@@ -5,6 +5,7 @@ import { useApp } from '../state';
 import { useKeyScope } from '../ui/keys';
 import { Portal } from '../ui/overlay';
 import { Dock, DockMini } from './dock';
+import { readCtx, type ChatCtx } from './context';
 import { useDict } from './voice';
 import { Mascot, useMascotState } from './mascot';
 import { useChatView } from './state';
@@ -21,6 +22,7 @@ export default function ChatHost() {
   const app = useApp();
   const { view, phone, go } = useChatView();
   const [pre, setPre] = useState<{ text: string; n: number } | undefined>();
+  const [cx, setCx] = useState<ChatCtx | null>(null);
   const rest = useRef<HTMLButtonElement>(null); // el elemento de reposo (mascota, avatar de la pastilla o botón del teléfono)
   const base = useMascotState();
   const dictating = useDict().state === 'listening';
@@ -33,7 +35,7 @@ export default function ChatHost() {
     else if (id === 'chat.size' && view === 'chat' && !phone) setSize(size === 'large' ? 'compact' : 'large');
   });
   useEffect(() => {
-    const f = () => go('abrir');
+    const f = (e: Event) => { const c = readCtx((e as CustomEvent).detail); if (c) setCx(c); go('abrir'); };
     addEventListener(OPEN_EVENT, f);
     return () => removeEventListener(OPEN_EVENT, f);
   });
@@ -45,7 +47,7 @@ export default function ChatHost() {
     <Portal>
       {view === 'chat' && (
         <Suspense fallback={null}>
-          <Conversation size={size} prefill={pre} phone={phone} onClose={() => go('cerrar')} onSize={() => setSize(size === 'large' ? 'compact' : 'large')} />
+          <Conversation size={size} prefill={pre} ctx={cx} onCtx={setCx} phone={phone} onClose={() => go('cerrar')} onSize={() => setSize(size === 'large' ? 'compact' : 'large')} />
         </Suspense>
       )}
       {view === 'mascota' && (phone
