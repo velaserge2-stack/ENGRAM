@@ -23,10 +23,10 @@ try {
   page.on('pageerror', (e) => errors.push(e.message));
   const dialogs = [];
   page.on('dialog', (d) => { dialogs.push(d.message()); void d.accept(); });
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
-  await page.goto(URL_ + '#/notas');
+  await page.goto(URL_ + '?app#/notas');
   const link = page.locator('a[href^="#/notas/"]').first();
   await link.waitFor();
   const name = (await link.textContent()).trim();
@@ -50,7 +50,7 @@ try {
   check(!(await row.count()), 'tras eliminar, la papelera queda vacía');
 
   await page.reload();
-  await page.goto(URL_ + '#/notas');
+  await page.goto(URL_ + '?app#/notas');
   await openTrash();
   await page.locator('.sheet').getByText('Vacía.').waitFor();
   check(true, 'tras recargar, sigue vacía (se borró del disco)');

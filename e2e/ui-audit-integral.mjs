@@ -96,15 +96,15 @@ async function boot(w, h) {
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
-  await page.goto(URL_ + '#/ajustes/addons');
+  await page.goto(URL_ + '?app#/ajustes/addons');
   const reg = page.getByRole('region', { name: 'Add-ons' });
   for (const n of ['Asistente', 'Sonido ambiente', 'Bandeja de entrada']) await reg.getByRole('switch', { name: n, exact: true }).check({ timeout: 4000 }).catch(() => console.log('  (add-on «' + n + '» no encontrado)'));
   // clave falsa: el chat abre igual
   await page.evaluate(() => localStorage.setItem('engrama.chat.keys', JSON.stringify({ v: 1, keys: [{ id: 'a', alias: 'Uno', provider: 'gemini', key: 'AIzaFake', status: 'active' }] })));
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   // ambiente sonando → reproductor en la barra
   await page.getByRole('button', { name: 'Sonido ambiente' }).click({ timeout: 1500 }).catch(async () => { await page.locator('.more-pill').click(); await page.getByRole('menuitem', { name: /Sonido ambiente/ }).click(); });
@@ -117,7 +117,7 @@ async function boot(w, h) {
 }
 
 let w0 = 0, h0 = 0;
-const goto = async (page, hash) => { await page.goto(URL_ + hash); await page.waitForTimeout(500); };
+const goto = async (page, hash) => { await page.goto(URL_ + '?app' + hash); await page.waitForTimeout(500); };
 const kbSet = (page, px) => page.evaluate((px) => { document.documentElement.style.setProperty('--kb-inset', px + 'px'); document.documentElement.classList.toggle('kb-open', px > 80); }, px);
 
 for (const [w, h] of SIZES) {

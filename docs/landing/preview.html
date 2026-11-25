@@ -1,0 +1,1153 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Engrama · vista previa de la página de presentación</title>
+<style>/* Engrama · maqueta de la página de presentación — estilos base compartidos (landing + acceso).
+   Identidad: Cristal (claro por defecto), Helvetica Neue apretada, mono para cifras, curvas de la familia GREX.
+   Sin red: nada de fuentes ni imágenes externas. */
+:root{
+  --font:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --mono:ui-monospace,Menlo,monospace;
+  --t1:#101113;--t2:rgba(16,17,19,.64);--t3:rgba(16,17,19,.42);
+  --bg0:#c9ced6;
+  --glass:rgba(255,255,255,.62);--glass2:rgba(255,255,255,.88);--line:rgba(255,255,255,.82);--hair:rgba(16,17,19,.1);--hair2:rgba(16,17,19,.06);
+  --ink:#101113;--ink-t:#fff;--chip:rgba(16,17,19,.06);--chip2:rgba(16,17,19,.1);
+  --shadow:0 18px 50px rgba(20,24,40,.16),0 2px 8px rgba(20,24,40,.08);--shadow-s:0 6px 18px rgba(20,24,40,.12);
+  --ok:rgba(16,17,19,.82);
+  --r-s:14px;--r-m:20px;--r-l:28px;--r-xl:36px;--r-pill:999px;
+  --maxw:1180px;
+  --face:#fff;--face2:#e9ebee;--feat:#1b1c1f;--cheek:rgba(16,17,19,.09);--edge:rgba(16,17,19,.16);
+}
+html.dark{
+  --t1:#f4f5f7;--t2:rgba(244,245,247,.64);--t3:rgba(244,245,247,.42);
+  --bg0:#14171b;
+  --glass:rgba(26,27,31,.68);--glass2:rgba(20,21,24,.9);--line:rgba(255,255,255,.12);--hair:rgba(255,255,255,.12);--hair2:rgba(255,255,255,.07);
+  --ink:#f4f5f7;--ink-t:#101113;--chip:rgba(255,255,255,.08);--chip2:rgba(255,255,255,.14);
+  --shadow:0 18px 50px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.3);--shadow-s:0 6px 18px rgba(0,0,0,.4);
+  --ok:rgba(244,245,247,.86);
+  --face:#fbfbfc;--face2:#d8dade;--edge:rgba(255,255,255,0);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;font-family:var(--font);color:var(--t1);letter-spacing:-.012em;line-height:1.45;-webkit-font-smoothing:antialiased;background:var(--bg0);min-height:100vh;overflow-x:hidden}
+.bg{position:fixed;inset:0;z-index:-1;background:
+  radial-gradient(55% 45% at 12% 8%,#e3d3bf 0,transparent 70%),radial-gradient(50% 55% at 88% 14%,#a7bdb0 0,transparent 72%),
+  radial-gradient(70% 60% at 50% 105%,#7c8b9a 0,transparent 70%),radial-gradient(40% 40% at 70% 60%,#d6c3c0 0,transparent 70%),#b4bcc6}
+html.dark .bg{background:radial-gradient(55% 45% at 12% 8%,#3b3329 0,transparent 70%),radial-gradient(50% 55% at 88% 14%,#26372f 0,transparent 72%),radial-gradient(70% 60% at 50% 105%,#1b2431 0,transparent 70%),#12151a}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--t1);outline-offset:2px;border-radius:8px}
+.glass{background:var(--glass);backdrop-filter:blur(24px) saturate(1.3);-webkit-backdrop-filter:blur(24px) saturate(1.3);border:.5px solid var(--line);box-shadow:var(--shadow)}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
+
+/* tipografía */
+.display{font-size:clamp(46px,8.4vw,104px);line-height:.96;font-weight:700;letter-spacing:-.055em;margin:0}
+.h2{font-size:clamp(34px,5vw,60px);line-height:1;font-weight:700;letter-spacing:-.045em;margin:0}
+.h3{font-size:22px;line-height:1.15;font-weight:700;letter-spacing:-.03em;margin:0}
+.lead{font-size:clamp(17px,2vw,21px);color:var(--t2);max-width:60ch;margin:0}
+.eyebrow{font-size:14px;color:var(--t2);font-weight:600;letter-spacing:-.005em}
+.small{font-size:13.5px;color:var(--t2)}
+
+/* controles */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 24px;border-radius:var(--r-pill);border:.5px solid var(--hair);background:var(--glass2);color:var(--t1);font-weight:700;font-size:16px;letter-spacing:-.02em;cursor:pointer;transition:transform .18s cubic-bezier(.3,1.5,.5,1),background .15s}
+.btn:hover{transform:translateY(-1px)}.btn:active{transform:scale(.97)}
+.btn.ink{background:var(--ink);color:var(--ink-t);border-color:transparent}
+.btn.soft{background:var(--chip);box-shadow:none}
+.btn.sm{min-height:40px;padding:0 16px;font-size:14.5px}
+.pill{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px;border-radius:var(--r-pill);background:var(--chip);border:.5px solid var(--hair2);font-weight:600;font-size:14.5px;cursor:pointer}
+.pill[aria-pressed=true],.pill.on{background:var(--ink);color:var(--ink-t);border-color:transparent}
+.seg{display:inline-flex;background:var(--chip);border-radius:var(--r-pill);padding:3px;gap:2px}
+.seg button{border:0;background:none;min-height:36px;padding:0 14px;border-radius:var(--r-pill);font-weight:700;font-size:13.5px;color:var(--t2);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--ink-t)}
+.tag{display:inline-flex;align-items:center;min-height:24px;padding:0 9px;border-radius:9px;background:var(--chip);font-size:12px;font-weight:700;color:var(--t2);font-family:var(--mono)}
+hr.rule{border:0;border-top:.5px solid var(--hair);margin:0}
+
+/* barra superior de la página */
+.nav{position:sticky;top:10px;z-index:60;margin:10px auto 0;max-width:var(--maxw);display:flex;align-items:center;gap:6px;padding:7px 8px 7px 18px;border-radius:var(--r-pill)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:19px;letter-spacing:-.04em;margin-right:10px}
+.brand i{width:30px;height:30px;border-radius:10px;background:var(--ink);display:grid;place-items:center}
+.brand i img{width:20px;height:20px;display:block;filter:invert(0)}
+.nav a.l{padding:0 13px;min-height:40px;display:inline-flex;align-items:center;border-radius:var(--r-pill);font-weight:600;font-size:15px;color:var(--t2)}
+.nav a.l:hover{color:var(--t1);background:var(--chip)}
+.nav .sp{flex:1}
+.search{display:inline-flex;align-items:center;gap:10px;min-height:40px;min-width:220px;padding:0 14px;border-radius:var(--r-pill);background:var(--chip);color:var(--t3);font-weight:600;font-size:14.5px;border:0;cursor:pointer}
+.search kbd{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--t3)}
+@media (max-width:900px){.nav .l,.search{display:none}.nav{padding-left:14px}}
+
+/* tarjetas */
+.card{border-radius:var(--r-l);background:var(--glass);border:.5px solid var(--line);box-shadow:var(--shadow-s);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.tile{position:absolute;display:grid;place-items:center;border-radius:26%;background:var(--glass2);border:.5px solid var(--line);box-shadow:var(--shadow);color:var(--t1);animation:float 7s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0) rotate(var(--r,0deg))}50%{transform:translateY(-10px) rotate(calc(var(--r,0deg) + 2deg))}}
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .7s cubic-bezier(.2,.8,.2,1)}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.tile,.reveal{animation:none!important;transition:none!important;opacity:1;transform:none}}
+
+/* mascota GREX */
+.mascot{display:block;overflow:visible}
+.mascot .blink{transform-box:fill-box;transform-origin:center;animation:blink 4.6s infinite}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.08)}}
+@media (prefers-reduced-motion:reduce){.mascot *{animation:none!important}}
+
+/* aviso de maqueta (solo en la vista previa) */
+.maqueta{position:relative;z-index:70;max-width:min(760px,calc(100vw - 24px));margin:10px auto 0;padding:7px 16px;border-radius:var(--r-pill);font-size:12.5px;font-weight:700;color:var(--t2);text-align:center;line-height:1.3}
+
+/* pie */
+.foot{margin-top:90px;padding:46px 0 90px;border-top:.5px solid var(--hair)}
+.foot .cols{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:30px}
+.foot h4{margin:0 0 12px;font-size:14px;font-weight:700}
+.foot a{display:block;padding:6px 0;color:var(--t2);font-size:15px}
+.foot a:hover{color:var(--t1)}
+@media (max-width:760px){.foot .cols{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="maqueta glass" role="note">Maqueta · precios, cuentas y acceso son de ejemplo; esta página no envía nada.</div>
+<style>
+#landing{position:relative;padding-bottom:20px}
+#landing svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+#landing svg.lg{fill:currentColor;fill-rule:evenodd;flex:none}
+#landing .lp-defs{position:absolute;width:0;height:0;overflow:hidden}
+#landing .lp-sec{padding:100px 0}
+#landing .lp-head{text-align:center;margin-bottom:44px}
+#landing .lp-head .lead{margin:18px auto 0}
+#landing .lp-eye{display:inline-flex;align-items:center;gap:8px;margin-bottom:18px}
+#landing .ex{font-family:var(--mono);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--t2);background:var(--chip);border-radius:8px;padding:3px 8px;white-space:nowrap}
+#landing .btn,#landing .pill{min-height:48px}
+#landing .btn svg.ic{width:18px;height:18px}
+
+/* nav */
+#landing .nav{width:min(var(--maxw),calc(100% - 24px));max-width:none;margin:10px auto 0}
+#landing .nav a.l{padding:0 10px;font-size:14.5px;white-space:nowrap}
+#landing .nav .search{min-width:150px}
+#landing .nav .btn,#landing .nav .lp-login{white-space:nowrap}
+#landing .nav .seg button{min-width:44px;min-height:44px;display:grid;place-items:center;padding:0}
+#landing .nav .btn{min-height:44px;padding:0 18px;font-size:15px}
+#landing .nav .lp-login{color:var(--t1);font-weight:700;font-size:15px;min-height:44px;display:inline-flex;align-items:center;padding:0 12px;border-radius:var(--r-pill)}
+#landing .nav .lp-login:hover{background:var(--chip)}
+#landing .lp-sm{display:none}
+@media (max-width:1180px){#landing .search{display:none}}
+@media (max-width:900px){#landing .nav a.l{display:none}}
+@media (max-width:600px){#landing .nav{padding:6px 6px 6px 12px}#landing .nav .seg{display:none}#landing .lp-lg{display:none}#landing .lp-sm{display:inline}#landing .brand{margin-right:0}}
+
+/* hero */
+#landing .lp-hero{position:relative;padding:76px 0 30px;text-align:center}
+#landing .lp-hero .wrap{position:relative;z-index:1}
+#landing .display{text-wrap:balance}
+#landing .lp-hero .lead{margin:26px auto 0}
+#landing .lp-tiles{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+#landing .lp-tiles .tile{width:var(--s);height:var(--s);animation-delay:var(--d,0s);animation-duration:var(--t,7s);transform:rotate(var(--r,0deg))}
+#landing .lp-tiles .tile svg.ic{width:42%;height:42%;stroke-width:1.8}
+#landing .lp-tiles .tile svg.gx{width:64%;height:64%}
+#landing .lp-pane>*{min-width:0}
+#landing .lp-pane{display:grid;grid-template-columns:1.3fr 1fr;gap:40px;align-items:center;text-align:left;max-width:1040px;margin:0 auto;grid-area:1/1;transition:opacity .35s ease,visibility .35s}
+#landing .lp-stage{display:grid;margin-top:66px}
+#landing .lp-pane[data-on=false]{visibility:hidden;opacity:0;pointer-events:none}
+#landing .lp-pane[data-on=true] .lp-fig{animation:lp-in .6s cubic-bezier(.3,1.3,.5,1)}
+@keyframes lp-in{from{opacity:0;transform:translateY(14px) scale(.98)}}
+#landing .lp-num{font-size:clamp(34px,5.6vw,80px);line-height:.92;font-weight:700;letter-spacing:-.065em;margin:0}
+#landing .lp-num span{display:block;color:var(--t3)}
+#landing .lp-num.m{font-family:var(--mono);letter-spacing:-.08em}
+#landing .lp-cap{margin:16px 0 0;font-size:17px;color:var(--t2);max-width:34ch}
+#landing .lp-demo{padding:22px;text-align:left}
+#landing .lp-demo .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;font-size:13.5px;color:var(--t2);font-weight:600}
+#landing .lp-q{font-size:18px;font-weight:700;letter-spacing:-.03em;line-height:1.25;margin:0 0 8px}
+#landing .lp-a{font-size:15px;color:var(--t2);margin:0 0 16px;padding:10px 12px;border-radius:14px;background:var(--chip)}
+#landing .lp-4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+#landing .lp-4 span{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:56px;border-radius:16px;background:var(--chip);font-size:13.5px;font-weight:700}
+#landing .lp-4 span b{font:600 12.5px var(--mono);color:var(--t2);letter-spacing:-.03em}
+#landing .lp-4 span:nth-child(3){background:var(--ink);color:var(--ink-t)}
+#landing .lp-4 span:nth-child(3) b{color:inherit;opacity:.75}
+#landing .lk{display:inline-block;padding:0 6px;border-radius:7px;background:var(--chip2);font-weight:700;font-size:.94em}
+#landing .lp-bar{position:relative;height:12px;border-radius:99px;background:var(--chip2);margin:10px 0 8px}
+#landing .lp-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--ink)}
+#landing .lp-bar u{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--t2);text-decoration:none}
+#landing .row2{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--t2)}
+#landing .row2 b{color:var(--t1);font-family:var(--mono);letter-spacing:-.03em}
+#landing .lp-pillmock{display:flex;align-items:center;gap:10px;width:min(440px,100%);height:54px;padding:0 8px 0 18px;border-radius:27px;background:var(--glass2);border:.5px solid var(--line);box-shadow:var(--shadow-s);color:var(--t3);font-size:15px;font-weight:600}
+#landing .lp-pillmock .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#landing .lp-pillmock .dic{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:99px;background:var(--chip);color:var(--t1);font-size:13.5px;font-weight:700}
+#landing .lp-pillmock .dic svg.ic{width:16px;height:16px}
+#landing .lp-tabs{margin:44px auto 0;display:flex;justify-content:center}
+#landing .seg.lp-big button{min-height:44px;padding:0 18px;font-size:15px;transition:background .2s,color .2s,transform .2s cubic-bezier(.3,1.5,.5,1)}
+#landing .seg button[aria-selected=true]{background:var(--ink);color:var(--ink-t)}
+#landing .seg button:active{transform:scale(.95)}
+#landing .lp-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:30px}
+@media (max-width:860px){
+  #landing .lp-pane{grid-template-columns:minmax(0,1fr);gap:22px;text-align:center}
+  #landing .lp-cap{margin-left:auto;margin-right:auto}
+  #landing .lp-stage{margin-top:40px}
+  #landing .lp-sec{padding:70px 0}
+}
+@media (max-width:1100px){
+  #landing .lp-tiles{position:static;display:flex;justify-content:center;gap:14px;margin-bottom:26px;overflow:visible}
+  #landing .lp-tiles .tile{position:static;--s:64px!important;animation:none;transform:rotate(var(--r))}
+  #landing .lp-hero{padding-top:34px}
+  #landing .nav .lp-opt{display:none}
+}
+@media (max-width:760px){
+  #landing .lp-tiles{gap:10px}
+  #landing .lp-tiles .tile{--s:48px!important}
+  #landing .lp-tiles .tile:nth-child(n+6){display:none}
+  #landing .seg.lp-big{display:grid;grid-template-columns:1fr 1fr;border-radius:24px;width:100%;max-width:340px}
+  #landing .seg.lp-big button{padding:0 8px}
+}
+@media (max-width:600px){#landing .display{font-size:clamp(38px,11.4vw,56px)}}
+
+/* hechos */
+#landing .lp-facts{display:grid;grid-template-columns:repeat(5,1fr);padding:10px}
+#landing .lp-facts div{padding:22px 18px;border-left:.5px solid var(--hair)}
+#landing .lp-facts div:first-child{border-left:0}
+#landing .lp-facts b{display:block;font:700 clamp(34px,4.2vw,52px)/1 var(--mono);letter-spacing:-.07em}
+#landing .lp-facts span{display:block;margin-top:8px;font-size:14.5px;color:var(--t2)}
+@media (max-width:860px){#landing .lp-facts{grid-template-columns:1fr 1fr}#landing .lp-facts div{border-left:0;border-top:.5px solid var(--hair)}#landing .lp-facts div:nth-child(-n+2){border-top:0}}
+
+/* funciones */
+#landing .lp-filters{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:28px}
+#landing .lp-filters .pill .n{font-family:var(--mono);opacity:.6;font-size:13px}
+#landing .lp-filters .pill{transition:transform .18s cubic-bezier(.3,1.5,.5,1),background .15s}
+#landing .lp-filters .pill:active{transform:scale(.95)}
+#landing .lp-tw{padding:10px 22px 6px}
+#landing table.lp-t{width:100%;border-collapse:collapse}
+#landing .lp-t th{font-size:13.5px;color:var(--t3);font-weight:600;text-align:left;padding:14px 12px}
+#landing .lp-t td{padding:16px 12px;border-top:.5px solid var(--hair);vertical-align:middle;font-size:15px}
+#landing .lp-t tr[hidden]{display:none}
+#landing .lp-t .r{text-align:right}
+#landing .lp-fn{display:flex;align-items:center;gap:14px;min-width:0}
+#landing .lp-fn .ico{width:42px;height:42px;border-radius:14px;background:var(--chip);display:grid;place-items:center;flex:none}
+#landing .lp-fn b{display:block;font-size:16px;letter-spacing:-.025em}
+#landing .lp-fn code{display:block;font:500 12.5px var(--mono);color:var(--t2);overflow-wrap:anywhere;letter-spacing:-.03em;margin-top:2px}
+#landing .lp-t .ben{color:var(--t2);max-width:34ch}
+#landing .lp-t .dat{font:600 13px var(--mono);letter-spacing:-.03em;white-space:nowrap}
+#landing .tg{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:99px;background:var(--chip);font-size:12.5px;font-weight:700;white-space:nowrap}
+#landing .tg.core{background:var(--ink);color:var(--ink-t)}
+#landing .tg.test{background:none;border:1px dashed var(--t3);color:var(--t1)}
+#landing .tgs{display:flex;gap:6px;flex-wrap:wrap}
+#landing .lp-foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 12px 12px;border-top:.5px solid var(--hair);font-size:14px;color:var(--t2)}
+@media (max-width:820px){
+  #landing .lp-tw{padding:6px 14px}
+  #landing .lp-t thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  #landing .lp-t,#landing .lp-t tbody,#landing .lp-t tr,#landing .lp-t td{display:block}
+  #landing .lp-t tr{padding:16px 0;border-top:.5px solid var(--hair)}
+  #landing .lp-t tr:first-child{border-top:0}
+  #landing .lp-t td{border:0;padding:5px 0}
+  #landing .lp-t .r{text-align:left}
+  #landing .lp-t .ben{max-width:none}
+  #landing .lp-t .dat{white-space:normal}
+}
+
+/* por qué */
+#landing .lp-why{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
+#landing .lp-stat{padding:30px}
+#landing .lp-stat .big{font-size:clamp(76px,11vw,148px);line-height:.88;font-weight:700;letter-spacing:-.07em;margin:0}
+#landing .lp-stat .big small{font-size:.32em;letter-spacing:-.04em;color:var(--t3);margin-left:6px}
+#landing .lp-stat p.c{margin:12px 0 18px;color:var(--t2);font-size:16px}
+#landing .lp-stat svg.curve{display:block;width:100%;height:auto}
+#landing .lp-stat svg text{font-family:var(--mono);font-size:16px;fill:var(--t2)}
+#landing .lp-rows{margin-top:28px;border-top:.5px solid var(--hair)}
+#landing .lp-row{display:grid;grid-template-columns:44px 1fr;gap:6px 16px;padding:20px 0;border-bottom:.5px solid var(--hair)}
+#landing .lp-row .ico{width:44px;height:44px;border-radius:15px;background:var(--glass2);border:.5px solid var(--line);display:grid;place-items:center;grid-row:span 2}
+#landing .lp-row h3{margin:0;font-size:18px;letter-spacing:-.03em}
+#landing .lp-row p{margin:0;color:var(--t2);font-size:15.5px}
+@media (max-width:900px){#landing .lp-why{grid-template-columns:1fr;gap:34px}}
+
+/* tour */
+#landing .lp-tour{display:grid;gap:22px}
+#landing .lp-tc{display:grid;grid-template-columns:1fr 1.08fr;gap:44px;align-items:center;padding:38px}
+#landing .lp-tc:nth-child(even) .txt{order:2}
+#landing .lp-tc .n{font:700 13px var(--mono);color:var(--t3)}
+#landing .lp-tc h3{font-size:clamp(26px,3vw,38px);line-height:1.04;letter-spacing:-.045em;margin:10px 0 12px}
+#landing .lp-tc p{margin:0 0 16px;color:var(--t2);font-size:16.5px}
+#landing .lp-tc ul{margin:0;padding:0;list-style:none;display:grid;gap:9px}
+#landing .lp-tc li{display:flex;gap:10px;align-items:flex-start;font-size:15.5px}
+#landing .lp-tc li svg.ic{width:18px;height:18px;margin-top:2px;stroke-width:2.4}
+#landing .lp-mock{border-radius:var(--r-m);background:var(--glass2);border:.5px solid var(--line);box-shadow:var(--shadow-s);padding:18px;min-width:0;position:relative;overflow:hidden}
+#landing .lp-mock svg{display:block;width:100%;height:auto}
+#landing .lp-mock text{font-family:var(--font);font-size:13px;fill:var(--t1);font-weight:700}
+#landing .lp-mock .mt{font-family:var(--mono);font-weight:500;fill:var(--t2);font-size:11.5px}
+#landing .lp-mock .mk{position:absolute;top:12px;right:12px}
+#landing .fl{fill:var(--chip2)}#landing .fi{fill:var(--ink)}#landing .st{stroke:var(--t2);fill:none;stroke-width:2;stroke-linecap:round}
+#landing .nd{fill:var(--glass2);stroke:var(--t3);stroke-width:1.2}
+#landing .tree{font:500 13.5px/1.7 var(--mono);color:var(--t2);margin:0;white-space:pre;overflow:hidden;letter-spacing:-.03em}
+#landing .tree b{color:var(--t1)}
+@media (max-width:900px){#landing .lp-tc{grid-template-columns:1fr;gap:24px;padding:24px}#landing .lp-tc:nth-child(even) .txt{order:0}}
+
+/* asistente */
+#landing .lp-as{display:grid;grid-template-columns:1.05fr 1fr;gap:48px;align-items:start}
+#landing .lp-as .txt .h2{margin-bottom:18px}
+#landing .lp-uso{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0 0 18px;font:600 11px var(--mono);color:var(--t2)}
+#landing .lp-uso span{display:inline-flex;align-items:center;gap:5px}
+#landing .lp-prov{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:26px}
+#landing .lp-prov .card{padding:16px;display:flex;align-items:center;gap:12px}
+#landing .lp-prov .card .ico{width:44px;height:44px;border-radius:14px;background:var(--chip);display:grid;place-items:center;flex:none}
+#landing .lp-prov b{display:block;font-size:16px;letter-spacing:-.025em}
+#landing .lp-prov code{font:500 12px var(--mono);color:var(--t2);letter-spacing:-.04em}
+#landing .lp-prev{margin-top:18px;padding:16px;border-radius:var(--r-m);background:var(--glass2);border:.5px solid var(--line);box-shadow:var(--shadow-s)}
+#landing .lp-prev .top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px;font-size:13.5px;font-weight:700}
+#landing .lp-prev ul{margin:0 0 12px;padding:0;list-style:none;font-size:14.5px;display:grid;gap:6px;color:var(--t2)}
+#landing .lp-prev .b{display:flex;gap:8px}
+#landing .lp-can{margin:0;padding:0;list-style:none;display:grid;gap:0;border-top:.5px solid var(--hair)}
+#landing .lp-can li{display:grid;grid-template-columns:36px 1fr;gap:0 12px;padding:15px 0;border-bottom:.5px solid var(--hair);font-size:15.5px}
+#landing .lp-can li svg.ic{margin-top:2px}
+#landing .lp-can b{display:block;letter-spacing:-.02em}
+#landing .lp-can span{color:var(--t2);font-size:14.5px}
+#landing .lp-warn{display:flex;gap:12px;align-items:center;margin-top:22px;padding:16px 18px;border-radius:var(--r-m);border:1px dashed var(--t3);background:var(--glass);font-weight:700;font-size:15.5px}
+@media (max-width:900px){#landing .lp-as{grid-template-columns:1fr;gap:34px}}
+@media (max-width:480px){#landing .lp-prov{grid-template-columns:1fr}}
+
+/* migrar */
+#landing .lp-mig{display:grid;grid-template-columns:1.15fr 1fr;gap:28px;align-items:stretch}
+#landing .lp-code{padding:6px 0 10px;overflow:hidden}
+#landing .lp-code .bar{display:flex;align-items:center;gap:8px;padding:14px 20px;border-bottom:.5px solid var(--hair);font:600 12.5px var(--mono);color:var(--t2)}
+#landing .lp-code .bar i{width:10px;height:10px;border-radius:50%;background:var(--chip2)}
+#landing .lp-code .bar .ex{margin-left:auto}
+#landing .lp-code pre{margin:0;padding:12px 0;font:500 14px/1.9 var(--mono);letter-spacing:-.03em;overflow:hidden}
+#landing .lp-code .ln{display:block;padding:0 20px 0 52px;position:relative;white-space:pre-wrap;overflow-wrap:anywhere}
+#landing .lp-code .ln:before{content:attr(data-s);position:absolute;left:22px;color:var(--t3);font-weight:700}
+#landing .lp-code .ln.add{background:var(--chip);color:var(--t1)}
+#landing .lp-code .ln.del{color:var(--t3);text-decoration:line-through}
+#landing .lp-code .ln.cm{color:var(--t3)}
+#landing .lp-start{padding:28px}
+#landing .lp-start h3{font-size:22px;letter-spacing:-.035em;margin:0 0 14px}
+#landing .lp-st{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:center;padding:12px 0;border-top:.5px solid var(--hair);font-size:15.5px;font-weight:600;letter-spacing:-.02em}
+#landing .lp-st i{font:700 14px var(--mono);width:34px;height:34px;border-radius:12px;background:var(--chip);display:grid;place-items:center;font-style:normal}
+#landing .lp-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+#landing .lp-chips span{min-height:34px;display:inline-flex;align-items:center;padding:0 14px;border-radius:99px;background:var(--chip);font-size:14px;font-weight:600}
+@media (max-width:900px){#landing .lp-mig{grid-template-columns:1fr}}
+
+/* precios */
+#landing .lp-band{display:flex;justify-content:center;margin-bottom:22px}
+#landing .lp-band span{padding:8px 16px;border-radius:99px;border:1px dashed var(--t3);background:var(--glass);font:700 13px var(--mono);letter-spacing:-.02em}
+#landing .lp-plans{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+#landing .lp-plan{padding:28px;display:flex;flex-direction:column}
+#landing .lp-plan.hi{background:var(--glass2);box-shadow:var(--shadow);outline:2px solid var(--ink);outline-offset:-2px}
+#landing .lp-plan h3{margin:0 0 4px;font-size:20px;letter-spacing:-.03em;display:flex;align-items:center;justify-content:space-between;gap:8px}
+#landing .lp-plan .d{color:var(--t2);font-size:15px;margin:0;min-height:44px}
+#landing .lp-plan .pr{font-size:clamp(46px,5.4vw,68px);line-height:1;font-weight:700;letter-spacing:-.07em;margin:20px 0 4px}
+#landing .lp-plan .pr small{font-size:.3em;letter-spacing:-.02em;color:var(--t3);font-weight:600;margin-left:4px}
+#landing .lp-plan ul{list-style:none;margin:20px 0 24px;padding:0;font:500 13.5px var(--mono);letter-spacing:-.03em;flex:1}
+#landing .lp-plan li{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-top:.5px solid var(--hair);color:var(--t2)}
+#landing .lp-plan li b{color:var(--t1);text-align:right}
+#landing .lp-plan .btn{width:100%}
+#landing .lp-note{margin:20px auto 0;text-align:center;color:var(--t2);font-size:14.5px;max-width:70ch}
+#landing .lp-save{display:grid;grid-template-columns:repeat(3,1fr);margin-top:30px;padding:8px}
+#landing .lp-save div{padding:20px 22px;border-left:.5px solid var(--hair)}
+#landing .lp-save div:first-child{border-left:0}
+#landing .lp-save h4{margin:0 0 6px;font-size:16px;letter-spacing:-.025em;display:flex;gap:8px;align-items:center}
+#landing .lp-save p{margin:0;color:var(--t2);font-size:14.5px}
+@media (max-width:900px){#landing .lp-plans{grid-template-columns:1fr}#landing .lp-plan .d{min-height:0}#landing .lp-save{grid-template-columns:1fr}#landing .lp-save div{border-left:0;border-top:.5px solid var(--hair)}#landing .lp-save div:first-child{border-top:0}}
+
+/* preguntas */
+#landing .lp-faq{max-width:820px;margin:0 auto;display:grid;gap:10px}
+#landing .lp-faq details{border-radius:var(--r-m);background:var(--glass);border:.5px solid var(--line);box-shadow:var(--shadow-s);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+#landing .lp-faq summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:60px;padding:14px 20px;font-size:18px;font-weight:700;letter-spacing:-.03em;border-radius:var(--r-m)}
+#landing .lp-faq summary::-webkit-details-marker{display:none}
+#landing .lp-faq summary svg.ic{transition:transform .3s cubic-bezier(.3,1.5,.5,1)}
+#landing .lp-faq details[open] summary svg.ic{transform:rotate(45deg)}
+#landing .lp-faq .a{padding:0 20px 20px;color:var(--t2);font-size:16px;max-width:64ch}
+#landing .lp-faq .a b{color:var(--t1)}
+
+/* CTA + pie */
+#landing .lp-final{text-align:center;padding:clamp(44px,8vw,96px) 24px;border-radius:var(--r-xl);position:relative;overflow:hidden}
+#landing .lp-final .mascot{margin:0 auto 20px}
+#landing .lp-final .lead{margin:20px auto 0}
+#landing .lp-final .lp-cta{margin-top:30px}
+#landing .foot{margin-top:60px}
+#landing .foot .cols{grid-template-columns:1.4fr repeat(3,1fr)}
+#landing .lp-dead{display:block;padding:6px 0;color:var(--t2);font-size:15px;cursor:default}
+#landing .foot a{min-height:32px}
+#landing .lp-bot{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-top:34px;padding-top:22px;border-top:.5px solid var(--hair);font-size:14px;color:var(--t2)}
+#landing .lp-bot .tools{display:flex;gap:12px;flex-wrap:wrap}
+#landing .lp-bot .seg button{min-height:40px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 12px}
+#landing .lp-bot .seg button svg.ic{width:16px;height:16px}
+#landing .lp-fnote{margin-top:14px;font-size:13.5px;color:var(--t2)}
+@media (max-width:760px){#landing .foot .cols{grid-template-columns:1fr 1fr}#landing .foot .cols>div:first-child{grid-column:1/-1}}
+
+/* reveal */
+#landing .reveal{transition-delay:var(--d,0s)}
+#landing:not(.lp-js) .reveal{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){#landing .lp-pane,#landing .lp-pane .lp-fig{animation:none!important;transition:none!important}#landing svg.ic,#landing .btn{transition:none!important}}
+</style>
+
+<main id="landing">
+<!-- definiciones SVG -->
+<svg class="lp-defs" aria-hidden="true" focusable="false"><defs>
+<linearGradient id="lp-gg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--face)"/><stop offset="1" style="stop-color:var(--face2)"/></linearGradient>
+<symbol id="lp-grex" viewBox="0 0 64 64"><ellipse cx="32" cy="60.5" rx="16" ry="2.2" fill="var(--cheek)"/><rect x="6" y="7" width="52" height="50" rx="20" fill="url(#lp-gg)" stroke="var(--edge)" stroke-width="1"/><ellipse cx="24" cy="30" rx="3.1" ry="4.1" fill="var(--feat)"/><ellipse cx="40" cy="30" rx="3.1" ry="4.1" fill="var(--feat)"/><circle cx="25.2" cy="28.4" r="1.15" fill="#fff"/><circle cx="41.2" cy="28.4" r="1.15" fill="#fff"/><ellipse cx="16.5" cy="38.5" rx="4" ry="2.5" fill="var(--cheek)"/><ellipse cx="47.5" cy="38.5" rx="4" ry="2.5" fill="var(--cheek)"/><path d="M28.5 38.6q3.5 3.4 7 0" fill="none" stroke="var(--feat)" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="lp-l-gemini" viewBox="0 0 24 24"><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"/></symbol>
+<symbol id="lp-l-groq" viewBox="0 0 24 24"><path d="M12.036 2c-3.853-.035-7 3-7.036 6.781-.035 3.782 3.055 6.872 6.908 6.907h2.42v-2.566h-2.292c-2.407.028-4.38-1.866-4.408-4.23-.029-2.362 1.901-4.298 4.308-4.326h.1c2.407 0 4.358 1.915 4.365 4.278v6.305c0 2.342-1.944 4.25-4.323 4.279a4.375 4.375 0 01-3.033-1.252l-1.851 1.818A7 7 0 0012.029 22h.092c3.803-.056 6.858-3.083 6.879-6.816v-6.5C18.907 4.963 15.817 2 12.036 2z"/></symbol>
+<symbol id="lp-l-openrouter" viewBox="0 0 24 24"><path d="M18.654 3.87a5.087 5.087 0 110 10.174L23.7 19.09c.64.641.187 1.737-.72 1.737H8.48a8.479 8.479 0 010-16.958h10.175zM8.479 7.26a5.087 5.087 0 100 10.176 5.087 5.087 0 000-10.175z"/></symbol>
+<symbol id="lp-l-kimi" viewBox="0 0 24 24"><path d="M21.846 0a1.923 1.923 0 110 3.846H20.15a.226.226 0 01-.227-.226V1.923C19.923.861 20.784 0 21.846 0z"/><path d="M11.065 11.199l7.257-7.2c.137-.136.06-.41-.116-.41H14.3a.164.164 0 00-.117.051l-7.82 7.756c-.122.12-.302.013-.302-.179V3.82c0-.127-.083-.23-.185-.23H3.186c-.103 0-.186.103-.186.23V19.77c0 .128.083.23.186.23h2.69c.103 0 .186-.102.186-.23v-3.25c0-.069.025-.135.069-.178l2.424-2.406a.158.158 0 01.205-.023l6.484 4.772a7.677 7.677 0 003.453 1.283c.108.012.2-.095.2-.23v-3.06c0-.117-.07-.212-.164-.227a5.028 5.028 0 01-2.027-.807l-5.613-4.064c-.117-.078-.132-.279-.028-.381z"/></symbol>
+<symbol id="i-cards" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+<symbol id="i-note" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/></symbol>
+<symbol id="i-pdf" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="M14 3v5h5v2M12.5 20.5l1-3.5 5.5-5.5 2.5 2.5-5.5 5.5z"/></symbol>
+<symbol id="i-flow" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="5" rx="1.5"/><rect x="3" y="16" width="6" height="5" rx="1.5"/><rect x="15" y="16" width="6" height="5" rx="1.5"/><path d="M12 8v4M6 16v-2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/></symbol>
+<symbol id="i-exam" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="3"/><path d="M9 4h6v3H9zM9 14l2 2 4-4"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-6"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="3"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+<symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+<symbol id="i-off" viewBox="0 0 24 24"><path d="M2 8.8a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 20h.01M3 3l18 18"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l1-4L17 4l3 3L8 19z"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+<symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M16 7l3 3"/></symbol>
+<symbol id="i-zip" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/></symbol>
+<symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 15V3m-5 5 5-5 5 5M4 21h16"/></symbol>
+<symbol id="i-map" viewBox="0 0 24 24"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+<symbol id="i-case" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/></symbol>
+<symbol id="i-hash" viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></symbol>
+</defs></svg>
+
+<!-- 1 · NAV -->
+<nav class="nav glass" aria-label="Principal">
+  <a class="brand" href="#/" aria-label="Engrama, inicio"><i><img src="data:image/png;base64,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" alt=""></i>Engrama</a>
+  <a class="l" href="#/" data-go="funciones">Funciones</a>
+  <a class="l" href="#/" data-go="como">Cómo funciona</a>
+  <a class="l" href="#/" data-go="asistente">Asistente</a>
+  <a class="l" href="#/" data-go="precios">Precios</a>
+  <a class="l lp-opt" href="#/" data-go="preguntas">Preguntas</a>
+  <span class="sp"></span>
+  <button class="search" type="button" aria-label="Buscar (maqueta, sin función)" tabindex="-1"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>Buscar<kbd>⌘K</kbd></button>
+  <div class="seg" role="group" aria-label="Tema">
+    <button type="button" data-theme-set="light" aria-pressed="true" aria-label="Tema claro"><svg class="ic" aria-hidden="true"><use href="#i-sun"/></svg></button>
+    <button type="button" data-theme-set="dark" aria-pressed="false" aria-label="Tema oscuro"><svg class="ic" aria-hidden="true"><use href="#i-moon"/></svg></button>
+  </div>
+  <a class="lp-login" href="#/entrar">Iniciar sesión</a>
+  <a class="btn ink" href="#/" data-go="empezar"><span class="lp-lg">Instalar en iPad</span><span class="lp-sm">Instalar</span></a>
+</nav>
+
+<!-- 2 · HERO -->
+<header class="lp-hero" id="lp-inicio">
+  <div class="lp-tiles" aria-hidden="true">
+    <span class="tile" style="--s:88px;--r:-9deg;left:7%;top:34px"><svg class="ic"><use href="#i-cards"/></svg></span>
+    <span class="tile" style="--s:74px;--r:8deg;right:7%;top:22px;--d:-2s"><svg class="ic"><use href="#i-chart"/></svg></span>
+    <span class="tile" style="--s:98px;--r:6deg;left:12%;top:196px;--d:-4s;--t:8s"><svg class="ic"><use href="#i-note"/></svg></span>
+    <span class="tile" style="--s:84px;--r:-7deg;right:11%;top:206px;--d:-1s"><svg class="ic"><use href="#i-cal"/></svg></span>
+    <span class="tile" style="--s:100px;--r:-4deg;right:3%;top:296px;--d:-3s;--t:9s"><svg class="gx" aria-hidden="true"><use href="#lp-grex"/></svg></span>
+    <span class="tile" style="--s:78px;--r:9deg;left:3%;top:378px;--d:-5s"><svg class="ic"><use href="#i-pdf"/></svg></span>
+    <span class="tile" style="--s:80px;--r:10deg;right:16%;top:36px;--d:-6s"><svg class="ic"><use href="#i-flow"/></svg></span>
+    <span class="tile" style="--s:72px;--r:-8deg;left:19%;top:352px;--d:-2.5s"><svg class="ic"><use href="#i-exam"/></svg></span>
+    <span class="tile" style="--s:64px;--r:7deg;left:25%;top:14px;--d:-4.5s"><svg class="ic"><use href="#i-lock"/></svg></span>
+  </div>
+  <div class="wrap">
+    <h1 class="display">Recuerda más<br>con menos horas.</h1>
+    <p class="lead">Tarjetas con repetición espaciada, notas, PDF, simulacros y un asistente que lee tus apuntes. En tu iPad, sin cuenta y sin conexión.</p>
+
+    <div class="lp-stage">
+      <section class="lp-pane" id="lp-p-repaso" role="tabpanel" aria-labelledby="lp-t-repaso" data-on="true">
+        <div class="lp-fig"><h2 class="lp-num">4 botones.<span>1 fecha exacta.</span></h2><p class="lp-cap">Cada botón te dice cuándo volverás a ver la tarjeta, calculado con FSRS.</p></div>
+        <div class="card lp-demo">
+          <div class="top"><span>Fisiología · Repaso</span><span class="ex">ejemplo</span></div>
+          <p class="lp-q">¿Qué ion entra a la célula en la fase 0 del potencial de acción ventricular?</p>
+          <p class="lp-a">Na⁺, por canales rápidos de sodio.</p>
+          <div class="lp-4" aria-label="Intervalos de ejemplo"><span>Otra vez<b>10 min</b></span><span>Difícil<b>2 d</b></span><span>Bien<b>6 d</b></span><span>Fácil<b>15 d</b></span></div>
+        </div>
+      </section>
+      <section class="lp-pane" id="lp-p-notas" role="tabpanel" aria-labelledby="lp-t-notas" data-on="false">
+        <div class="lp-fig"><h2 class="lp-num m">[[&nbsp;]]<span style="font-family:var(--font);letter-spacing:-.065em">todo enlazado.</span></h2><p class="lp-cap">Escribe <span class="mono">[[Nombre]]</span> y la nota queda conectada, con backlinks y menciones sin enlazar.</p></div>
+        <div class="card lp-demo">
+          <div class="top"><span class="mono">notes/Fisiología/Ciclo cardiaco.md</span><span class="ex">ejemplo</span></div>
+          <p class="lp-q">Ciclo cardiaco</p>
+          <p class="lp-a" style="background:none;padding:0;margin:0 0 14px;line-height:1.7">La fase 0 depende del <span class="lk">[[Potencial de acción]]</span> y la conducción pasa por el <span class="lk">[[Nodo AV]]</span>.</p>
+          <div class="row2"><span>Enlazan aquí</span><b>2 notas · 1 mención</b></div>
+        </div>
+      </section>
+      <section class="lp-pane" id="lp-p-examenes" role="tabpanel" aria-labelledby="lp-t-examenes" data-on="false">
+        <div class="lp-fig"><h2 class="lp-num">En ritmo.</h2><p class="lp-cap">Engrama compara tu avance con el plan y te dice si vas en ritmo, ajustado o atrasado.</p></div>
+        <div class="card lp-demo">
+          <div class="top"><span>Fisiología · Parcial 2</span><span class="ex">ejemplo</span></div>
+          <p class="lp-q">Avance del plan</p>
+          <div class="lp-bar" role="img" aria-label="Avance 62 por ciento, plan 58 por ciento"><i style="width:62%"></i><u style="left:58%"></u></div>
+          <div class="row2"><span>Avance <b>62 %</b></span><span>Plan <b>58 %</b></span></div>
+          <div class="row2" style="margin-top:14px;padding-top:14px;border-top:.5px solid var(--hair)"><span>Retención proyectada · meta 85 %</span><b>87 %</b></div>
+        </div>
+      </section>
+      <section class="lp-pane" id="lp-p-asistente" role="tabpanel" aria-labelledby="lp-t-asistente" data-on="false">
+        <div class="lp-fig"><h2 class="lp-num">GREX.<span>tu clave, tu decisión.</span></h2><p class="lp-cap">Un asistente que lee tus notas y propone. Nada se guarda sin que pulses Aceptar.</p></div>
+        <div class="card lp-demo">
+          <div class="top"><span>Asistente · apagado por defecto</span><span class="ex">ejemplo</span></div>
+          <div class="lp-pillmock"><span class="t">Hazme 8 tarjetas de Ciclo cardiaco…</span><span class="dic"><svg class="ic" aria-hidden="true"><use href="#i-mic"/></svg>Dictar</span><svg width="40" height="40" aria-hidden="true"><use href="#lp-grex"/></svg></div>
+          <div class="row2" style="margin-top:14px"><span>Vista previa: 8 tarjetas</span><b>Aceptar · Descartar</b></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="lp-tabs"><div class="seg lp-big" role="tablist" aria-label="Qué hace Engrama">
+      <button type="button" role="tab" id="lp-t-repaso" aria-selected="true" aria-controls="lp-p-repaso">Repaso</button>
+      <button type="button" role="tab" id="lp-t-notas" aria-selected="false" aria-controls="lp-p-notas" tabindex="-1">Notas</button>
+      <button type="button" role="tab" id="lp-t-examenes" aria-selected="false" aria-controls="lp-p-examenes" tabindex="-1">Exámenes</button>
+      <button type="button" role="tab" id="lp-t-asistente" aria-selected="false" aria-controls="lp-p-asistente" tabindex="-1">Asistente</button>
+    </div></div>
+    <div class="lp-cta"><a class="btn ink" href="#/" data-go="empezar">Instalar en iPad <svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></a><a class="btn soft" href="#/" data-go="funciones">Ver las funciones</a></div>
+  </div>
+</header>
+
+<!-- 3 · HECHOS -->
+<section class="lp-sec" style="padding:50px 0 20px" aria-label="Hechos">
+  <div class="wrap"><div class="card lp-facts reveal">
+    <div><b>0</b><span>cuentas. Abres y estudias.</span></div>
+    <div><b>0</b><span>telemetría ni peticiones de red al estudiar.</span></div>
+    <div><b>4</b><span>proveedores de IA, opcionales y con tu clave.</span></div>
+    <div><b>3</b><span>idiomas: es / en / fr.</span></div>
+    <div><b>.apkg</b><span>importar y exportar tus mazos.</span></div>
+  </div></div>
+</section>
+
+<!-- 4 · FUNCIONES -->
+<section class="lp-sec" id="lp-funciones">
+  <div class="wrap">
+    <div class="lp-head reveal"><h2 class="h2">Todo lo que estudias,<br>en un solo lugar.</h2><p class="lead">Núcleo siempre activo; los add-ons se encienden en Ajustes y, apagados, ni siquiera cargan.</p></div>
+    <div class="lp-filters reveal" role="group" aria-label="Filtrar funciones" id="lp-filters">
+      <button class="pill" type="button" data-f="todo" aria-pressed="true">Todo <span class="n"></span></button>
+      <button class="pill" type="button" data-f="repaso" aria-pressed="false">Repaso <span class="n"></span></button>
+      <button class="pill" type="button" data-f="notas" aria-pressed="false">Notas <span class="n"></span></button>
+      <button class="pill" type="button" data-f="pdf" aria-pressed="false">PDF <span class="n"></span></button>
+      <button class="pill" type="button" data-f="examenes" aria-pressed="false">Exámenes <span class="n"></span></button>
+      <button class="pill" type="button" data-f="asistente" aria-pressed="false">Asistente <span class="n"></span></button>
+      <button class="pill" type="button" data-f="datos" aria-pressed="false">Datos <span class="n"></span></button>
+    </div>
+    <div class="card lp-tw reveal">
+      <table class="lp-t" id="lp-table">
+        <thead><tr><th scope="col">Función</th><th scope="col">Para qué sirve</th><th scope="col">Tipo</th><th scope="col" class="r">Dato</th></tr></thead>
+        <tbody>
+          <tr data-c="repaso"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-cards"/></svg></span><div><b>Repaso con FSRS</b><code>reviews.jsonl</code></div></div></td><td class="ben">Cada botón te muestra cuándo vuelve la tarjeta.</td><td><span class="tg core">Núcleo</span></td><td class="r dat">4 botones</td></tr>
+          <tr data-c="repaso"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg></span><div><b>Tipos de tarjeta</b><code>Q:: · cloze · oclusión</code></div></div></td><td class="ben">Básica, inversa, escribir, cloze, lista, unir, ordenar y más.</td><td><span class="tg core">Núcleo</span></td><td class="r dat">10 tipos</td></tr>
+          <tr data-c="repaso"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg></span><div><b>Estadísticas</b><code>retención · pronóstico</code></div></div></td><td class="ben">Ves tu retención real, el pronóstico y las tarjetas en riesgo.</td><td><span class="tg core">Núcleo</span></td><td class="r dat">30 días</td></tr>
+          <tr data-c="repaso datos"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-case"/></svg></span><div><b>Mazos en Markdown</b><code>decks/Cardio/ECG.md</code></div></div></td><td class="ben">Tu mazo es un archivo de texto que abres en cualquier editor.</td><td><span class="tg core">Núcleo</span></td><td class="r dat">.md</td></tr>
+          <tr data-c="repaso datos"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg></span><div><b>Importar de Anki</b><code>mazos.apkg · .zip</code></div></div></td><td class="ben">Trae tus mazos y, si lo marcas, el historial. Con resumen antes de confirmar.</td><td><span class="tg core">Núcleo</span></td><td class="r dat">anki21b · v18</td></tr>
+          <tr data-c="repaso datos"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-up"/></svg></span><div><b>Exportar a Anki</b><code>Engrama.apkg</code></div></div></td><td class="ben">Llévate tus mazos de vuelta, Básica y Cloze, con historial opcional.</td><td><span class="tgs"><span class="tg core">Núcleo</span><span class="tg test">En pruebas</span></span></td><td class="r dat">.apkg v11</td></tr>
+          <tr data-c="notas"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-link"/></svg></span><div><b>Notas enlazadas</b><code>notes/Fisiología/Ciclo cardiaco.md</code></div></div></td><td class="ben">Enlaza ideas con [[ ]], ve backlinks y busca todo con ⌘K.</td><td><span class="tg core">Núcleo</span></td><td class="r dat">[[wikilinks]]</td></tr>
+          <tr data-c="notas"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-flow"/></svg></span><div><b>Diagramas</b><code>```mapa</code></div></div></td><td class="ben">Mapas, flujos y diagramas dentro de tus notas; exporta PNG, SVG o PDF.</td><td><span class="tg core">Núcleo</span></td><td class="r dat">8 colores</td></tr>
+          <tr data-c="notas"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-map"/></svg></span><div><b>Lienzo y espacios</b><code>minimapa</code></div></div></td><td class="ben">Abre nota, mazo, PDF y más en paneles sobre un lienzo infinito.</td><td><span class="tg core">Núcleo</span></td><td class="r dat">1–3 paneles</td></tr>
+          <tr data-c="pdf"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-pdf"/></svg></span><div><b>PDF con anotaciones</b><code>biblioteca de .pdf</code></div></div></td><td class="ben">Resalta, subraya y escribe; tus notas quedan aparte del PDF.</td><td><span class="tg core">Núcleo</span></td><td class="r dat">PDF pesados OK</td></tr>
+          <tr data-c="pdf"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-pen"/></svg></span><div><b>Apple Pencil</b><code>pointerType: pen</code></div></div></td><td class="ben">Tinta que responde a la presión del lápiz.</td><td><span class="tg test">En pruebas</span></td><td class="r dat">sin probar en iPad</td></tr>
+          <tr data-c="examenes"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-exam"/></svg></span><div><b>Exámenes y ritmo</b><code>exams/Fisiología-P2.md</code></div></div></td><td class="ben">Sabes si vas en ritmo, ajustado o atrasado, y puedes ajustar el plan.</td><td><span class="tg core">Núcleo</span></td><td class="r dat">meta de retención</td></tr>
+          <tr data-c="examenes"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg></span><div><b>Simulacros</b><code>.md · .csv · .json</code></div></div></td><td class="ben">Practica con tiempo y crea tarjetas de las que fallaste.</td><td><span class="tg core">Núcleo</span></td><td class="r dat">sobrevive a cerrar Safari</td></tr>
+          <tr data-c="examenes"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg></span><div><b>Calendario</b><code>agenda.ics</code></div></div></td><td class="ben">Mes, semana y día con horas; arrastras para mover y exportas con alarmas.</td><td><span class="tg core">Núcleo</span></td><td class="r dat">repite d / s / m</td></tr>
+          <tr data-c="asistente"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-key"/></svg></span><div><b>Asistente GREX</b><code>4 proveedores · hasta 4 claves</code></div></div></td><td class="ben">Lee tus notas, PDF y mazos y te contesta con citas.</td><td><span class="tgs"><span class="tg">Add-on</span><span class="tg test">En pruebas</span></span></td><td class="r dat">apagado por defecto</td></tr>
+          <tr data-c="asistente"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg></span><div><b>Propone, tú aceptas</b><code>vista previa → Aceptar</code></div></div></td><td class="ben">Crea tarjetas, exámenes, notas, diagramas y eventos solo si aceptas.</td><td><span class="tgs"><span class="tg">Add-on</span><span class="tg test">En pruebas</span></span></td><td class="r dat">con deshacer</td></tr>
+          <tr data-c="datos"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-zip"/></svg></span><div><b>Respaldo</b><code>respaldo.zip</code></div></div></td><td class="ben">Respalda y restaura con vista previa y deshacer la importación.</td><td><span class="tg core">Núcleo</span></td><td class="r dat">.zip formato 1</td></tr>
+          <tr data-c="datos"><td><div class="lp-fn"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg></span><div><b>Guardado seguro</b><code>diario + suma de verificación</code></div></div></td><td class="ben">Si algo se corta al guardar, se recupera. La revisión informa, nunca borra.</td><td><span class="tg core">Núcleo</span></td><td class="r dat">papeleras</td></tr>
+        </tbody>
+      </table>
+      <div class="lp-foot"><span id="lp-count" role="status" aria-live="polite"></span><span>Add-ons de Tareas, Sticky notes y Bandeja: apagados por defecto.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 · POR QUÉ FUNCIONA -->
+<section class="lp-sec" id="lp-como">
+  <div class="wrap lp-why">
+    <div class="card lp-stat reveal">
+      <p class="big mono">30<small>días</small></p>
+      <p class="c">Engrama te muestra el pronóstico de repasos de los próximos 30 días, para que no te sorprenda la carga.</p>
+      <svg class="curve" viewBox="0 0 520 250" role="img" aria-label="Ilustración: curva del olvido con repasos cada vez más espaciados">
+        <line x1="20" y1="120" x2="510" y2="120" stroke="var(--t3)" stroke-dasharray="4 5" stroke-width="1.5"/>
+        <text x="300" y="142">retención objetivo</text>
+        <path d="M30 42 Q60 100 120 150 L120 42 Q170 90 250 134 L250 42 Q320 78 390 116 L390 42 Q440 62 504 88" fill="none" stroke="var(--t1)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+        <g fill="var(--ink)"><circle cx="120" cy="42" r="6"/><circle cx="250" cy="42" r="6"/><circle cx="390" cy="42" r="6"/></g>
+        <g><text x="30" y="226">hoy</text><text x="112" y="226">+1 d</text><text x="238" y="226">+4 d</text><text x="378" y="226">+11 d</text><text x="474" y="226">+30 d</text></g>
+        <line x1="20" y1="200" x2="510" y2="200" stroke="var(--hair)" stroke-width="1.5"/>
+      </svg>
+      <div style="margin-top:10px"><span class="ex">ilustración</span></div>
+    </div>
+    <div>
+      <p class="eyebrow reveal">Cómo funciona</p>
+      <h2 class="h2 reveal">¿Por qué recuerdas más?</h2>
+      <div class="lp-rows">
+        <div class="lp-row reveal"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg></span><h3>Repasas justo antes de olvidar</h3><p>FSRS calcula el siguiente repaso y cada botón te muestra su intervalo previsto.</p></div>
+        <div class="lp-row reveal" style="--d:.06s"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-note"/></svg></span><h3>Tus archivos son tuyos</h3><p>Mazos y notas son .md, y tu historial es .jsonl. Sin cuenta y legibles en cualquier editor.</p></div>
+        <div class="lp-row reveal" style="--d:.12s"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg></span><h3>Guarda seguro</h3><p>Diario y suma de verificación al escribir; papeleras y deshacer para lo que borres.</p></div>
+        <div class="lp-row reveal" style="--d:.18s"><span class="ico"><svg class="ic" aria-hidden="true"><use href="#i-off"/></svg></span><h3>Sin conexión y sin telemetría</h3><p>Funciona sin internet una vez instalada. No envía datos de uso a nadie.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 · TOUR -->
+<section class="lp-sec" id="lp-tour" style="padding-top:40px">
+  <div class="wrap">
+    <div class="lp-head reveal"><h2 class="h2">Para qué sirve<br>cada cosa.</h2></div>
+    <div class="lp-tour">
+
+      <article class="card lp-tc reveal"><div class="txt"><span class="n">01 · Repaso y estadísticas</span><h3>Estudia lo que toca hoy, ni más ni menos.</h3><p>Repasa con 4 botones y mira cómo se sostiene tu memoria con datos reales.</p>
+        <ul><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>«¿Por qué esta fecha?»: estabilidad, dificultad y últimas respuestas.</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Deshacer con ⌘Z y modo recuperación tras ausencias.</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Retención real, pronóstico de 30 días y tarjetas en riesgo.</li></ul></div>
+        <div class="lp-mock" aria-hidden="true"><span class="ex mk">ejemplo</span><svg viewBox="0 0 400 190"><text x="0" y="16">Pronóstico de repasos · 30 días</text><g id="lp-bars"></g><text class="mt" x="0" y="184">hoy</text><text class="mt" x="360" y="184">+30 d</text></svg></div></article>
+
+      <article class="card lp-tc reveal"><div class="txt"><span class="n">02 · Notas y diagramas</span><h3>Escribe, enlaza y dibuja en el mismo sitio.</h3><p>Notas en Markdown con editor por bloques y diagramas que viven dentro de la nota.</p>
+        <ul><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Mapa, flujo o diagrama; escribes en el sitio y eliges hasta 8 colores.</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Fotos con su original intacto y miniaturas aparte.</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Exporta la nota a .md, .docx o PDF; el diagrama a PNG, SVG o PDF.</li></ul></div>
+        <div class="lp-mock" aria-hidden="true"><span class="ex mk">ejemplo</span><svg viewBox="0 0 400 230"><g class="st"><path d="M200 105 L90 55M200 105 L310 55M200 105 L90 170M200 105 L310 170"/></g>
+          <rect class="fi" x="150" y="85" width="100" height="40" rx="14"/><text x="200" y="110" text-anchor="middle" style="fill:var(--ink-t)">Corazón</text>
+          <rect class="nd" x="30" y="36" width="120" height="38" rx="13"/><text x="90" y="60" text-anchor="middle">Aurículas</text>
+          <rect class="nd" x="250" y="36" width="120" height="38" rx="13"/><text x="310" y="60" text-anchor="middle">Ventrículos</text>
+          <rect class="nd" x="30" y="151" width="120" height="38" rx="13"/><text x="90" y="175" text-anchor="middle">Válvulas</text>
+          <rect class="nd" x="250" y="151" width="120" height="38" rx="13"/><text x="310" y="175" text-anchor="middle">Conducción</text></svg></div></article>
+
+      <article class="card lp-tc reveal"><div class="txt"><span class="n">03 · PDF con lápiz</span><h3>Anota el PDF sin ensuciarlo.</h3><p>Resalta y escribe a mano sobre tus lecturas; tus notas se guardan aparte del archivo.</p>
+        <ul><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Resaltador, subrayado y tinta, con biblioteca y miniaturas.</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>PDF pesados por trozos con visor virtualizado.</li><li><svg class="ic" aria-hidden="true"><use href="#i-pen"/></svg>Presión del Apple Pencil <span class="tg test" style="margin-left:4px">En pruebas</span></li></ul></div>
+        <div class="lp-mock" aria-hidden="true"><svg viewBox="0 0 400 250"><rect x="70" y="8" width="260" height="234" rx="12" fill="var(--glass2)" stroke="var(--hair)"/><g class="fl"><rect x="96" y="34" width="150" height="10" rx="5"/><rect x="96" y="64" width="208" height="8" rx="4"/><rect x="96" y="84" width="196" height="8" rx="4"/><rect x="96" y="124" width="208" height="8" rx="4"/><rect x="96" y="144" width="170" height="8" rx="4"/><rect x="96" y="184" width="200" height="8" rx="4"/></g>
+          <rect x="94" y="102" width="212" height="14" rx="5" fill="var(--t3)" opacity=".5"/><rect x="96" y="104" width="190" height="10" rx="5" fill="var(--t2)" opacity=".75"/>
+          <path d="M104 214 q20 -24 42 -4 t44 -2 t42 -2" class="st" stroke-width="3"/><path d="M270 222 l34 -34 8 8 -34 34 -11 3z" fill="var(--ink)"/></svg></div></article>
+
+      <article class="card lp-tc reveal"><div class="txt"><span class="n">04 · Exámenes y simulacros</span><h3>Llega al examen con el plan claro.</h3><p>Fija una meta de retención, sigue tu ritmo y practica con simulacros hechos de tus propios bancos.</p>
+        <ul><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Ritmo: en ritmo, ajustado o atrasado, con «Ajustar plan».</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Importa Markdown, CSV o JSON, con vista previa obligatoria.</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Resultados por tema y tarjetas nuevas de las que fallaste.</li></ul></div>
+        <div class="lp-mock" aria-hidden="true"><span class="ex mk">ejemplo</span><div style="font-weight:700;margin-bottom:12px">Resultados por tema</div>
+          <div class="row2"><span>Electrofisiología</span><b>9/12</b></div><div class="lp-bar"><i style="width:75%"></i></div>
+          <div class="row2"><span>Hemodinamia</span><b>5/10</b></div><div class="lp-bar"><i style="width:50%"></i></div>
+          <div class="row2"><span>Regulación</span><b>7/8</b></div><div class="lp-bar"><i style="width:88%"></i></div>
+          <div style="margin-top:16px"><span class="btn ink sm">Crear tarjetas de las falladas</span></div></div></article>
+
+      <article class="card lp-tc reveal"><div class="txt"><span class="n">05 · Calendario y lienzo</span><h3>Tu semana y tus materiales, a la vista.</h3><p>Agenda con horas y un lienzo donde abres varios paneles a la vez.</p>
+        <ul><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Mes, semana y día; arrastras para mover o cambiar la duración.</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Repetición diaria, semanal o mensual y exporta .ics con alarmas.</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Lienzo con paneo, zoom y minimapa: tocas y te lleva.</li></ul></div>
+        <div class="lp-mock" aria-hidden="true"><span class="ex mk">ejemplo</span><svg viewBox="0 0 400 230"><g class="fl"><rect x="0" y="22" width="52" height="200" rx="0" opacity="0"/></g>
+          <g class="mt"><text x="10" y="14">L</text><text x="62" y="14">M</text><text x="114" y="14">X</text><text x="166" y="14">J</text><text x="218" y="14">V</text></g>
+          <g stroke="var(--hair)"><path d="M0 24H250M0 80H250M0 136H250M0 192H250"/></g>
+          <rect x="4" y="32" width="46" height="40" rx="9" class="fi"/><rect x="56" y="88" width="46" height="70" rx="9" class="fl"/><rect x="108" y="32" width="46" height="26" rx="9" class="fl"/><rect x="160" y="100" width="46" height="46" rx="9" class="fi"/><rect x="212" y="60" width="34" height="90" rx="9" class="fl"/>
+          <rect x="268" y="40" width="124" height="96" rx="14" fill="var(--glass2)" stroke="var(--hair)"/><rect x="278" y="52" width="44" height="30" rx="6" class="fl"/><rect x="328" y="52" width="54" height="52" rx="6" class="fl"/><rect x="278" y="90" width="44" height="34" rx="6" class="fl"/><rect x="296" y="60" width="52" height="40" rx="5" fill="none" stroke="var(--t1)" stroke-width="2"/>
+          <text class="mt" x="268" y="156" style="font-family:var(--mono)">minimapa</text></svg></div></article>
+
+      <article class="card lp-tc reveal"><div class="txt"><span class="n">06 · Datos y respaldo</span><h3>Todo en archivos que puedes abrir.</h3><p>Nada queda atrapado: tus mazos, notas y historial son texto y puedes respaldarlos cuando quieras.</p>
+        <ul><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Respaldo .zip con vista previa y deshacer la importación.</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Papeleras para mazos, notas, bancos e intentos, con deshacer.</li><li><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Integridad: informa lo que encuentra, nunca borra ni corrige.</li></ul></div>
+        <div class="lp-mock" aria-hidden="true"><span class="ex mk">ejemplo</span><pre class="tree"><b>bóveda/</b>
+├─ decks/Cardio/<b>ECG.md</b>
+├─ notes/Fisiología/<b>Ciclo cardiaco.md</b>
+├─ exams/<b>Fisiología-P2.md</b>
+├─ <b>reviews.jsonl</b>     historial
+├─ <b>state.json</b>        se reconstruye
+└─ <b>respaldo.zip</b>      cuando quieras</pre></div></article>
+    </div>
+  </div>
+</section>
+
+<!-- 7 · ASISTENTE -->
+<section class="lp-sec" id="lp-asistente">
+  <div class="wrap lp-as">
+    <div class="txt reveal">
+      <p class="eyebrow lp-eye"><svg width="26" height="26" aria-hidden="true"><use href="#lp-grex"/></svg>Asistente GREX · add-on</p>
+      <h2 class="h2">Un asistente que lee tus apuntes. Con tu propia clave.</h2>
+      <p class="lead">Pídele que revise una nota, arme tarjetas o te ponga un examen. Tú ves la vista previa y decides.</p>
+      <div style="margin-top:30px"><div class="lp-pillmock"><span class="t">Pregúntale a GREX…</span><span class="dic"><svg class="ic" aria-hidden="true"><use href="#i-mic"/></svg>Dictar</span><svg width="40" height="40" aria-hidden="true"><use href="#lp-grex"/></svg></div>
+        <div class="lp-uso" aria-label="Uso por proveedor, ejemplo: hasta 3 a la vista y el resto como +N"><span><svg class="lg" width="10" height="10" aria-hidden="true"><use href="#lp-l-gemini"/></svg>12 %</span><span><svg class="lg" width="10" height="10" aria-hidden="true"><use href="#lp-l-groq"/></svg>4 %</span><span><svg class="lg" width="10" height="10" aria-hidden="true"><use href="#lp-l-openrouter"/></svg>0 %</span><span class="mono">+1</span><span class="ex">ejemplo</span></div></div>
+      <div class="lp-prov">
+        <div class="card"><span class="ico"><svg class="lg" width="22" height="22" aria-hidden="true"><use href="#lp-l-gemini"/></svg></span><div><b>Gemini</b><code>10 rpm · 250 rpd</code></div></div>
+        <div class="card"><span class="ico"><svg class="lg" width="22" height="22" aria-hidden="true"><use href="#lp-l-groq"/></svg></span><div><b>Groq</b><code>30 rpm · 1000 rpd</code></div></div>
+        <div class="card"><span class="ico"><svg class="lg" width="22" height="22" aria-hidden="true"><use href="#lp-l-openrouter"/></svg></span><div><b>OpenRouter</b><code>20 rpm · 50 rpd</code></div></div>
+        <div class="card"><span class="ico"><svg class="lg" width="22" height="22" aria-hidden="true"><use href="#lp-l-kimi"/></svg></span><div><b>Kimi</b><code>20 rpm · 1000 rpd</code></div></div>
+      </div>
+      <p class="small" style="margin:10px 0 0">Límites por proveedor que Engrama respeta.</p>
+    </div>
+    <div class="reveal" style="--d:.08s">
+      <h3 class="h3" style="margin-bottom:14px">Qué puede hacer</h3>
+      <ul class="lp-can">
+        <li><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><div><b>Leer con citas</b><span>Notas, PDF y mazos; también tus exámenes y tu calendario.</span></div></li>
+        <li><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg><div><b>Crear con vista previa</b><span>Tarjetas, exámenes, notas, diagramas y eventos. Nada se guarda sin Aceptar, y puedes deshacer.</span></div></li>
+        <li><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg><div><b>Borrar solo a la papelera</b><span>Y únicamente después de que lo confirmes.</span></div></li>
+        <li><svg class="ic" aria-hidden="true"><use href="#i-key"/></svg><div><b>Hasta 4 claves con rotación</b><span>Se guardan solo en este navegador, fuera del respaldo.</span></div></li>
+        <li><svg class="ic" aria-hidden="true"><use href="#i-mic"/></svg><div><b>Dictado y acciones rápidas</b><span>Usa el dictado del sistema; las acciones rápidas las editas tú.</span></div></li>
+      </ul>
+      <div class="lp-prev"><div class="top"><span>Vista previa · crear tarjetas</span><span class="ex">ejemplo</span></div><ul><li>¿Qué canal abre la fase 0? → Na⁺ rápido</li><li>¿Qué fase es la meseta? → Fase 2</li><li class="mono small">+ 6 tarjetas más…</li></ul><div class="b"><span class="btn ink sm">Aceptar</span><span class="btn soft sm">Descartar</span></div></div>
+      <div class="lp-warn"><svg class="ic" aria-hidden="true"><use href="#i-off"/></svg>Apagado por defecto. Sin clave, cero peticiones de red.</div>
+      <p class="small" style="margin:12px 0 0">Con clave y encendido, solo habla con generativelanguage.googleapis.com, api.groq.com, openrouter.ai y api.moonshot.ai. Aún en pruebas con las APIs reales.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 8 · MIGRAR -->
+<section class="lp-sec" id="lp-migrar">
+  <div class="wrap">
+    <div class="lp-head reveal"><h2 class="h2">Trae tus mazos de Anki<br>en un minuto.</h2><p class="lead">Importa el .apkg y revisa un resumen antes de confirmar. Si cambias de idea, también exportas.</p></div>
+    <div class="lp-mig">
+      <div class="card lp-code reveal"><div class="bar"><i></i><i></i><i></i><span>importar → revisar → listo</span><span class="ex">ejemplo</span></div>
+<pre><span class="ln cm" data-s="#">Hoja de importación</span><span class="ln" data-s=" ">Importar archivo → .apkg</span><span class="ln del" data-s="−">Plantillas, CSS, LaTeX y JS de Anki</span><span class="ln add" data-s="+">2 mazos · 6 tarjetas · 1 imagen · 6 repasos</span><span class="ln add" data-s="+">decks/Anatomía/Huesos.md</span><span class="ln" data-s=" ">Confirmar → Ver mazos</span><span class="ln cm" data-s="#">Y cuando quieras volver</span><span class="ln" data-s=" ">Exportar Anki → .apkg</span></pre></div>
+      <div class="card lp-start reveal" style="--d:.08s">
+        <h3>Para empezar</h3>
+        <div class="lp-st"><i>1</i><span>Instálalo en tu pantalla de inicio</span></div>
+        <div class="lp-st"><i>2</i><span>Crea tu primer mazo o importa uno</span></div>
+        <div class="lp-st"><i>3</i><span>Activa el asistente si quieres</span></div>
+        <h3 style="margin-top:22px">Funciona con</h3>
+        <div class="lp-chips"><span>Safari en iPad</span><span>iPhone</span><span>Mac</span><span class="mono">.apkg</span><span>Markdown</span><span class="mono">.ics</span><span>PDF</span><span>DOCX</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 · PRECIOS -->
+<section class="lp-sec" id="lp-precios">
+  <div class="wrap">
+    <div class="lp-band"><span>Maqueta: precios de ejemplo</span></div>
+    <div class="lp-head reveal"><h2 class="h2">Gratis para estudiar.<br>Tú decides si apoyas.</h2></div>
+    <div class="lp-plans">
+      <article class="card lp-plan reveal"><h3>Gratis</h3><p class="d">Todo el núcleo y todos los add-ons.</p><div class="pr mono">US$ 0</div>
+        <ul><li>Núcleo<b>incluido</b></li><li>Add-ons<b>incluidos</b></li><li>Cuenta<b>ninguna</b></li><li>Sin conexión<b>sí</b></li></ul><a class="btn ink" href="#/" data-go="empezar">Instalar en iPad</a></article>
+      <article class="card lp-plan hi reveal" style="--d:.07s"><h3>Apoyo <span class="ex">ejemplo</span></h3><p class="d">Si Engrama te sirve, ayuda a que siga.</p><div class="pr mono">US$ 5<small>una vez</small></div>
+        <ul><li>Todo lo de Gratis<b>igual</b></li><li>Apoyas el desarrollo<b>sí</b></li><li>Nombre en créditos<b>idea</b></li></ul><button class="btn" type="button" disabled style="opacity:.7;cursor:default">Próximamente</button></article>
+      <article class="card lp-plan reveal" style="--d:.14s"><h3>Aulas <span class="ex">idea</span></h3><p class="d">Para grupos y profesores que quieran usarlo juntos.</p><div class="pr">Hablemos</div>
+        <ul><li>Grupos<b>por definir</b></li><li>Contacto<b>por definir</b></li></ul><button class="btn soft" type="button" disabled style="opacity:.7;cursor:default">Por definir</button></article>
+    </div>
+    <p class="lp-note">El asistente usa tu clave de un proveedor externo: el costo es de ese proveedor y de tu uso. Muchos tienen un nivel gratuito con límites.</p>
+    <div class="card lp-save reveal"><div><h4><svg class="ic" aria-hidden="true"><use href="#i-case"/></svg>Archivos locales</h4><p>Tus mazos y notas son .md; tu historial, .jsonl.</p></div><div><h4><svg class="ic" aria-hidden="true"><use href="#i-zip"/></svg>Respaldo .zip</h4><p>Un archivo con todo, con vista previa antes de restaurar.</p></div><div><h4><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Sin telemetría</h4><p>Sin peticiones de red al estudiar; solo el asistente, si lo enciendes.</p></div></div>
+  </div>
+</section>
+
+<!-- 10 · PREGUNTAS -->
+<section class="lp-sec" id="lp-preguntas">
+  <div class="wrap">
+    <div class="lp-head reveal"><h2 class="h2">Preguntas frecuentes.</h2></div>
+    <div class="lp-faq reveal">
+      <details><summary>¿Necesito cuenta?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a"><b>No.</b> Engrama no tiene cuentas ni inicio de sesión: abres la app y estudias. La pantalla «Iniciar sesión» de esta maqueta es solo un ejemplo.</div></details>
+      <details><summary>¿Funciona sin internet?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a">Sí, 100 % sin conexión una vez instalada. Solo el asistente usa red, y únicamente si lo enciendes con tu clave.</div></details>
+      <details><summary>¿Dónde se guardan mis datos?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a">En archivos de texto que te pertenecen (.md, .jsonl, .json). Puedes hacer un respaldo .zip cuando quieras y restaurarlo con vista previa.</div></details>
+      <details><summary>¿Qué pasa con mi Anki?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a">Importas tus .apkg (formato nuevo y anteriores) o un .zip, con el historial si lo marcas. También exportas a .apkg, aunque esa salida aún está en pruebas. No se traen las plantillas, el CSS, el LaTeX ni el JS de Anki.</div></details>
+      <details><summary>¿Cuánto cuesta el asistente?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a">Engrama no cobra por él. Usas tu propia clave de Gemini, Groq, OpenRouter o Kimi, así que el costo depende de ese proveedor y de cuánto lo uses; muchos tienen un nivel gratuito con límites.</div></details>
+      <details><summary>¿Funciona en iPhone y Mac?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a">Está pensada para Safari en iPad y tiene una versión para teléfono. También abre en la web. Todavía no la hemos probado en dispositivos reales, así que algo puede fallar.</div></details>
+      <details><summary>¿Es una app de la App Store?<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a">No, es una <b>PWA</b>: la abres en Safari y la añades a tu pantalla de inicio.</div></details>
+    </div>
+  </div>
+</section>
+
+<!-- 11 · CTA + PIE -->
+<section class="lp-sec" id="lp-empezar" style="padding-bottom:0">
+  <div class="wrap">
+    <div class="card lp-final glass reveal">
+      <svg class="mascot" width="72" height="72" aria-hidden="true"><use href="#lp-grex"/></svg>
+      <h2 class="display">Empieza a<br>recordar de verdad.</h2>
+      <p class="lead">Instálala en tu iPad en un minuto. Sin cuenta, sin conexión y con tus archivos.</p>
+      <div class="lp-cta"><a class="btn ink" href="#/" data-go="empezar">Instalar en iPad <svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></a><a class="btn soft" href="#/" data-go="funciones">Ver las funciones</a></div>
+    </div>
+  </div>
+  <footer class="foot"><div class="wrap">
+    <div class="cols">
+      <div><a class="brand" href="#/" style="padding:0;margin:0 0 10px" aria-label="Engrama, inicio"><i><img src="data:image/png;base64,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" alt=""></i>Engrama</a><p class="small" style="max-width:30ch;margin:0">Repetición espaciada y notas, en tu iPad.</p></div>
+      <div><h4>Producto</h4><a href="#/" data-go="funciones">Funciones</a><a href="#/" data-go="como">Cómo funciona</a><a href="#/" data-go="asistente">Asistente</a><a href="#/" data-go="precios">Precios</a></div>
+      <div><h4>Recursos</h4><a href="#/" data-go="migrar">Migrar desde Anki</a><a href="#/" data-go="preguntas">Preguntas</a><a href="#/entrar">Iniciar sesión (ejemplo)</a></div>
+      <div><h4>Legal (ejemplo)</h4><span class="lp-dead">Privacidad</span><span class="lp-dead">Términos</span><span class="lp-dead">Contacto</span></div>
+    </div>
+    <div class="lp-bot">
+      <span>© Engrama</span>
+      <div class="tools">
+        <div class="seg" role="group" aria-label="Idioma (solo visual)" id="lp-lang"><button type="button" aria-pressed="true">es</button><button type="button" aria-pressed="false">en</button><button type="button" aria-pressed="false">fr</button></div>
+        <div class="seg" role="group" aria-label="Tema"><button type="button" data-theme-set="light" aria-pressed="true"><svg class="ic" aria-hidden="true"><use href="#i-sun"/></svg>Claro</button><button type="button" data-theme-set="dark" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-moon"/></svg>Oscuro</button></div>
+      </div>
+    </div>
+    <p class="lp-fnote">Algunas funciones están en pruebas en dispositivos reales.</p>
+  </div></footer>
+</section>
+
+<script>
+(function(){
+  var L=document.getElementById('landing');if(!L)return;
+  L.classList.add('lp-js');
+  var reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  // reveal
+  var rv=[].slice.call(L.querySelectorAll('.reveal'));
+  if('IntersectionObserver' in window&&!reduce){
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{rootMargin:'0px 0px -6% 0px',threshold:.05});
+    rv.forEach(function(el){io.observe(el)});
+  }else rv.forEach(function(el){el.classList.add('in')});
+  // pestañas del hero
+  var tabs=[].slice.call(L.querySelectorAll('[role=tab]'));
+  function sel(t,focus){tabs.forEach(function(b){var on=b===t;b.setAttribute('aria-selected',on);b.tabIndex=on?0:-1;
+    var p=document.getElementById(b.getAttribute('aria-controls'));if(p)p.setAttribute('data-on',on)});if(focus)t.focus()}
+  tabs.forEach(function(b,i){b.addEventListener('click',function(){sel(b)});
+    b.addEventListener('keydown',function(e){var k=e.key,n=-1;
+      if(k==='ArrowRight'||k==='ArrowDown')n=(i+1)%tabs.length;else if(k==='ArrowLeft'||k==='ArrowUp')n=(i+tabs.length-1)%tabs.length;
+      else if(k==='Home')n=0;else if(k==='End')n=tabs.length-1;
+      if(n>=0){e.preventDefault();sel(tabs[n],true)}})});
+  // tabla filtrable
+  var rows=[].slice.call(L.querySelectorAll('#lp-table tbody tr')),fb=[].slice.call(L.querySelectorAll('#lp-filters button')),cnt=document.getElementById('lp-count');
+  function has(r,f){return f==='todo'||(' '+r.getAttribute('data-c')+' ').indexOf(' '+f+' ')>-1}
+  fb.forEach(function(b){b.querySelector('.n').textContent=rows.filter(function(r){return has(r,b.getAttribute('data-f'))}).length;
+    b.addEventListener('click',function(){var f=b.getAttribute('data-f'),n=0;
+      fb.forEach(function(x){x.setAttribute('aria-pressed',x===b)});
+      rows.forEach(function(r){var s=has(r,f);r.hidden=!s;if(s)n++});
+      cnt.textContent='Mostrando '+n+' de '+rows.length+' funciones'})});
+  cnt.textContent='Mostrando '+rows.length+' de '+rows.length+' funciones';
+  // idioma (solo visual)
+  var lg=[].slice.call(L.querySelectorAll('#lp-lang button'));
+  lg.forEach(function(b){b.addEventListener('click',function(){lg.forEach(function(x){x.setAttribute('aria-pressed',x===b)})})});
+  // barras de pronóstico (ilustrativo)
+  var g=document.getElementById('lp-bars');
+  if(g){var h=[44,52,38,60,48,30,26,58,46,40,54,36,28,24,50,44,34,52,42,30,22,46,40,32,48,38,28,20,36,30],s='';
+    for(var i=0;i<30;i++){s+='<rect x="'+(i*13.3)+'" y="'+(170-h[i]*2.4)+'" width="9.5" height="'+(h[i]*2.4)+'" rx="3" class="'+(i<2?'fi':'fl')+'"/>'}
+    g.innerHTML=s}
+})();
+</script>
+</main>
+
+<style>
+#acceso{min-height:100vh;display:flex;flex-direction:column}
+#acceso[hidden]{display:none}
+#acceso .ac-top{padding:0 16px}
+#acceso .ac-nav{justify-content:space-between}
+#acceso .ac-nav .brand{margin-right:0;min-height:44px}
+#acceso .ac-nav .ac-right{display:flex;align-items:center;gap:8px}
+#acceso .ac-nav .ac-back{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:var(--r-pill);font-weight:600;font-size:15px;color:var(--t2)}
+#acceso .ac-nav .ac-back:hover{color:var(--t1);background:var(--chip)}
+#acceso .seg button{min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center}
+#acceso .ac-stage{flex:1;width:100%;max-width:var(--maxw);margin:0 auto;padding:clamp(28px,7vh,72px) 16px 0;display:grid;grid-template-columns:minmax(0,520px);justify-content:center;gap:28px}
+html[data-route="/crear"] #acceso .ac-stage{grid-template-columns:minmax(0,1fr) minmax(0,520px);align-items:start;gap:clamp(28px,5vw,72px)}
+#acceso .ac-col{min-width:0}
+#acceso .ac-mascot{margin-bottom:14px;width:64px;height:64px}
+#acceso .ac-mascot svg{width:64px;height:64px;transition:transform .5s cubic-bezier(.3,1.6,.5,1)}
+#acceso .ac-mascot.happy svg{transform:translateY(-6px) rotate(-4deg)}
+#acceso .ac-mascot.sad .eyes{transform:translateY(2.4px) scaleY(.62);transform-box:fill-box;transform-origin:center}
+#acceso .ac-mascot .m{display:none}
+#acceso .ac-mascot .m.n{display:block}
+#acceso .ac-mascot.happy .m.n,#acceso .ac-mascot.sad .m.n{display:none}
+#acceso .ac-mascot.happy .m.h{display:block}
+#acceso .ac-mascot.sad .m.s{display:block}
+#acceso .ac-h1{font-size:clamp(40px,6.2vw,64px);line-height:.98;font-weight:700;letter-spacing:-.055em;margin:0 0 14px;outline:none}
+#acceso .ac-sub{font-size:clamp(16px,1.9vw,19px);color:var(--t2);margin:0 0 28px;max-width:46ch}
+#acceso .ac-card{border-radius:var(--r-xl);padding:12px;box-shadow:var(--shadow)}
+#acceso .ac-inner{border-radius:var(--r-l);background:var(--glass2);border:.5px solid var(--hair2);padding:22px 20px 20px}
+#acceso .ac-step[hidden]{display:none}
+#acceso .ac-lab{display:block;font-weight:700;font-size:15px;margin:0 0 8px;letter-spacing:-.015em}
+#acceso .ac-lab .opt{font-weight:500;color:var(--t3)}
+#acceso .ac-field{margin-bottom:14px}
+#acceso .ac-in{width:100%;min-height:52px;padding:0 18px;font:inherit;font-size:16px;color:var(--t1);background:var(--chip);border:1.5px solid var(--hair);border-radius:var(--r-pill);letter-spacing:-.01em}
+#acceso .ac-in::placeholder{color:var(--t3)}
+#acceso .ac-in:focus-visible{outline:2px solid var(--t1);outline-offset:2px}
+#acceso .ac-in[aria-invalid=true],#acceso .ac-code input[aria-invalid=true]{border:2.5px solid var(--t1);background:var(--chip2)}
+#acceso .ac-hint{font-size:14px;color:var(--t2);margin:0 0 16px}
+#acceso .ac-err{display:flex;gap:8px;align-items:flex-start;margin:8px 2px 0;font-weight:700;font-size:14.5px;color:var(--t1)}
+#acceso .ac-err[hidden]{display:none}
+#acceso .ac-err i{flex:none;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--ink-t);display:grid;place-items:center;font-style:normal;font-size:13px;font-weight:800;line-height:1}
+#acceso .btn.ac-go{width:100%;min-height:52px;position:relative}
+#acceso .btn[disabled]{opacity:.5;cursor:not-allowed;transform:none}
+#acceso .btn[aria-busy=true]{opacity:1}
+#acceso .ac-dots{display:inline-flex;gap:5px}
+#acceso .ac-dots b{width:7px;height:7px;border-radius:50%;background:currentColor;animation:acdot 1s infinite ease-in-out}
+#acceso .ac-dots b:nth-child(2){animation-delay:.15s}#acceso .ac-dots b:nth-child(3){animation-delay:.3s}
+@keyframes acdot{0%,80%,100%{transform:scale(.55);opacity:.5}40%{transform:scale(1);opacity:1}}
+#acceso .ac-switch{text-align:center;margin:16px 8px 6px;font-size:15px;color:var(--t2)}
+#acceso .ac-switch a{color:var(--t1);font-weight:700;padding:12px 4px;display:inline-block;min-height:44px}
+#acceso .ac-switch a:hover{text-decoration:underline}
+#acceso .ac-note{display:flex;gap:10px;margin-top:14px;padding:12px 14px;border-radius:var(--r-m);border:.5px dashed var(--hair);font-size:13.5px;color:var(--t2);line-height:1.4}
+#acceso .ac-note svg{flex:none;margin-top:1px}
+#acceso .ac-chk{display:flex;gap:12px;align-items:flex-start;margin:4px 0 14px;font-size:14.5px;color:var(--t2);cursor:pointer;min-height:44px}
+#acceso .ac-chk input{appearance:none;-webkit-appearance:none;flex:none;width:26px;height:26px;margin:9px 0 0;border:1.5px solid var(--hair);border-radius:9px;background:var(--chip);display:grid;place-items:center;cursor:pointer;font:inherit}
+#acceso .ac-chk input:checked{background:var(--ink);border-color:transparent}
+#acceso .ac-chk input:checked::after{content:"";width:6px;height:12px;border:solid var(--ink-t);border-width:0 2.5px 2.5px 0;transform:rotate(45deg) translate(-1px,-1px)}
+#acceso .ac-chk input[aria-invalid=true]{border:2.5px solid var(--t1)}
+#acceso .ac-chk span{padding-top:9px}
+#acceso .ac-chk a{color:var(--t1);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+#acceso .ac-code{display:flex;gap:8px;margin:6px 0 4px}
+#acceso .ac-code input{flex:1;min-width:0;max-width:60px;height:60px;padding:0;text-align:center;font-family:var(--mono);font-size:24px;font-weight:700;color:var(--t1);background:var(--chip);border:1.5px solid var(--hair);border-radius:var(--r-m)}
+#acceso .ac-code input:focus-visible{outline:2px solid var(--t1);outline-offset:2px}
+#acceso .ac-code.shake{animation:acshake .42s cubic-bezier(.3,.7,.4,1)}
+@keyframes acshake{0%,100%{transform:none}20%{transform:translateX(-8px)}40%{transform:translateX(7px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+#acceso .ac-row{display:flex;flex-wrap:wrap;gap:4px 8px;justify-content:space-between;margin:12px 0 4px}
+#acceso .ac-lnk{background:none;border:0;min-height:44px;padding:0 10px;font-weight:700;font-size:14.5px;color:var(--t1);cursor:pointer;border-radius:var(--r-pill)}
+#acceso .ac-lnk:hover:not([disabled]){background:var(--chip)}
+#acceso .ac-lnk[disabled]{color:var(--t3);cursor:default}
+#acceso .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#acceso .ac-ok{text-align:left}
+#acceso .ac-ok .ac-big{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;margin-bottom:12px}
+#acceso .ac-ok .btn{width:100%;margin-top:8px}
+#acceso .ac-val{border-radius:var(--r-xl);padding:clamp(22px,3vw,34px);display:none}
+html[data-route="/crear"] #acceso .ac-val{display:block}
+#acceso .ac-val h2{font-size:clamp(26px,3.4vw,38px);line-height:1.02;letter-spacing:-.045em;margin:12px 0 18px}
+#acceso .ac-val ul{list-style:none;margin:0;padding:0;display:grid;gap:16px}
+#acceso .ac-val li{display:flex;gap:14px;align-items:flex-start}
+#acceso .ac-val li i{flex:none;width:44px;height:44px;border-radius:15px;background:var(--glass2);border:.5px solid var(--line);display:grid;place-items:center;box-shadow:var(--shadow-s)}
+#acceso .ac-val li b{display:block;font-size:17px;letter-spacing:-.025em;margin-bottom:2px}
+#acceso .ac-val li span{color:var(--t2);font-size:15px}
+#acceso .only-crear{display:none}
+html[data-route="/crear"] #acceso .only-crear{display:block}
+html[data-route="/crear"] #acceso .only-entrar{display:none}
+#acceso .ac-foot{margin-top:56px;padding:26px 16px 110px;border-top:.5px solid var(--hair)}
+#acceso .ac-foot .in{max-width:var(--maxw);margin:0 auto;display:flex;flex-wrap:wrap;gap:6px 22px;align-items:center;justify-content:space-between}
+#acceso .ac-foot nav{display:flex;flex-wrap:wrap;gap:0 6px}
+#acceso .ac-foot nav a{display:inline-flex;align-items:center;min-height:44px;padding:0 10px;font-size:14.5px;color:var(--t2);border-radius:var(--r-pill)}
+#acceso .ac-foot nav a:hover{color:var(--t1);background:var(--chip)}
+#acceso .ac-foot small{display:block;width:100%;color:var(--t3);font-size:13px}
+@media (max-width:900px){
+  html[data-route="/crear"] #acceso .ac-stage{grid-template-columns:minmax(0,520px)}
+  html[data-route="/crear"] #acceso .ac-val{order:2}
+}
+@media (max-width:520px){
+  #acceso .ac-nav .ac-back span{display:none}
+  #acceso .ac-stage{padding-bottom:140px}
+  #acceso .ac-code{gap:6px}
+  #acceso .ac-code input{height:56px;font-size:22px}
+}
+@media (prefers-reduced-motion:reduce){
+  #acceso *{animation:none!important;transition:none!important}
+}
+</style>
+<main id="acceso" hidden>
+  <div class="ac-top">
+    <header class="nav glass ac-nav">
+      <a class="brand" href="#/" aria-label="Engrama, ir a la página de inicio"><i><img src="data:image/png;base64,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" alt=""></i>Engrama</a>
+      <div class="ac-right">
+        <a class="ac-back" href="#/"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>Volver a la página</span></a>
+        <div class="seg" role="group" aria-label="Tema">
+          <button type="button" data-theme-set="light" aria-pressed="true" aria-label="Claro"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+          <button type="button" data-theme-set="dark" aria-pressed="false" aria-label="Oscuro"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+        </div>
+      </div>
+    </header>
+  </div>
+
+  <div class="ac-stage">
+    <aside class="ac-val glass" aria-labelledby="ac-val-t">
+      <span class="tag">Maqueta</span>
+      <h2 id="ac-val-t">Una cuenta opcional, sin atar tus datos.</h2>
+      <ul>
+        <li><i aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></i><div><b>Tus datos siguen siendo tus archivos</b><span>Mazos y notas viven en archivos .md y .jsonl que puedes abrir y llevarte.</span></div></li>
+        <li><i aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="3"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><path d="m3 3 18 18"/></svg></i><div><b>Sin contraseñas</b><span>Entrarías con un código de 6 dígitos que llega a tu correo.</span></div></li>
+        <li><i aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 9.2-9.2M16 7l3 3M14 9l2 2"/></svg></i><div><b>El asistente usa tu propia clave</b><span>Es opcional, está apagado por defecto y solo se conecta si tú lo enciendes.</span></div></li>
+      </ul>
+    </aside>
+
+    <section class="ac-col" aria-labelledby="ac-h1">
+      <div class="ac-mascot" id="ac-mascot" aria-hidden="true">
+        <svg viewBox="0 0 64 64" width="64" height="64" class="mascot"><defs><linearGradient id="acg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--face)"/><stop offset="1" stop-color="var(--face2)"/></linearGradient></defs><ellipse cx="32" cy="60" rx="16" ry="2" fill="var(--feat)" opacity=".12"/><rect x="7" y="8" width="50" height="48" rx="19" fill="url(#acg)" stroke="var(--edge)" stroke-width="1.2"/><g class="eyes"><g class="blink"><ellipse cx="24" cy="30" rx="3.1" ry="4.1" fill="var(--feat)"/><ellipse cx="40" cy="30" rx="3.1" ry="4.1" fill="var(--feat)"/><circle cx="25.2" cy="28.4" r="1.15" fill="#fff"/><circle cx="41.2" cy="28.4" r="1.15" fill="#fff"/></g></g><path class="m n" d="M28.5 38q3.5 3.4 7 0" fill="none" stroke="var(--feat)" stroke-width="2.4" stroke-linecap="round"/><path class="m h" d="M25.5 36.5q6.5 8 13 0" fill="none" stroke="var(--feat)" stroke-width="2.6" stroke-linecap="round"/><path class="m s" d="M28.5 41q3.5-3.4 7 0" fill="none" stroke="var(--feat)" stroke-width="2.4" stroke-linecap="round"/><ellipse cx="17.5" cy="37.5" rx="4" ry="2.5" fill="var(--cheek)"/><ellipse cx="46.5" cy="37.5" rx="4" ry="2.5" fill="var(--cheek)"/></svg>
+      </div>
+      <h1 class="ac-h1" id="ac-h1" tabindex="-1">Iniciar sesión</h1>
+      <p class="ac-sub" id="ac-sub">Entra con tu cuenta para respaldar tu estudio y, más adelante, elegir un plan. Es un acceso opcional: Engrama funciona igual sin él.</p>
+
+      <div class="ac-card glass">
+        <div class="ac-inner">
+          <!-- Paso 1 -->
+          <form class="ac-step" id="ac-f1" novalidate>
+            <div class="ac-field only-crear">
+              <label class="ac-lab" for="ac-name">Nombre <span class="opt">(opcional)</span></label>
+              <input class="ac-in" id="ac-name" type="text" autocomplete="name" placeholder="Ana Gómez">
+            </div>
+            <div class="ac-field">
+              <label class="ac-lab" for="ac-mail">Correo</label>
+              <input class="ac-in" id="ac-mail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="ana@ejemplo.com" aria-describedby="ac-mail-h ac-mail-e">
+              <div class="ac-err" id="ac-mail-e" role="alert" hidden><i aria-hidden="true">!</i><span></span></div>
+            </div>
+            <p class="ac-hint" id="ac-mail-h">Te enviaremos un código de 6 dígitos. Sin contraseña.</p>
+            <div class="only-crear">
+              <label class="ac-chk"><input type="checkbox" id="ac-terms" aria-describedby="ac-terms-e"><span>Acepto los <a href="#/crear" data-fake>términos</a> y la <a href="#/crear" data-fake>política de privacidad</a> (ejemplo).</span></label>
+              <div class="ac-err" id="ac-terms-e" role="alert" hidden style="margin:-6px 2px 14px"><i aria-hidden="true">!</i><span></span></div>
+            </div>
+            <button class="btn ink ac-go" id="ac-go1" type="submit"><span class="only-entrar">Continuar</span><span class="only-crear">Crear cuenta</span></button>
+            <p class="ac-switch only-entrar">¿Primera vez aquí? <a href="#/crear">Crear cuenta</a></p>
+            <p class="ac-switch only-crear">¿Ya tienes cuenta? <a href="#/entrar">Iniciar sesión</a></p>
+          </form>
+
+          <!-- Paso 2 -->
+          <form class="ac-step" id="ac-f2" novalidate hidden>
+            <p class="sr" id="ac-sent">Escribe el código de 6 dígitos que enviaríamos a tu correo.</p>
+            <div role="group" aria-labelledby="ac-sent" class="ac-code" id="ac-code">
+              <input inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="Dígito 1 de 6" aria-describedby="ac-code-e">
+              <input inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Dígito 2 de 6" aria-describedby="ac-code-e">
+              <input inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Dígito 3 de 6" aria-describedby="ac-code-e">
+              <input inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Dígito 4 de 6" aria-describedby="ac-code-e">
+              <input inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Dígito 5 de 6" aria-describedby="ac-code-e">
+              <input inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Dígito 6 de 6" aria-describedby="ac-code-e">
+            </div>
+            <div class="ac-err" id="ac-code-e" role="alert" hidden><i aria-hidden="true">!</i><span></span></div>
+            <p class="ac-hint" style="margin:10px 0 14px;font-size:13.5px">Maqueta: cualquier código de 6 dígitos funciona; <span class="mono">000000</span> muestra el error.</p>
+            <button class="btn ink ac-go" id="ac-go2" type="submit">Verificar</button>
+            <div class="ac-row">
+              <button class="ac-lnk" type="button" id="ac-resend" disabled>Reenviar código en <span class="mono" id="ac-cnt" aria-hidden="true">30</span> s</button>
+              <button class="ac-lnk" type="button" id="ac-other">Usar otro correo</button>
+            </div>
+            <div class="sr" id="ac-live" aria-live="polite"></div>
+          </form>
+
+          <!-- Paso 3 -->
+          <div class="ac-step ac-ok" id="ac-f3" hidden>
+            <div class="ac-big"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12.5 3 3 5-6"/></svg><span id="ac-okmsg">Listo</span></div>
+            <p class="ac-hint" style="margin:0 0 6px" id="ac-oksub">Código aceptado (ejemplo). No se inició ninguna sesión real.</p>
+            <button class="btn ink" type="button" disabled>Ir a la app (maqueta)</button>
+            <a class="btn soft" href="#/">Volver a la página</a>
+          </div>
+
+          <div class="ac-note" role="note">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            <span>Maqueta de diseño. Engrama hoy no usa cuentas; este formulario no envía ni guarda nada.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="ac-foot">
+    <div class="in">
+      <nav aria-label="Pie">
+        <a href="#/entrar" data-fake>Términos (ejemplo)</a><a href="#/entrar" data-fake>Privacidad (ejemplo)</a><a href="#/entrar" data-fake>Ayuda (ejemplo)</a><a href="#/entrar" data-fake>Contacto (ejemplo)</a>
+      </nav>
+      <div class="seg" role="group" aria-label="Tema del pie">
+        <button type="button" data-theme-set="light" aria-pressed="true">Claro</button>
+        <button type="button" data-theme-set="dark" aria-pressed="false">Oscuro</button>
+      </div>
+      <small>Engrama · maqueta de diseño. Los enlaces de este pie son de ejemplo.</small>
+    </div>
+  </footer>
+</main>
+<script>
+(function(){
+  var $=function(s,r){return (r||document).querySelector(s)};
+  var root=document.getElementById('acceso'); if(!root) return;
+  var f1=$('#ac-f1'),f2=$('#ac-f2'),f3=$('#ac-f3'),h1=$('#ac-h1'),sub=$('#ac-sub'),mas=$('#ac-mascot');
+  var mail=$('#ac-mail'),mailE=$('#ac-mail-e'),terms=$('#ac-terms'),termsE=$('#ac-terms-e'),codeE=$('#ac-code-e');
+  var codeWrap=$('#ac-code'),digs=[].slice.call(codeWrap.querySelectorAll('input'));
+  var resend=$('#ac-resend'),cnt=$('#ac-cnt'),live=$('#ac-live');
+  var step=1,timer=null,busy=false,left=30;
+  var route=function(){return document.documentElement.getAttribute('data-route')==='/crear'?'crear':'entrar'};
+  var visible=function(){return !root.hidden};
+
+  function T(k){var c=route()==='crear';return ({
+    h1:[c?'Crear cuenta':'Iniciar sesión',c?'Confirma tu correo':'Revisa tu correo',c?'Cuenta creada (ejemplo)':'Listo'],
+    sub:[c?'Crea una cuenta de ejemplo para ver cómo sería el acceso opcional: respaldo y planes. Engrama funciona igual sin ella.':'Entra con tu cuenta para respaldar tu estudio y, más adelante, elegir un plan. Es un acceso opcional: Engrama funciona igual sin él.',
+      'Escribe el código de 6 dígitos que enviaríamos a ',c?'Tu cuenta de ejemplo quedó confirmada. No se guardó nada.':'Código aceptado (ejemplo). No se inició ninguna sesión real.']
+  })[k]}
+  function setErr(el,msg,inputs){
+    var s=el.querySelector('span');
+    if(msg){s.textContent=msg;el.hidden=false}else{el.hidden=true;s.textContent=''}
+    (inputs||[]).forEach(function(i){if(msg)i.setAttribute('aria-invalid','true');else i.removeAttribute('aria-invalid')});
+  }
+  function face(m){mas.classList.remove('happy','sad');if(m)mas.classList.add(m)}
+  function show(n,focus){
+    step=n;f1.hidden=n!==1;f2.hidden=n!==2;f3.hidden=n!==3;
+    h1.textContent=T('h1')[n-1];
+    sub.textContent=n===1?T('sub')[0]:n===2?T('sub')[1]+(mail.value.trim()||'tu correo')+' (ejemplo, no se envía nada).':T('sub')[2];
+    face(n===3?'happy':null);
+    if(focus!==false)(n===1?mail:n===2?digs[0]:h1).focus({preventScroll:false});
+    if(n===3){h1.focus();$('#ac-okmsg').textContent=route()==='crear'?'Cuenta creada (ejemplo)':'Listo';$('#ac-oksub').textContent=T('sub')[2]}
+  }
+  function reset(){
+    clearInterval(timer);busy=false;mail.value='';$('#ac-name').value='';terms.checked=false;
+    digs.forEach(function(d){d.value=''});
+    setErr(mailE,'',[mail]);setErr(termsE,'',[terms]);setErr(codeE,'',digs);
+    [f1,f2].forEach(function(f){var b=f.querySelector('.ac-go');b.disabled=false;b.removeAttribute('aria-busy')});
+    $('#ac-go1').innerHTML='<span class="only-entrar">Continuar</span><span class="only-crear">Crear cuenta</span>';
+    $('#ac-go2').textContent='Verificar';
+    show(1,false);
+  }
+  function load(btn,done){
+    if(busy)return;busy=true;var html=btn.innerHTML;
+    btn.disabled=true;btn.setAttribute('aria-busy','true');btn.innerHTML='<span class="ac-dots" aria-hidden="true"><b></b><b></b><b></b></span><span class="sr">Cargando</span>';
+    setTimeout(function(){busy=false;btn.disabled=false;btn.removeAttribute('aria-busy');btn.innerHTML=html;done()},600);
+  }
+  function mailMsg(){
+    var v=mail.value.trim();
+    if(!v)return 'Escribe tu correo.';
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v))return 'Ese correo no parece válido. Ejemplo: ana@ejemplo.com';
+    return '';
+  }
+  mail.addEventListener('blur',function(){if(mail.value.trim())setErr(mailE,mailMsg(),[mail])});
+  mail.addEventListener('input',function(){if(!mailE.hidden)setErr(mailE,mailMsg(),[mail])});
+  terms.addEventListener('change',function(){if(terms.checked)setErr(termsE,'',[terms])});
+
+  function startCount(){
+    clearInterval(timer);left=30;resend.disabled=true;cnt.textContent=left;
+    resend.firstChild.nodeValue='Reenviar código en ';
+    timer=setInterval(function(){
+      left--;
+      if(left<=0){clearInterval(timer);resend.disabled=false;resend.textContent='Reenviar código';live.textContent='Ya puedes reenviar el código.'}
+      else{cnt.textContent=left}
+    },1000);
+  }
+  function resetResend(){resend.innerHTML='Reenviar código en <span class="mono" id="ac-cnt" aria-hidden="true">30</span> s';cnt=$('#ac-cnt')}
+
+  f1.addEventListener('submit',function(e){
+    e.preventDefault();
+    var m=mailMsg(),bad=[];
+    setErr(mailE,m,[mail]);if(m)bad.push(mail);
+    if(route()==='crear'){var tm=terms.checked?'':'Debes aceptar los términos para continuar (ejemplo).';setErr(termsE,tm,[terms]);if(tm&&!bad.length)bad.push(terms)}
+    if(bad.length){bad[0].focus();return}
+    load($('#ac-go1'),function(){
+      resetResend();digs.forEach(function(d){d.value=''});setErr(codeE,'',digs);
+      show(2);startCount();live.textContent='Revisa tu correo. Escribe el código de 6 dígitos.';
+    });
+  });
+  function code(){return digs.map(function(d){return d.value}).join('')}
+  function fill(from,str){
+    var s=String(str).replace(/\D/g,'').slice(0,6-from);
+    for(var i=0;i<s.length;i++)digs[from+i].value=s[i];
+    var nx=Math.min(from+s.length,5);digs[nx].focus();digs[nx].select();
+    if(s.length)setErr(codeE,'',digs);
+  }
+  digs.forEach(function(d,i){
+    d.addEventListener('input',function(){
+      var v=d.value.replace(/\D/g,'');
+      if(v.length>1){d.value='';fill(i,v);return}
+      d.value=v;if(v){setErr(codeE,'',digs);if(i<5){digs[i+1].focus();digs[i+1].select()}}
+    });
+    d.addEventListener('keydown',function(e){
+      if(e.key==='Backspace'&&!d.value&&i>0){e.preventDefault();digs[i-1].value='';digs[i-1].focus()}
+      else if(e.key==='ArrowLeft'&&i>0){e.preventDefault();digs[i-1].focus()}
+      else if(e.key==='ArrowRight'&&i<5){e.preventDefault();digs[i+1].focus()}
+    });
+    d.addEventListener('focus',function(){d.select()});
+    d.addEventListener('paste',function(e){
+      var t=(e.clipboardData||window.clipboardData).getData('text');
+      e.preventDefault();fill(0,t);
+    });
+  });
+  f2.addEventListener('submit',function(e){
+    e.preventDefault();var c=code();
+    if(c.length<6){setErr(codeE,'Escribe los 6 dígitos.',digs);digs[c.length].focus();return}
+    load($('#ac-go2'),function(){
+      if(c==='000000'){
+        setErr(codeE,'Código incorrecto. Revisa tu correo e inténtalo de nuevo.',digs);face('sad');
+        codeWrap.classList.remove('shake');void codeWrap.offsetWidth;codeWrap.classList.add('shake');
+        digs[0].focus();digs[0].select();
+        setTimeout(function(){if(step===2)face(null)},2200);
+      }else{clearInterval(timer);show(3)}
+    });
+  });
+  digs.forEach(function(d){d.addEventListener('input',function(){if(mas.classList.contains('sad'))face(null)})});
+  resend.addEventListener('click',function(){
+    if(resend.disabled)return;resetResend();startCount();digs.forEach(function(d){d.value=''});setErr(codeE,'',digs);
+    live.textContent='Código reenviado (ejemplo).';digs[0].focus();
+  });
+  $('#ac-other').addEventListener('click',function(){clearInterval(timer);setErr(codeE,'',digs);show(1);mail.select()});
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape'||!visible())return;
+    if(step===2){clearInterval(timer);show(1)}
+    else if(step===3){reset()}
+    else location.hash='#/';
+  });
+  document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('#acceso a[data-fake]');if(a)e.preventDefault()});
+  document.addEventListener('eng:route',function(){
+    reset();
+    if(visible()&&(location.hash==='#/entrar'||location.hash==='#/crear')){h1.setAttribute('tabindex','-1');if(window.__acFirst){h1.focus({preventScroll:true})}window.__acFirst=1}
+  });
+})();
+</script>
+
+<script>
+(function(){
+  var root=document.documentElement;
+  window.engTheme={set:function(m){root.classList.toggle('dark',m==='dark');document.querySelectorAll('[data-theme-set]').forEach(function(b){b.setAttribute('aria-pressed',b.getAttribute('data-theme-set')===m)})},toggle:function(){this.set(root.classList.contains('dark')?'light':'dark')}};
+  var pages={'/':'landing','/entrar':'acceso','/crear':'acceso'};
+  function show(){
+    var h=(location.hash||'#/').slice(1)||'/'; if(!pages[h]) h='/';
+    document.querySelectorAll('main[id]').forEach(function(m){m.hidden=m.id!==pages[h]});
+    root.setAttribute('data-route',h);
+    document.dispatchEvent(new CustomEvent('eng:route',{detail:h}));
+    window.scrollTo(0,0);
+  }
+  addEventListener('hashchange',show);
+  document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('[data-go]');if(!a)return;e.preventDefault();
+    var go=function(){var el=document.getElementById('lp-'+a.getAttribute('data-go'));if(el)el.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'start'})};
+    if((location.hash||'#/')!=='#/'){location.hash='#/';setTimeout(go,60)}else go()});
+  document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-theme-set]');if(b)window.engTheme.set(b.getAttribute('data-theme-set'))});
+  show();
+})();</script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 // Claves propias (contrato §4). Solo localStorage; nunca en .app/, Settings, zip, logs ni errores.
+import { isDemo, mem } from '../demo/state';
 import type { ProviderId } from './providers';
 
 export const KEYS_STORAGE = 'engrama.chat.keys';
@@ -20,6 +21,7 @@ function isEntry(e: unknown): e is KeyEntry {
 }
 
 export function loadKeys(): KeyStore {
+  if (isDemo()) return mem.keys as KeyStore; // demo: claves falsas en memoria, nunca localStorage
   try {
     const o = JSON.parse(localStorage.getItem(KEYS_STORAGE) ?? '') as KeyStore;
     if (o && o.v === 1 && Array.isArray(o.keys)) return { v: 1, keys: o.keys.filter(isEntry).slice(0, MAX_KEYS) };
@@ -28,6 +30,7 @@ export function loadKeys(): KeyStore {
 }
 
 export function saveKeys(s: KeyStore): boolean {
+  if (isDemo()) { mem.keys = s; return true; }
   try { localStorage.setItem(KEYS_STORAGE, JSON.stringify({ v: 1, keys: s.keys.slice(0, MAX_KEYS) })); return true; } catch { return false; }
 }
 

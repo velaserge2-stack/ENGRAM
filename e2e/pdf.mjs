@@ -73,10 +73,10 @@ try {
   const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: 'es-MX' });
   const page = await ctx.newPage();
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
-  await page.goto(URL_ + '#/mazos');
+  await page.goto(URL_ + '?app#/mazos');
   await page.getByRole('button', { name: 'Importar archivo' }).click();
   await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'pdf.zip', mimeType: 'application/zip', buffer: Buffer.from(zipSync({ 'notes/Cardiología/ECG/Exportar.md': strToU8(NOTA), 'media/pdf-img.png': new Uint8Array(PNG) }, { level: 0 })) });
   await page.locator('.sheet').getByRole('button', { name: 'Importar', exact: true }).click();
@@ -85,13 +85,13 @@ try {
 
   for (const [modo, label] of [['oscuro', 'Oscuro'], ['claro', 'Claro']]) {
     for (const [fondo, name] of [['foto', 'Paisaje'], ['solido', modo === 'oscuro' ? 'Color sólido #000000' : 'Color sólido #ffffff']]) {
-      await page.goto(URL_ + '#/ajustes');
+      await page.goto(URL_ + '?app#/ajustes');
       await page.locator('.settings').waitFor();
       if (await page.getByRole('button', { name: 'Desplegar todo' }).count()) await page.getByRole('button', { name: 'Desplegar todo' }).click();
       await page.getByRole('radiogroup', { name: 'Fondos' }).getByRole('radio', { name, exact: true }).click();
       await page.getByRole('group', { name: 'Modo del vidrio' }).getByRole('button', { name: label, exact: true }).click();
       await page.waitForTimeout(400);
-      await page.goto(URL_ + '#/notas/Cardiología/ECG/Exportar.md');
+      await page.goto(URL_ + '?app#/notas/Cardiología/ECG/Exportar.md');
       await page.locator('.doc').waitFor();
       // como el botón «PDF / imprimir»: carga las imágenes y marca la impresión de la nota
       await page.evaluate(() => { window.print = () => (window.__printed = true); });
@@ -117,7 +117,7 @@ try {
     }
   }
   // nota abierta en un panel de Espacios (junto a otro panel): se imprime solo esa nota
-  await page.goto(URL_ + '#/espacios/abrir/' + encodeURIComponent('notes/Cardiología/ECG/Exportar.md'));
+  await page.goto(URL_ + '?app#/espacios/abrir/' + encodeURIComponent('notes/Cardiología/ECG/Exportar.md'));
   await page.locator('.win .doc').first().waitFor();
   await page.evaluate(() => { window.print = () => (window.__printed = 'panel'); });
   await page.locator('.win').filter({ has: page.locator('.doc') }).first().getByRole('button', { name: 'Compartir o exportar' }).click();

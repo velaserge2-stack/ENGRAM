@@ -1,5 +1,6 @@
 // Un turno del Asistente: historial + runTurn (una petición a la vez, rotación y espera 429 ya viven en session.ts).
 import { add, append, generation, getStatus, messages, remove, setStatus, toModel } from './history';
+import { isDemo } from '../demo/state';
 import { busy, runTurn } from './session';
 import { SYSTEM, SYSTEM_DELETE, SYSTEM_WRITE } from './system';
 import type { Proposal } from './proposal';
@@ -17,6 +18,7 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>): Promis
   const q = text.trim();
   if (!q) return;
   if (getStatus().busy || busy()) { add('error', '', { code: 'busy' }); return; }
+  if (isDemo()) return (await import('../demo/chat')).demoSend(q, env?.col);
   const gen = generation();
   add('user', q);
   const sources: Source[] = [];

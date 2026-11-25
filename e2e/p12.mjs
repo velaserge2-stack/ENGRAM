@@ -30,7 +30,7 @@ async function fresh(w = 1180, h = 820) {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   return { ctx, page };
@@ -48,7 +48,7 @@ const tree = (page) => page.locator('.tree').innerText();
 const treeHas = (page, re) => page.waitForFunction((src) => new RegExp(src).test(document.querySelector('.tree')?.innerText ?? ''), re.source, { timeout: 8000 }).then(() => true, () => false);
 /** Abre «Nueva nota» desde la vista general de Notas. */
 async function newNote(page, { title, materia = '', tema = '' }) {
-  await page.goto(URL_ + '#/notas');
+  await page.goto(URL_ + '?app#/notas');
   await page.getByRole('button', { name: 'Nueva nota', exact: true }).first().click();
   const sh = page.locator('.sheet');
   await sh.waitFor();
@@ -63,7 +63,7 @@ async function newNote(page, { title, materia = '', tema = '' }) {
 try {
   const { ctx, page } = await fresh();
   console.log('Crear con solo el título');
-  await page.goto(URL_ + '#/notas');
+  await page.goto(URL_ + '?app#/notas');
   await page.getByRole('button', { name: 'Nueva nota', exact: true }).first().click();
   const sh = page.locator('.sheet');
   check(await sh.locator('input[required]').count() === 1, 'solo un campo obligatorio');
@@ -111,7 +111,7 @@ try {
   await page.getByRole('searchbox', { name: /Buscar en todas las notas/ }).fill('');
 
   console.log('Panel de nota del lienzo');
-  await page.goto(URL_ + '#/espacios');
+  await page.goto(URL_ + '?app#/espacios');
   await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
   await page.locator('.sheet input[name=n]').fill('Notas');
   await page.getByRole('button', { name: 'Crear', exact: true }).click();
@@ -124,29 +124,29 @@ try {
   check((await page.locator('.win .doc').innerText()).includes('Desde el lienzo'), 'desde el panel del lienzo: solo el título, y se abre en el panel');
 
   console.log('Respaldo .zip y reimportación con las tres variantes');
-  await page.goto(URL_ + '#/perfil');
+  await page.goto(URL_ + '?app#/perfil');
   await page.getByRole('button', { name: /^Respaldo/ }).first().click();
   await page.getByRole('button', { name: 'Preparar respaldo (.zip)' }).click();
   const dl = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Guardar en Archivos' }).click();
   const zip = await (await dl).path();
   const { ctx: c2, page: p2 } = await fresh();
-  await p2.goto(URL_ + '#/mazos');
+  await p2.goto(URL_ + '?app#/mazos');
   await p2.getByRole('button', { name: 'Importar archivo' }).click();
   await p2.locator('.sheet input[type=file]').first().setInputFiles({ name: 'respaldo.zip', mimeType: 'application/zip', buffer: require('node:fs').readFileSync(zip) });
   await p2.locator('.sheet').getByRole('button', { name: 'Importar', exact: true }).click();
   await p2.waitForTimeout(800);
-  await p2.goto(URL_ + '#/notas');
+  await p2.goto(URL_ + '?app#/notas');
   for (const x of ['Idea rápida 🫀 ñ', 'Solo materia', 'Completa']) await p2.locator('.tree a', { hasText: x }).first().waitFor();
   check(await treeHas(p2, /Sin clasificar[\s\S]*Idea rápida 🫀 ñ/) && await treeHas(p2, /Sin tema[\s\S]*Solo materia/) && await treeHas(p2, /ECG[\s\S]*Completa/), 'el respaldo reimportado trae las tres variantes en su sitio');
   await c2.close();
 
   console.log('Idiomas');
   for (const [lang, btn, nueva, mat, tem, sin] of [['fr', 'Français', 'Nouvelle note', 'Matière (facultatif)', 'Thème ou cours (facultatif)', 'Non classées'], ['en', 'English', 'New note', 'Subject (optional)', 'Topic or class (optional)', 'Unsorted']]) {
-    await page.goto(URL_ + '#/ajustes/idioma');
+    await page.goto(URL_ + '?app#/ajustes/idioma');
     await page.locator('#idioma').getByRole('button', { name: btn }).click();
     await page.waitForTimeout(400);
-    await page.goto(URL_ + '#/notas');
+    await page.goto(URL_ + '?app#/notas');
     await page.getByRole('button', { name: nueva, exact: true }).first().click();
     const f = page.locator('.sheet');
     check(await f.getByLabel(mat).count() === 1 && await f.getByLabel(tem).count() === 1, `${lang}: «${mat}» y «${tem}»`);

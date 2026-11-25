@@ -47,7 +47,7 @@ try {
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('pageerror', (e) => errors.push(String(e)));
 
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByText('Bienvenido a Engrama').waitFor();
   check(true, 'pantalla de bienvenida con guía de instalación manual');
   await page.screenshot({ path: OUT + '0-bienvenida.png' });
@@ -62,7 +62,7 @@ try {
   await page.getByRole('link', { name: 'Cardiología' }).first().waitFor();
   check((await page.getByText('Bienvenido a Engrama').count()) === 0, 'tras recargar, los datos y ajustes sobreviven (OPFS)');
 
-  await page.goto(URL_ + '#/ajustes');
+  await page.goto(URL_ + '?app#/ajustes');
   await openAll(page);
   await page.getByText('OPFS').first().waitFor();
   const detail = await page.getByText('OPFS').first().textContent();
@@ -71,14 +71,14 @@ try {
   await page.screenshot({ path: OUT + '2-ajustes.png', fullPage: false });
 
   // estudiar una tarjeta: mostrar respuesta → Bien; queda en reviews.jsonl
-  await page.goto(URL_ + '#/estudiar');
+  await page.goto(URL_ + '?app#/estudiar');
   await page.getByRole('button', { name: /Mostrar respuesta/ }).click();
   await page.getByRole('button', { name: /^Bien, vuelve en/ }).click();
   await page.waitForTimeout(600);
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await page.getByText(/Estudiaste 1 tarjetas/).waitFor();
   check(true, 'estudiar registra el repaso y Hoy lo refleja');
-  await page.goto(URL_ + '#/ajustes');
+  await page.goto(URL_ + '?app#/ajustes');
   await openAll(page);
   await page.getByRole('button', { name: 'Comprobar', exact: true }).click();
   await page.getByText(/✓ Idéntico/).waitFor();
@@ -87,14 +87,14 @@ try {
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.reload(); // ahora controlada por el SW
   await ctx.setOffline(true);
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await page.getByRole('link', { name: 'Cardiología' }).first().waitFor();
   check(true, 'funciona sin conexión (service worker)');
   await ctx.setOffline(false);
   await page.screenshot({ path: OUT + '1-hoy-claro.png' });
 
   // Exportar → descarga (Chromium/WebKit headless no comparten archivos)
-  await page.goto(URL_ + '#/perfil');
+  await page.goto(URL_ + '?app#/perfil');
   await page.getByRole('button', { name: /^Respaldo/ }).first().click();
   await page.getByRole('button', { name: 'Preparar respaldo (.zip)' }).click();
   const dl = page.waitForEvent('download');
@@ -114,7 +114,7 @@ try {
   const ctx2 = await browser.newContext({ locale: 'es-MX', viewport: { width: 820, height: 1180 } });
   const p2 = await ctx2.newPage();
   p2.on('pageerror', (e) => errors.push(String(e)));
-  await p2.goto(URL_);
+  await p2.goto(URL_ + '?app');
   await p2.getByRole('button', { name: 'Restaurar respaldo' }).click();
   const chooser = p2.waitForEvent('filechooser');
   await p2.getByRole('button', { name: 'Elegir archivos' }).click();
@@ -131,7 +131,7 @@ try {
   // Oscuro
   const ctx3 = await browser.newContext({ locale: 'es-MX', viewport: { width: 1180, height: 820 }, colorScheme: 'dark' });
   const p3 = await ctx3.newPage();
-  await p3.goto(URL_);
+  await p3.goto(URL_ + '?app');
   await p3.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await p3.getByRole('link', { name: 'Cardiología' }).first().waitFor();
   await p3.screenshot({ path: OUT + '5-hoy-oscuro.png' });

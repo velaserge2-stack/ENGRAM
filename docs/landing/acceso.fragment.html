@@ -1,0 +1,339 @@
+<style>
+#acceso{min-height:100vh;display:flex;flex-direction:column}
+#acceso[hidden]{display:none}
+#acceso .ac-top{padding:0 16px}
+#acceso .ac-nav{justify-content:space-between}
+#acceso .ac-nav .brand{margin-right:0;min-height:44px}
+#acceso .ac-nav .ac-right{display:flex;align-items:center;gap:8px}
+#acceso .ac-nav .ac-back{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:var(--r-pill);font-weight:600;font-size:15px;color:var(--t2)}
+#acceso .ac-nav .ac-back:hover{color:var(--t1);background:var(--chip)}
+#acceso .seg button{min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center}
+#acceso .ac-stage{flex:1;width:100%;max-width:var(--maxw);margin:0 auto;padding:clamp(28px,7vh,72px) 16px 0;display:grid;grid-template-columns:minmax(0,520px);justify-content:center;gap:28px}
+html[data-route="/crear"] #acceso .ac-stage{grid-template-columns:minmax(0,1fr) minmax(0,520px);align-items:start;gap:clamp(28px,5vw,72px)}
+#acceso .ac-col{min-width:0}
+#acceso .ac-mascot{margin-bottom:14px;width:64px;height:64px}
+#acceso .ac-mascot svg{width:64px;height:64px;transition:transform .5s cubic-bezier(.3,1.6,.5,1)}
+#acceso .ac-mascot.happy svg{transform:translateY(-6px) rotate(-4deg)}
+#acceso .ac-mascot.sad .eyes{transform:translateY(2.4px) scaleY(.62);transform-box:fill-box;transform-origin:center}
+#acceso .ac-mascot .m{display:none}
+#acceso .ac-mascot .m.n{display:block}
+#acceso .ac-mascot.happy .m.n,#acceso .ac-mascot.sad .m.n{display:none}
+#acceso .ac-mascot.happy .m.h{display:block}
+#acceso .ac-mascot.sad .m.s{display:block}
+#acceso .ac-h1{font-size:clamp(40px,6.2vw,64px);line-height:.98;font-weight:700;letter-spacing:-.055em;margin:0 0 14px;outline:none}
+#acceso .ac-sub{font-size:clamp(16px,1.9vw,19px);color:var(--t2);margin:0 0 28px;max-width:46ch}
+#acceso .ac-card{border-radius:var(--r-xl);padding:12px;box-shadow:var(--shadow)}
+#acceso .ac-inner{border-radius:var(--r-l);background:var(--glass2);border:.5px solid var(--hair2);padding:22px 20px 20px}
+#acceso .ac-step[hidden]{display:none}
+#acceso .ac-lab{display:block;font-weight:700;font-size:15px;margin:0 0 8px;letter-spacing:-.015em}
+#acceso .ac-lab .opt{font-weight:500;color:var(--t3)}
+#acceso .ac-field{margin-bottom:14px}
+#acceso .ac-in{width:100%;min-height:52px;padding:0 18px;font:inherit;font-size:16px;color:var(--t1);background:var(--chip);border:1.5px solid var(--hair);border-radius:var(--r-pill);letter-spacing:-.01em}
+#acceso .ac-in::placeholder{color:var(--t3)}
+#acceso .ac-in:focus-visible{outline:2px solid var(--t1);outline-offset:2px}
+#acceso .ac-in[aria-invalid=true],#acceso .ac-code input[aria-invalid=true]{border:2.5px solid var(--t1);background:var(--chip2)}
+#acceso .ac-hint{font-size:14px;color:var(--t2);margin:0 0 16px}
+#acceso .ac-err{display:flex;gap:8px;align-items:flex-start;margin:8px 2px 0;font-weight:700;font-size:14.5px;color:var(--t1)}
+#acceso .ac-err[hidden]{display:none}
+#acceso .ac-err i{flex:none;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--ink-t);display:grid;place-items:center;font-style:normal;font-size:13px;font-weight:800;line-height:1}
+#acceso .btn.ac-go{width:100%;min-height:52px;position:relative}
+#acceso .btn[disabled]{opacity:.5;cursor:not-allowed;transform:none}
+#acceso .btn[aria-busy=true]{opacity:1}
+#acceso .ac-dots{display:inline-flex;gap:5px}
+#acceso .ac-dots b{width:7px;height:7px;border-radius:50%;background:currentColor;animation:acdot 1s infinite ease-in-out}
+#acceso .ac-dots b:nth-child(2){animation-delay:.15s}#acceso .ac-dots b:nth-child(3){animation-delay:.3s}
+@keyframes acdot{0%,80%,100%{transform:scale(.55);opacity:.5}40%{transform:scale(1);opacity:1}}
+#acceso .ac-switch{text-align:center;margin:16px 8px 6px;font-size:15px;color:var(--t2)}
+#acceso .ac-switch a{color:var(--t1);font-weight:700;padding:12px 4px;display:inline-block;min-height:44px}
+#acceso .ac-switch a:hover{text-decoration:underline}
+#acceso .ac-note{display:flex;gap:10px;margin-top:14px;padding:12px 14px;border-radius:var(--r-m);border:.5px dashed var(--hair);font-size:13.5px;color:var(--t2);line-height:1.4}
+#acceso .ac-note svg{flex:none;margin-top:1px}
+#acceso .ac-chk{display:flex;gap:12px;align-items:flex-start;margin:4px 0 14px;font-size:14.5px;color:var(--t2);cursor:pointer;min-height:44px}
+#acceso .ac-chk input{appearance:none;-webkit-appearance:none;flex:none;width:26px;height:26px;margin:9px 0 0;border:1.5px solid var(--hair);border-radius:9px;background:var(--chip);display:grid;place-items:center;cursor:pointer;font:inherit}
+#acceso .ac-chk input:checked{background:var(--ink);border-color:transparent}
+#acceso .ac-chk input:checked::after{content:"";width:6px;height:12px;border:solid var(--ink-t);border-width:0 2.5px 2.5px 0;transform:rotate(45deg) translate(-1px,-1px)}
+#acceso .ac-chk input[aria-invalid=true]{border:2.5px solid var(--t1)}
+#acceso .ac-chk span{padding-top:9px}
+#acceso .ac-chk a{color:var(--t1);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+#acceso .ac-code{display:flex;gap:8px;margin:6px 0 4px}
+#acceso .ac-code input{flex:1;min-width:0;max-width:60px;height:60px;padding:0;text-align:center;font-family:var(--mono);font-size:24px;font-weight:700;color:var(--t1);background:var(--chip);border:1.5px solid var(--hair);border-radius:var(--r-m)}
+#acceso .ac-code input:focus-visible{outline:2px solid var(--t1);outline-offset:2px}
+#acceso .ac-code.shake{animation:acshake .42s cubic-bezier(.3,.7,.4,1)}
+@keyframes acshake{0%,100%{transform:none}20%{transform:translateX(-8px)}40%{transform:translateX(7px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+#acceso .ac-row{display:flex;flex-wrap:wrap;gap:4px 8px;justify-content:space-between;margin:12px 0 4px}
+#acceso .ac-lnk{background:none;border:0;min-height:44px;padding:0 10px;font-weight:700;font-size:14.5px;color:var(--t1);cursor:pointer;border-radius:var(--r-pill)}
+#acceso .ac-lnk:hover:not([disabled]){background:var(--chip)}
+#acceso .ac-lnk[disabled]{color:var(--t3);cursor:default}
+#acceso .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#acceso .ac-ok{text-align:left}
+#acceso .ac-ok .ac-big{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;margin-bottom:12px}
+#acceso .ac-ok .btn{width:100%;margin-top:8px}
+#acceso .ac-val{border-radius:var(--r-xl);padding:clamp(22px,3vw,34px);display:none}
+html[data-route="/crear"] #acceso .ac-val{display:block}
+#acceso .ac-val h2{font-size:clamp(26px,3.4vw,38px);line-height:1.02;letter-spacing:-.045em;margin:12px 0 18px}
+#acceso .ac-val ul{list-style:none;margin:0;padding:0;display:grid;gap:16px}
+#acceso .ac-val li{display:flex;gap:14px;align-items:flex-start}
+#acceso .ac-val li i{flex:none;width:44px;height:44px;border-radius:15px;background:var(--glass2);border:.5px solid var(--line);display:grid;place-items:center;box-shadow:var(--shadow-s)}
+#acceso .ac-val li b{display:block;font-size:17px;letter-spacing:-.025em;margin-bottom:2px}
+#acceso .ac-val li span{color:var(--t2);font-size:15px}
+#acceso .only-crear{display:none}
+html[data-route="/crear"] #acceso .only-crear{display:block}
+html[data-route="/crear"] #acceso .only-entrar{display:none}
+#acceso .ac-foot{margin-top:56px;padding:26px 16px 110px;border-top:.5px solid var(--hair)}
+#acceso .ac-foot .in{max-width:var(--maxw);margin:0 auto;display:flex;flex-wrap:wrap;gap:6px 22px;align-items:center;justify-content:space-between}
+#acceso .ac-foot nav{display:flex;flex-wrap:wrap;gap:0 6px}
+#acceso .ac-foot nav a{display:inline-flex;align-items:center;min-height:44px;padding:0 10px;font-size:14.5px;color:var(--t2);border-radius:var(--r-pill)}
+#acceso .ac-foot nav a:hover{color:var(--t1);background:var(--chip)}
+#acceso .ac-foot small{display:block;width:100%;color:var(--t3);font-size:13px}
+@media (max-width:900px){
+  html[data-route="/crear"] #acceso .ac-stage{grid-template-columns:minmax(0,520px)}
+  html[data-route="/crear"] #acceso .ac-val{order:2}
+}
+@media (max-width:520px){
+  #acceso .ac-nav .ac-back span{display:none}
+  #acceso .ac-stage{padding-bottom:140px}
+  #acceso .ac-code{gap:6px}
+  #acceso .ac-code input{height:56px;font-size:22px}
+}
+@media (prefers-reduced-motion:reduce){
+  #acceso *{animation:none!important;transition:none!important}
+}
+</style>
+<main id="acceso" hidden>
+  <div class="ac-top">
+    <header class="nav glass ac-nav">
+      <a class="brand" href="#/" aria-label="Engrama, ir a la página de inicio"><i><img src="{{LOGO}}" alt=""></i>Engrama</a>
+      <div class="ac-right">
+        <a class="ac-back" href="#/"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>Volver a la página</span></a>
+        <div class="seg" role="group" aria-label="Tema">
+          <button type="button" data-theme-set="light" aria-pressed="true" aria-label="Claro"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+          <button type="button" data-theme-set="dark" aria-pressed="false" aria-label="Oscuro"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+        </div>
+      </div>
+    </header>
+  </div>
+
+  <div class="ac-stage">
+    <aside class="ac-val glass" aria-labelledby="ac-val-t">
+      <span class="tag">Maqueta</span>
+      <h2 id="ac-val-t">Una cuenta opcional, sin atar tus datos.</h2>
+      <ul>
+        <li><i aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></i><div><b>Tus datos siguen siendo tus archivos</b><span>Mazos y notas viven en archivos .md y .jsonl que puedes abrir y llevarte.</span></div></li>
+        <li><i aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="3"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><path d="m3 3 18 18"/></svg></i><div><b>Sin contraseñas</b><span>Entrarías con un código de 6 dígitos que llega a tu correo.</span></div></li>
+        <li><i aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 9.2-9.2M16 7l3 3M14 9l2 2"/></svg></i><div><b>El asistente usa tu propia clave</b><span>Es opcional, está apagado por defecto y solo se conecta si tú lo enciendes.</span></div></li>
+      </ul>
+    </aside>
+
+    <section class="ac-col" aria-labelledby="ac-h1">
+      <div class="ac-mascot" id="ac-mascot" aria-hidden="true">
+        <svg viewBox="0 0 64 64" width="64" height="64" class="mascot"><defs><linearGradient id="acg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--face)"/><stop offset="1" stop-color="var(--face2)"/></linearGradient></defs><ellipse cx="32" cy="60" rx="16" ry="2" fill="var(--feat)" opacity=".12"/><rect x="7" y="8" width="50" height="48" rx="19" fill="url(#acg)" stroke="var(--edge)" stroke-width="1.2"/><g class="eyes"><g class="blink"><ellipse cx="24" cy="30" rx="3.1" ry="4.1" fill="var(--feat)"/><ellipse cx="40" cy="30" rx="3.1" ry="4.1" fill="var(--feat)"/><circle cx="25.2" cy="28.4" r="1.15" fill="#fff"/><circle cx="41.2" cy="28.4" r="1.15" fill="#fff"/></g></g><path class="m n" d="M28.5 38q3.5 3.4 7 0" fill="none" stroke="var(--feat)" stroke-width="2.4" stroke-linecap="round"/><path class="m h" d="M25.5 36.5q6.5 8 13 0" fill="none" stroke="var(--feat)" stroke-width="2.6" stroke-linecap="round"/><path class="m s" d="M28.5 41q3.5-3.4 7 0" fill="none" stroke="var(--feat)" stroke-width="2.4" stroke-linecap="round"/><ellipse cx="17.5" cy="37.5" rx="4" ry="2.5" fill="var(--cheek)"/><ellipse cx="46.5" cy="37.5" rx="4" ry="2.5" fill="var(--cheek)"/></svg>
+      </div>
+      <h1 class="ac-h1" id="ac-h1" tabindex="-1">Iniciar sesión</h1>
+      <p class="ac-sub" id="ac-sub">Entra con tu cuenta para respaldar tu estudio y, más adelante, elegir un plan. Es un acceso opcional: Engrama funciona igual sin él.</p>
+
+      <div class="ac-card glass">
+        <div class="ac-inner">
+          <!-- Paso 1 -->
+          <form class="ac-step" id="ac-f1" novalidate>
+            <div class="ac-field only-crear">
+              <label class="ac-lab" for="ac-name">Nombre <span class="opt">(opcional)</span></label>
+              <input class="ac-in" id="ac-name" type="text" autocomplete="name" placeholder="Ana Gómez">
+            </div>
+            <div class="ac-field">
+              <label class="ac-lab" for="ac-mail">Correo</label>
+              <input class="ac-in" id="ac-mail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="ana@ejemplo.com" aria-describedby="ac-mail-h ac-mail-e">
+              <div class="ac-err" id="ac-mail-e" role="alert" hidden><i aria-hidden="true">!</i><span></span></div>
+            </div>
+            <p class="ac-hint" id="ac-mail-h">Te enviaremos un código de 6 dígitos. Sin contraseña.</p>
+            <div class="only-crear">
+              <label class="ac-chk"><input type="checkbox" id="ac-terms" aria-describedby="ac-terms-e"><span>Acepto los <a href="#/crear" data-fake>términos</a> y la <a href="#/crear" data-fake>política de privacidad</a> (ejemplo).</span></label>
+              <div class="ac-err" id="ac-terms-e" role="alert" hidden style="margin:-6px 2px 14px"><i aria-hidden="true">!</i><span></span></div>
+            </div>
+            <button class="btn ink ac-go" id="ac-go1" type="submit"><span class="only-entrar">Continuar</span><span class="only-crear">Crear cuenta</span></button>
+            <p class="ac-switch only-entrar">¿Primera vez aquí? <a href="#/crear">Crear cuenta</a></p>
+            <p class="ac-switch only-crear">¿Ya tienes cuenta? <a href="#/entrar">Iniciar sesión</a></p>
+          </form>
+
+          <!-- Paso 2 -->
+          <form class="ac-step" id="ac-f2" novalidate hidden>
+            <p class="sr" id="ac-sent">Escribe el código de 6 dígitos que enviaríamos a tu correo.</p>
+            <div role="group" aria-labelledby="ac-sent" class="ac-code" id="ac-code">
+              <input inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="Dígito 1 de 6" aria-describedby="ac-code-e">
+              <input inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Dígito 2 de 6" aria-describedby="ac-code-e">
+              <input inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Dígito 3 de 6" aria-describedby="ac-code-e">
+              <input inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Dígito 4 de 6" aria-describedby="ac-code-e">
+              <input inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Dígito 5 de 6" aria-describedby="ac-code-e">
+              <input inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="Dígito 6 de 6" aria-describedby="ac-code-e">
+            </div>
+            <div class="ac-err" id="ac-code-e" role="alert" hidden><i aria-hidden="true">!</i><span></span></div>
+            <p class="ac-hint" style="margin:10px 0 14px;font-size:13.5px">Maqueta: cualquier código de 6 dígitos funciona; <span class="mono">000000</span> muestra el error.</p>
+            <button class="btn ink ac-go" id="ac-go2" type="submit">Verificar</button>
+            <div class="ac-row">
+              <button class="ac-lnk" type="button" id="ac-resend" disabled>Reenviar código en <span class="mono" id="ac-cnt" aria-hidden="true">30</span> s</button>
+              <button class="ac-lnk" type="button" id="ac-other">Usar otro correo</button>
+            </div>
+            <div class="sr" id="ac-live" aria-live="polite"></div>
+          </form>
+
+          <!-- Paso 3 -->
+          <div class="ac-step ac-ok" id="ac-f3" hidden>
+            <div class="ac-big"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12.5 3 3 5-6"/></svg><span id="ac-okmsg">Listo</span></div>
+            <p class="ac-hint" style="margin:0 0 6px" id="ac-oksub">Código aceptado (ejemplo). No se inició ninguna sesión real.</p>
+            <button class="btn ink" type="button" disabled>Ir a la app (maqueta)</button>
+            <a class="btn soft" href="#/">Volver a la página</a>
+          </div>
+
+          <div class="ac-note" role="note">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            <span>Maqueta de diseño. Engrama hoy no usa cuentas; este formulario no envía ni guarda nada.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="ac-foot">
+    <div class="in">
+      <nav aria-label="Pie">
+        <a href="#/entrar" data-fake>Términos (ejemplo)</a><a href="#/entrar" data-fake>Privacidad (ejemplo)</a><a href="#/entrar" data-fake>Ayuda (ejemplo)</a><a href="#/entrar" data-fake>Contacto (ejemplo)</a>
+      </nav>
+      <div class="seg" role="group" aria-label="Tema del pie">
+        <button type="button" data-theme-set="light" aria-pressed="true">Claro</button>
+        <button type="button" data-theme-set="dark" aria-pressed="false">Oscuro</button>
+      </div>
+      <small>Engrama · maqueta de diseño. Los enlaces de este pie son de ejemplo.</small>
+    </div>
+  </footer>
+</main>
+<script>
+(function(){
+  var $=function(s,r){return (r||document).querySelector(s)};
+  var root=document.getElementById('acceso'); if(!root) return;
+  var f1=$('#ac-f1'),f2=$('#ac-f2'),f3=$('#ac-f3'),h1=$('#ac-h1'),sub=$('#ac-sub'),mas=$('#ac-mascot');
+  var mail=$('#ac-mail'),mailE=$('#ac-mail-e'),terms=$('#ac-terms'),termsE=$('#ac-terms-e'),codeE=$('#ac-code-e');
+  var codeWrap=$('#ac-code'),digs=[].slice.call(codeWrap.querySelectorAll('input'));
+  var resend=$('#ac-resend'),cnt=$('#ac-cnt'),live=$('#ac-live');
+  var step=1,timer=null,busy=false,left=30;
+  var route=function(){return document.documentElement.getAttribute('data-route')==='/crear'?'crear':'entrar'};
+  var visible=function(){return !root.hidden};
+
+  function T(k){var c=route()==='crear';return ({
+    h1:[c?'Crear cuenta':'Iniciar sesión',c?'Confirma tu correo':'Revisa tu correo',c?'Cuenta creada (ejemplo)':'Listo'],
+    sub:[c?'Crea una cuenta de ejemplo para ver cómo sería el acceso opcional: respaldo y planes. Engrama funciona igual sin ella.':'Entra con tu cuenta para respaldar tu estudio y, más adelante, elegir un plan. Es un acceso opcional: Engrama funciona igual sin él.',
+      'Escribe el código de 6 dígitos que enviaríamos a ',c?'Tu cuenta de ejemplo quedó confirmada. No se guardó nada.':'Código aceptado (ejemplo). No se inició ninguna sesión real.']
+  })[k]}
+  function setErr(el,msg,inputs){
+    var s=el.querySelector('span');
+    if(msg){s.textContent=msg;el.hidden=false}else{el.hidden=true;s.textContent=''}
+    (inputs||[]).forEach(function(i){if(msg)i.setAttribute('aria-invalid','true');else i.removeAttribute('aria-invalid')});
+  }
+  function face(m){mas.classList.remove('happy','sad');if(m)mas.classList.add(m)}
+  function show(n,focus){
+    step=n;f1.hidden=n!==1;f2.hidden=n!==2;f3.hidden=n!==3;
+    h1.textContent=T('h1')[n-1];
+    sub.textContent=n===1?T('sub')[0]:n===2?T('sub')[1]+(mail.value.trim()||'tu correo')+' (ejemplo, no se envía nada).':T('sub')[2];
+    face(n===3?'happy':null);
+    if(focus!==false)(n===1?mail:n===2?digs[0]:h1).focus({preventScroll:false});
+    if(n===3){h1.focus();$('#ac-okmsg').textContent=route()==='crear'?'Cuenta creada (ejemplo)':'Listo';$('#ac-oksub').textContent=T('sub')[2]}
+  }
+  function reset(){
+    clearInterval(timer);busy=false;mail.value='';$('#ac-name').value='';terms.checked=false;
+    digs.forEach(function(d){d.value=''});
+    setErr(mailE,'',[mail]);setErr(termsE,'',[terms]);setErr(codeE,'',digs);
+    [f1,f2].forEach(function(f){var b=f.querySelector('.ac-go');b.disabled=false;b.removeAttribute('aria-busy')});
+    $('#ac-go1').innerHTML='<span class="only-entrar">Continuar</span><span class="only-crear">Crear cuenta</span>';
+    $('#ac-go2').textContent='Verificar';
+    show(1,false);
+  }
+  function load(btn,done){
+    if(busy)return;busy=true;var html=btn.innerHTML;
+    btn.disabled=true;btn.setAttribute('aria-busy','true');btn.innerHTML='<span class="ac-dots" aria-hidden="true"><b></b><b></b><b></b></span><span class="sr">Cargando</span>';
+    setTimeout(function(){busy=false;btn.disabled=false;btn.removeAttribute('aria-busy');btn.innerHTML=html;done()},600);
+  }
+  function mailMsg(){
+    var v=mail.value.trim();
+    if(!v)return 'Escribe tu correo.';
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v))return 'Ese correo no parece válido. Ejemplo: ana@ejemplo.com';
+    return '';
+  }
+  mail.addEventListener('blur',function(){if(mail.value.trim())setErr(mailE,mailMsg(),[mail])});
+  mail.addEventListener('input',function(){if(!mailE.hidden)setErr(mailE,mailMsg(),[mail])});
+  terms.addEventListener('change',function(){if(terms.checked)setErr(termsE,'',[terms])});
+
+  function startCount(){
+    clearInterval(timer);left=30;resend.disabled=true;cnt.textContent=left;
+    resend.firstChild.nodeValue='Reenviar código en ';
+    timer=setInterval(function(){
+      left--;
+      if(left<=0){clearInterval(timer);resend.disabled=false;resend.textContent='Reenviar código';live.textContent='Ya puedes reenviar el código.'}
+      else{cnt.textContent=left}
+    },1000);
+  }
+  function resetResend(){resend.innerHTML='Reenviar código en <span class="mono" id="ac-cnt" aria-hidden="true">30</span> s';cnt=$('#ac-cnt')}
+
+  f1.addEventListener('submit',function(e){
+    e.preventDefault();
+    var m=mailMsg(),bad=[];
+    setErr(mailE,m,[mail]);if(m)bad.push(mail);
+    if(route()==='crear'){var tm=terms.checked?'':'Debes aceptar los términos para continuar (ejemplo).';setErr(termsE,tm,[terms]);if(tm&&!bad.length)bad.push(terms)}
+    if(bad.length){bad[0].focus();return}
+    load($('#ac-go1'),function(){
+      resetResend();digs.forEach(function(d){d.value=''});setErr(codeE,'',digs);
+      show(2);startCount();live.textContent='Revisa tu correo. Escribe el código de 6 dígitos.';
+    });
+  });
+  function code(){return digs.map(function(d){return d.value}).join('')}
+  function fill(from,str){
+    var s=String(str).replace(/\D/g,'').slice(0,6-from);
+    for(var i=0;i<s.length;i++)digs[from+i].value=s[i];
+    var nx=Math.min(from+s.length,5);digs[nx].focus();digs[nx].select();
+    if(s.length)setErr(codeE,'',digs);
+  }
+  digs.forEach(function(d,i){
+    d.addEventListener('input',function(){
+      var v=d.value.replace(/\D/g,'');
+      if(v.length>1){d.value='';fill(i,v);return}
+      d.value=v;if(v){setErr(codeE,'',digs);if(i<5){digs[i+1].focus();digs[i+1].select()}}
+    });
+    d.addEventListener('keydown',function(e){
+      if(e.key==='Backspace'&&!d.value&&i>0){e.preventDefault();digs[i-1].value='';digs[i-1].focus()}
+      else if(e.key==='ArrowLeft'&&i>0){e.preventDefault();digs[i-1].focus()}
+      else if(e.key==='ArrowRight'&&i<5){e.preventDefault();digs[i+1].focus()}
+    });
+    d.addEventListener('focus',function(){d.select()});
+    d.addEventListener('paste',function(e){
+      var t=(e.clipboardData||window.clipboardData).getData('text');
+      e.preventDefault();fill(0,t);
+    });
+  });
+  f2.addEventListener('submit',function(e){
+    e.preventDefault();var c=code();
+    if(c.length<6){setErr(codeE,'Escribe los 6 dígitos.',digs);digs[c.length].focus();return}
+    load($('#ac-go2'),function(){
+      if(c==='000000'){
+        setErr(codeE,'Código incorrecto. Revisa tu correo e inténtalo de nuevo.',digs);face('sad');
+        codeWrap.classList.remove('shake');void codeWrap.offsetWidth;codeWrap.classList.add('shake');
+        digs[0].focus();digs[0].select();
+        setTimeout(function(){if(step===2)face(null)},2200);
+      }else{clearInterval(timer);show(3)}
+    });
+  });
+  digs.forEach(function(d){d.addEventListener('input',function(){if(mas.classList.contains('sad'))face(null)})});
+  resend.addEventListener('click',function(){
+    if(resend.disabled)return;resetResend();startCount();digs.forEach(function(d){d.value=''});setErr(codeE,'',digs);
+    live.textContent='Código reenviado (ejemplo).';digs[0].focus();
+  });
+  $('#ac-other').addEventListener('click',function(){clearInterval(timer);setErr(codeE,'',digs);show(1);mail.select()});
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape'||!visible())return;
+    if(step===2){clearInterval(timer);show(1)}
+    else if(step===3){reset()}
+    else location.hash='#/';
+  });
+  document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('#acceso a[data-fake]');if(a)e.preventDefault()});
+  document.addEventListener('eng:route',function(){
+    reset();
+    if(visible()&&(location.hash==='#/entrar'||location.hash==='#/crear')){h1.setAttribute('tabindex','-1');if(window.__acFirst){h1.focus({preventScroll:true})}window.__acFirst=1}
+  });
+})();
+</script>

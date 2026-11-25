@@ -31,7 +31,8 @@ try {
   const apiHits = [], genKeys = [], js = new Set(), logs = [];
   let mode = 'ok', lmode = 'ok', lrelease = null;
   const listReqs = [];
-  const EX_DATE = new Date(Date.now() + 20 * 864e5).toISOString().slice(0, 10);
+  // el «día» de la app empieza a las 4 a. m. (dayKey): restar 4 h para que «20 días» valga a cualquier hora
+  const EX_DATE = new Date(Date.now() - 4 * 36e5 + 20 * 864e5).toISOString().slice(0, 10);
   const CREATE = {
     cnota: ['crear_nota', { titulo: 'Nota IA ECG', contenido: 'El ECG registra **12 derivaciones**.\n\n<script>window.__x=1</script><b>x</b>', materia: 'Cardio IA', tema: 'ECG' }],
     cmapa: ['crear_diagrama', { tipo: 'mapa', titulo: 'Mapa IA Arritmias', fuente: 'Arritmias\n- Taquicardias\n  - Fibrilación\n- Bradicardias' }],
@@ -110,12 +111,12 @@ try {
     if (mode === '401') return r.fulfill({ status: 401, headers: CORS, contentType: 'application/json', body: JSON.stringify({ error: { code: 401, message: 'bad key', status: 'UNAUTHENTICATED' } }) });
     return r.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text: 'ok' }] }, finishReason: 'STOP', index: 0 }], usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1, totalTokenCount: 2 } }) });
   });
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
 
   console.log('Apagado');
-  await page.goto(URL_ + '#/ajustes');
+  await page.goto(URL_ + '?app#/ajustes');
   await page.locator('.settings').waitFor();
   await page.waitForTimeout(500);
   check(!(await page.locator('#asistente').count()), 'sin sección «Asistente»');
@@ -224,7 +225,7 @@ try {
   mode = 'stream'; apiHits.length = 0;
   const seed = (extra) => page.evaluate(([a, b]) => { localStorage.removeItem('engrama.chat.usage'); localStorage.setItem('engrama.chat.keys', JSON.stringify({ v: 1, keys: [{ id: 'a', alias: 'Uno', provider: 'gemini', key: a, status: 'active' }, { id: 'b', alias: 'Dos', provider: 'gemini', key: b, status: 'active' }] })); }, [K1, K2]);
   await seed();
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   const fab = page.getByRole('button', { name: 'Abrir el asistente' });
   await fab.waitFor();
   const fb = await fab.boundingBox();
@@ -317,7 +318,7 @@ try {
   await panel.getByRole('button', { name: 'Ir a Ajustes' }).first().click();
   await panel.waitFor({ state: 'detached' });
   check(page.url().includes('#/ajustes'), '«Ir a Ajustes» navega y cierra el panel');
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
 
   // sin clave
   await page.evaluate(() => localStorage.removeItem('engrama.chat.keys'));
@@ -353,14 +354,14 @@ try {
   await page.waitForFunction(() => location.hash.startsWith('#/notas/'));
   check(decodeURIComponent(page.url()).includes('#/notas/Cardiología/ECG/Clase 1 - ECG básico.md'), 'clic en la cita abre la nota');
   await page.getByRole('heading', { name: /ECG básico/ }).first().waitFor();
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   if (!(await panel.isVisible())) { await page.keyboard.press('Control+Alt+a'); await panel.waitFor(); }
   await panel.getByRole('button', { name: 'Nueva conversación' }).click();
   mode = 'toolnone'; toolBodies.length = 0;
   await ta.fill('¿Y esto?'); await ta.press('Enter');
   await log.getByText('No lo encontré en tus notas.').waitFor();
   check((await log.locator('a.chat-cite').count()) === 0, 'sin resultados: «No lo encontré en tus notas» y sin citas');
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   if (!(await panel.isVisible())) { await page.keyboard.press('Control+Alt+a'); await panel.waitFor(); }
   await panel.getByRole('button', { name: 'Nueva conversación' }).click();
   // Fase 3b: escritura con vista previa
@@ -560,7 +561,7 @@ try {
   await page.keyboard.press('Escape');
   await panel.waitFor({ state: 'detached' });
   await page.evaluate(() => { const d = new Date().toISOString().slice(0, 10); localStorage.setItem('engrama.chat.usage', JSON.stringify({ v: 1, perKey: { a: { day: d, req: 230, tok: 0, min: { t: 0, req: 0, tok: 0 } } } })); });
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   const dock = page.locator('.gx-dock');
   await dock.waitFor();
   { const tx = await dock.innerText();
@@ -638,7 +639,7 @@ try {
   { const m = await mini.boundingBox(), vw = page.viewportSize().width, vh = page.viewportSize().height;
     check(Math.abs(m.width - 56) <= 1 && Math.abs(m.height - 56) <= 1 && Math.abs(vw - (m.x + m.width) - 16) <= 1 && Math.abs(vh - (m.y + m.height) - 16) <= 1, `GREX minimizada abajo a la derecha (${Math.round(m.x)},${Math.round(m.y)} ${m.width}×${m.height})`); }
   await page.waitForTimeout(600);
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await page.locator('.gx-mini').waitFor();
   check((await page.locator('.gx-dock').count()) === 0, 'minimizar persiste (settings.chat.dock = mascota)');
   await page.setViewportSize({ width: 1024, height: 768 }); await page.waitForTimeout(200);
@@ -647,14 +648,14 @@ try {
   await dock.waitFor();
   check(await page.locator('.gx-avatar').evaluate((e) => e === document.activeElement), 'restaurar: el foco pasa a la barra');
   await page.waitForTimeout(600);
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await dock.waitFor();
   check((await page.locator('.gx-mini').count()) === 0, 'restaurar persiste (barra)');
 
 
   // ───── Acciones rápidas (pestaña sobre la pastilla) ─────
   console.log('GREX · acciones rápidas');
-  await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor();
+  await page.goto(URL_ + '?app#/hoy'); await page.reload(); await dock.waitFor();
   { await page.mouse.move(5, 5); await page.waitForTimeout(300);
     const q = page.locator('.gx-quick'), pb = await page.locator('.gx-pill').boundingBox();
     check((await q.evaluate((e) => getComputedStyle(e).opacity)) === '0', 'acciones: ocultas en reposo');
@@ -709,14 +710,14 @@ try {
     for (let i = 0; i < 4; i++) await q.getByRole('button', { name: 'Quitar la acción' }).last().click();
     await q.getByRole('button', { name: 'Listo' }).click();
     await page.waitForTimeout(700);
-    await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    await page.goto(URL_ + '?app#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
     check((await page.locator('.gx-quick .gx-qc').count()) === 4 && (await page.locator('.gx-quick .gx-qc').first().innerText()) === 'Mi acción [x]', 'la lista editada persiste tras recargar');
     check(await page.evaluate(() => !JSON.stringify(localStorage).includes('Mi acción')), 'las acciones no se guardan en localStorage del navegador (van a Ajustes)');
   }
 
   // ───── Modelo y claves (misma pestaña) ─────
   console.log('GREX · modelo y claves');
-  { await seed(); await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+  { await seed(); await page.goto(URL_ + '?app#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
     const q = page.locator('.gx-quick');
     await q.getByRole('button', { name: 'Modelo y claves' }).click();
     const rg = q.getByRole('radiogroup'), rs = rg.getByRole('radio');
@@ -761,7 +762,7 @@ try {
     await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
     // claves no elegibles
     await page.evaluate(() => { const o = JSON.parse(localStorage.getItem('engrama.chat.keys')); o.keys[1].status = 'invalid'; localStorage.setItem('engrama.chat.keys', JSON.stringify(o)); });
-    await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    await page.goto(URL_ + '?app#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
     await q.getByRole('button', { name: 'Modelo y claves' }).click();
     const bad = q.getByRole('radio').nth(1);
     check((await bad.getAttribute('aria-disabled')) === 'true' && (await bad.innerText()).includes('inválida'), 'clave inválida: atenuada, con su etiqueta y no elegible');
@@ -771,7 +772,7 @@ try {
     check((await q.locator('.gx-qc').count()) === 4, '‹ vuelve a las acciones');
     // sin claves
     await page.evaluate(() => localStorage.removeItem('engrama.chat.keys'));
-    await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
+    await page.goto(URL_ + '?app#/hoy'); await page.reload(); await dock.waitFor(); await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
     await q.getByRole('button', { name: 'Modelo y claves' }).click();
     check((await q.getByText('Aún no tienes claves').count()) === 1 && (await q.getByRole('button', { name: 'Añadir clave' }).count()) === 1 && (await page.locator('.gx-ustrip').count()) === 0, 'sin claves: aviso + «Añadir clave» y sin tira de uso');
     await q.getByRole('button', { name: 'Añadir clave' }).click();
@@ -781,7 +782,7 @@ try {
     const provs = ['gemini', 'groq', 'openrouter', 'kimi'], ws = [], ds = new Set();
     for (let n = 1; n <= 4; n++) {
       await page.evaluate(([n, provs]) => localStorage.setItem('engrama.chat.keys', JSON.stringify({ v: 1, keys: provs.slice(0, n).map((p, i) => ({ id: 'k' + i, alias: 'K' + i, provider: p, key: 'sk-test' + i + 'WXYZ', status: 'active' })) })), [n, provs]);
-      await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor(); await page.waitForTimeout(200);
+      await page.goto(URL_ + '?app#/hoy'); await page.reload(); await dock.waitFor(); await page.waitForTimeout(200);
       const st = page.locator('.gx-ustrip'), sb = await st.boundingBox(), pb = await page.locator('.gx-pill').boundingBox();
       ws.push(sb.width);
       check((await st.locator('.gx-u:not(.more)').count()) === Math.min(n, 3) && (await st.locator('.more').count()) === (n > 3 ? 1 : 0) && (n < 4 || (await st.locator('.more').innerText()) === '+1'), `tira con ${n} clave(s): ${Math.min(n, 3)} entradas${n > 3 ? ' y «+1»' : ''}`);
@@ -793,11 +794,11 @@ try {
     await page.locator('.gx-pill').hover(); await page.waitForTimeout(300);
     await page.locator('.gx-quick').getByRole('button', { name: 'Modelo y claves' }).click();
     check((await page.locator('.gx-quick').getByRole('radio').count()) === 4 && (await page.locator('.gx-quick .gx-lg svg').count()) === 4, 'el selector de claves muestra las 4 con su logo');
-    await seed(); await page.goto(URL_ + '#/hoy'); await page.reload(); await dock.waitFor();
+    await seed(); await page.goto(URL_ + '?app#/hoy'); await page.reload(); await dock.waitFor();
   }
 
   // no solapa la firma ni la barra del editor (1024×768 y 1366×1024); claro y oscuro
-  await page.goto(URL_ + '#/notas');
+  await page.goto(URL_ + '?app#/notas');
   await page.getByRole('button', { name: 'Nueva nota', exact: true }).first().click();
   await page.locator('.sheet').getByLabel('Título').fill('Nota GREX');
   await page.locator('.sheet').getByLabel('Título').press('Enter');
@@ -826,19 +827,19 @@ try {
 
   // reduced-motion: mascota y barra sin animación
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await page.locator('.gx-dock').waitFor();
   check(await page.evaluate(() => [...document.querySelectorAll('.gx-dock *, .gx-dock')].every((e) => getComputedStyle(e).animationName === 'none' && !/after/.test('')) && getComputedStyle(document.querySelector('.gx-dock .blink')).animationName === 'none'), 'reduced-motion: sin animaciones en la barra ni en GREX');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await page.locator('.gx-dock').waitFor();
   check(await page.evaluate(() => getComputedStyle(document.querySelector('.gx-dock .blink')).animationName === 'm-blink'), 'con movimiento: GREX parpadea');
 
   // pseudo-idioma +40 %: sin desbordes
   await page.keyboard.press('Escape');
-  await page.goto(URL_ + '#/design');
+  await page.goto(URL_ + '?app#/design');
   await page.getByRole('button', { name: /pseudo/i }).first().click();
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await page.keyboard.press('Control+Alt+a');
   panel = page.locator('.chat-panel');
   await panel.waitFor();
@@ -846,12 +847,12 @@ try {
   check(over.length === 0, 'xx: sin desbordes horizontales ' + over.join(','));
   await page.screenshot({ path: `${SHOTS}/1024-xx.png` });
   await page.keyboard.press('Escape');
-  await page.goto(URL_ + '#/design');
+  await page.goto(URL_ + '?app#/design');
   await page.getByRole('button', { name: 'ES', exact: true }).click();
   panel = page.getByRole('dialog', { name: 'Asistente' });
 
   // teléfono 390×844
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(400);
   const fp = await fab.boundingBox(), tb = await page.locator('.phone-tabbar').boundingBox();
@@ -886,7 +887,7 @@ try {
     return json(200, { id: '1', object: 'chat.completion', created: 1, model: 'm', choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } });
   });
   await page.setViewportSize({ width: 1180, height: 900 });
-  await page.goto(URL_ + '#/ajustes');
+  await page.goto(URL_ + '?app#/ajustes');
   await page.locator('#asistente').waitFor();
   if ((await page.locator('#asistente').getAttribute('class')).includes('open') === false) await page.locator('#asistente .fold-btn').click();
   const s2 = page.locator('#asistente');
@@ -920,7 +921,7 @@ try {
   check(!oai.hits.some((h) => h.h.includes('http-referer') || h.h.includes('x-title')), 'sin cabeceras HTTP-Referer/X-Title');
   // chat con OpenRouter en streaming (solo esa clave)
   await page.evaluate((k) => { localStorage.removeItem('engrama.chat.usage'); localStorage.setItem('engrama.chat.keys', JSON.stringify({ v: 1, keys: [{ id: 'o', alias: 'OR', provider: 'openrouter', key: k, status: 'active' }] })); }, ORK);
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await page.keyboard.press('Control+Alt+a');
   await panel.waitFor();
   await panel.getByLabel('Escribe tu mensaje').fill('hola'); await panel.getByLabel('Escribe tu mensaje').press('Enter');
@@ -930,13 +931,13 @@ try {
   check(chatMax() === 4096, 'contexto normal: max_tokens de OpenRouter = 4096 (' + chatMax() + ')');
   await page.keyboard.press('Escape');
   await panel.waitFor({ state: 'detached' });
-  await page.goto(URL_ + '#/ajustes');
+  await page.goto(URL_ + '?app#/ajustes');
   await page.locator('#asistente').waitFor();
   if ((await page.locator('#asistente').getAttribute('class')).includes('open') === false) await page.locator('#asistente .fold-btn').click();
   check((await s2.getByLabel('Contexto del Asistente').inputValue()) === 'normal', 'Ajustes: contexto «Normal» por defecto');
   check((await s2.innerText()).includes('la cuota gratuita se agota antes'), 'Ajustes: línea del coste del contexto amplio');
   await s2.getByLabel('Contexto del Asistente').selectOption('amplio');
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await page.keyboard.press('Control+Alt+a');
   await panel.waitFor();
   await panel.getByRole('button', { name: 'Nueva conversación' }).click();

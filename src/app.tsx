@@ -12,6 +12,7 @@ import { TABS } from './nav';
 import { BackupSheet } from './screens/backup';
 import { ImportSheet } from './screens/import';
 import { Screen } from './screens/router';
+import { showLanding } from './welcome/gate';
 import { Welcome } from './screens/welcome';
 import { ExamSheet } from './screens/exams';
 import { type AppCtx, Ctx, go, useApp as ctxHook, useRoute } from './state';
@@ -42,6 +43,7 @@ import { onNoteSaveFailed } from './notes/store';
 // hojas poco frecuentes: se cargan al abrirlas
 const AddCardSheet = lazy(() => import('./screens/deck').then((m) => ({ default: m.AddCardSheet })));
 const ChatHost = lazy(() => import('./chat/panel'));
+const Bienvenida = lazy(() => import('./welcome'));
 const Palette = lazy(() => import('./screens/palette').then((m) => ({ default: m.Palette })));
 const DAY = 86_400_000;
 
@@ -241,6 +243,13 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
 
   const bg = <BackgroundLayer bg={eff.bg} blur={settings.bgBlur} dim={settings.bgDim} vault={vault} framing={framing} />;
 
+  if (!settings.welcomeDone && showLanding()) {
+    return (
+      <Ctx.Provider value={ctx}>
+        <Suspense fallback={null}><Bienvenida /></Suspense>
+      </Ctx.Provider>
+    );
+  }
   if (!settings.welcomeDone) {
     return (
       <Ctx.Provider value={ctx}>

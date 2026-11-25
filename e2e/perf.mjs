@@ -49,7 +49,7 @@ async function fresh(w = 1180, h = 820) {
   await ctx.addInitScript(MONITOR);
   const page = await ctx.newPage();
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   return { ctx, page };
@@ -59,7 +59,7 @@ try {
   const { ctx, page } = await fresh();
   if (run('pdf')) {
     console.log('Importar el PDF de 800 páginas (~96 MB)');
-    await page.goto(URL_ + '#/pdfs');
+    await page.goto(URL_ + '?app#/pdfs');
     await resetMon(page);
     let t0 = Date.now();
     await page.locator('input[type=file][accept*="pdf"]').setInputFiles(FIX + 'p800.pdf');
@@ -116,7 +116,7 @@ try {
 
   if (run('lienzo')) {
     console.log('Lienzo con 30 paneles');
-    await page.goto(URL_ + '#/espacios');
+    await page.goto(URL_ + '?app#/espacios');
     await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
     await page.locator('.sheet input[name=n]').fill('Perf');
     await page.getByRole('button', { name: 'Crear', exact: true }).click();

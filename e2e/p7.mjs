@@ -30,7 +30,7 @@ async function fresh(w = 1180, h = 820) {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   return { ctx, page };
@@ -71,7 +71,7 @@ try {
 
   if (run('lienzo')) {
     console.log('Lienzo: la interfaz no se mueve al alejar');
-    await page.goto(URL_ + '#/espacios');
+    await page.goto(URL_ + '?app#/espacios');
     await newSpace(page, 'Zoom', ['Estadísticas', 'Pomodoro']);
     await page.getByRole('group', { name: 'Modo' }).getByRole('button', { name: 'Lienzo' }).click();
     await page.locator('.canvas-wrap').waitFor();
@@ -128,7 +128,7 @@ try {
     check(k0 !== '10 %' && k1 === '10 %', `dos punteros táctiles que se juntan: ${k0} → ${k1} (tope 10 %)`);
     check((await fixedBoxes(page)) === before && await page.evaluate(() => (window.visualViewport?.scale ?? 1) === 1), 'tras el pellizco táctil la interfaz sigue fija');
     check(await page.evaluate(() => document.documentElement.classList.contains('in-canvas') && getComputedStyle(document.documentElement).overscrollBehaviorY === 'none'), 'sin rebote (overscroll-behavior: none) mientras se ve el lienzo');
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
     check(await page.evaluate(() => !document.documentElement.classList.contains('in-canvas') && getComputedStyle(document.documentElement).overscrollBehaviorY !== 'none'), 'fuera de Espacios la página no cambia');
   }
@@ -139,10 +139,10 @@ try {
     const pdf = await PDFDocument.create();
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     for (let i = 1; i <= 3; i++) pdf.addPage([595, 842]).drawText(`Pagina ${i}: ritmo sinusal`, { x: 60, y: 780, size: 14, font });
-    await page.goto(URL_ + '#/pdfs');
+    await page.goto(URL_ + '?app#/pdfs');
     await page.locator('input[type=file][accept*="pdf"]').setInputFiles({ name: 'Paginas.pdf', mimeType: 'application/pdf', buffer: Buffer.from(await pdf.save()) });
     await page.locator('.pdf-card a.pdf-cover').first().waitFor();
-    const open = async () => { await page.goto(URL_ + '#/pdfs'); await page.locator('.pdf-card a.pdf-cover').first().click(); await page.locator('.pdf-page canvas.page').first().waitFor({ timeout: 15000 }); await page.waitForTimeout(500); };
+    const open = async () => { await page.goto(URL_ + '?app#/pdfs'); await page.locator('.pdf-card a.pdf-cover').first().click(); await page.locator('.pdf-page canvas.page').first().waitFor({ timeout: 15000 }); await page.waitForTimeout(500); };
     const state = (root = page) => root.locator('.pdf-viewer').first().evaluate((v) => ({ pages: [...v.querySelectorAll('.pdf-page')].map((x) => x.dataset.page).join(','), byPage: v.querySelector('.pdf-bar button[aria-pressed="true"][aria-label="Ver continuo"]') !== null, counter: v.querySelector('.pdf-bar > .foot:last-child')?.textContent ?? '' }));
     await open();
     let st = await state();
@@ -158,14 +158,14 @@ try {
     check((await state()).pages === '1,2,3', 'el botón cambia a continuo durante la sesión');
     await open();
     check((await state()).byPage, 'al volver a abrir no se recuerda el continuo: otra vez por página');
-    await page.goto(URL_ + '#/pdfs');
+    await page.goto(URL_ + '?app#/pdfs');
     const link = (await page.locator('.pdf-card a.pdf-cover').first().getAttribute('href')) + '?p=2';
     await page.goto(URL_ + link);
     await page.locator('.pdf-page[data-page="2"] canvas.page').waitFor({ timeout: 15000 });
     st = await state();
     check(st.byPage && st.pages === '2', `un enlace a la página 2 abre por página en la 2 (${st.pages})`);
     // panel del lienzo
-    await page.goto(URL_ + '#/espacios');
+    await page.goto(URL_ + '?app#/espacios');
     await newSpace(page, 'PDF', []);
     await addPanel(page, 'PDF');
     await page.locator('.win .opt', { hasText: 'Paginas.pdf' }).first().click();
@@ -216,22 +216,22 @@ try {
     for (const [w, h, label] of [[1180, 820, 'iPad'], [1366, 768, 'web'], [390, 844, 'iPhone vertical'], [844, 390, 'iPhone horizontal']]) {
       const { ctx: c, page: pg } = await fresh(w, h);
       for (const r of screens) {
-        await pg.goto(URL_ + '#/' + r);
+        await pg.goto(URL_ + '?app#/' + r);
         await pg.waitForTimeout(500);
         ok(await sign(pg), `${label} · ${r}`);
       }
       if (label === 'iPad') {
         // espacio con paneles minimizados: la bandeja ocupa la esquina y la firma sube
-        await pg.goto(URL_ + '#/espacios');
+        await pg.goto(URL_ + '?app#/espacios');
         await newSpace(pg, 'Firma', ['Estadísticas']);
         const min = pg.getByRole('button', { name: /^Minimizar/ }).first();
         if (await min.count()) { await min.click(); await pg.waitForTimeout(700); ok(await sign(pg), 'iPad · espacios con bandeja'); }
         // estudio: oculta
-        await pg.goto(URL_ + '#/estudiar');
+        await pg.goto(URL_ + '?app#/estudiar');
         await pg.locator('.study-card').waitFor();
         check(!(await sign(pg)).shown, 'en la pantalla de estudio la firma se oculta');
         // notas a pantalla completa: oculta
-        await pg.goto(URL_ + '#/notas/Cardiolog%C3%ADa/ECG/Clase%201%20-%20ECG%20b%C3%A1sico.md');
+        await pg.goto(URL_ + '?app#/notas/Cardiolog%C3%ADa/ECG/Clase%201%20-%20ECG%20b%C3%A1sico.md');
         await pg.locator('.doc').waitFor();
         await pg.getByRole('button', { name: 'Pantalla completa de notas' }).click();
         await pg.waitForTimeout(200);
@@ -240,7 +240,7 @@ try {
         await pg.waitForTimeout(200);
         check((await sign(pg)).shown, 'al salir de pantalla completa vuelve');
         // Ajustes → Acerca de
-        await pg.goto(URL_ + '#/ajustes/acerca');
+        await pg.goto(URL_ + '?app#/ajustes/acerca');
         check(await pg.locator('#acerca .fold-in').getByText('Desarrollador: SergeV').count() === 1, 'Ajustes → Acerca de muestra la línea del desarrollador (texto normal)');
         // legibilidad sobre los 5 fondos de prueba × 2 modos (estimación del guardián)
         const res = [];
@@ -259,7 +259,7 @@ try {
     }
     for (const [lang, txt] of [['en', 'Developer: SergeV'], ['fr', 'Développeur : SergeV']]) {
       const { ctx: c, page: pg } = await fresh();
-      await pg.goto(URL_ + '#/ajustes/idioma');
+      await pg.goto(URL_ + '?app#/ajustes/idioma');
       await pg.getByRole('group', { name: 'Idioma' }).getByRole('button', { name: lang === 'en' ? 'English' : 'Français' }).click();
       await pg.waitForTimeout(400);
       check((await pg.locator('.dev-sign').textContent()) === txt, `${lang}: «${txt}»`);

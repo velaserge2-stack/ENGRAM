@@ -39,6 +39,8 @@
     "e2e:diagramas": "node e2e/diagramas.mjs",
     "e2e:diagramas-zoom": "node e2e/diagramas-zoom.mjs",
     "e2e:chat": "node e2e/chat.mjs",
+    "e2e:demo": "node e2e/demo.mjs",
+    "e2e:welcome": "node e2e/welcome.mjs",
     "e2e:barra": "node e2e/barra.mjs",
     "e2e:uiaudit": "node e2e/ui-audit-integral.mjs",
     "e2e:uiaudit-notas": "node e2e/ui-audit-notas.mjs",

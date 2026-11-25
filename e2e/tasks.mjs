@@ -38,7 +38,7 @@ try {
   page.on('dialog', (d) => d.accept());
   const js = new Set();
   page.on('request', (r) => r.url().endsWith('.js') && js.add(r.url()));
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   await page.waitForTimeout(600);
@@ -51,11 +51,11 @@ try {
   check(!(await tasksChunk()), 'el código de Tareas no se descargó');
 
   console.log('Encendido');
-  await page.goto(URL_ + '#/ajustes');
+  await page.goto(URL_ + '?app#/ajustes');
   await page.locator('.settings').waitFor();
   if (await page.getByRole('button', { name: 'Desplegar todo' }).count()) await page.getByRole('button', { name: 'Desplegar todo' }).click();
   await page.getByRole('switch', { name: 'Tareas', exact: true }).click();
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   const tile = page.locator('section.tasks');
   await tile.waitFor();
   check([...js].some((u) => !before.has(u)), 'al activarlo se carga un fragmento propio');
@@ -168,14 +168,14 @@ try {
   await ctx.close();
   const pp = await ph.newPage();
   pp.on('dialog', (d) => d.accept());
-  await pp.goto(URL_);
+  await pp.goto(URL_ + '?app');
   await pp.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await pp.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
-  await pp.goto(URL_ + '#/ajustes');
+  await pp.goto(URL_ + '?app#/ajustes');
   await pp.locator('.settings').waitFor();
   if (await pp.getByRole('button', { name: 'Desplegar todo' }).count()) await pp.getByRole('button', { name: 'Desplegar todo' }).click();
   await pp.getByRole('switch', { name: 'Tareas', exact: true }).click();
-  await pp.goto(URL_ + '#/hoy');
+  await pp.goto(URL_ + '?app#/hoy');
   const t2 = pp.locator('section.tasks');
   await t2.waitFor();
   await t2.getByLabel('Añadir tarea…').fill('Una tarea con un texto bastante largo para ver cómo se acomoda en el teléfono');

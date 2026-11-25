@@ -30,7 +30,7 @@ async function fresh(w = 1180, h = 820) {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   return { ctx, page };
@@ -42,7 +42,7 @@ try {
 
   if (run('mazos')) {
     console.log('Mover mazos y tarjetas');
-    await page.goto(URL_ + '#/mazos');
+    await page.goto(URL_ + '?app#/mazos');
     await page.locator('table.decks').waitFor();
     // engranaje → Mover a… → Cardiología
     await page.locator('tr[data-drop="Neurología/EVC"]').click();
@@ -89,7 +89,7 @@ try {
     check(true, 'tocar para seleccionar y luego el destino');
 
     // mover una tarjeta desde el navegador
-    await page.goto(URL_ + '#/explorar');
+    await page.goto(URL_ + '?app#/explorar');
     const first = page.locator('table.tbl tbody tr').first();
     await first.waitFor();
     const deckBefore = await first.locator('td').nth(2).innerText();
@@ -100,14 +100,14 @@ try {
     await page.locator('.toast', { hasText: 'movidas' }).waitFor();
     check(true, `una tarjeta movida a ${target} (conserva ID)`);
     // desde la lista del mazo (también es el panel de mazo del lienzo)
-    await page.goto(URL_ + '#/mazos/decks/Cardiolog%C3%ADa.md');
+    await page.goto(URL_ + '?app#/mazos/decks/Cardiolog%C3%ADa.md');
     await page.getByRole('region', { name: 'Vista previa' }).getByRole('button', { name: 'Seleccionar' }).click();
     await page.locator('.pick-note .pick').first().check();
     await page.getByRole('button', { name: 'Mover a mazo… (1)' }).click();
     await page.getByRole('dialog', { name: /Mover 1 a mazo/ }).getByRole('button', { name: 'Cefaleas' }).click();
     await page.locator('.toast', { hasText: 'Cefaleas' }).waitFor();
     check(true, 'desde la lista del mazo: tarjeta a Cefaleas');
-    await page.goto(URL_ + '#/ajustes');
+    await page.goto(URL_ + '?app#/ajustes');
     await openAll(page);
     await page.getByRole('button', { name: 'Comprobar' }).first().click();
     await page.getByText(/idéntico/i).first().waitFor();
@@ -116,7 +116,7 @@ try {
 
   if (run('notas')) {
     console.log('Mover notas y temas');
-    await page.goto(URL_ + '#/notas/+nueva');
+    await page.goto(URL_ + '?app#/notas/+nueva');
     const sh = page.locator('.sheet');
     await sh.getByLabel('Materia').fill('Urgencias');
     await sh.getByLabel('Tema o clase').fill('Arritmias');
@@ -124,7 +124,7 @@ try {
     await page.getByRole('button', { name: 'Crear' }).click();
     await page.locator('.doc').waitFor();
     // desde la barra de acciones de la nota
-    await page.goto(URL_ + '#/notas/Cardiolog%C3%ADa/ECG/Clase%201%20-%20ECG%20b%C3%A1sico.md');
+    await page.goto(URL_ + '?app#/notas/Cardiolog%C3%ADa/ECG/Clase%201%20-%20ECG%20b%C3%A1sico.md');
     await page.locator('.doc').waitFor();
     await page.getByRole('button', { name: 'Mover a otra materia o tema' }).click();
     const mv = page.getByRole('dialog', { name: 'Mover a…' });
@@ -189,7 +189,7 @@ try {
   if (run('perfil')) {
     console.log('Perfil como centro: Ajustes y Respaldo');
     const { ctx, page } = await fresh(); // ajustes de fábrica (todo plegado)
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     await page.locator('.topbar').waitFor();
     check(await page.locator('.topbar').getByRole('link', { name: 'Ajustes' }).count() === 0 && await page.locator('.topbar').getByRole('button', { name: 'Respaldo' }).count() === 0, 'la barra superior ya no tiene Ajustes ni Respaldo');
     await page.locator('.topbar').getByRole('link', { name: 'Perfil' }).click();
@@ -226,7 +226,7 @@ try {
     await page.getByRole('button', { name: 'Plegar todo' }).click();
     await page.waitForTimeout(300);
     check(await heads.evaluateAll((b) => b.every((x) => x.getAttribute('aria-expanded') === 'false')), '«Plegar todo»');
-    await page.goto(URL_ + '#/ajustes/addons');
+    await page.goto(URL_ + '?app#/ajustes/addons');
     await page.getByRole('region', { name: 'Add-ons' }).getByRole('switch').first().waitFor();
     check(true, '#/ajustes/addons abre directamente esa sección');
     await page.getByRole('link', { name: 'Volver al perfil' }).click();
@@ -234,7 +234,7 @@ try {
     check(true, '«Volver al perfil»');
     // barra a 834 px (informe)
     await page.setViewportSize({ width: 834, height: 1194 });
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     await page.waitForTimeout(400);
     const bar = await page.locator('.seg-nav').evaluate((n) => ({ visible: n.clientWidth, total: n.scrollWidth }));
     console.log(`    barra a 834 px: ${bar.visible} px visibles de ${bar.total} px${bar.total <= bar.visible + 1 ? ' (cabe entera)' : ' (no cabe entera)'}`);
@@ -245,7 +245,7 @@ try {
     console.log('Bandeja oculta tras un add-on');
     const { ctx, page } = await fresh();
     check(await page.locator('.topbar a[href="#/bandeja"]').count() === 0, 'apagada por defecto: sin icono ni contador en la barra');
-    await page.goto(URL_ + '#/bandeja');
+    await page.goto(URL_ + '?app#/bandeja');
     await page.waitForURL(/#\/hoy$/);
     await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
     check(true, '#/bandeja redirige a Hoy');
@@ -255,16 +255,16 @@ try {
     await page.waitForTimeout(300);
     check(await page.getByRole('dialog').getByText('Procesar bandeja').count() === 0, 'la paleta no ofrece «Procesar bandeja»');
     await page.keyboard.press('Escape');
-    await page.goto(URL_ + '#/espacios');
+    await page.goto(URL_ + '?app#/espacios');
     await page.getByRole('button', { name: 'Nuevo espacio' }).first().waitFor();
     check(await page.locator('a[href="#/bandeja"]').count() === 0, 'ni en el dock de Espacios');
     // encender: todo vuelve
-    await page.goto(URL_ + '#/ajustes/addons');
+    await page.goto(URL_ + '?app#/ajustes/addons');
     await page.getByRole('region', { name: 'Add-ons' }).getByRole('switch', { name: 'Bandeja de entrada' }).check();
     await page.waitForTimeout(400);
     await page.locator('.topbar a[href="#/bandeja"]').waitFor();
     check(true, 'al encenderla vuelve el icono con su contador');
-    await page.goto(URL_ + '#/bandeja');
+    await page.goto(URL_ + '?app#/bandeja');
     await page.getByRole('heading', { name: 'Bandeja', level: 1 }).waitFor();
     check(page.url().endsWith('#/bandeja'), 'y #/bandeja abre la Bandeja');
     await ctx.close();
@@ -273,7 +273,7 @@ try {
   if (run('mini')) {
     console.log('Mini reproductor de sonido ambiente');
     const start = async (pg) => {
-      await pg.goto(URL_ + '#/ajustes/addons');
+      await pg.goto(URL_ + '?app#/ajustes/addons');
       await pg.getByRole('region', { name: 'Add-ons' }).getByRole('switch', { name: 'Sonido ambiente' }).check();
       await pg.waitForTimeout(300);
       check(await pg.locator('.mini-amb').count() === 0 && await pg.evaluate(() => window.__ambient.state() === 'none'), 'nada suena al abrir: sin mini reproductor');
@@ -332,7 +332,7 @@ try {
       const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'es-MX', hasTouch: true, isMobile: true });
       const page = await ctx.newPage();
       page.on('pageerror', (e) => errors.push(String(e)));
-      await page.goto(URL_);
+      await page.goto(URL_ + '?app');
       await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
       await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
       await start(page);

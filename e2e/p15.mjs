@@ -48,10 +48,10 @@ try {
   const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: 'es-MX' });
   const page = await ctx.newPage();
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
-  await page.goto(URL_ + '#/espacios');
+  await page.goto(URL_ + '?app#/espacios');
   await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
   await page.locator('.sheet input[name=n]').fill('Mapa');
   await page.getByRole('button', { name: 'Crear', exact: true }).click();

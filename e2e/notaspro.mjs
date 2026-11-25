@@ -29,14 +29,14 @@ async function fresh(w = 1180, h = 820) {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   return { ctx, page };
 }
 
 async function newNote(page, title) {
-  await page.goto(URL_ + '#/notas');
+  await page.goto(URL_ + '?app#/notas');
   await page.getByRole('button', { name: 'Nueva nota', exact: true }).first().click();
   await page.locator('.sheet').getByLabel('Título').fill(title);
   await page.locator('.sheet').getByLabel('Título').press('Enter');
