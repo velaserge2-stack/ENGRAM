@@ -123,11 +123,12 @@ export function usePomodoro(vault: VaultAdapter, s: Settings, toast: (m: string)
     state,
     now,
     today,
-    start(label) {
+    start(label, minutes) {
       unlockAudio(); // el sonido solo puede iniciarse tras un gesto
       const t = Date.now();
       setNow(t);
-      commit(start(label !== undefined ? { ...state, label } : state, t));
+      const base = label !== undefined ? { ...state, label } : state;
+      commit(start(minutes && !state.running && state.phase === 'work' ? { ...base, remaining: minutes * 60_000 } : base, t));
     },
     pause: () => commit(pause(state, Date.now())),
     reset: () => commit(reset(state, cfg)),

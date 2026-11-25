@@ -11,11 +11,12 @@ import { noteStore } from '../notes/store';
 import { clampMinutes, finalize, parseBankMarkdown, serializeBank, type Question } from '../sim/parse';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr } from '../vault/util';
+import { type Act, stickyPathOk, writeAct, writes } from './actions';
 import { applyDelete, safeDeleteDest } from './delete';
 import { checkExamEdit, checkNoteFile, one } from './make';
 import { tracked, undo, type Entry } from './undo';
 
-export type Kind = 'tarjetas' | 'examen' | 'evento' | 'borrar' | 'nota' | 'diagrama' | 'fecha';
+export type Kind = 'tarjetas' | 'examen' | 'evento' | 'borrar' | 'nota' | 'diagrama' | 'fecha' | 'accion';
 export interface EventFields { titulo: string; fecha: string; inicio: string; fin: string; materia: string; nota: string; tipo: EventKind }
 export interface Proposal {
   tipo: Kind;
@@ -37,6 +38,8 @@ export interface Proposal {
   /** borrar: huella del objetivo al proponer; si cambia antes de confirmar, `changed` */
   huella?: string;
   reversible?: true;
+  /** accion: lo que hará al pulsar «Aceptar» (tareas/stickies escriben `destino`; el resto solo actúa en la interfaz) */
+  accion?: Act;
   /** borrar: cifras para la tarjeta de confirmación (se traducen en la interfaz) */
   datos?: Record<string, number>;
 }
@@ -172,6 +175,7 @@ export async function buildEventEdit(vault: VaultAdapter, q: { titulo?: string; 
 
 // ───────── revalidar tras «Editar» ─────────
 export function revalidate(p: Proposal, edit: { contenido?: string; evento?: Partial<EventFields> }, env?: { col: Collection | null; today: string }): Proposal | Bad {
+  if (p.tipo === 'accion') return p; // sin «Editar»
   if (p.tipo === 'nota' || p.tipo === 'diagrama') {
     const v = checkNoteFile(edit.contenido ?? p.contenido, p.tipo, p.diag);
     return isBad(v) ? v : { ...p, contenido: v.contenido };
@@ -193,8 +197,8 @@ export function revalidate(p: Proposal, edit: { contenido?: string; evento?: Par
 }
 
 // ───────── aplicar y deshacer (solo la interfaz, tras «Aceptar») ─────────
-const OKPATH: Record<Exclude<Kind, 'borrar'>, [string, RegExp]> = { tarjetas: ['decks', /\.md$/], examen: ['exams-bank', /\.md$/], evento: ['calendar', /\.ics$/], nota: ['notes', /\.md$/], diagrama: ['notes', /\.md$/], fecha: ['exams', /\.md$/] };
-const safeDest = (p: Proposal) => { if (p.tipo === 'borrar') return safeDeleteDest(p); const [pre, re] = OKPATH[p.tipo]; return p.destino.startsWith(pre + '/') && re.test(p.destino) && p.destino.split('/').every((s) => s !== '' && s !== '.' && s !== '..') && !/[\\\u0000-\u001f]/.test(p.destino) && (p.tipo !== 'evento' || p.destino === CAL) && (p.tipo !== 'fecha' || p.destino.split('/').length === 2) && p.destino.length <= 400; };
+const OKPATH: Record<Exclude<Kind, 'borrar'>, [string, RegExp]> = { tarjetas: ['decks', /\.md$/], examen: ['exams-bank', /\.md$/], evento: ['calendar', /\.ics$/], nota: ['notes', /\.md$/], diagrama: ['notes', /\.md$/], fecha: ['exams', /\.md$/], accion: ['notes', /\.md$/] };
+const safeDest = (p: Proposal) => { if (p.tipo === 'borrar') return safeDeleteDest(p); if (p.tipo === 'accion') return !!p.accion && (!writes(p.accion) ? !p.destino : p.accion.k === 'tarea' ? p.destino === 'notes/Tareas.md' : stickyPathOk(p.destino)); const [pre, re] = OKPATH[p.tipo]; return p.destino.startsWith(pre + '/') && re.test(p.destino) && p.destino.split('/').every((s) => s !== '' && s !== '.' && s !== '..') && !/[\\\u0000-\u001f]/.test(p.destino) && (p.tipo !== 'evento' || p.destino === CAL) && (p.tipo !== 'fecha' || p.destino.split('/').length === 2) && p.destino.length <= 400; };
 const inflight = new Map<number, Promise<Entry[]>>();
 const groups = new Map<number, Entry[]>();
 const restorers = new Map<number, () => Promise<void>>(); // borrar: restaurar desde la papelera
@@ -210,6 +214,8 @@ async function write(vault: VaultAdapter, col: Collection | null, p: Proposal, w
   } else if (p.tipo === 'nota' || p.tipo === 'diagrama' || p.tipo === 'fecha') {
     if (await vault.exists(p.destino)) throw new Error('exists'); // nunca se sobrescribe
     await w(p.destino, p.contenido);
+  } else if (p.tipo === 'accion') {
+    await writeAct(vault, p.destino, p.accion!, p.contenido, w);
   } else if (p.tipo === 'examen') {
     if ((await readTextOr(vault, p.destino, '')).trim()) throw new Error('exists'); // nunca se sobrescribe un banco (uno vacío, dejado por «Deshacer», cuenta como libre)
     await w(p.destino, p.contenido);
@@ -249,7 +255,7 @@ export function applyProposal(vault: VaultAdapter, col: Collection | null, p: Pr
   const prev = inflight.get(id);
   if (prev) return prev;
   if (!safeDest(p)) return Promise.reject(new Error('path'));
-  const run = serial(() => tracked(vault, async (w) => { if (p.tipo === 'borrar') { const a = await applyDelete(vault, col, p, w); if (p.objetivo !== 'evento') restorers.set(id, a.restore); } else { await write(vault, col, p, w); if (p.tipo === 'nota' || p.tipo === 'diagrama' || p.tipo === 'fecha') restorers.set(id, () => removeNew(vault, p)); } })).then((g) => (groups.set(id, g), g), (e) => (inflight.delete(id), Promise.reject(e)));
+  const run = serial(() => tracked(vault, async (w) => { if (p.tipo === 'borrar') { const a = await applyDelete(vault, col, p, w); if (p.objetivo !== 'evento') restorers.set(id, a.restore); } else { await write(vault, col, p, w); if (p.tipo === 'nota' || p.tipo === 'diagrama' || p.tipo === 'fecha') restorers.set(id, () => removeNew(vault, p)); else if (p.tipo === 'accion' && p.accion?.k === 'sticky' && p.accion.op.op === 'new') restorers.set(id, () => removeNew(vault, p)); } })).then((g) => (groups.set(id, g), g), (e) => (inflight.delete(id), Promise.reject(e)));
   inflight.set(id, run);
   return run;
 }
