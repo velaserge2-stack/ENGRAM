@@ -3,7 +3,7 @@
 import { ensureIds, noteIdOf, parseDeck } from '../cards/parse';
 import type { Collection } from '../data/collection';
 import { addEvent, atMinutes, blankEvent, CAL, editOccurrence } from '../lib/calendar-edit';
-import { stringifyFrontmatter } from '../lib/frontmatter';
+import { parseFrontmatter, setKeys, stringifyFrontmatter } from '../lib/frontmatter';
 import { fromICS, KINDS, occurrences, type EventKind, type StudyBlock, toICS } from '../lib/ics';
 import type { DiagramKind } from '../diagrams/types';
 import { safeSegment, trash } from '../notes/model';
@@ -15,7 +15,7 @@ import { applyDelete, safeDeleteDest } from './delete';
 import { checkExamEdit, checkNoteFile, one } from './make';
 import { tracked, undo, type Entry } from './undo';
 
-export type Kind = 'tarjetas' | 'examen' | 'evento' | 'borrar' | 'nota' | 'diagrama' | 'fecha';
+export type Kind = 'tarjetas' | 'examen' | 'evento' | 'borrar' | 'nota' | 'diagrama' | 'fecha' | 'objetivos';
 export interface EventFields { titulo: string; fecha: string; inicio: string; fin: string; materia: string; nota: string; tipo: EventKind }
 export interface Proposal {
   tipo: Kind;
@@ -37,6 +37,8 @@ export interface Proposal {
   /** borrar: huella del objetivo al proponer; si cambia antes de confirmar, `changed` */
   huella?: string;
   reversible?: true;
+  /** objetivos: nuevas/día por mazo (`antes` = `new_per_day` actual o null) */
+  cambios?: { path: string; antes: number | null; despues: number }[];
   /** borrar: cifras para la tarjeta de confirmación (se traducen en la interfaz) */
   datos?: Record<string, number>;
 }
@@ -180,6 +182,7 @@ export function revalidate(p: Proposal, edit: { contenido?: string; evento?: Par
     const v = checkExamEdit(edit.contenido ?? p.contenido, env?.col ?? null, env?.today ?? '0000-00-00');
     return isBad(v) ? v : { ...p, ...v, resumen: `${v.items[0]} · ${v.items[1]}` };
   }
+  if (p.tipo === 'objetivos') return p; // sin edición: solo Aceptar o Cancelar
   if (p.tipo === 'tarjetas') {
     const v = validateCards(edit.contenido ?? p.contenido);
     return isBad(v) ? v : { ...p, contenido: v.contenido, items: v.items, resumen: `${v.items.length} → ${p.mazo}` };
@@ -193,7 +196,7 @@ export function revalidate(p: Proposal, edit: { contenido?: string; evento?: Par
 }
 
 // ───────── aplicar y deshacer (solo la interfaz, tras «Aceptar») ─────────
-const OKPATH: Record<Exclude<Kind, 'borrar'>, [string, RegExp]> = { tarjetas: ['decks', /\.md$/], examen: ['exams-bank', /\.md$/], evento: ['calendar', /\.ics$/], nota: ['notes', /\.md$/], diagrama: ['notes', /\.md$/], fecha: ['exams', /\.md$/] };
+const OKPATH: Record<Exclude<Kind, 'borrar'>, [string, RegExp]> = { tarjetas: ['decks', /\.md$/], examen: ['exams-bank', /\.md$/], evento: ['calendar', /\.ics$/], nota: ['notes', /\.md$/], diagrama: ['notes', /\.md$/], fecha: ['exams', /\.md$/], objetivos: ['decks', /\.md$/] };
 const safeDest = (p: Proposal) => { if (p.tipo === 'borrar') return safeDeleteDest(p); const [pre, re] = OKPATH[p.tipo]; return p.destino.startsWith(pre + '/') && re.test(p.destino) && p.destino.split('/').every((s) => s !== '' && s !== '.' && s !== '..') && !/[\\\u0000-\u001f]/.test(p.destino) && (p.tipo !== 'evento' || p.destino === CAL) && (p.tipo !== 'fecha' || p.destino.split('/').length === 2) && p.destino.length <= 400; };
 const inflight = new Map<number, Promise<Entry[]>>();
 const groups = new Map<number, Entry[]>();
@@ -207,6 +210,14 @@ async function write(vault: VaultAdapter, col: Collection | null, p: Proposal, w
     const taken = new Set<string>(col ? [...col.byCid.keys(), ...col.log.map((e) => e.id)].map(noteIdOf) : []);
     for (const n of parseDeck(base).notes) if (n.id) taken.add(n.id);
     await w(p.destino, `${base.replace(/\s*$/, '')}\n\n${ensureIds(p.contenido.trim(), taken).text}\n`);
+  } else if (p.tipo === 'objetivos') {
+    const cs = p.cambios ?? [];
+    for (const c of cs) { // el archivo debe seguir como se propuso: si no, `changed` y no se escribe nada
+      if (!/^decks\/.+\.md$/.test(c.path) || c.path.split('/').some((x) => x === '..' || x === '.' || x === '')) throw new Error('path');
+      const cur = parseFrontmatter(await readTextOr(vault, c.path, '')).data.new_per_day;
+      if ((typeof cur === 'number' ? cur : null) !== c.antes) throw new Error('changed');
+    }
+    for (const c of cs) await w(c.path, setKeys(await readTextOr(vault, c.path, ''), { new_per_day: c.despues }));
   } else if (p.tipo === 'nota' || p.tipo === 'diagrama' || p.tipo === 'fecha') {
     if (await vault.exists(p.destino)) throw new Error('exists'); // nunca se sobrescribe
     await w(p.destino, p.contenido);

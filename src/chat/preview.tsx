@@ -11,7 +11,7 @@ import { redact } from './errors';
 import { type Msg, patch } from './history';
 import { applyProposal, type EventFields, isBad, revalidate, undoProposal } from './proposal';
 
-const TITLE: Record<'tarjetas' | 'examen' | 'evento' | 'nota' | 'diagrama' | 'fecha', string> = { tarjetas: 'chat.pv_t_tarjetas', examen: 'chat.pv_t_examen', evento: 'chat.pv_t_evento', nota: 'chat.pv_t_nota', diagrama: 'chat.pv_t_diagrama', fecha: 'chat.pv_t_fecha' } as const;
+const TITLE: Record<'tarjetas' | 'examen' | 'evento' | 'nota' | 'diagrama' | 'fecha' | 'objetivos', string> = { tarjetas: 'chat.pv_t_tarjetas', examen: 'chat.pv_t_examen', evento: 'chat.pv_t_evento', nota: 'chat.pv_t_nota', diagrama: 'chat.pv_t_diagrama', fecha: 'chat.pv_t_fecha', objetivos: 'analista.pv_titulo' } as const;
 const NEWFILE = new Set(['nota', 'diagrama', 'fecha']);
 
 /** Vista del diagrama propuesto con el visor de siempre, cargado bajo demanda; si falla, queda el código. */
