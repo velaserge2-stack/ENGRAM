@@ -1861,6 +1861,7 @@
  "analista.rol_analista_ayuda": "Explains your study data and proposes adjustments",
  "analista.rol_examinador_ayuda": "Quizzes you on your weakest topics, one at a time",
  "analista.vacio": "Not enough study data yet.",
+ "analitica.cargando": "Calculating…",
  "stickies.abrir": "Open",
  "stickies.abrir_en_notas": "Open in Notes",
  "stickies.archivadas_n.one": "{n} archived",

@@ -1861,6 +1861,7 @@
  "analista.rol_analista_ayuda": "Explica tus datos de estudio y propone ajustes",
  "analista.rol_examinador_ayuda": "Te pregunta por tus temas más débiles, de una en una",
  "analista.vacio": "Aún no hay datos de estudio suficientes.",
+ "analitica.cargando": "Calculando…",
  "stickies.abrir": "Abrir",
  "stickies.abrir_en_notas": "Abrir en Notas",
  "stickies.archivadas_n.one": "{n} archivada",

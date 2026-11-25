@@ -41,11 +41,18 @@ try {
   await page.goto(URL_ + '?app#/estadisticas');
   const dom = page.locator('section', { has: page.getByRole('heading', { name: 'Dominio', level: 2 }) });
   await dom.waitFor();
+  await dom.scrollIntoViewIfNeeded(); // los paneles calculan al verse
+  await page.locator('section[aria-busy=false]', { has: page.getByRole('heading', { name: 'Dominio', level: 2 }) }).waitFor(); // los paneles calculan diferidos
   for (const h of ['Debilidades', 'Predicción de retención', 'Olvidos', 'Confusiones']) check(await page.getByRole('heading', { name: h, level: 2 }).count() === 1, `panel «${h}»`);
   const tog = dom.locator('button[aria-expanded]').first();
   if (await tog.count()) {
-    await tog.click();
-    check((await tog.getAttribute('aria-expanded')) === 'true', 'el árbol se despliega');
+    await tog.focus();
+    await page.keyboard.press('ArrowRight');
+    check((await tog.getAttribute('aria-expanded')) === 'true', 'el árbol se despliega con →');
+    await page.keyboard.press('ArrowLeft');
+    check((await tog.getAttribute('aria-expanded')) === 'false', 'el árbol se pliega con ←');
+    await page.keyboard.press('ArrowDown');
+    check(await page.evaluate(() => document.activeElement?.hasAttribute('data-tn')), '↓ mueve el foco a la fila siguiente');
   } else check(true, 'árbol sin ramas en la bóveda de ejemplo');
   check(!!(await dom.locator('[role=meter]').count()), 'barras de dominio presentes');
 

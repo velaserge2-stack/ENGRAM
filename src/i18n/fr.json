@@ -1861,6 +1861,7 @@
  "analista.rol_analista_ayuda": "Explique vos données d'étude et propose des ajustements",
  "analista.rol_examinador_ayuda": "Vous interroge sur vos sujets les plus faibles, un par un",
  "analista.vacio": "Pas encore assez de données d'étude.",
+ "analitica.cargando": "Calcul en cours…",
  "stickies.abrir": "Ouvrir",
  "stickies.abrir_en_notas": "Ouvrir dans Notes",
  "stickies.archivadas_n.one": "{n} archivée",
