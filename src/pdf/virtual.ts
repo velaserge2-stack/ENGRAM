@@ -9,11 +9,13 @@
  *   cercano a la página central); los que ya no hacen falta se cancelan.
  * - fitPixels: presupuesto global de píxeles de lienzo además del tope por página.
  */
+/** Separación entre páginas (px): 10 arriba y 18 abajo, donde va el número de página. */
+export const PAGE_GAP = 28;
 export class Heights {
   private ratios: Float64Array;
   private pre: Float64Array | null = null;
   private w = -1;
-  constructor(public readonly n: number, ratio: number, exceptions: Record<number, number> = {}, public readonly gap = 10) {
+  constructor(public readonly n: number, ratio: number, exceptions: Record<number, number> = {}, public readonly gap = PAGE_GAP) {
     this.ratios = new Float64Array(n).fill(ratio > 0 ? ratio : 1.414);
     for (const [k, r] of Object.entries(exceptions)) if (Number(k) >= 1 && Number(k) <= n && r > 0) this.ratios[Number(k) - 1] = r;
   }
@@ -55,23 +57,26 @@ export class Heights {
   }
 }
 
-export function visibleRange(h: Heights, width: number, scrollTop: number, viewH: number, overscan = 2): { from: number; to: number; center: number } {
+/** `ahead`: página extra por delante en el sentido del desplazamiento (+1 abajo, -1 arriba). */
+export function visibleRange(h: Heights, width: number, scrollTop: number, viewH: number, overscan = 2, ahead: -1 | 0 | 1 = 0): { from: number; to: number; center: number } {
   const first = h.pageAt(Math.max(0, scrollTop), width);
   const last = h.pageAt(scrollTop + viewH, width);
   const center = h.pageAt(scrollTop + viewH / 2, width);
-  return { from: Math.max(1, first - overscan), to: Math.min(h.n, last + overscan), center };
+  return { from: Math.max(1, first - overscan - (ahead < 0 ? 1 : 0)), to: Math.min(h.n, last + overscan + (ahead > 0 ? 1 : 0)), center };
 }
 
 type Job = { id: string; prio: number; run: (signal: AbortSignal) => Promise<void>; ac: AbortController };
 export class RenderQueue {
   private waiting: Job[] = [];
-  private active = new Map<string, Job>();
+  // Set de trabajos (no Map por id): un trabajo cancelado sigue ocupando su hueco hasta que termina,
+  // pero ya no bloquea que el mismo id se vuelva a encolar (zoom/rotar: cancel + add seguidos).
+  private active = new Set<Job>();
   constructor(public limit = 2) {}
   get running() { return this.active.size; }
   get pending() { return this.waiting.length; }
   /** Encola (o reprioriza si ya está esperando). Menor `prio` = antes. */
   add(id: string, prio: number, run: (signal: AbortSignal) => Promise<void>) {
-    if (this.active.has(id)) return;
+    for (const j of this.active) if (j.id === id && !j.ac.signal.aborted) return;
     const w = this.waiting.find((j) => j.id === id);
     if (w) return void ((w.prio = prio), (w.run = run));
     this.waiting.push({ id, prio, run, ac: new AbortController() });
@@ -79,7 +84,7 @@ export class RenderQueue {
   }
   cancel(id: string) {
     this.waiting = this.waiting.filter((j) => j.id !== id);
-    this.active.get(id)?.ac.abort();
+    for (const j of this.active) if (j.id === id) j.ac.abort();
   }
   reprioritize(prio: (id: string) => number) {
     for (const j of this.waiting) j.prio = prio(j.id);
@@ -88,8 +93,8 @@ export class RenderQueue {
     while (this.active.size < this.limit && this.waiting.length) {
       this.waiting.sort((a, b) => a.prio - b.prio);
       const j = this.waiting.shift()!;
-      this.active.set(j.id, j);
-      void j.run(j.ac.signal).catch(() => {}).finally(() => { this.active.delete(j.id); this.pump(); });
+      this.active.add(j);
+      void j.run(j.ac.signal).catch(() => {}).finally(() => { this.active.delete(j); this.pump(); });
     }
   }
 }
