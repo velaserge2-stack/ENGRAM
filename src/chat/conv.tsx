@@ -210,7 +210,7 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
     setModels(app.settings.chat.models, app.settings.chat.context);
     run(q);
   };
-  const run = (q: string) => void send(q, { vault: app.vault, col: app.col, today: dayKey(Date.now(), app.settings.timeZone, app.settings.dayStartHour) }, { prefs, ctx: p.ctx, app: { settings: app.settings, go } });
+  const run = (q: string) => void send(q, { vault: app.vault, col: app.col, today: dayKey(Date.now(), app.settings.timeZone, app.settings.dayStartHour) }, { prefs, ctx: p.ctx, app: { settings: app.settings } });
   const lastUser = [...msgs].reverse().find((m) => m.role === 'user')?.text;
   const grow = (e: Event) => { const el = e.currentTarget as HTMLTextAreaElement; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`; };
   const last = msgs[msgs.length - 1];

@@ -40,7 +40,7 @@ export interface Proposal {
   /** edicion: texto completo del archivo ANTES (para el diff tras «Editar»); `huella` es su huella y `contenido` el texto nuevo completo */
   antes?: string;
   /** ajuste: cambio de un ajuste de la app (lo aplica la interfaz con `app.update`, no el vault) */
-  ajuste?: { ruta: string; antes: unknown; despues: unknown };
+  ajustes?: { ruta: string; antes: unknown; despues: unknown }[];
   reversible?: true;
   /** borrar: cifras para la tarjeta de confirmación (se traducen en la interfaz) */
   datos?: Record<string, number>;
@@ -62,12 +62,13 @@ const EDIT_VERB = /\b(edit\w*|modific\w*|corrig\w*|actualiz\w*|reescrib\w*|etiqu
 const EDIT_OBJ = /\b(notas?|apuntes?|notes?|tarjetas?|cards?|cartes?|etiquetas?|tags?|encabezados?|headings?|preguntas?|questions?|bancos?|examen(es)?|exams?|simulacros?)\b/;
 // cambiar ajustes de la app («pon un pomodoro de 40 min», «tema oscuro», «activa el add-on …»)
 const SET_VERB = /\b(pon\w*|cambia\w*|activ\w*|desactiv\w*|apag\w*|enciend\w*|configur\w*|ajusta\w*|set|change|switch|turn|enable|disable|mets|active\w*|desactive\w*|configure\w*|regle\w*)\b/;
-const SET_OBJ = /\b(ajustes?|settings?|pomodoro|pomo|tema|oscuro|claro|dark|light|idioma|language|langue|ingles|english|acento|vidrio|add-?ons?|extension\w*|nuevas|preferencias?|desenfoque|modo)\b/;
+const SET_OBJ = /\b(ajustes?|settings?|pomodoro|pomo|tema|oscuro|claro|dark|light|idioma|language|langue|ingles|english|acento|vidrio|add-?ons?|extension\w*|nuevas|preferencias?|desenfoque|modo|fondo|volumen|sonido|musica|dock|mascota|brillo)\b/;
 const CAP_ASK = /\b(puedes|puedo|podrias|podria|podrian|puede|sabes|eres capaz|can you|could you|can i|are you able|pouvez|peux|pourrais|sais)\b/;
 /** El último mensaje del usuario pide crear/modificar algo concreto (verbo + objeto, es/en/fr), o pregunta si puede. Sin ella no hay herramientas de escritura. */
 export function wantsWrite(text: string): boolean {
   const q = text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   return (WRITE_VERB.test(q) && WRITE_OBJ.test(q)) || (NOTE_VERB.test(q) && NOTE_OBJ.test(q)) || (SUMM_VERB.test(q) && SUMM_OBJ.test(q))
+    || (!q.includes('?') && q.trim().split(/\s+/).length <= 8 && /\b(acento|fondo|tema|modo|idioma|vidrio)\s+\w/.test(q)) // «acento verde solo en botones»
     || (EDIT_VERB.test(q) && EDIT_OBJ.test(q)) || (SET_VERB.test(q) && SET_OBJ.test(q)) || (CAP_ASK.test(q) && SET_OBJ.test(q)) || (CAP_ASK.test(q) && (EDIT_OBJ.test(q) || WRITE_OBJ.test(q) || SUMM_OBJ.test(q) || /\b(eventos?|events?|calendario|calendar)\b/.test(q)));
 }
 

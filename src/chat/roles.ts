@@ -69,14 +69,14 @@ export function stickyWrite(q: string, prev: { assistant?: string; proposed: boo
 }
 
 type Group = 'nota' | 'tarjeta' | 'examen' | 'evento' | 'ajuste';
-export const TOOL_GROUP: Record<string, Group> = { crear_nota: 'nota', crear_diagrama: 'nota', anadir_a_nota: 'nota', editar_nota: 'nota', etiquetar_nota: 'nota', crear_tarjetas: 'tarjeta', listar_ajustes: 'ajuste', cambiar_ajuste: 'ajuste', ir_a: 'ajuste', editar_tarjeta: 'tarjeta', crear_examen: 'examen', anadir_preguntas_a_banco: 'examen', registrar_examen: 'examen', modificar_examen: 'examen', agregar_evento: 'evento', modificar_evento: 'evento' };
+export const TOOL_GROUP: Record<string, Group> = { crear_nota: 'nota', crear_diagrama: 'nota', anadir_a_nota: 'nota', editar_nota: 'nota', etiquetar_nota: 'nota', crear_tarjetas: 'tarjeta', listar_ajustes: 'ajuste', cambiar_ajuste: 'ajuste', editar_tarjeta: 'tarjeta', crear_examen: 'examen', anadir_preguntas_a_banco: 'examen', registrar_examen: 'examen', modificar_examen: 'examen', agregar_evento: 'evento', modificar_evento: 'evento' };
 /** Qué objetos nombra el mensaje (sirve para ofrecer solo ese subconjunto de esquemas cuando el presupuesto es pequeño, p. ej. Groq). */
 export function groupsOf(q: string): Set<Group> {
   const u = q.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase(), g = new Set<Group>();
   if (/\b(notas?|apuntes?|notes?|tags?|etiquetas?|encabezados?|diagramas?|mapas?|resumen\w*)\b/.test(u)) g.add('nota');
   if (/\b(tarjetas?|cards?|flashcards?|cartes?|mazos?|decks?|cloze)\b/.test(u)) g.add('tarjeta');
   if (/\b(examen(es)?|exams?|bancos?|simulacros?|preguntas?|questions?|quiz)\b/.test(u)) g.add('examen');
-  if (/\b(ajustes?|settings?|pomodoro|pomo|tema|oscuro|claro|idioma|language|langue|acento|vidrio|add-?ons?|extensi\w+|nuevas|configur\w+|preferencias?|volumen|desenfoque)\b/.test(u)) g.add('ajuste');
+  if (/\b(ajustes?|settings?|pomodoro|pomo|tema|oscuro|claro|idioma|language|langue|acento|fondo|color|volumen|sonido|musica|vidrio|add-?ons?|extensi\w+|nuevas|configur\w+|preferencias?|volumen|desenfoque)\b/.test(u)) g.add('ajuste');
   if (/\b(eventos?|events?|calendario|calendar|citas?|clases?|horario)\b/.test(u)) g.add('evento');
   return g;
 }

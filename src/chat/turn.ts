@@ -16,9 +16,16 @@ import type { ToolSet } from 'ai';
 
 // Gancho del carril «Exámenes»: si existe src/chat/tools-exam.ts (exporta `makeExamTools(ctx)`), se carga bajo demanda; si no, no pasa nada.
 const examMod = import.meta.glob<{ makeExamTools?: (c: unknown) => ToolSet }>('./tools-exam.ts');
+const actionMod = import.meta.glob<{ makeActionTools?: (c: unknown) => ToolSet }>('./tools-actions.ts'); // carril de acciones (pomodoro, sonido, navegar, tareas)
+const analyticsMod = import.meta.glob<{ makeAnalyticsTools?: (c: unknown) => ToolSet }>('./tools-analytics.ts'); // carril de analítica (solo lectura)
+async function appTools(wctx: Parameters<typeof import('./tools-app').makeAppTools>[0], settings: import('../lib/settings').Settings, vault: Parameters<typeof import('./tools-app').appLists>[0]): Promise<ToolSet> {
+  const m = await import('./tools-app');
+  let lists: Awaited<ReturnType<typeof m.appLists>> | null = null;
+  return m.makeAppTools(wctx, { settings, lists: async () => (lists ??= await m.appLists(vault)) });
+}
 
 /** `prefs`: rol, socrático y nivel · `ctx`: contexto con el que se abrió el chat · `write`: un botón interno fuerza las herramientas de escritura. */
-export interface SendOpts { prefs?: Prefs; ctx?: ChatCtx | null; write?: boolean; /** lo que hace falta para proponer cambios de ajustes: valores actuales, `go` y el `app.update` lo aplica la UI */ app?: { settings: import('../lib/settings').Settings; go: (screen: string) => void } }
+export interface SendOpts { prefs?: Prefs; ctx?: ChatCtx | null; write?: boolean; /** lo que hace falta para proponer cambios de ajustes: valores actuales, `go` y el `app.update` lo aplica la UI */ app?: { settings: import('../lib/settings').Settings } }
 
 export { SYSTEM };
 
@@ -54,10 +61,12 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>, opts: S
     let tools: ToolSet | undefined;
     if (env) {
       const wctx = { ...env, sources, allowed: () => pl.writes, propose: propose(pl.writes) };
-      const writeTools: ToolSet = pl.writes && tw ? { ...tw.makeWriteTools(wctx), ...(await import('./tools-edit')).makeEditTools(wctx), ...(opts.app ? (await import('./tools-app')).makeAppTools(wctx, { settings: opts.app.settings, go: opts.app.go, addons: (await import('./tools-app')).addonIds }) : {}), ...(pl.convert ? (await import('./tools-convert')).makeConvertTools(wctx) : {}) } : {};
+      const writeTools: ToolSet = pl.writes && tw ? { ...tw.makeWriteTools(wctx), ...(await import('./tools-edit')).makeEditTools(wctx), ...(opts.app ? await appTools(wctx, opts.app.settings, env.vault) : {}), ...(pl.convert ? (await import('./tools-convert')).makeConvertTools(wctx) : {}) } : {};
       const all = { ...(await import('./tools')).makeTools({ ...env, sources }), ...writeSubset(writeTools, `${sticky ? prevUser + ' ' : ''}${q}`, budget().histTokens <= 4000), ...(pl.dels && tw ? tw.makeDeleteTools({ ...env, sources, allowed: () => pl.dels, userText: q, propose: propose(pl.dels) }) : {}) };
       tools = filterTools(all, prefs.role) as ToolSet;
       const ex = pl.writes && ROLES[prefs.role].exam ? examMod['./tools-exam.ts'] : undefined;
+      const more = [pl.writes && ROLES[prefs.role].tools === null ? actionMod['./tools-actions.ts'] : undefined, prefs.role !== 'investigador' ? analyticsMod['./tools-analytics.ts'] : undefined];
+      for (const [i, l] of more.entries()) if (l) { try { const mod = await l(); Object.assign(tools, ((i ? (mod as { makeAnalyticsTools?: (c: unknown) => ToolSet }).makeAnalyticsTools : (mod as { makeActionTools?: (c: unknown) => ToolSet }).makeActionTools)?.(wctx)) ?? {}); } catch { /* carril aún no entregado o falló */ } }
       if (ex) { try { Object.assign(tools, (await ex()).makeExamTools?.(wctx) ?? {}); } catch { /* el carril B aún no la entrega o falló: sin ella */ } }
     }
     const cx = opts.ctx && env ? await loadCtx(env, opts.ctx, sources) : null;
