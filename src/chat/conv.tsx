@@ -105,7 +105,7 @@ function Bubble(p: { m: Msg; onSettings: () => void; onCite: () => void; onRetry
   if (m.role === 'proposal') return <Preview m={m} />;
   if (m.role === 'assistant') return <Answer text={m.text} sources={m.sources} onCite={p.onCite} />;
   if (m.role === 'notice') {
-    return <p class="chat-note">{m.code === 'rotated' ? t('chat.p_rotada', { alias: m.alias ?? '' }) : t('chat.p_detenida')}</p>;
+    return <p class="chat-note">{m.code === 'rotated' ? t('chat.p_rotada', { alias: m.alias ?? '' }) : m.code === 'notools' ? t('chat.p_sin_herramientas') : t('chat.p_detenida')}</p>;
   }
   const k = ERR[m.code ?? ''] ?? 'other';
   return (

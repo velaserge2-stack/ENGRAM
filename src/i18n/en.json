@@ -2169,6 +2169,7 @@
  "chat.p_ia": "Assistant",
  "chat.p_clave_usada": "Key: {alias}",
  "chat.p_rotada": "Switched to key “{alias}”.",
+ "chat.p_sin_herramientas": "This model doesn't support tools: I'll answer without reading or changing your notes and cards. For that, pick another one (e.g. openai/gpt-oss-120b).",
  "chat.p_espera": "Waiting {s} s for the per-minute limit…",
  "chat.p_ajustes": "Go to Settings",
  "chat.p_detenida": "Reply stopped.",

@@ -42,7 +42,7 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>): Promis
       onText: (d) => { if (generation() !== gen) return; if (getStatus().tool) setStatus({ tool: undefined }); append(reply.id, d); },
       onStatus: (s) => {
         if (generation() !== gen) return;
-        if (s.code === 'rotated') add('notice', '', { code: 'rotated', alias: s.alias });
+        if (s.code === 'rotated' || s.code === 'notools') add('notice', '', { code: s.code, alias: s.alias });
         else setStatus({ waitS: Math.ceil((s.waitMs ?? 0) / 1000) });
       },
     });
