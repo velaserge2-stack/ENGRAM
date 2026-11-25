@@ -37,6 +37,10 @@ describe('piezas puras', () => {
     expect(r.indexOf('Onda Q')).toBeGreaterThan(r.indexOf('auricular')); expect(r.indexOf('Onda Q')).toBeLessThan(r.indexOf('## Ritmo'));
     expect(appendToNote(NOTE, 'x', 'Nada')).toMatchObject({ error: 'encabezado' });
     expect(appendToNote('# A\n## X\n## X\n', 'x', 'X')).toMatchObject({ error: 'varios' });
+    // ni dentro del YAML ni de un bloque de código
+    expect(appendToNote('---\n# Ondas\ntags: [a]\n---\nTexto\n', 'x', 'Ondas')).toMatchObject({ error: 'encabezado' });
+    expect(appendToNote('# A\n```md\n## Ondas\n```\nfin\n', 'x', 'Ondas')).toMatchObject({ error: 'encabezado' });
+    expect(appendToNote('# A\n```md\n## Ondas\n```\n## Ondas\nreal\n', 'x', 'Ondas')).toMatch(/real\n\nx\n$/);
     expect(appendToNote(NOTE, '  ')).toMatchObject({ error: 'vacio' });
   });
   it('reemplazar: único, exacto, solo en el cuerpo', () => {
@@ -50,9 +54,14 @@ describe('piezas puras', () => {
     const r = retag(NOTE, ['#Nuevo tag', 'cardio'], []) as string;
     expect(parseFrontmatter(r).data.tags).toEqual(['cardio', 'Nuevo-tag']);
     expect(parseFrontmatter(retag(r, [], ['CARDIO']) as string).data.tags).toEqual(['Nuevo-tag']);
-    expect(parseFrontmatter(retag('# sin fm\n', ['a'], []) as string).data.tags).toEqual(['a']);
+    expect(retag('# sin fm\n', ['a'], [])).toMatchObject({ error: 'sinfrontmatter' }); // no se crea un frontmatter nuevo
     expect((retag(NOTE, [], ['cardio']) as string)).not.toContain('tags');
     expect(r.endsWith(NOTE.slice(NOTE.indexOf('# ECG')))).toBe(true); // el cuerpo no cambia
+  });
+  it('una línea larga se recorta con «⋯ +N» y la propuesta lleva aviso', () => {
+    const big = 'y'.repeat(400), p = editProposal('notes/a.md', 'a\nb', `a\n${big}`, 'r') as Proposal;
+    expect(p.items.some((l) => /⋯ \+\d+$/.test(l))).toBe(true); expect(p.aviso).toBe('asist2.aviso_linea_larga');
+    expect((editProposal('notes/a.md', 'a', 'b', 'r') as Proposal).aviso).toBeUndefined();
   });
   it('sin cambio no hay propuesta', () => { expect(editProposal('notes/a.md', 'x', 'x', 'r')).toMatchObject({ error: 'igual' }); });
 });

@@ -1,5 +1,5 @@
 // Roles del Asistente: system + lista blanca de herramientas + escritura. Lógica pura (sin `ai`); turn.ts la aplica.
-import { SYSTEM, SYSTEM_CONVERT, SYSTEM_APP, SYSTEM_EDIT, SYSTEM_DELETE, SYSTEM_LEVEL, SYSTEM_SOCRATIC, SYSTEM_WRITE, ctxSystem } from './system';
+import { SYSTEM, SYSTEM_CONVERT, SYSTEM_APP, SYSTEM_EDIT, SYSTEM_DELETE, SYSTEM_LEVEL, SYSTEM_SOCRATIC, SYSTEM_WRITE, SYSTEM_CTX } from './system';
 
 export type RoleId = 'tutor' | 'examinador' | 'investigador' | 'creador' | 'analista';
 export type Level = '' | keyof typeof SYSTEM_LEVEL;
@@ -55,17 +55,16 @@ export function filterTools<T extends Record<string, unknown>>(tools: T, id: Rol
 
 /** Prompt de sistema del turno. Con prefs por defecto y sin contexto da exactamente el de siempre. */
 export function composeSystem(prefs: Prefs, o: { writes: boolean; dels: boolean; convert: boolean; ctx?: { label: string; body: string } | null; app?: boolean }): string {
-  return [SYSTEM, ROLES[prefs.role].system, prefs.socratic && SYSTEM_SOCRATIC, prefs.level && SYSTEM_LEVEL[prefs.level], o.writes && SYSTEM_WRITE, o.writes && SYSTEM_EDIT, o.app && SYSTEM_APP, o.convert && SYSTEM_CONVERT, o.dels && SYSTEM_DELETE, o.ctx && ctxSystem(o.ctx.label, o.ctx.body)].filter(Boolean).join(' ');
+  return [SYSTEM, ROLES[prefs.role].system, prefs.socratic && SYSTEM_SOCRATIC, prefs.level && SYSTEM_LEVEL[prefs.level], o.writes && SYSTEM_WRITE, o.writes && SYSTEM_EDIT, o.app && SYSTEM_APP, o.convert && SYSTEM_CONVERT, o.dels && SYSTEM_DELETE, o.ctx && SYSTEM_CTX].filter(Boolean).join(' ');
 }
 
-/** Escritura «pegajosa»: un «sí / hazlo / dale» corto tras una oferta de crear o editar (o tras una propuesta) mantiene las herramientas. */
-const YES = /^\s*(si|yes|yep|ok|okay|dale|hazlo|hazla|adelante|claro|va|venga|vale|perfecto|por favor|tambien|ademas|also|go ahead|do it|sure|oui|d'accord|vas-y|fais-le)\b/;
-const OFFER = /\b(cre[ae]\w*|creo|hacer|hago|hacerlo|proponer|propongo|editar|edito|agregar|anadir|anado|etiquetar|modificar|modifico|cambiar|create|propose|edit|add|tag|change|modify|proposer|creer|modifier|ajouter)\b/;
-export function stickyWrite(q: string, prev: { assistant?: string; proposed: boolean }): boolean {
-  const n = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-  const u = n(q);
-  if (u.trim().split(/\s+/).length > 6 || !YES.test(u)) return false;
-  return prev.proposed || (!!prev.assistant && OFFER.test(n(prev.assistant)));
+/** Escritura «pegajosa»: SOLO un «sí / hazlo / dale» exacto (≤ 3 palabras) cuando el último mensaje del asistente es una pregunta que ofrece crear o editar. */
+const YES = /^(si|si claro|dale|hazlo|hazla|ok|okay|adelante|va|yes|do it|go ahead|oui)[.!\s]*$/;
+const OFFER = /\b(crear|creo|cre[ae]r?|proponer|propongo|editar|edito|agregar|anadir|anado|etiquetar|etiquete|modificar|modifico|create|propose|edit|tag|proposer|creer|modifier|ajouter)\b/;
+export function stickyWrite(q: string, prev: { assistant?: string; proposed?: boolean }): boolean {
+  const n = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+  const u = n(q), a = n(prev.assistant ?? '');
+  return u.split(/\s+/).length <= 3 && YES.test(u) && a.endsWith('?') && OFFER.test(a);
 }
 
 type Group = 'nota' | 'tarjeta' | 'examen' | 'evento' | 'ajuste';
@@ -80,9 +79,9 @@ export function groupsOf(q: string): Set<Group> {
   if (/\b(eventos?|events?|calendario|calendar|citas?|clases?|horario)\b/.test(u)) g.add('evento');
   return g;
 }
-/** Herramientas de escritura que se ofrecen: todas, o con presupuesto pequeño (`small`) solo las de los objetos mencionados (sin mención, todas). */
-export function writeSubset<T extends Record<string, unknown>>(tools: T, q: string, small: boolean): Partial<T> {
+/** Herramientas de escritura que se ofrecen: solo las de los objetos mencionados (sin mención, todas menos las de ajustes). `_small` ya no se usa (siempre filtra). */
+export function writeSubset<T extends Record<string, unknown>>(tools: T, q: string, _small = true): Partial<T> {
   const g = groupsOf(q);
-  if (!small || !g.size) return tools;
-  return Object.fromEntries(Object.entries(tools).filter(([k]) => !TOOL_GROUP[k] || g.has(TOOL_GROUP[k]!))) as Partial<T>;
+  // ajustes de la app: solo si el mensaje los nombra; el resto: los objetos mencionados (sin mención, todos)
+  return Object.fromEntries(Object.entries(tools).filter(([k]) => { const grp = TOOL_GROUP[k]; return !grp || (grp === 'ajuste' ? g.has('ajuste') : !g.size || g.has(grp)); })) as Partial<T>;
 }

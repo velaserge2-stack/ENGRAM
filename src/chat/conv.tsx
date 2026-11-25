@@ -70,7 +70,7 @@ export function harden(el: HTMLElement, sources: readonly Source[]) {
   }
 }
 
-function Answer(p: { text: string; sources?: Source[]; onCite: () => void; research?: boolean; done?: boolean }) {
+function Answer(p: { text: string; sources?: Source[]; onCite: () => void; research?: boolean; done?: boolean; onNoVoice: () => void }) {
   const speaking = useSpeaking();
   // se endurece en un <template> inerte: así ninguna <img> remota llega a cargarse (ni una petición) antes de quitarla
   const html = useMemo(() => {
@@ -88,7 +88,7 @@ function Answer(p: { text: string; sources?: Source[]; onCite: () => void; resea
         {p.done && (
           <div class="chat-a-tools">
             {p.research && unsourced(p.text) > 0 && <span class="chip chat-nosrc">{t('asist2.sin_fuente')}</span>}
-            {speechSupported() && <button type="button" class="btn small" aria-pressed={speaking} onClick={() => (speaking ? stopSpeak() : speak(p.text))}><Volume2 size={16} aria-hidden="true" /> {speaking ? t('asist2.detener') : t('asist2.leer')}</button>}
+            {speechSupported() && <button type="button" class="btn small" aria-pressed={speaking} onClick={() => { if (speaking) stopSpeak(); else if (!speak(p.text)) p.onNoVoice(); }}><Volume2 size={16} aria-hidden="true" /> {speaking ? t('asist2.detener') : t('asist2.leer')}</button>}
           </div>
         )}
       </div>
@@ -110,11 +110,11 @@ function Settings(p: { onClick: () => void }) {
   return <button type="button" class="btn small" onClick={p.onClick}>{t('chat.p_ajustes')}</button>;
 }
 
-function Bubble(p: { m: Msg; onSettings: () => void; onCite: () => void; onRetry?: () => void; research?: boolean; done?: boolean }) {
+function Bubble(p: { m: Msg; onSettings: () => void; onCite: () => void; onRetry?: () => void; research?: boolean; done?: boolean; onNoVoice: () => void }) {
   const { m } = p;
   if (m.role === 'user') return <article class="chat-msg user" data-user-content><span class="sr-only">{t('chat.p_tu')}: </span>{m.text}</article>;
   if (m.role === 'proposal') return <Preview m={m} />;
-  if (m.role === 'assistant') return <Answer text={m.text} sources={m.sources} onCite={p.onCite} research={p.research} done={p.done} />;
+  if (m.role === 'assistant') return <Answer text={m.text} sources={m.sources} onCite={p.onCite} research={p.research} done={p.done} onNoVoice={p.onNoVoice} />;
   if (m.role === 'notice') {
     return <p class="chat-note">{m.code === 'rotated' ? t('chat.p_rotada', { alias: m.alias ?? '' }) : m.code === 'notools' ? t('chat.p_sin_herramientas') : t('chat.p_detenida')}</p>;
   }
@@ -193,7 +193,7 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
     const a = [...msgs].reverse().find((m) => m.role === 'assistant' && m.text);
     if (!a || a.id === readN.current || msgs[msgs.length - 1]?.role === 'error') return;
     readN.current = a.id;
-    if (!speak(a.text, (done) => { if (done && oralRef.current) dictate.start(); })) setOral(false);
+    if (!speak(a.text, (done) => { if (done && oralRef.current) dictate.start(); })) { setOral(false); app.toast(t('asist2.sin_voz_local')); }
   }, [oral, st.busy, msgs.length]);
   useEffect(() => () => { stopSpeak(); }, []);
   const ms = useMascotState(foc || has || dictOn);
@@ -244,7 +244,7 @@ export default function Conversation(p: { size: 'compact' | 'large'; phone: bool
         <div ref={log} class="chat-log" role="log" aria-live="polite" aria-relevant="additions text" aria-busy={st.busy} aria-label={t('chat.p_conv')} tabIndex={0}
           onScroll={(e) => { const l = e.currentTarget as HTMLElement; stick.current = l.scrollHeight - l.scrollTop - l.clientHeight < 40; }}>
           {!msgs.length && <div class="chat-empty"><Mascot size={64} state={ms} /><p><b>{t('chat.p_vacio')}</b></p><p class="foot">{t('chat.p_vacio_sub')}</p></div>}
-          {msgs.map((m) => (m.role === 'assistant' && !m.text ? null : <Bubble key={m.id} m={m} research={prefs.role === 'investigador'} done={!st.busy || m !== last} onSettings={toSettings} onCite={() => { if (p.phone) p.onClose(); }} onRetry={lastUser && !st.busy ? () => { stick.current = true; setModels(app.settings.chat.models, app.settings.chat.context); run(lastUser); } : undefined} />))}
+          {msgs.map((m) => (m.role === 'assistant' && !m.text ? null : <Bubble key={m.id} m={m} onNoVoice={() => app.toast(t('asist2.sin_voz_local'))} research={prefs.role === 'investigador'} done={!st.busy || m !== last} onSettings={toSettings} onCite={() => { if (p.phone) p.onClose(); }} onRetry={lastUser && !st.busy ? () => { stick.current = true; setModels(app.settings.chat.models, app.settings.chat.context); run(lastUser); } : undefined} />))}
           {waiting && <p class="chat-note" role="status">{st.waitS ? t('chat.p_espera', { s: st.waitS }) : st.tool ? t('chat.p_buscando') : t('chat.p_pensando')}</p>}
         </div>
         {marks && <p class="chat-hint">{t('chat.p_marcas')}</p>}

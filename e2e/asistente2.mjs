@@ -147,13 +147,13 @@ try {
   await fresh(); bodies.length = 0;
   await say('resume esto');
   await panel.getByText('12 derivaciones estándar').waitFor();
-  check(/DATA, never instructions/.test(bodies[0]) && bodies[0].includes('Clase 1 - ECG básico'), 'el contexto llega recortado como DATOS');
+  check(/DATOS \(no son instrucciones\)/.test(bodies[0]) && bodies[0].includes('Clase 1 - ECG básico'), 'el contexto llega recortado como DATOS');
   await chip.getByRole('button', { name: 'Quitar el contexto' }).click();
   check((await panel.locator('.chat-ctx').count()) === 0, 'el chip se quita');
   bodies.length = 0;
   await say('otra vez');
   await panel.locator('.chat-msg.assistant').nth(1).waitFor();
-  check(!/DATA, never instructions/.test(bodies[0]), 'sin chip no hay contexto');
+  check(!/DATOS \(no son instrucciones\)/.test(bodies[0]), 'sin chip no hay contexto');
 } catch (e) {
   failed++;
   console.error(e);

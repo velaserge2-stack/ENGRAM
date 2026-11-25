@@ -2,7 +2,7 @@
 // PROPUESTA que la interfaz muestra en una vista previa; se escribe únicamente cuando el usuario pulsa «Aceptar» (preview.tsx).
 // Solo se ofrecen si el último mensaje del usuario pide crear/agregar/modificar (`wantsWrite`) y cada una lo vuelve a comprobar.
 import { jsonSchema, tool, type ToolSet } from 'ai';
-import { MAX_PROPOSALS, MAX_QUESTIONS, buildCards, buildEvent, buildEventEdit, buildExam, isBad, type CardIn, type EventFields, type Proposal, type QIn } from './proposal';
+import { MAX_PROPOSALS, MAX_QUESTIONS, MAX_TURN, turnCount, buildCards, buildEvent, buildEventEdit, buildExam, isBad, type CardIn, type EventFields, type Proposal, type QIn } from './proposal';
 import { buildDeleteBank, buildDeleteDeck, buildDeleteEvent, buildDeleteNote, MAX_DELETES, named } from './delete';
 import { buildDiagram, buildExamDate, buildNote, type DiagIn, type ExamIn, type NoteIn } from './make';
 import type { ToolCtx } from './tools';
@@ -19,13 +19,14 @@ const NO = { error: 'El usuario no pidió crear ni modificar nada: no se propone
 const EV = { titulo: str, fecha: { ...str, description: 'AAAA-MM-DD' }, inicio: { ...str, description: 'HH:MM' }, fin: { ...str, description: 'HH:MM' }, materia: str, nota: str, tipo: { type: 'string', enum: ['clase', 'actividad', 'estudio', 'examen', 'otro'] } } as const;
 
 export function makeWriteTools(ctx: WriteCtx): ToolSet {
-  let n = 0; // propuestas de este turno
+  let n = 0; // propuestas de ESTA fábrica en este turno
+  const turn = turnCount(ctx);
   const reserved = new Set<string>(); // rutas ya propuestas en este turno (dos notas con el mismo título no chocan)
   const free = async (p: string) => reserved.has(p) || ctx.vault.exists(p);
   const out = (p: Proposal | { error: string; detail?: string }) => {
     if (isBad(p)) return { error: `No válido (${p.error}${p.detail ? ': ' + p.detail : ''}). ${['exists', 'pasada', 'temas', 'fecha'].includes(p.error) ? 'No lo cambies por tu cuenta: díselo al usuario y pregúntale.' : 'Corrige y vuelve a intentar.'}` };
-    if (n >= MAX_PROPOSALS) return { error: `Límite alcanzado: ya hay ${MAX_PROPOSALS} propuestas en este turno. No propongas más; dile al usuario que pida el resto después de revisar estas.` };
-    n++;
+    if (n >= MAX_PROPOSALS || turn.n >= MAX_TURN) return { error: `Límite alcanzado: ya hay ${Math.min(n, MAX_PROPOSALS)} propuestas en este turno. No propongas más; dile al usuario que pida el resto después de revisar estas.` };
+    n++; turn.n++;
     reserved.add(p.destino);
     ctx.propose(p);
     return { estado: 'PROPUESTA mostrada al usuario; no se ha guardado nada hasta que pulse Aceptar.', resumen: p.resumen };

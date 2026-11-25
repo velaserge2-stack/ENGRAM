@@ -10,10 +10,10 @@ import { clampMinutes, parseBankMarkdown, serializeBank } from '../sim/parse';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr, walk } from '../vault/util';
 import { fingerprint, pick, type Cand } from './delete';
-import { diffLines } from './diff';
+import { diffLines, hasCut } from './diff';
 import { checkExamFile, one, topicOptions } from './make';
 import { budget } from './providers';
-import { MAX_PROPOSALS, MAX_QUESTIONS, buildExam, isBad, type Bad, type Proposal, type QIn } from './proposal';
+import { MAX_PROPOSALS, MAX_QUESTIONS, MAX_TURN, turnCount, buildExam, isBad, type Bad, type Proposal, type QIn } from './proposal';
 import type { WriteCtx } from './tools-write';
 
 export const EDIT_TOOLS = ['anadir_a_nota', 'editar_nota', 'etiquetar_nota', 'editar_tarjeta', 'anadir_preguntas_a_banco', 'modificar_examen'] as const;
@@ -28,7 +28,8 @@ const cleanTag = (x: unknown) => String(x ?? '').trim().replace(/^#+/, '').repla
 export function editProposal(destino: string, antes: string, despues: string, resumen: string): Proposal | Bad {
   if (antes === despues) return { error: 'igual', detail: 'El cambio no modifica nada.' };
   if (despues.length > antes.length + budget().writeChars) return { error: 'largo', detail: `${budget().writeChars}` };
-  return { tipo: 'edicion', destino, contenido: despues, antes, huella: fingerprint(antes), items: diffLines(antes, despues), resumen, reversible: true };
+  const items = diffLines(antes, despues);
+  return { tipo: 'edicion', destino, contenido: despues, antes, huella: fingerprint(antes), items, resumen, reversible: true, ...(hasCut(items) ? { aviso: 'asist2.aviso_linea_larga' } : {}) };
 }
 
 // ───────── texto de una nota ─────────
@@ -37,12 +38,17 @@ export function appendToNote(text: string, add: string, bajo?: string): string |
   const eol = eolOf(text), ins = clean(add).trim().split('\n');
   if (!ins.join('').trim()) return { error: 'vacio' };
   if (!bajo?.trim()) return text.replace(/\s*$/, '') + eol + eol + ins.join(eol) + eol;
-  const lines = text.split('\n'), want = norm(bajo.replace(/^#+\s*/, ''));
-  const hs = lines.flatMap((l, i) => { const m = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(l.replace(/\r$/, '')); return m && norm(m[2]!) === want ? [{ i, lv: m[1]!.length }] : []; });
+  const lines = text.split('\n'), want = norm(bajo.replace(/^#+\s*/, '')), skip = new Set<number>();
+  // no se casan encabezados dentro del frontmatter ni de bloques de código
+  const head = (headOf(text) ?? '').split('\n').length - 1;
+  for (let i = 0; i < head; i++) skip.add(i);
+  let fence = '';
+  lines.forEach((l, i) => { const m = /^\s*(```+|~~~+)/.exec(l); if (m) { skip.add(i); fence = fence ? (m[1]!.startsWith(fence[0]!) ? '' : fence) : m[1]!; } else if (fence) skip.add(i); });
+  const hs = lines.flatMap((l, i) => { const m = !skip.has(i) && /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(l.replace(/\r$/, '')); return m && norm(m[2]!) === want ? [{ i, lv: m[1]!.length }] : []; });
   if (!hs.length) return { error: 'encabezado', detail: 'No hay un encabezado con ese nombre.' };
   if (hs.length > 1) return { error: 'varios', detail: `${hs.length} encabezados iguales` };
   const { i, lv } = hs[0]!;
-  let e = lines.findIndex((l, k) => k > i && /^#{1,6}\s/.test(l) && /^#+/.exec(l)![0].length <= lv);
+  let e = lines.findIndex((l, k) => k > i && !skip.has(k) && /^#{1,6}\s/.test(l) && /^#+/.exec(l)![0].length <= lv);
   if (e < 0) e = lines.length;
   while (e > i + 1 && lines[e - 1]!.trim() === '') e--;
   lines.splice(e, 0, eol === '\r\n' ? '\r' : '', ...ins.map((l) => l + (eol === '\r\n' ? '\r' : '')));
@@ -60,6 +66,7 @@ export function replaceInNote(text: string, buscar: string, nuevo: string): stri
   return text.slice(0, head) + body.replace(f, () => r);
 }
 export function retag(text: string, add: unknown, drop: unknown): string | Bad {
+  if (headOf(text) === null) return { error: 'sinfrontmatter', detail: 'La nota no tiene frontmatter; no se crea uno nuevo desde aquí.' };
   const cur = parseFrontmatter(text).data.tags;
   const have = (Array.isArray(cur) ? cur : typeof cur === 'string' && cur ? [cur] : []).map(String);
   const rm = new Set((Array.isArray(drop) ? drop : []).map(cleanTag).map(norm)), ad = (Array.isArray(add) ? add : []).slice(0, 10).map(cleanTag).filter(Boolean);
@@ -81,11 +88,12 @@ async function fileOf(vault: VaultAdapter, dir: string, q: string): Promise<{ pa
 
 export function makeEditTools(ctx: WriteCtx): ToolSet {
   let n = 0;
+  const turn = turnCount(ctx);
   const NO = { error: 'El usuario no pidió crear ni modificar nada: no se propone nada.' };
   const out = (p: Proposal | Bad) => {
     if (isBad(p)) return { error: `No válido (${p.error}${p.detail ? ': ' + p.detail : ''}). ${p.error === 'varios' ? 'Pide al usuario que precise cuál.' : p.error === 'noexiste' ? 'Díselo al usuario; no inventes otro nombre.' : 'Corrige y vuelve a intentar.'}` };
-    if (n >= MAX_PROPOSALS) return { error: `Límite alcanzado: ya hay ${MAX_PROPOSALS} propuestas en este turno. No propongas más.` };
-    n++; ctx.propose(p);
+    if (n >= MAX_PROPOSALS || turn.n >= MAX_TURN) return { error: `Límite alcanzado: ya hay ${Math.min(n, MAX_PROPOSALS)} propuestas en este turno. No propongas más.` };
+    n++; turn.n++; ctx.propose(p);
     return { estado: 'PROPUESTA mostrada al usuario con el cambio exacto; no se ha guardado nada hasta que pulse Aceptar.', resumen: p.resumen };
   };
   const run = <I,>(f: (i: I) => Promise<Proposal | Bad>) => async (i: I) => (ctx.allowed() ? out(await f(i)) : NO);

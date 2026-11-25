@@ -12,7 +12,7 @@ import { clampMinutes, finalize, parseBankMarkdown, serializeBank, type Question
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr } from '../vault/util';
 import { applyDelete, fingerprint, safeDeleteDest } from './delete';
-import { diffLines } from './diff';
+import { diffLines, hasCut } from './diff';
 import { checkExamEdit, checkNoteFile, one } from './make';
 import { tracked, undo, type Entry } from './undo';
 
@@ -41,6 +41,8 @@ export interface Proposal {
   antes?: string;
   /** ajuste: cambio de un ajuste de la app (lo aplica la interfaz con `app.update`, no el vault) */
   ajustes?: { ruta: string; antes: unknown; despues: unknown }[];
+  /** clave i18n de una advertencia fija que la vista previa muestra sobre «Aceptar» */
+  aviso?: string;
   reversible?: true;
   /** borrar: cifras para la tarjeta de confirmación (se traducen en la interfaz) */
   datos?: Record<string, number>;
@@ -62,14 +64,17 @@ const EDIT_VERB = /\b(edit\w*|modific\w*|corrig\w*|actualiz\w*|reescrib\w*|etiqu
 const EDIT_OBJ = /\b(notas?|apuntes?|notes?|tarjetas?|cards?|cartes?|etiquetas?|tags?|encabezados?|headings?|preguntas?|questions?|bancos?|examen(es)?|exams?|simulacros?)\b/;
 // cambiar ajustes de la app («pon un pomodoro de 40 min», «tema oscuro», «activa el add-on …»)
 const SET_VERB = /\b(pon\w*|cambia\w*|activ\w*|desactiv\w*|apag\w*|enciend\w*|configur\w*|ajusta\w*|set|change|switch|turn|enable|disable|mets|active\w*|desactive\w*|configure\w*|regle\w*)\b/;
-const SET_OBJ = /\b(ajustes?|settings?|pomodoro|pomo|tema|oscuro|claro|dark|light|idioma|language|langue|ingles|english|acento|vidrio|add-?ons?|extension\w*|nuevas|preferencias?|desenfoque|modo|fondo|volumen|sonido|musica|dock|mascota|brillo)\b/;
+// objetos inequívocos de ajustes; los ambiguos («tema», «fondo», «modo»…) solo cuentan con un verbo imperativo y un mensaje corto
+const SET_STRONG = /\b(ajustes?|settings?|pomodoro|pomo|acento|idioma|language|langue|vidrio|add-?ons?|extension\w*|preferencias?|desenfoque|volumen|sonido|dock|mascota|brillo)\b/;
+const SET_WEAK = /\b(tema|fondo|modo|oscuro|claro|dark|light|ingles|english|nuevas)\b/;
+const shortCmd = (q: string) => !q.includes('?') && q.trim().split(/\s+/).length <= 8;
 const CAP_ASK = /\b(puedes|puedo|podrias|podria|podrian|puede|sabes|eres capaz|can you|could you|can i|are you able|pouvez|peux|pourrais|sais)\b/;
 /** El último mensaje del usuario pide crear/modificar algo concreto (verbo + objeto, es/en/fr), o pregunta si puede. Sin ella no hay herramientas de escritura. */
 export function wantsWrite(text: string): boolean {
   const q = text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   return (WRITE_VERB.test(q) && WRITE_OBJ.test(q)) || (NOTE_VERB.test(q) && NOTE_OBJ.test(q)) || (SUMM_VERB.test(q) && SUMM_OBJ.test(q))
-    || (!q.includes('?') && q.trim().split(/\s+/).length <= 8 && /\b(acento|fondo|tema|modo|idioma|vidrio)\s+\w/.test(q)) // «acento verde solo en botones»
-    || (EDIT_VERB.test(q) && EDIT_OBJ.test(q)) || (SET_VERB.test(q) && SET_OBJ.test(q)) || (CAP_ASK.test(q) && SET_OBJ.test(q)) || (CAP_ASK.test(q) && (EDIT_OBJ.test(q) || WRITE_OBJ.test(q) || SUMM_OBJ.test(q) || /\b(eventos?|events?|calendario|calendar)\b/.test(q)));
+    || (!q.includes('?') && q.trim().split(/\s+/).length <= 8 && SET_STRONG.test(q)) // «acento verde solo en botones»
+    || (EDIT_VERB.test(q) && EDIT_OBJ.test(q)) || (SET_VERB.test(q) && (SET_STRONG.test(q) || (SET_WEAK.test(q) && shortCmd(q)))) || (CAP_ASK.test(q) && SET_STRONG.test(q)) || (CAP_ASK.test(q) && (EDIT_OBJ.test(q) || WRITE_OBJ.test(q) || SUMM_OBJ.test(q) || /\b(eventos?|events?|calendario|calendar)\b/.test(q)));
 }
 
 // ───────── utilidades ─────────
@@ -77,6 +82,10 @@ const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCas
 const ID_END = /\s\^[A-Za-z0-9_-]{2,40}\s*$/;
 export { wantsDelete, MAX_DELETES } from './delete';
 export const MAX_CARDS = 30, MAX_QUESTIONS = 15, MAX_PROPOSALS = 3;
+/** Tope TOTAL de propuestas de un turno, compartido por todas las fábricas de herramientas (se enlaza a `ctx.sources`, único por turno). */
+export const MAX_TURN = 6;
+const turns = new WeakMap<object, { n: number }>();
+export const turnCount = (ctx: { sources: object }): { n: number } => { let c = turns.get(ctx.sources); if (!c) turns.set(ctx.sources, (c = { n: 0 })); return c; };
 
 // ───────── tarjetas ─────────
 /** Valida el texto de tarjetas con el parser real; cada bloque queda con `origen: ia` y sin ID (los IDs se asignan al guardar). */
@@ -194,7 +203,9 @@ export function revalidate(p: Proposal, edit: { contenido?: string; evento?: Par
     else if (d.startsWith('decks/')) { const x = parseDeck(c).notes.find((n) => n.errors.length || n.type === 'io'); if (x) v = { error: 'formato', detail: x.errors[0] }; }
     else if (d.startsWith('exams-bank/')) { const x = validateBank(c); if (isBad(x)) v = x; }
     else if (d.startsWith('exams/')) { const x = checkExamEdit(c, env?.col ?? null, env?.today ?? '0000-00-00'); if (isBad(x)) v = x; }
-    return v ?? { ...p, contenido: c, items: diffLines(p.antes ?? '', c) };
+    if (v) return v;
+    const items = diffLines(p.antes ?? '', c);
+    return { ...p, contenido: c, items, aviso: hasCut(items) ? 'asist2.aviso_linea_larga' : undefined };
   }
   if (p.tipo === 'nota' || p.tipo === 'diagrama') {
     const v = checkNoteFile(edit.contenido ?? p.contenido, p.tipo, p.diag);
