@@ -969,3 +969,12 @@ body.focus .dev-sign, body.notes-full .dev-sign { display: none; }
 .swatch[data-color="neutro"] { background: linear-gradient(135deg, transparent 46%, var(--t2) 47%, var(--t2) 53%, transparent 54%), var(--fill-2); }
 .swatch[aria-checked="true"] { box-shadow: 0 0 0 3px var(--t1); }
 .is-phone .sticky-grid { grid-template-columns: 1fr; }
+
+/* Barrido UI: áreas de toque ≥ 44 px sin cambiar el aspecto (pseudo-elemento con inset negativo) */
+.btn.small, .btn.icon.small, button.chip, .tog { position: relative; }
+.btn.small::before, .btn.icon.small::before { content: ''; position: absolute; inset: -5px; }
+button.chip::before { content: ''; position: absolute; inset: -11px -5px; }
+.tog::before { content: ""; position: absolute; inset: -9px; }
+.pick-hit { display: grid; place-items: center; width: 44px; height: 44px; margin: -11px -7px -11px -11px; flex: none; cursor: pointer; }
+.pick-hit .pick { margin: 0; }
+.exam-opt > label { display: grid; place-items: center; min-width: 44px; min-height: 44px; }

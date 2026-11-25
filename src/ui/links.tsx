@@ -3,6 +3,7 @@ import { locale, t, t as tr2 } from '../i18n'; // tr2: dentro de .map((t) => …
 import { BookOpen, FileText, Folder, Hash, Unlink } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { normalizeAnswer } from '../cards/parse';
+import { localDay } from '../lib/days';
 import { buildLinkIndex, ensureFileId, type LinkIndex, type LinkKind, type LinkTarget, makeUri, type Resolved, resolveLink, studyFilter } from '../lib/links';
 import type { StudyBlock } from '../lib/ics';
 import { studyLimits } from '../lib/settings';
@@ -141,10 +142,9 @@ export function useLinkedEvents(path: string) {
     const { readTextOr } = await import('../vault/util');
     const blocks = linkedBlocks(fromICS(await readTextOr(app.vault, CAL_PATH, '')), idx, path);
     const now = Date.now();
-    const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-    const from = day(now - 120 * 86_400_000);
-    const to = day(now + 365 * 86_400_000);
-    const occ = blocks.flatMap((b) => occurrences(b, from, to, day).map((o) => ({ ...o, b })));
+    const from = localDay(now - 120 * 86_400_000);
+    const to = localDay(now + 365 * 86_400_000);
+    const occ = blocks.flatMap((b) => occurrences(b, from, to, localDay).map((o) => ({ ...o, b })));
     return { next: occ.filter((o) => o.end >= now).sort((a, b) => a.start - b.start).slice(0, 10), past: occ.filter((o) => o.end < now).sort((a, b) => b.start - a.start).slice(0, 10) };
   }, [idx, path, app.version, app.notesVersion]);
 }
