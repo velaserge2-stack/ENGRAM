@@ -1,5 +1,8 @@
 import { ChevronDown, ChevronLeft, List, Plus } from 'lucide-preact';
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { isDemo } from '../demo/state';
+import { fetchAcct, hasAcct } from './account';
+import { busy } from './session';
 import { t } from '../i18n';
 import { normModel } from '../lib/settings';
 import { go, useApp } from '../state';
@@ -9,7 +12,7 @@ import { loadKeys, mask, MAX_KEYS, saveKeys, type KeyEntry } from './keys';
 import { AddKeySheet } from './addkey';
 import { listModels, LIST_MS } from './models';
 import { PROVIDERS, type ProviderId } from './providers';
-import { bar, loadUsage } from './usage';
+import { bar, loadUsage, realLine, saveUsage, setAcct } from './usage';
 import { ProviderLogo } from './logos';
 
 /** Modelos ya pedidos con «Ver modelos disponibles» (solo ids públicos; la clave nunca se guarda aquí). */
@@ -27,6 +30,20 @@ export function KeyView(p: { onBack: () => void; onChange: () => void }) {
   const [menu, setMenu] = useState<{ id: string; el: HTMLElement } | null>(null);
   const [lst, setLst] = useState<{ busy?: boolean; err?: Classified } | null>(null);
   const [adding, setAdding] = useState(false);
+  const [, bump] = useState(0);
+  // OpenRouter y Kimi: pedir lo que queda al abrir (una petición por clave, en orden; nunca durante un turno)
+  useEffect(() => {
+    if (isDemo()) return;
+    const ac = new AbortController();
+    void (async () => {
+      for (const k of store.keys) {
+        if (ac.signal.aborted || busy() || !hasAcct(k.provider)) continue;
+        const a = await fetchAcct(k.provider, k.key, ac.signal);
+        if (a && !ac.signal.aborted) { saveUsage(setAcct(loadUsage(), k.id, a)); bump((x) => x + 1); }
+      }
+    })();
+    return () => ac.abort();
+  }, [store.keys.length]);
   const rows = useRef<HTMLDivElement>(null);
   const now = Date.now(), keys = store.keys;
   const modelOf = (prov: ProviderId) => app.settings.chat.models[prov] || PROVIDERS[prov].model; // lo elegido en Ajustes o el de fábrica
@@ -80,13 +97,13 @@ export function KeyView(p: { onBack: () => void; onChange: () => void }) {
           <div class="gx-krows" role="radiogroup" aria-label={t('dock.modelo_claves')} ref={rows} onKeyDown={arrows}>
             {keys.map((k) => {
               const ok = usable(k, now), on = k.id === cur?.id;
-              const u = bar(loadUsage(), k.id, app.settings.chat.limits[k.provider], now, app.settings.chat.warnAt, k.provider);
+              const us = loadUsage(), u = bar(us, k.id, app.settings.chat.limits[k.provider], now, app.settings.chat.warnAt, k.provider), real = realLine(us, k.id, k.provider);
               return (
                 <div class={`gx-krow${ok ? '' : ' off'}`} key={k.id}>
                   <button type="button" role="radio" class="gx-kmain" aria-checked={on} aria-disabled={!ok} tabIndex={on || (!cur && ok) ? 0 : -1} onClick={() => choose(k)}
                     onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); choose(k); } }}>
                     <span class="gx-dot" aria-hidden="true" /><span class="gx-lg" data-provider={k.provider}><ProviderLogo provider={k.provider} size={12} /></span>
-                    <span class="gx-kt"><b data-user-content>{k.alias}</b><small>{PROVIDERS[k.provider].name} · <span class="mono">{mask(k.key)} · {ok ? u.label : ST(k)}</span></small></span>
+                    <span class="gx-kt"><b data-user-content>{k.alias}</b><small>{PROVIDERS[k.provider].name} · <span class="mono">{mask(k.key)} · {ok ? u.label : ST(k)}</span></small>{real && <small class="mono gx-real">{real}</small>}</span>
                   </button>
                   <button type="button" class="gx-mdl" aria-haspopup="menu" aria-label={`${t('dock.modelo_de', { alias: k.alias })}: ${modelOf(k.provider)}`} onClick={(e) => setMenu({ id: k.id, el: e.currentTarget as HTMLElement })}>
                     <span class="mono">{modelOf(k.provider)}</span><ChevronDown size={14} aria-hidden="true" />

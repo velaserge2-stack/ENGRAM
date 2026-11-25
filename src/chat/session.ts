@@ -29,7 +29,7 @@ export interface TurnOpts {
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 }
 export type TurnResult =
-  | { ok: true; text: string; alias: string; rotated: boolean; tokens: number }
+  | { ok: true; text: string; alias: string; keyId?: string; rotated: boolean; tokens: number }
   | { ok: false; code: 'busy' | 'nokey' | Kind; message: string; rotated: boolean; detail?: Detail };
 
 let inflight = false;
@@ -104,7 +104,7 @@ async function run(o: TurnOpts): Promise<TurnResult> {
           const msg = redact(`motivo: ${why || '?'} · pasos ${steps}${toolErr ? ' · ' + toolErr : ''}`, store.keys.map((x) => x.key));
           return fail('empty', 'empty', { msg });
         }
-        return { ok: true, text, alias: k.alias, rotated, tokens };
+        return { ok: true, text, alias: k.alias, keyId: k.id, rotated, tokens };
       }
     } catch (e) { err = e; } finally { clearTimeout(timer); o.signal?.removeEventListener('abort', onAbort); }
 

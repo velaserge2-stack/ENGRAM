@@ -7,7 +7,8 @@ import { classify, techLine, type Detail, type Kind } from '../chat/errors';
 import { loadKeys, markKey, mask, MAX_KEYS, saveKeys, USAGE_RESET, type KeyEntry, type KeyStore } from '../chat/keys';
 import { loadCore, loadModel, modelOf, PROVIDERS, setModels, type ProviderId } from '../chat/providers';
 import { listModels, LIST_MS } from '../chat/models';
-import { bar, loadUsage } from '../chat/usage';
+import { bar, fromHeaders, loadUsage, realLine, saveUsage, setAcct, setHdr } from '../chat/usage';
+import { fetchAcct, hasAcct } from '../chat/account';
 import { busy } from '../chat/session';
 import { normModel, type ChatLimits } from '../lib/settings';
 import { useApp } from '../state';
@@ -22,11 +23,11 @@ const ST = () => ({ active: t('chat.st_active'), exhausted: t('chat.st_exhausted
 const ERR = (): Record<Kind, string> => ({ quota: t('chat.err_quota'), rate: t('chat.err_rate'), auth: t('chat.err_auth'), model: t('chat.err_model'), limit: t('chat.p_err_limit'), timeout: t('chat.err_timeout'), network: t('chat.err_network'), server: t('chat.err_server'), aborted: t('chat.err_aborted'), empty: t('chat.p_err_empty'), other: t('chat.err_other') });
 const LIM = (): Record<keyof ChatLimits, string> => ({ rpm: t('chat.lim_rpm'), rpd: t('chat.lim_rpd'), tpm: t('chat.lim_tpm'), tpd: t('chat.lim_tpd') });
 
-async function probe(k: KeyEntry, signal: AbortSignal): Promise<{ kind: 'ok' | Kind; resetAt?: number; detail?: Detail }> {
+async function probe(k: KeyEntry, signal: AbortSignal): Promise<{ kind: 'ok' | Kind; resetAt?: number; detail?: Detail; headers?: Record<string, string> }> {
   try {
     const [core, model] = await Promise.all([loadCore(), loadModel(k.provider, k.key)]);
-    await core.generateText({ model, prompt: 'ok', maxOutputTokens: 8, maxRetries: 0, abortSignal: signal });
-    return { kind: 'ok' };
+    const r = await core.generateText({ model, prompt: 'ok', maxOutputTokens: 8, maxRetries: 0, abortSignal: signal });
+    return { kind: 'ok', headers: r.response?.headers };
   } catch (e) {
     return signal.aborted ? { kind: 'aborted' } : classify(k.provider, e, Date.now(), [k.key]);
   }
@@ -38,7 +39,7 @@ export function AssistantBody() {
   setModels(s.chat.models, s.chat.context); // la prueba y la lista usan el modelo elegido
   const [store, setStore] = useState<KeyStore>(loadKeys);
   const [adding, setAdding] = useState(false);
-  const [test, setTest] = useState<{ id: string; kind: 'busy' | 'ok' | Kind; detail?: Detail } | null>(null);
+  const [test, setTest] = useState<{ id: string; kind: 'busy' | 'ok' | Kind; detail?: Detail; groq?: boolean } | null>(null);
   const [lst, setLst] = useState<{ id: string; busy?: boolean; ids?: string[]; suggested?: string; kind?: Kind; detail?: Detail } | null>(null);
   const abort = useRef<AbortController | null>(null);
   const live = useRef<HTMLDivElement>(null);
@@ -68,7 +69,15 @@ export function AssistantBody() {
     const r = await probe(k, ac.signal);
     clearTimeout(timer);
     abort.current = null;
-    setTest({ id: k.id, kind: r.kind, detail: r.detail });
+    // cifras reales: Groq en las cabeceras de esta misma respuesta; OpenRouter y Kimi con su consulta de cuenta
+    let groq: boolean | undefined;
+    if (r.kind === 'ok' && k.provider === 'groq') {
+      const h = fromHeaders('groq', r.headers, Date.now());
+      groq = !!h;
+      if (h) saveUsage(setHdr(loadUsage(), k.id, h));
+    }
+    if (r.kind === 'ok' && hasAcct(k.provider)) saveUsage(setAcct(loadUsage(), k.id, await fetchAcct(k.provider, k.key, ac.signal)));
+    setTest({ id: k.id, kind: r.kind, detail: r.detail, groq });
     const cur = loadKeys();
     if (r.kind === 'ok') { if (k.status === 'invalid' || k.status === 'exhausted') put(markKey(cur, k.id, 'active')); }
     else if (r.kind === 'auth') put(markKey(cur, k.id, r.detail?.status === 403 ? 'paused' : 'invalid')); // 403 ambiguo (región/permisos): se pausa, como en la sesión
@@ -124,6 +133,8 @@ export function AssistantBody() {
               <small>{PROVIDERS[k.provider].name} · <code>{mask(k.key)}</code> · {stLabel(k)}</small>
               <div class="bar" role="progressbar" aria-label={t('chat.uso')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(b.pct * 100)} style={{ marginTop: '6px' }}><i style={{ width: `${Math.round(b.pct * 100)}%` }} /></div>
               <small>{t('chat.uso')}: {b.label}{b.show && <> · <strong>{b.level === 'full' ? t('chat.uso_lleno') : t('chat.uso_cerca')}</strong></>}</small>
+              {(() => { const real = realLine(usage, k.id, k.provider); return real ? <small class="mono">{t('chat.real_titulo')}: {real}</small> : null; })()}
+              {tt === 'ok' && test?.groq !== undefined && <small role="status">{test.groq ? t('chat.groq_cifras_ok') : t('chat.groq_cifras_no')}</small>}
               {tt && <small role="status">{tt === 'busy' ? t('chat.probando') : tt === 'ok' ? t('chat.conexion_ok') : tt === 'model' ? t('chat.err_model', { modelo: modelOf(k.provider) }) : ERR()[tt]}</small>}
               {tt && tt !== 'busy' && tt !== 'ok' && test?.detail && <small role="status" aria-live="polite" class="chat-tech">{techLine(test.detail)}</small>}
             </div>

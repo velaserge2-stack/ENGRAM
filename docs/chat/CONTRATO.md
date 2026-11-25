@@ -181,3 +181,10 @@ Límites gratuitos, nombres de modelo y forma de errores 🔸 · CORS · políti
 - El texto va al campo (provisional en gris/cursiva) y nunca se envía solo. No se guarda audio ni texto de dictado fuera del campo. Sin red nuestra nueva (CSP intacta).
 - Sin soporte: el botón sigue visible; enfoca el campo y avisa «Usa el micrófono del teclado para dictar».
 - 🔸 Sin verificar: el reconocimiento real en iPad/iPhone/Mac (Safari) y el permiso de micrófono/Dictado. 🔸 El sistema puede procesar el audio en servidores de Apple según el ajuste de Dictado del dispositivo (nota en Ajustes → Asistente, `voz.priv`); no se afirma más.
+
+## Uso real según el proveedor (`src/chat/account.ts`, `usage.ts › realLine`)
+- Groq: cabeceras `x-ratelimit-*` de cada respuesta (turno y «Probar conexión»); «Probar» dice si el navegador pudo leerlas (CORS) o si la barra usa el conteo local.
+- OpenRouter: `GET https://openrouter.ai/api/v1/key` (gasto, tope, restante, plan gratuito); con tope, la barra usa lo gastado.
+- Kimi: `GET https://api.moonshot.ai/v1/users/me/balance` (saldo).
+- Se piden al abrir «Modelo y claves», al probar la conexión y tras cada respuesta correcta; nunca en segundo plano ni durante un turno. Gemini no expone uso con la clave: solo el conteo local (día = medianoche del Pacífico).
+- Sin verificar con las APIs reales ni en Safari (exposición de cabeceras de Groq).

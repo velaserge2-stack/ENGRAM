@@ -2,6 +2,9 @@
 import { add, append, generation, getStatus, messages, remove, setStatus, toModel } from './history';
 import { isDemo } from '../demo/state';
 import { busy, runTurn } from './session';
+import { fetchAcct, hasAcct } from './account';
+import { loadKeys } from './keys';
+import { loadUsage, saveUsage, setAcct } from './usage';
 import { SYSTEM, SYSTEM_DELETE, SYSTEM_WRITE } from './system';
 import type { Proposal } from './proposal';
 import { wantsDelete, wantsWrite } from './proposal';
@@ -53,7 +56,12 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>): Promis
   }
   if (generation() !== gen) return; // «Nueva conversación» mientras tanto
   if (!messages().find((m) => m.id === reply.id)?.text) remove(reply.id);
-  if (r.ok) setStatus({ busy: false, alias: r.alias, waitS: undefined, tool: undefined });
+  if (r.ok) {
+    setStatus({ busy: false, alias: r.alias, waitS: undefined, tool: undefined });
+    // OpenRouter y Kimi: refrescar lo que queda tras la respuesta (Groq ya lo trae en las cabeceras; Gemini no expone nada)
+    const k = loadKeys().keys.find((x) => x.id === r.keyId);
+    if (k && hasAcct(k.provider) && !isDemo()) void fetchAcct(k.provider, k.key, new AbortController().signal).then((a) => { if (a) { saveUsage(setAcct(loadUsage(), k.id, a)); setStatus({}); } });
+  }
   else {
     setStatus({ busy: false, waitS: undefined, tool: undefined });
     add(r.code === 'aborted' ? 'notice' : 'error', '', { code: r.code, detail: r.detail });
