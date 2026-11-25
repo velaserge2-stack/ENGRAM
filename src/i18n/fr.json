@@ -115,6 +115,8 @@
  "app.no_se_guardo_nota": "« {name} » n’a pas été enregistré : {e}. Nouvel essai en continuant à écrire.",
  "app.no_se_pudo_cargar_la_coleccion": "Impossible de lire la collection ; rien n’a été modifié. {e}",
  "app.nueva_version_disponible": "Nouvelle version disponible.",
+ "app.novedades_mejoro": "Amélioré :",
+ "app.novedades_nuevo": "Nouveau :",
  "app.pausar_enfoque": "Mettre en pause",
  "app.reconectar": "Reconnecter",
  "app.respaldar": "Sauvegarder",

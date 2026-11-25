@@ -29,6 +29,8 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  // novedades de la barra de actualización: siempre de la red (la copia en caché sería la de la versión vieja)
+  if (url.pathname.endsWith('/novedades.json')) { e.respondWith(fetch(req, { cache: 'no-store' })); return; }
   if (req.mode === 'navigate') {
     // La app es de una sola página con ruteo por hash: siempre el index cacheado
     e.respondWith(caches.match('./', { cacheName: CACHE }).then((r) => r || fetch(req)));
