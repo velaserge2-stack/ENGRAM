@@ -39,7 +39,11 @@ try {
     bodies.push(b);
     return r.fulfill({ status: 200, headers: SSE, body: script(b, b.includes('functionResponse')) });
   });
-  const fileText = (path) => page.evaluate(async (pth) => { try { const parts = pth.split('/'); let d = await navigator.storage.getDirectory(); for (const x of parts.slice(0, -1)) d = await d.getDirectoryHandle(encodeURIComponent(x).replace(/%20/g, ' ')); return await (await (await d.getFileHandle(encodeURIComponent(parts.at(-1)).replace(/%20/g, ' '))).getFile()).text(); } catch { return null; } }, path);
+  const fileText = (path) => page.evaluate(async (pth) => {
+    const alt = (x) => [x, encodeURIComponent(x), encodeURIComponent(x).replace(/%20/g, ' ')];
+    const go = async (d, parts) => { if (parts.length === 1) { for (const n of alt(parts[0])) { try { return await (await (await d.getFileHandle(n)).getFile()).text(); } catch { /* otra grafía */ } } return null; } for (const n of alt(parts[0])) { try { const r = await go(await d.getDirectoryHandle(n), parts.slice(1)); if (r !== null) return r; } catch { /* otra grafía */ } } return null; };
+    return go(await navigator.storage.getDirectory(), pth.split('/'));
+  }, path);
 
   await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
