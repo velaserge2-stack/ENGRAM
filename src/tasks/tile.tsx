@@ -57,14 +57,14 @@ export function TasksTile(p: { today: string }) {
 
   const change = (next: string, undoMsg?: string) => {
     const prev = text ?? '';
-    if (next === prev) return;
+    if (text === null || next === prev) return; // sin leer aún: escribir pisaría el archivo
     write(next);
     if (undoMsg) app.toast(undoMsg, { label: t('tasks.deshacer'), run: () => write(prev) });
   };
   const add = (e: Event) => {
     e.preventDefault();
     const body = draft.trim();
-    if (!body) return;
+    if (!body || text === null) return;
     // si algo falla, el texto escrito se conserva
     try {
       change(addTask(text ?? '', body, draftDue || null));
