@@ -5,10 +5,27 @@ import { busy, runTurn } from './session';
 import { fetchAcct, hasAcct } from './account';
 import { loadKeys } from './keys';
 import { loadUsage, saveUsage, setAcct } from './usage';
-import { SYSTEM, SYSTEM_DELETE, SYSTEM_WRITE } from './system';
+import { SYSTEM, ctxUser } from './system';
+import { DEFAULT_PREFS, composeSystem, filterTools, plan, ROLES, stickyWrite, wantsConvert, writeSubset, type Prefs } from './roles';
+import { loadCtx, type ChatCtx } from './context';
 import type { Proposal } from './proposal';
+import { wantsAction } from './actions';
 import { wantsDelete, wantsWrite } from './proposal';
 import type { Source, ToolCtx } from './tools';
+import type { ToolSet } from 'ai';
+
+// Gancho del carril «Exámenes»: si existe src/chat/tools-exam.ts (exporta `makeExamTools(ctx)`), se carga bajo demanda; si no, no pasa nada.
+const examMod = import.meta.glob<{ makeExamTools?: (c: unknown) => ToolSet }>('./tools-exam.ts');
+const actionMod = import.meta.glob<{ makeActionTools?: (c: unknown) => ToolSet }>('./tools-actions.ts'); // carril de acciones (pomodoro, sonido, navegar, tareas)
+const analyticsMod = import.meta.glob<{ makeAnalyticsTools?: (c: unknown) => ToolSet }>('./tools-analytics.ts'); // carril de analítica (solo lectura)
+async function appTools(wctx: Parameters<typeof import('./tools-app').makeAppTools>[0], settings: import('../lib/settings').Settings, vault: Parameters<typeof import('./tools-app').appLists>[0]): Promise<ToolSet> {
+  const m = await import('./tools-app');
+  let lists: Awaited<ReturnType<typeof m.appLists>> | null = null;
+  return m.makeAppTools(wctx, { settings, lists: async () => (lists ??= await m.appLists(vault)) });
+}
+
+/** `prefs`: rol, socrático y nivel · `ctx`: contexto con el que se abrió el chat · `write`: un botón interno fuerza las herramientas de escritura. */
+export interface SendOpts { prefs?: Prefs; ctx?: ChatCtx | null; write?: boolean; /** lo que hace falta para proponer cambios de ajustes: valores actuales, `go` y el `app.update` lo aplica la UI */ app?: { settings: import('../lib/settings').Settings } }
 
 export { SYSTEM };
 
@@ -17,12 +34,15 @@ let ctl: AbortController | null = null;
 export const stop = (): void => ctl?.abort();
 
 /** `env`: lo que las herramientas pueden leer (bóveda, colección, hoy). */
-export async function send(text: string, env?: Omit<ToolCtx, 'sources'>): Promise<void> {
+export async function send(text: string, env?: Omit<ToolCtx, 'sources'>, opts: SendOpts = {}): Promise<void> {
   const q = text.trim();
   if (!q) return;
   if (getStatus().busy || busy()) { add('error', '', { code: 'busy' }); return; }
   if (isDemo()) return (await import('../demo/chat')).demoSend(q, env?.col);
   const gen = generation();
+  const prev = messages(), prefs = opts.prefs ?? DEFAULT_PREFS;
+  const sticky = stickyWrite(q, { assistant: [...prev].reverse().find((m) => m.role === 'assistant' && m.text)?.text, proposed: false });
+  const prevUser = [...prev].reverse().find((m) => m.role === 'user')?.text ?? '';
   add('user', q);
   const sources: Source[] = [];
   let proposed = false;
@@ -35,12 +55,41 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>): Promis
     const history = toModel(messages().filter((m) => m.id !== reply.id));
     // las herramientas se cargan junto al SDK, ya con el panel abierto
     // las de escritura solo si ESTE mensaje pide crear/agregar/modificar; aun así solo proponen (la UI escribe tras «Aceptar»)
-    const writes = wantsWrite(q), dels = wantsDelete(q); // solo del último mensaje del USUARIO
+    const pl = plan(prefs.role, { wantsWrite: wantsWrite(q) || sticky, wantsDelete: wantsDelete(q), wantsConvert: wantsConvert(q) || (sticky && wantsConvert(prevUser)), force: opts.write }); // borrar nunca es «pegajoso»
     const propose = (ok: boolean) => (p: Proposal) => { if (ok && generation() === gen) { proposed = true; add('proposal', '', { proposal: p, pstate: 'pending' }); } };
-    const tw = writes || dels ? await import('./tools-write') : null;
-    const tools = env ? { ...(await import('./tools')).makeTools({ ...env, sources }), ...(writes && tw ? tw.makeWriteTools({ ...env, sources, allowed: () => writes, propose: propose(writes) }) : {}), ...(dels && tw ? tw.makeDeleteTools({ ...env, sources, allowed: () => dels, userText: q, propose: propose(dels) }) : {}) } : undefined;
+    const tw = pl.writes || pl.dels ? await import('./tools-write') : null;
+    let tools: ToolSet | undefined;
+    if (env) {
+      const wctx = { ...env, sources, userText: q, allowed: () => pl.writes, propose: propose(pl.writes) };
+      const writeTools: ToolSet = pl.writes && tw ? { ...tw.makeWriteTools(wctx), ...(await import('./tools-edit')).makeEditTools(wctx), ...(opts.app ? await appTools(wctx, opts.app.settings, env.vault) : {}), ...(pl.convert ? (await import('./tools-convert')).makeConvertTools(wctx) : {}) } : {};
+      const all = { ...(await import('./tools')).makeTools({ ...env, sources }), ...writeSubset(writeTools, `${sticky ? prevUser + ' ' : ''}${q}`, true), ...(pl.dels && tw ? tw.makeDeleteTools({ ...env, sources, allowed: () => pl.dels, userText: q, propose: propose(pl.dels) }) : {}) };
+      tools = filterTools(all, prefs.role) as ToolSet;
+      const ex = pl.writes && ROLES[prefs.role].exam ? examMod['./tools-exam.ts'] : undefined;
+      const st = opts.app?.settings;
+      // acciones (pomodoro, sonido, navegar, tareas, stickies): su propio gating; solo proponen
+      const acts = (wantsAction(q) || sticky) && ROLES[prefs.role].tools === null && !!actionMod['./tools-actions.ts'] && !!st;
+      if (acts && st) {
+        try {
+          const { addonOn } = await import('../screens/addons');
+          const mod = await actionMod['./tools-actions.ts']!();
+          Object.assign(tools, mod.makeActionTools?.({ ...wctx, allowed: () => true, propose: propose(true), addon: (id: string) => addonOn(st, id) }) ?? {});
+        } catch { /* sin acciones */ }
+      }
+      // analítica: lectura siempre (salvo Investigador); `aplicar_objetivos` solo propone si el usuario lo pidió
+      if (prefs.role !== 'investigador' && analyticsMod['./tools-analytics.ts'] && st) {
+        try {
+          const { srsParams } = await import('../lib/settings');
+          const goal = { newPerDay: st.newPerDay, reviewLimit: st.reviewLimit, tz: st.timeZone, dayStartHour: st.dayStartHour };
+          Object.assign(tools, (await analyticsMod['./tools-analytics.ts']()).makeAnalyticsTools?.({ ...wctx, params: srsParams(st), goal }) ?? {});
+        } catch { /* sin analítica */ }
+      }
+      if (ex) { try { Object.assign(tools, (await ex()).makeExamTools?.(wctx) ?? {}); } catch { /* sin herramientas de examen */ } }
+    }
+    const cx = opts.ctx && env ? await loadCtx(env, opts.ctx, sources) : null;
+    const last = history[history.length - 1];
+    if (cx && last && last.role === 'user' && typeof last.content === 'string') last.content = `${ctxUser(cx.label, cx.body)}\n\n${last.content}`;
     r = await runTurn({
-      messages: history, system: [SYSTEM, writes && SYSTEM_WRITE, dels && SYSTEM_DELETE].filter(Boolean).join(' '), tools, signal: mine.signal, produced: () => proposed,
+      messages: history, system: composeSystem(prefs, { ...pl, ctx: cx, app: pl.writes && !!opts.app }), tools, signal: mine.signal, produced: () => proposed,
       onTool: (name) => { if (generation() === gen) setStatus({ tool: name }); },
       onText: (d) => { if (generation() !== gen) return; if (getStatus().tool) setStatus({ tool: undefined }); append(reply.id, d); },
       onStatus: (s) => {

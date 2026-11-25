@@ -17,6 +17,9 @@ import { extname } from '../vault/paths';
 import { appendLines, readTextOr, walk } from '../vault/util';
 import { shuffle } from './cardview';
 import { useKeyScope } from '../ui/keys';
+import { dueFailed, EXAM_KINDS, type ExamKind, pickExam } from '../sim/pick';
+import { loadPending } from '../sim/review';
+import { AiSheet, ComparePanel, DistractorPanel, ReviewSheet } from './simextra';
 
 const CURRENT = '.app/exam-current.json';
 
@@ -25,6 +28,10 @@ export interface Attempt {
   title: string;
   banks: string[];
   mode: 'sim' | 'practice' | 'errors';
+  /** tipo de selección (opcional: intentos antiguos no lo tienen) */
+  kind?: ExamKind;
+  /** examen real: sin pistas ni comprobar, tiempo obligatorio, sin pausa */
+  real?: boolean;
   qs: { bank: string; q: Question; order: string[] }[];
   answers: Record<string, string[]>;
   checked: string[];
@@ -186,19 +193,37 @@ function BankTrash() {
   );
 }
 
+/** Preguntas pendientes de revisión por banco (archivos `.app/exam-pending/`). */
+async function pendingCounts(vault: ReturnType<typeof useApp>['vault']): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  for (const b of await walk(vault, 'exams-bank')) if (b.path.endsWith('.md')) out[b.path] = (await loadPending(vault, b.path)).length;
+  return out;
+}
+
 function SimHome() {
+  const simGo = useSimGo();
   const app = useApp();
-  const { data } = useAsync(async () => ({ banks: await loadBanks(app.vault), attempts: await loadAttempts(app.vault), current: JSON.parse((await readTextOr(app.vault, CURRENT, 'null')) || 'null') as Attempt | null }), [app.version, app.notesVersion]);
+  const { data } = useAsync(async () => ({ banks: await loadBanks(app.vault), attempts: await loadAttempts(app.vault), current: JSON.parse((await readTextOr(app.vault, CURRENT, 'null')) || 'null') as Attempt | null, pending: await pendingCounts(app.vault) }), [app.version, app.notesVersion]);
   const [create, setCreate] = useState(false);
   const [all, setAll] = useState(false);
   const [discard, setDiscard] = useState(false);
   const del = useDeleteAttempt();
   const delBank = useDeleteBank(data?.attempts ?? []);
+  const [ai, setAi] = useState<BankRef | null>(null);
+  const [rev, setRev] = useState<BankRef | null>(null);
+  const due = data ? dueFailed(data.banks.flatMap((b) => b.bank.questions.filter((q) => !q.problems.length).map((q) => ({ bank: b.path, q }))), data.attempts, Date.now()) : [];
+  const repeatDue = async () => {
+    const seed = String(Date.now());
+    const at: Attempt = { id: Date.now().toString(36), title: tr('examen2.falladas_titulo'), banks: [...new Set(due.map((x) => x.bank))], mode: 'errors', kind: 'normal', qs: due.map((x) => ({ ...x, order: shuffle(x.q.options.map((o) => o.key), seed + x.q.id) })), answers: {}, checked: [], marked: [], startedAt: Date.now(), endAt: null, perQ: {}, cur: 0, penalty: 0, pass: 0.6 };
+    await app.vault.write(CURRENT, JSON.stringify(at));
+    simGo('hacer');
+  };
   return (
     <>
       <PageTitle title={tr('calendar.simulacros')} sub={tr('simulacros.examenes_de_practica_con_cronometro_no')}>
         <a class="btn" href="#/simulacros/nuevo"><Plus size={18} />{' '}{tr('examedit.nuevo_examen')}</a>
         <a class="btn" href="#/simulacros/importar"><FileUp size={18} />{' '}{tr('simulacros.importar_examen')}</a>
+        <button type="button" class="btn" disabled={!due.length} onClick={repeatDue}><Repeat size={18} />{' '}{tr('examen2.falladas_auto', { n: due.length })}</button>
         <button type="button" class="btn primary" disabled={!data?.banks.length} onClick={() => setCreate(true)}><Play size={18} />{' '}{tr('palette.crear_simulacro')}</button>
       </PageTitle>
       {data?.current && !data.current.finishedAt && (
@@ -216,6 +241,8 @@ function SimHome() {
                 <div class="kv bank-row">
                   <span class="k" data-user-content>{b.bank.name}</span>
                   <span class="v">{tr('examedit.n_listas', { n: ok })}{b.bank.questions.length - ok ? tr('simulacros.p_borrador', { p: b.bank.questions.length - ok }) : ''}</span>
+                  {(data.pending[b.path] ?? 0) > 0 && <button type="button" class="btn small" onClick={() => setRev(b)}>{tr('examen2.ia_pendientes', { n: data.pending[b.path] })}</button>}
+                  <button type="button" class="btn icon ghost" aria-label={tr('examen2.ia_btn') + ': ' + b.bank.name} onClick={() => setAi(b)}><Sparkles size={16} /></button>
                   <a class="btn icon ghost" href={`#/simulacros/editar/${b.path.split('/').map(encodeURIComponent).join('/')}`} aria-label={tr('examedit.editar_x', { name: b.bank.name })}><Pencil size={16} /></a>
                   <button type="button" class="btn icon ghost" aria-label={tr('simulacros.borrar_banco_x', { name: b.bank.name })} onClick={() => delBank.ask(b)}><Trash2 size={16} /></button>
                 </div>
@@ -238,6 +265,8 @@ function SimHome() {
           </section>
         </div>
       )}
+      {ai && data && <AiSheet b={ai} attempts={data.attempts} onClose={() => setAi(null)} />}
+      {rev && <ReviewSheet b={rev} onClose={() => setRev(null)} />}
       {create && data && <CreateSim banks={data.banks} attempts={data.attempts} onClose={() => setCreate(false)} />}
       <BankTrash />
       {del.sheet}
@@ -258,6 +287,9 @@ function CreateSim(props: { banks: { path: string; bank: Bank }[]; attempts: Att
   const [minutes, setMinutes] = useState(props.banks[0]?.bank.minutes ?? 60);
   const [filter, setFilter] = useState<'all' | 'failed' | 'unseen'>('all');
   const [mode, setMode] = useState<Attempt['mode']>('sim');
+  const [kind, setKind] = useState<ExamKind>('normal');
+  const real = kind === 'real'; // examen real: siempre con tiempo
+  const kinds: [ExamKind, string][] = EXAM_KINDS.map((k) => [k, tr(`examen2.tipo_${k}` as 'examen2.tipo_normal')]);
   const [shuf, setShuf] = useState(true);
   const [penalty, setPenalty] = useState(0);
   const [pass, setPass] = useState(60);
@@ -269,11 +301,12 @@ function CreateSim(props: { banks: { path: string; bank: Bank }[]; attempts: Att
   const start = async () => {
     const { n, minutes, penalty, pass } = cfg; // valores acotados (un campo vacío o negativo no llega al intento)
     const seed = String(Date.now());
-    const picked = (shuf ? shuffle(chosen, seed) : chosen).slice(0, n);
+    const picked = kind === 'normal' ? (shuf ? shuffle(chosen, seed) : chosen).slice(0, n) : pickExam(kind, chosen, n, props.attempts, seed);
+    const m: Attempt['mode'] = real ? 'sim' : mode;
     const at: Attempt = {
-      id: Date.now().toString(36), title: props.banks.filter((b) => sel.includes(b.path)).map((b) => b.bank.name).join(' + '), banks: sel.filter((p) => props.banks.some((b) => b.path === p)), mode,
+      id: Date.now().toString(36), title: props.banks.filter((b) => sel.includes(b.path)).map((b) => b.bank.name).join(' + '), banks: sel.filter((p) => props.banks.some((b) => b.path === p)), mode: m, kind, ...(real ? { real: true } : {}),
       qs: picked.map((x) => ({ ...x, order: shuf ? shuffle(x.q.options.map((o) => o.key), seed + x.q.id) : x.q.options.map((o) => o.key) })),
-      answers: {}, checked: [], marked: [], startedAt: Date.now(), endAt: mode === 'sim' ? Date.now() + minutes * 60_000 : null, perQ: {}, cur: 0, penalty, pass: pass / 100,
+      answers: {}, checked: [], marked: [], startedAt: Date.now(), endAt: m === 'sim' ? Date.now() + minutes * 60_000 : null, perQ: {}, cur: 0, penalty, pass: pass / 100,
     };
     await app.vault.write(CURRENT, JSON.stringify(at));
     simGo('hacer');
@@ -288,10 +321,12 @@ function CreateSim(props: { banks: { path: string; bank: Bank }[]; attempts: Att
           <div class="row wrap">{topics.map((t) => { const on = !tsel || tsel.includes(t); return <button type="button" class={`btn small${on ? ' primary' : ''}`} aria-pressed={on} onClick={() => setTsel(on ? (tsel ?? topics).filter((x) => x !== t) : [...(tsel ?? []), t])}>{t}</button>; })}</div>
         </fieldset>
         <Segmented label={tr('simulacros.preguntas')} value={filter} onChange={setFilter} options={[['all', tr('simulacros.todas')], ['failed', tr('simulacros.solo_falladas')], ['unseen', tr('simulacros.solo_no_vistas')]]} />
-        <Segmented label={tr('deck.modo')} value={mode} onChange={setMode} options={[['sim', tr('simulacros.simulacro')], ['practice', tr('simulacros.practica')], ['errors', tr('simulacros.repaso_de_errores')]]} />
+        <Segmented label={tr('examen2.tipo')} value={kind} onChange={setKind} options={kinds} />
+        <p class="foot">{tr(`examen2.desc_${kind}` as 'examen2.desc_normal')}</p>
+        {!real && <Segmented label={tr('deck.modo')} value={mode} onChange={setMode} options={[['sim', tr('simulacros.simulacro')], ['practice', tr('simulacros.practica')], ['errors', tr('simulacros.repaso_de_errores')]]} />}
         <div class="row wrap">
           <label class="field">{tr('simulacros.numero')}<input class="input" type="number" min={1} max={chosen.length} value={Math.min(n, chosen.length)} onBlur={() => setN(cfg.n)} onInput={(e) => setN(Number((e.target as HTMLInputElement).value))} /></label>
-          {mode === 'sim' && <label class="field">{tr('heatmap.minutos')}<input class="input" type="number" min={1} max={MAX_MINUTES} value={minutes} onBlur={() => setMinutes(cfg.minutes)} onInput={(e) => setMinutes(Number((e.target as HTMLInputElement).value))} /></label>}
+          {(mode === 'sim' || real) && <label class="field">{tr('heatmap.minutos')}<input class="input" type="number" min={1} max={MAX_MINUTES} value={minutes} onBlur={() => setMinutes(cfg.minutes)} onInput={(e) => setMinutes(Number((e.target as HTMLInputElement).value))} /></label>}
           <label class="field">{tr('simulacros.penalizacion_por_error')}<input class="input" type="number" min={0} max={1} step={0.05} value={penalty} onBlur={() => setPenalty(cfg.penalty)} onInput={(e) => setPenalty(Number((e.target as HTMLInputElement).value))} /></label>
           <label class="field">{tr('simulacros.aprobado')}<input class="input" type="number" min={1} max={100} value={pass} onBlur={() => setPass(cfg.pass)} onInput={(e) => setPass(Number((e.target as HTMLInputElement).value))} /></label>
         </div>
@@ -380,7 +415,7 @@ function Runner() {
   return (
     <div class="study">
       <div class="row wrap glass" style={{ justifyContent: 'space-between', padding: '8px 12px', borderRadius: 'var(--r-panel)' }}>
-        <span><b>{at.title}</b> · {at.mode === 'sim' ? tr('simulacros.simulacro') : at.mode === 'practice' ? tr('simulacros.practica') : tr('simulacros.repaso_de_errores')}</span>
+        <span><b>{at.title}</b> · {at.real ? tr('examen2.real_badge') : at.mode === 'sim' ? tr('simulacros.simulacro') : at.mode === 'practice' ? tr('simulacros.practica') : tr('simulacros.repaso_de_errores')}</span>
         {mm && <span class="timer" role="timer" aria-label={tr('simulacros.tiempo_restante_mm', { mm: mm })}>{mm}</span>}
         <button type="button" class="btn" onClick={() => setConfirmEnd(true)}><Flag size={18} />{' '}{tr('simulacros.terminar')}</button>
       </div>
@@ -433,6 +468,7 @@ function Results(props: { id: string }) {
   const app = useApp();
   const { data } = useAsync(() => loadAttempts(app.vault), [app.version, app.notesVersion]);
   const [onlyBad, setOnlyBad] = useState(false);
+  const [view, setView] = useState<'sum' | 'dis' | 'cmp'>('sum');
   const del = useDeleteAttempt(() => simGo()); // al borrar, de vuelta a Simulacros
   const a = data?.find((x) => x.id === props.id);
   const qs = useMemo(() => a?.qs.map((x) => x.q) ?? [], [a]);
@@ -456,7 +492,7 @@ function Results(props: { id: string }) {
     app.toast(tr('simulacros.n_tarjetas_creadas_en_path', { n: failed.length, path: path }));
   };
   const retry = async () => {
-    const at: Attempt = { ...a, id: Date.now().toString(36), qs: failed, answers: {}, checked: [], marked: [], startedAt: Date.now(), endAt: a.endAt ? Date.now() + Math.max(5, failed.length * 1.5) * 60_000 : null, finishedAt: undefined, elapsedMs: undefined, perQ: {}, cur: 0, mode: a.mode === 'sim' ? 'sim' : 'errors' };
+    const at: Attempt = { ...a, id: Date.now().toString(36), qs: failed, answers: {}, checked: [], marked: [], startedAt: Date.now(), endAt: a.endAt && !a.real ? Date.now() + Math.max(5, failed.length * 1.5) * 60_000 : null, finishedAt: undefined, elapsedMs: undefined, perQ: {}, cur: 0, mode: a.mode === 'sim' && !a.real ? 'sim' : 'errors', real: undefined };
     await app.vault.write(CURRENT, JSON.stringify(at));
     simGo('hacer');
   };
@@ -469,6 +505,10 @@ function Results(props: { id: string }) {
         <button type="button" class="btn" onClick={() => del.ask(a.id)}><Trash2 size={18} />{' '}{tr('simulacros.borrar_este_intento')}</button>
       </PageTitle>
       {del.sheet}
+      <Segmented label={tr('examen2.vista')} value={view} onChange={setView} options={[['sum', tr('examen2.vista_resumen')], ['dis', tr('examen2.vista_distractores')], ['cmp', tr('examen2.vista_comparar')]]} />
+      {view === 'dis' && <DistractorPanel a={a} all={data} />}
+      {view === 'cmp' && <ComparePanel a={a} all={data} />}
+      {view === 'sum' && <>
       <div class="grid cards3">
         <section class="glass panel center stack-s"><div class="big">{Math.round(sc.pct * 100)}<small>%</small></div><p class="t2">{tr('simulacros.points_de_n_puntos', { points: sc.points, n: qs.length })}{' '}{sc.passed ? tr('simulacros.aprobado_2') : tr('simulacros.no_aprobado')} {tr('simulacros.umbral', { n: Math.round(a.pass * 100) })}</p></section>
         <section class="glass panel stack-s"><div class="kv"><span class="k">{tr('simulacros.correctas')}</span><span class="v">{sc.correct}</span></div><div class="kv"><span class="k">{tr('simulacros.incorrectas')}</span><span class="v">{sc.wrong}</span></div><div class="kv"><span class="k">{tr('simulacros.en_blanco')}</span><span class="v">{sc.blank}</span></div><div class="kv"><span class="k">{tr('simulacros.tiempo_total')}</span><span class="v">{Math.round((a.elapsedMs ?? 0) / 60000)} min</span></div><div class="kv"><span class="k">{tr('simulacros.por_pregunta')}</span><span class="v">{per} s</span></div></section>
@@ -491,6 +531,7 @@ function Results(props: { id: string }) {
           );
         })}
       </section>
+      </>}
     </>
   );
 }

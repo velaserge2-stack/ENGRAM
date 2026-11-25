@@ -9,7 +9,12 @@ html[class*="acc-"] .gx-avatar, html[class*="acc-"] .gx-mini, html[class*="acc-"
 /* ───── pastilla: una fila fija de 440 × 54 (texto · ⚡ · Dictar · minimizar · GREX) ───── */
 .gx-dock { position: fixed; z-index: var(--z-assistant); left: 50%; transform: translateX(-50%); bottom: calc(var(--chat-sb) + var(--gx-bottom)); width: min(440px, calc(100vw - 24px)); display: grid; justify-items: center; }
 html.kb-open .gx-dock { visibility: hidden; pointer-events: none; }
-body.focus .gx-dock, body.notes-full .gx-dock, body.focus .gx-mini, body.notes-full .gx-mini, body.focus .chat-fab, body.notes-full .chat-fab { display: none; }
+body.notes-full .gx-dock, body.notes-full .gx-mini, body.notes-full .chat-fab { display: none; }
+/* Estudiar (modo concentración): queda solo GREX, abajo a la derecha y por encima de los botones de respuesta */
+body.focus { --gx-bottom: 112px; }
+body.focus .gx-dock { left: auto; right: calc(var(--chat-sr) + 16px); transform: none; width: auto; }
+body.focus .gx-dock > :not(.gx-pw), body.focus .gx-pw > :not(.gx-pill), body.focus .gx-pill > :not(.gx-avatar) { display: none; }
+body.focus .gx-pill { width: auto; height: 56px; padding: 6px; border-radius: 18px; }
 .gx-pill { width: 100%; height: 54px; box-sizing: border-box; display: flex; align-items: center; gap: 4px; padding: 0 6px 0 16px; border-radius: 27px; }
 .gx-ib { width: 44px; height: 44px; border-radius: 50%; border: 0; background: none; color: var(--t2); display: grid; place-items: center; cursor: pointer; flex: none; padding: 0; }
 .gx-ib:hover { background: var(--fill); }
@@ -189,3 +194,13 @@ html.is-phone .chat-panel { inset: 0 0 var(--kb-inset, 0px) 0; width: auto; heig
   @keyframes vz-ring { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--inverse-bg) 40%, transparent); } to { box-shadow: 0 0 0 10px transparent; } }
 }
 .gx-kt small.gx-real { color: var(--t1); }
+
+/* Roles, contexto y voz (asist2) */
+.chat-opts { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 12px; align-items: center; }
+.chat-opts .input { width: auto; flex: 0 1 auto; min-height: 44px; font-size: 16px; }
+.chat-opts .btn { min-height: 44px; }
+.chat-ctx { padding: 0 12px 4px; }
+.chat-ctx .chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; }
+.chat-ctx .chip-x { min-width: 44px; min-height: 44px; margin: -12px -8px -12px 0; border: 0; background: none; color: inherit; display: grid; place-items: center; cursor: pointer; }
+.chat-a-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
+.chat-a-tools .btn { min-height: 44px; }

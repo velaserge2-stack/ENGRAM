@@ -940,3 +940,10 @@ Plan y estados en `docs/diagramas/PLAN-22.md` y `docs/diagramas/estado-p22-*.md`
 - 🔸 Sin verificar: máximos reales de cada modelo (maxOut 32 768 de Gemini, 16 384 de Kimi, 8192 de OpenRouter según modelo), consumo real de cuota/TPM, ni el texto exacto del 400 por max_tokens de cada API (la regex `LIMIT_RE` es una suposición).
 
 - Logos de proveedores: lobehub/lobe-icons (MIT); las marcas pertenecen a Google, Groq, OpenRouter y Moonshot AI y solo identifican al proveedor.
+
+## Estudio inteligente (rama `ei-integra`)
+- Analítica solo de lectura sobre `reviews.jsonl`/`CardState`; sin contadores guardados (la verdad sigue siendo el log). Materia>tema>subtema = ruta del mazo. Los objetivos inteligentes solo cambian `new_per_day` con vista previa y deshacer.
+- Exámenes: `Attempt.real`/`kind` opcionales; preguntas de IA entran a `.app/exam-pending/` y solo pasan al banco tras revisión pregunta por pregunta. `origen: ia` va a nivel de banco (límite del serializador).
+- Asistente: toda escritura/ajuste/acción solo PROPONE (vista previa, Aceptar, deshacer). Catálogo de ajustes cerrado (sin claves API, vault, respaldo, borrado, papelera). Contexto de notas como DATOS en el mensaje del usuario, nunca en el `system`. Escritura «pegajosa» solo tras oferta del asistente + «sí» exacto. Apagar el Asistente exige nombrarlo en el último mensaje.
+- Voz de lectura solo con voces locales (`localService`), para que el texto no salga a terceros.
+- Revisión de seguridad (solo lectura): sin hallazgos altos; 6 medios y 6 bajos cerrados; pendiente `review.ts` (validar forma de `x.q` al cargar pendientes).

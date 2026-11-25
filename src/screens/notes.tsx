@@ -1,4 +1,5 @@
 import { locale, t as tr } from '../i18n';
+import { AskButton } from '../chat/ask';
 import { Search, Maximize2, Minimize2, PanelLeft, PanelRight, Bookmark, ClipboardCopy, ClipboardPaste, Code, FilePlus2, FileText, Folder, FolderOutput, History, Import, Link2, ListChecks, ListTree, MoveRight, Share, Sparkles, Star, Trash2 } from 'lucide-preact';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { normalizeAnswer, parseDeck } from '../cards/parse';
@@ -995,6 +996,7 @@ function NoteEditor(props: { path: string; data: NotesData; ui: NotesUI; setUi: 
           <div class="row wrap">
             {!props.embedded && <button type="button" class="btn icon" {...keep} aria-label={props.ui.explorer ? tr('notes.ocultar_explorador') : tr('notes.mostrar_explorador')} aria-pressed={props.ui.explorer} onClick={() => props.setUi({ explorer: !props.ui.explorer })}><PanelLeft size={18} /></button>}
             <button type="button" class="btn icon" {...keep} aria-label={insp ? tr('notes.ocultar_inspector') : tr('notes.mostrar_inspector')} aria-pressed={insp} onClick={() => props.setUi({ inspector: !insp })}><PanelRight size={18} /></button>
+            <div {...keep}><AskButton icon ctx={{ kind: 'nota', ref: props.path }} /></div>
             <div {...keep}><Segmented label={tr('notes.ancho_de_linea')} value={props.ui.width} onChange={(w) => props.setUi({ width: w })} options={[['comodo', tr('notes.comodo')], ['ancho', tr('notes.ancho')], ['completo', tr('notes.completo')]]} /></div>
             {!props.embedded && <button type="button" class="btn icon" {...keep} aria-label={full ? tr('notes.salir_de_pantalla_completa') : tr('notes.pantalla_completa_de_notas')} aria-pressed={full} onClick={() => toggleFull(!full)}>{full ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button>}
             <Segmented label={tr('calendar.vista')} value={mode} onChange={(m) => (setMode(m), setEditing(null))} options={[['doc', tr('notes.documento')], ['md', tr('deck.ver_markdown')]]} />

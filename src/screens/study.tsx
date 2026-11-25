@@ -8,6 +8,7 @@ import { dayKey } from '../lib/days';
 import { srsParams, studyLimits } from '../lib/settings';
 import { plainText } from '../md/render';
 import { applyReview, explain, formatInterval, type LogEntry, previews, type Rating, RATING_LABEL, replay, scheduler } from '../srs/engine';
+import { ADAPTIVE, buildAdaptiveQueue } from '../srs/adaptive';
 import { buildQueue, isLeech, nextCard, stateOf } from '../srs/queue';
 import { go, useApp } from '../state';
 import { KeyFeedback, keymap, useKeyScope, type Via } from '../ui/keys';
@@ -61,7 +62,16 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
     return () => app.focus(false);
   }, []);
 
-  const queue = useMemo(() => (col ? buildQueue(col, props.filter, Date.now(), lim, params, extraNew) : null), [col, props.filter, extraNew, count, app.tick]);
+  // sesión adaptativa (carril A): temas fallados en simulacros; la cola mezcla vencidas, débiles y olvidos
+  const adaptive = props.filter === ADAPTIVE;
+  const [failedTopics, setFailed] = useState<string[] | null>(adaptive ? null : []);
+  useEffect(() => {
+    if (adaptive) void Promise.all([import('./simulacros'), import('../lib/analytics')]).then(([m, a]) => m.loadAttempts(app.vault).then((at) => setFailed(a.failedTopics(at)))).catch(() => setFailed([]));
+  }, [adaptive]);
+  const queue = useMemo(() => {
+    if (!col || failedTopics === null) return null;
+    return adaptive ? buildAdaptiveQueue(col, failedTopics, Date.now(), lim, params) : buildQueue(col, props.filter, Date.now(), lim, params, extraNew);
+  }, [col, props.filter, extraNew, count, app.tick, failedTopics]);
 
   useEffect(() => {
     if (!col || !queue) return;
@@ -150,7 +160,7 @@ export function Study(props: { filter: string | null; embedded?: boolean }) {
   }, !props.embedded);
 
   if (!col || !queue) return <p class="t2">{tr('deck.cargando')}</p>;
-  const deckName = props.filter ? col.decks.find((d) => d.path === props.filter)?.full ?? props.filter.replace(/^decks\//, '').replace(/\/$/, '') : tr('study.todos_los_mazos');
+  const deckName = adaptive ? tr('analitica.sesion_adaptativa') : props.filter ? col.decks.find((d) => d.path === props.filter)?.full ?? props.filter.replace(/^decks\//, '').replace(/\/$/, '') : tr('study.todos_los_mazos');
   const left = queue.learning.filter((c) => !done.has(c)).length + queue.review.filter((c) => !done.has(c)).length + queue.fresh.filter((c) => !done.has(c)).length;
 
   if (!entry || !st || !prev) {

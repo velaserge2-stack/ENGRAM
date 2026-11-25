@@ -72,6 +72,8 @@ try {
         await page.locator(sel).first().waitFor();
         await page.locator(sel).first().scrollIntoViewIfNeeded();
         await page.waitForTimeout(900); // el guardián vuelve a pasar
+        await page.locator(sel).first().scrollIntoViewIfNeeded(); // los paneles de Estadísticas calculan de forma perezosa y pueden mover el botón
+        await page.waitForTimeout(300);
         const m = await measure(page, sel);
         check(m.control >= 3 && m.text >= 4.5, `${bg}/${modo} · ${screen}: botón vs alrededor ${m.control}:1 (≥ 3), texto ${m.text}:1 (≥ 4.5)`);
         if (bg === 'foto' || bg === 'rayas') await page.locator(sel).first().screenshot({ path: `${OUT}glass-boton-${screen}-${bg}-${modo}.png` });

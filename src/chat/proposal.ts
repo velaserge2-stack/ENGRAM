@@ -3,7 +3,7 @@
 import { ensureIds, noteIdOf, parseDeck } from '../cards/parse';
 import type { Collection } from '../data/collection';
 import { addEvent, atMinutes, blankEvent, CAL, editOccurrence } from '../lib/calendar-edit';
-import { stringifyFrontmatter } from '../lib/frontmatter';
+import { parseFrontmatter, setKeys, stringifyFrontmatter } from '../lib/frontmatter';
 import { fromICS, KINDS, occurrences, type EventKind, type StudyBlock, toICS } from '../lib/ics';
 import type { DiagramKind } from '../diagrams/types';
 import { safeSegment, trash } from '../notes/model';
@@ -11,11 +11,13 @@ import { noteStore } from '../notes/store';
 import { clampMinutes, finalize, parseBankMarkdown, serializeBank, type Question } from '../sim/parse';
 import type { VaultAdapter } from '../vault/types';
 import { readTextOr } from '../vault/util';
-import { applyDelete, safeDeleteDest } from './delete';
+import { type Act, stickyPathOk, writeAct, writes } from './actions';
+import { applyDelete, fingerprint, safeDeleteDest } from './delete';
+import { diffLines, hasCut } from './diff';
 import { checkExamEdit, checkNoteFile, one } from './make';
 import { tracked, undo, type Entry } from './undo';
 
-export type Kind = 'tarjetas' | 'examen' | 'evento' | 'borrar' | 'nota' | 'diagrama' | 'fecha';
+export type Kind = 'tarjetas' | 'examen' | 'evento' | 'borrar' | 'nota' | 'diagrama' | 'fecha' | 'edicion' | 'ajuste' | 'accion' | 'objetivos';
 export interface EventFields { titulo: string; fecha: string; inicio: string; fin: string; materia: string; nota: string; tipo: EventKind }
 export interface Proposal {
   tipo: Kind;
@@ -36,7 +38,17 @@ export interface Proposal {
   objetivo?: 'nota' | 'mazo' | 'banco' | 'evento';
   /** borrar: huella del objetivo al proponer; si cambia antes de confirmar, `changed` */
   huella?: string;
+  /** edicion: texto completo del archivo ANTES (para el diff tras «Editar»); `huella` es su huella y `contenido` el texto nuevo completo */
+  antes?: string;
+  /** ajuste: cambio de un ajuste de la app (lo aplica la interfaz con `app.update`, no el vault) */
+  ajustes?: { ruta: string; antes: unknown; despues: unknown }[];
+  /** clave i18n de una advertencia fija que la vista previa muestra sobre «Aceptar» */
+  aviso?: string;
   reversible?: true;
+  /** accion: lo que hará al pulsar «Aceptar» (tareas/stickies escriben `destino`; el resto solo actúa en la interfaz) */
+  accion?: Act;
+  /** objetivos: nuevas/día por mazo (`antes` = `new_per_day` actual o null) */
+  cambios?: { path: string; antes: number | null; despues: number }[];
   /** borrar: cifras para la tarjeta de confirmación (se traducen en la interfaz) */
   datos?: Record<string, number>;
 }
@@ -52,10 +64,22 @@ const NOTE_VERB = /\b(cre[ae]\w*|genera\w*|agrega\w*|anade\w*|redacta\w*|escribe
 const NOTE_OBJ = /\b(notas?|apuntes?|notes?)\b/;
 const SUMM_VERB = /\b(cre[ae]\w*|genera\w*|agrega\w*|anade\w*|create\w*|generate\w*|add|cree\w*|genere\w*|ajoute\w*)\b/;
 const SUMM_OBJ = /\b(resumenes|resumen|summary|summaries|resume)\b/;
-/** El último mensaje del usuario pide crear/modificar algo concreto (verbo + objeto, es/en/fr). Sin ella no hay herramientas de escritura. */
+// editar lo que ya existe (notas, tarjetas, bancos, exámenes) y preguntas de capacidad («¿puedes hacer notas con tags?»)
+const EDIT_VERB = /\b(edit\w*|modific\w*|corrig\w*|actualiz\w*|reescrib\w*|etiquet\w*|tagu?e\w*|anade\w*|agrega\w*|apend\w*|update\w*|fix|correct\w*|rewrite|tag|label|ajoute\w*|corrige\w*|modifie\w*|mets|metre)\b/;
+const EDIT_OBJ = /\b(notas?|apuntes?|notes?|tarjetas?|cards?|cartes?|etiquetas?|tags?|encabezados?|headings?|preguntas?|questions?|bancos?|examen(es)?|exams?|simulacros?)\b/;
+// cambiar ajustes de la app («pon un pomodoro de 40 min», «tema oscuro», «activa el add-on …»)
+const SET_VERB = /\b(pon\w*|cambia\w*|activ\w*|desactiv\w*|apag\w*|enciend\w*|configur\w*|ajusta\w*|set|change|switch|turn|enable|disable|mets|active\w*|desactive\w*|configure\w*|regle\w*)\b/;
+// objetos inequívocos de ajustes; los ambiguos («tema», «fondo», «modo»…) solo cuentan con un verbo imperativo y un mensaje corto
+const SET_STRONG = /\b(ajustes?|settings?|pomodoro|pomo|acento|idioma|language|langue|vidrio|add-?ons?|extension\w*|preferencias?|desenfoque|volumen|sonido|dock|mascota|brillo)\b/;
+const SET_WEAK = /\b(tema|fondo|modo|oscuro|claro|dark|light|ingles|english|nuevas)\b/;
+const shortCmd = (q: string) => !q.includes('?') && q.trim().split(/\s+/).length <= 8;
+const CAP_ASK = /\b(puedes|puedo|podrias|podria|podrian|puede|sabes|eres capaz|can you|could you|can i|are you able|pouvez|peux|pourrais|sais)\b/;
+/** El último mensaje del usuario pide crear/modificar algo concreto (verbo + objeto, es/en/fr), o pregunta si puede. Sin ella no hay herramientas de escritura. */
 export function wantsWrite(text: string): boolean {
   const q = text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-  return (WRITE_VERB.test(q) && WRITE_OBJ.test(q)) || (NOTE_VERB.test(q) && NOTE_OBJ.test(q)) || (SUMM_VERB.test(q) && SUMM_OBJ.test(q));
+  return (WRITE_VERB.test(q) && WRITE_OBJ.test(q)) || (NOTE_VERB.test(q) && NOTE_OBJ.test(q)) || (SUMM_VERB.test(q) && SUMM_OBJ.test(q))
+    || (!q.includes('?') && q.trim().split(/\s+/).length <= 8 && SET_STRONG.test(q)) // «acento verde solo en botones»
+    || (EDIT_VERB.test(q) && EDIT_OBJ.test(q)) || (SET_VERB.test(q) && (SET_STRONG.test(q) || (SET_WEAK.test(q) && shortCmd(q)))) || (CAP_ASK.test(q) && SET_STRONG.test(q)) || (CAP_ASK.test(q) && (EDIT_OBJ.test(q) || WRITE_OBJ.test(q) || SUMM_OBJ.test(q) || /\b(eventos?|events?|calendario|calendar)\b/.test(q)));
 }
 
 // ───────── utilidades ─────────
@@ -63,6 +87,10 @@ const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCas
 const ID_END = /\s\^[A-Za-z0-9_-]{2,40}\s*$/;
 export { wantsDelete, MAX_DELETES } from './delete';
 export const MAX_CARDS = 30, MAX_QUESTIONS = 15, MAX_PROPOSALS = 3;
+/** Tope TOTAL de propuestas de un turno, compartido por todas las fábricas de herramientas (se enlaza a `ctx.sources`, único por turno). */
+export const MAX_TURN = 6;
+const turns = new WeakMap<object, { n: number }>();
+export const turnCount = (ctx: { sources: object }): { n: number } => { let c = turns.get(ctx.sources); if (!c) turns.set(ctx.sources, (c = { n: 0 })); return c; };
 
 // ───────── tarjetas ─────────
 /** Valida el texto de tarjetas con el parser real; cada bloque queda con `origen: ia` y sin ID (los IDs se asignan al guardar). */
@@ -172,6 +200,19 @@ export async function buildEventEdit(vault: VaultAdapter, q: { titulo?: string; 
 
 // ───────── revalidar tras «Editar» ─────────
 export function revalidate(p: Proposal, edit: { contenido?: string; evento?: Partial<EventFields> }, env?: { col: Collection | null; today: string }): Proposal | Bad {
+  if (p.tipo === 'ajuste') return p;
+  if (p.tipo === 'edicion') {
+    const c = edit.contenido ?? p.contenido, d = p.destino;
+    let v: Bad | null = null;
+    if (!c.trim()) v = { error: 'vacio' };
+    else if (d.startsWith('decks/')) { const x = parseDeck(c).notes.find((n) => n.errors.length || n.type === 'io'); if (x) v = { error: 'formato', detail: x.errors[0] }; }
+    else if (d.startsWith('exams-bank/')) { const x = validateBank(c); if (isBad(x)) v = x; }
+    else if (d.startsWith('exams/')) { const x = checkExamEdit(c, env?.col ?? null, env?.today ?? '0000-00-00'); if (isBad(x)) v = x; }
+    if (v) return v;
+    const items = diffLines(p.antes ?? '', c);
+    return { ...p, contenido: c, items, aviso: hasCut(items) ? 'asist2.aviso_linea_larga' : undefined };
+  }
+  if (p.tipo === 'accion') return p; // sin «Editar»
   if (p.tipo === 'nota' || p.tipo === 'diagrama') {
     const v = checkNoteFile(edit.contenido ?? p.contenido, p.tipo, p.diag);
     return isBad(v) ? v : { ...p, contenido: v.contenido };
@@ -180,6 +221,7 @@ export function revalidate(p: Proposal, edit: { contenido?: string; evento?: Par
     const v = checkExamEdit(edit.contenido ?? p.contenido, env?.col ?? null, env?.today ?? '0000-00-00');
     return isBad(v) ? v : { ...p, ...v, resumen: `${v.items[0]} · ${v.items[1]}` };
   }
+  if (p.tipo === 'objetivos') return p; // sin edición: solo Aceptar o Cancelar
   if (p.tipo === 'tarjetas') {
     const v = validateCards(edit.contenido ?? p.contenido);
     return isBad(v) ? v : { ...p, contenido: v.contenido, items: v.items, resumen: `${v.items.length} → ${p.mazo}` };
@@ -193,8 +235,9 @@ export function revalidate(p: Proposal, edit: { contenido?: string; evento?: Par
 }
 
 // ───────── aplicar y deshacer (solo la interfaz, tras «Aceptar») ─────────
-const OKPATH: Record<Exclude<Kind, 'borrar'>, [string, RegExp]> = { tarjetas: ['decks', /\.md$/], examen: ['exams-bank', /\.md$/], evento: ['calendar', /\.ics$/], nota: ['notes', /\.md$/], diagrama: ['notes', /\.md$/], fecha: ['exams', /\.md$/] };
-const safeDest = (p: Proposal) => { if (p.tipo === 'borrar') return safeDeleteDest(p); const [pre, re] = OKPATH[p.tipo]; return p.destino.startsWith(pre + '/') && re.test(p.destino) && p.destino.split('/').every((s) => s !== '' && s !== '.' && s !== '..') && !/[\\\u0000-\u001f]/.test(p.destino) && (p.tipo !== 'evento' || p.destino === CAL) && (p.tipo !== 'fecha' || p.destino.split('/').length === 2) && p.destino.length <= 400; };
+const OKPATH: Record<Exclude<Kind, 'borrar' | 'edicion' | 'ajuste' | 'accion'>, [string, RegExp]> = { tarjetas: ['decks', /\.md$/], examen: ['exams-bank', /\.md$/], evento: ['calendar', /\.ics$/], nota: ['notes', /\.md$/], diagrama: ['notes', /\.md$/], fecha: ['exams', /\.md$/], objetivos: ['decks', /\.md$/] };
+const EDIT_OK = /^(notes\/.+|decks\/.+|exams-bank\/.+|exams\/[^/]+)\.md$/;
+const safeDest = (p: Proposal) => { if (p.tipo === 'ajuste') return false; if (p.tipo === 'accion') return !!p.accion && (!writes(p.accion) ? !p.destino : p.accion.k === 'tarea' ? p.destino === 'notes/Tareas.md' : stickyPathOk(p.destino)); if (p.tipo === 'borrar') return safeDeleteDest(p); if (p.tipo === 'edicion') return EDIT_OK.test(p.destino) && p.destino.length <= 400 && p.destino.split('/').every((s) => s !== '' && s !== '.' && s !== '..') && !/[\\\u0000-\u001f]/.test(p.destino); const [pre, re] = OKPATH[p.tipo]; return p.destino.startsWith(pre + '/') && re.test(p.destino) && p.destino.split('/').every((s) => s !== '' && s !== '.' && s !== '..') && !/[\\\u0000-\u001f]/.test(p.destino) && (p.tipo !== 'evento' || p.destino === CAL) && (p.tipo !== 'fecha' || p.destino.split('/').length === 2) && p.destino.length <= 400; };
 const inflight = new Map<number, Promise<Entry[]>>();
 const groups = new Map<number, Entry[]>();
 const restorers = new Map<number, () => Promise<void>>(); // borrar: restaurar desde la papelera
@@ -207,9 +250,24 @@ async function write(vault: VaultAdapter, col: Collection | null, p: Proposal, w
     const taken = new Set<string>(col ? [...col.byCid.keys(), ...col.log.map((e) => e.id)].map(noteIdOf) : []);
     for (const n of parseDeck(base).notes) if (n.id) taken.add(n.id);
     await w(p.destino, `${base.replace(/\s*$/, '')}\n\n${ensureIds(p.contenido.trim(), taken).text}\n`);
+  } else if (p.tipo === 'edicion') {
+    // solo sobre lo que se vio al proponer: si el archivo cambió o está abierto en el editor, no se pisa
+    if (fingerprint(await readTextOr(vault, p.destino, '')) !== p.huella) throw new Error('changed');
+    if (noteStore.peek(p.destino) !== null || noteStore.listening(p.destino)) throw new Error('open');
+    await w(p.destino, p.contenido);
+  } else if (p.tipo === 'objetivos') {
+    const cs = p.cambios ?? [];
+    for (const c of cs) { // el archivo debe seguir como se propuso: si no, `changed` y no se escribe nada
+      if (!/^decks\/.+\.md$/.test(c.path) || c.path.split('/').some((x) => x === '..' || x === '.' || x === '')) throw new Error('path');
+      const cur = parseFrontmatter(await readTextOr(vault, c.path, '')).data.new_per_day;
+      if ((typeof cur === 'number' ? cur : null) !== c.antes) throw new Error('changed');
+    }
+    for (const c of cs) await w(c.path, setKeys(await readTextOr(vault, c.path, ''), { new_per_day: c.despues }));
   } else if (p.tipo === 'nota' || p.tipo === 'diagrama' || p.tipo === 'fecha') {
     if (await vault.exists(p.destino)) throw new Error('exists'); // nunca se sobrescribe
     await w(p.destino, p.contenido);
+  } else if (p.tipo === 'accion') {
+    await writeAct(vault, p.destino, p.accion!, p.contenido, w);
   } else if (p.tipo === 'examen') {
     if ((await readTextOr(vault, p.destino, '')).trim()) throw new Error('exists'); // nunca se sobrescribe un banco (uno vacío, dejado por «Deshacer», cuenta como libre)
     await w(p.destino, p.contenido);
@@ -249,7 +307,7 @@ export function applyProposal(vault: VaultAdapter, col: Collection | null, p: Pr
   const prev = inflight.get(id);
   if (prev) return prev;
   if (!safeDest(p)) return Promise.reject(new Error('path'));
-  const run = serial(() => tracked(vault, async (w) => { if (p.tipo === 'borrar') { const a = await applyDelete(vault, col, p, w); if (p.objetivo !== 'evento') restorers.set(id, a.restore); } else { await write(vault, col, p, w); if (p.tipo === 'nota' || p.tipo === 'diagrama' || p.tipo === 'fecha') restorers.set(id, () => removeNew(vault, p)); } })).then((g) => (groups.set(id, g), g), (e) => (inflight.delete(id), Promise.reject(e)));
+  const run = serial(() => tracked(vault, async (w) => { if (p.tipo === 'borrar') { const a = await applyDelete(vault, col, p, w); if (p.objetivo !== 'evento') restorers.set(id, a.restore); } else { await write(vault, col, p, w); if (p.tipo === 'nota' || p.tipo === 'diagrama' || p.tipo === 'fecha') restorers.set(id, () => removeNew(vault, p)); else if (p.tipo === 'accion' && p.accion?.k === 'sticky' && p.accion.op.op === 'new') restorers.set(id, () => removeNew(vault, p)); } })).then((g) => (groups.set(id, g), g), (e) => (inflight.delete(id), Promise.reject(e)));
   inflight.set(id, run);
   return run;
 }
