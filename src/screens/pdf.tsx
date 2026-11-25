@@ -186,7 +186,9 @@ export function PdfViewer(props: { path: string; page?: number }) {
   };
   const pageOf = (n: number): PageAnn => ann.pages[n] ?? emptyPage();
   const setPage = (n: number, pa: PageAnn) => persist({ ...ann, pages: { ...ann.pages, [n]: pa } });
-  const histOf = (n: number) => { let h = hist.current.get(n); if (!h) hist.current.set(n, (h = new History(pageOf(n).ink))); return h; };
+  // el historial nace con la tinta de la página; si se creó antes de cargar las anotaciones y aún no tiene cambios propios, se vuelve a sincronizar
+  // (si no, «Deshacer» borraría también la tinta guardada antes)
+  const histOf = (n: number) => { let h = hist.current.get(n); const ink = pageOf(n).ink; if (!h || (!h.canUndo && !h.canRedo && h.doc !== ink)) hist.current.set(n, (h = new History(ink))); return h; };
   const record = (a: Act) => { acts.current.undo.push(a); acts.current.redo = []; bump((x) => x + 1); };
   const undo = () => {
     const a = acts.current.undo.pop();
