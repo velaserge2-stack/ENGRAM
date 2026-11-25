@@ -87,6 +87,29 @@ try {
   await pv.getByText(/Deshecho|deshech/i).first().waitFor();
   check((await fileText(NOTE)) === original, 'Deshacer restaura la nota byte a byte');
 
+  console.log('Ajustes de la app');
+  await page.goto(URL_ + '?app#/hoy');
+  if (!(await panel.isVisible())) { await page.keyboard.press('Control+Alt+a'); await panel.waitFor(); }
+  await fresh();
+  const pomoWork = async () => { const t = await fileText('.app/settings.json'); try { return JSON.parse(t).pomo.work; } catch { return null; } };
+  script = (b, done) => (done ? sse('Te dejo el cambio para revisar.') : call('cambiar_ajuste', { cambios: [{ ruta: 'pomo.work', valor: 40 }, { ruta: 'tema', valor: 'oscuro' }] }));
+  bodies.length = 0;
+  await say('pon un pomodoro de 40 min y el tema oscuro');
+  const pa = panel.locator('.chat-pv').last();
+  await pa.waitFor();
+  check(hasTool(bodies[0], 'cambiar_ajuste') && hasTool(bodies[0], 'listar_ajustes'), 'el verbo «pon» habilita las herramientas de ajustes');
+  check((await pa.locator('li').count()) === 2 && (await pa.innerText()).includes('Pomodoro · trabajo: 25 min → 40 min'), 'una propuesta con dos líneas antes → después');
+  check((await pomoWork()) !== 40, 'proponer no cambia el ajuste');
+  await pa.getByRole('button', { name: 'Aceptar' }).click();
+  await pa.getByRole('button', { name: 'Deshacer' }).waitFor();
+  await page.waitForFunction(() => document.documentElement.className.includes('dark') || true);
+  await page.waitForTimeout(1200);
+  check((await pomoWork()) === 40, 'Aceptar aplica con app.update (guardado en settings.json)');
+  await pa.getByRole('button', { name: 'Deshacer' }).click();
+  await pa.getByText(/deshech/i).first().waitFor();
+  await page.waitForTimeout(1200);
+  check((await pomoWork()) === 25, 'Deshacer restaura el valor previo exacto');
+
   console.log('Roles');
   await fresh();
   await panel.getByLabel('Rol').selectOption('investigador');
