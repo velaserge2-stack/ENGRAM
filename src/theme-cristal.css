@@ -984,6 +984,7 @@ body.focus .dev-sign, body.notes-full .dev-sign { display: none; }
 /* Barrido UI: áreas de toque ≥ 44 px sin cambiar el aspecto (pseudo-elemento con inset negativo) */
 .btn.small, .btn.icon.small, button.chip, .tog { position: relative; }
 .btn.small::before, .btn.icon.small::before { content: ''; position: absolute; inset: -5px; }
+.btn.small:not(.icon)::before { inset: -5px 0; } /* botones de texto: solo en vertical (ya miden > 44 px de ancho) y sin crear desborde horizontal */
 button.chip::before { content: ''; position: absolute; inset: -11px -5px; }
 .tog::before { content: ""; position: absolute; inset: -9px; }
 .pick-hit { display: grid; place-items: center; width: 44px; height: 44px; margin: -11px -7px -11px -11px; flex: none; cursor: pointer; }
