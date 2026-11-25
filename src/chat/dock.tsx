@@ -13,11 +13,13 @@ import { useDict } from './voice';
 import { Quick } from './quick';
 import { ProviderLogo } from './logos';
 import { bar, loadUsage } from './usage';
+import { useTick } from './tick';
 import type { Ref } from 'preact';
 
 /** Tira de uso «unida» bajo la pastilla: se ajusta al contenido (máx. 3 entradas y «+N»): logo del proveedor + barra + %.
  *  La clave activa en Bold y logo opaco; ≥ 80 % con barra más gruesa. Los logos son decorativos (el aria-label nombra al proveedor). */
 function UsageStrip() {
+  useTick();
   const { settings } = useApp();
   const keys = loadKeys().keys, now = Date.now();
   const act = pickKey(keys, now) ?? keys[0];

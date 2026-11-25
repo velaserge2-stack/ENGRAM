@@ -10,6 +10,7 @@ import { Popover } from '../ui/overlay';
 import { techLine, type Classified } from './errors';
 import { loadKeys, mask, MAX_KEYS, saveKeys, type KeyEntry } from './keys';
 import { AddKeySheet } from './addkey';
+import { useTick } from './tick';
 import { listModels, LIST_MS } from './models';
 import { PROVIDERS, type ProviderId } from './providers';
 import { bar, loadUsage, realLine, saveUsage, setAcct } from './usage';
@@ -30,6 +31,7 @@ export function KeyView(p: { onBack: () => void; onChange: () => void }) {
   const [menu, setMenu] = useState<{ id: string; el: HTMLElement } | null>(null);
   const [lst, setLst] = useState<{ busy?: boolean; err?: Classified } | null>(null);
   const [adding, setAdding] = useState(false);
+  useTick();
   const [, bump] = useState(0);
   // OpenRouter y Kimi: pedir lo que queda al abrir (una petición por clave, en orden; nunca durante un turno)
   useEffect(() => {

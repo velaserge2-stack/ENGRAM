@@ -6,7 +6,7 @@ import type { Limits, ProviderId } from './providers';
 
 export const USAGE_STORAGE = 'engrama.chat.usage';
 export interface KeyUse { day: string; req: number; tok: number; min: { t: number; req: number; tok: number } }
-export interface HdrQuota { remainingReq?: number; remainingTok?: number; limitReq?: number; limitTok?: number; resetAt: number; at?: number }
+export interface HdrQuota { remainingReq?: number; remainingTok?: number; limitReq?: number; limitTok?: number; resetAt: number; at?: number; /** cuándo se recargan las peticiones (día) y los tokens (minuto) */ reqAt?: number; tokAt?: number }
 export interface Usage { v: 1; perKey: Record<string, KeyUse>; hdr?: Record<string, HdrQuota>; acct?: Record<string, Acct> }
 
 export const emptyUsage = (): Usage => ({ v: 1, perKey: {} });
@@ -77,6 +77,8 @@ export function fromHeaders(p: ProviderId, h: H, now = Date.now()): HdrQuota | n
     remainingReq, remainingTok,
     limitReq: num(get(h, 'x-ratelimit-limit-requests')), limitTok: num(get(h, 'x-ratelimit-limit-tokens')),
     at: now,
+    reqAt: get(h, 'x-ratelimit-reset-requests') ? now + dur(get(h, 'x-ratelimit-reset-requests')) : undefined,
+    tokAt: get(h, 'x-ratelimit-reset-tokens') ? now + dur(get(h, 'x-ratelimit-reset-tokens')) : undefined,
     resetAt: now + Math.max(dur(get(h, 'x-ratelimit-reset-requests')), dur(get(h, 'x-ratelimit-reset-tokens'))),
   };
 }
@@ -86,9 +88,12 @@ export interface Bar { pct: number; level: 'ok' | 'near' | 'full'; show: boolean
 export function bar(u: Usage, id: string, limits: Limits, now: number, warnAt = 0.8, p?: ProviderId): Bar {
   const h = u.hdr?.[id];
   let pct = 0;
-  if (h && h.resetAt > now && ((h.remainingReq !== undefined && h.limitReq) || (h.remainingTok !== undefined && h.limitTok))) {
-    if (h.remainingReq !== undefined && h.limitReq) pct = Math.max(pct, 1 - h.remainingReq / h.limitReq);
-    if (h.remainingTok !== undefined && h.limitTok) pct = Math.max(pct, 1 - h.remainingTok / h.limitTok);
+  // cada cifra de Groq vale hasta su propio reinicio: los tokens por minuto se recargan antes que las peticiones del día
+  const reqOk = !!h && h.remainingReq !== undefined && !!h.limitReq && (h.reqAt ?? h.resetAt) > now;
+  const tokOk = !!h && h.remainingTok !== undefined && !!h.limitTok && (h.tokAt ?? h.resetAt) > now;
+  if (h && (reqOk || tokOk)) {
+    if (reqOk) pct = Math.max(pct, 1 - h.remainingReq! / h.limitReq!);
+    if (tokOk) pct = Math.max(pct, 1 - h.remainingTok! / h.limitTok!);
   } else {
     const k = u.perKey[id];
     if (k && k.day === dayOf(now, p)) {
@@ -107,13 +112,16 @@ const hhmm = (ms: number) => new Date(ms).toLocaleTimeString(undefined, { hour: 
 const int = (v: number) => Math.round(v).toLocaleString();
 
 /** Lo que el proveedor dijo que queda (null si no dijo nada: Gemini, o Groq sin cabeceras legibles). */
-export function realLine(u: Usage, id: string, p: ProviderId): string | null {
+export function realLine(u: Usage, id: string, p: ProviderId, now = Date.now()): string | null {
   if (p === 'groq') {
     const h = u.hdr?.[id];
     if (!h) return null;
     const parts: string[] = [];
-    if (h.remainingReq !== undefined) parts.push(h.limitReq ? t('chat.real_req_de', { n: int(h.remainingReq), de: int(h.limitReq) }) : t('chat.real_req', { n: int(h.remainingReq) }));
-    if (h.remainingTok !== undefined) parts.push(t('chat.real_tok', { n: int(h.remainingTok) }));
+    // pasado su reinicio, la cifra vuelve al tope
+    const req = h.remainingReq !== undefined && h.limitReq && h.reqAt !== undefined && h.reqAt <= now ? h.limitReq : h.remainingReq;
+    const tok = h.remainingTok !== undefined && h.limitTok && h.tokAt !== undefined && h.tokAt <= now ? h.limitTok : h.remainingTok;
+    if (req !== undefined) parts.push(h.limitReq ? t('chat.real_req_de', { n: int(req), de: int(h.limitReq) }) : t('chat.real_req', { n: int(req) }));
+    if (tok !== undefined) parts.push(t('chat.real_tok', { n: int(tok) }));
     return parts.length ? parts.join(' · ') + (h.at ? ' · ' + hhmm(h.at) : '') : null;
   }
   const a = u.acct?.[id];
