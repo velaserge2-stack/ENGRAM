@@ -10,6 +10,7 @@ import { AskButton } from '../chat/ask';
  * resumen de resaltados (.md).
  */
 import { BookOpen, Columns2, Download, FileText, Highlighter, LayoutList, ListTree, Minus, PencilLine, Plus, Quote, Search, Sparkles, StickyNote, Strikethrough, Underline, X } from 'lucide-preact';
+import { memo } from 'preact/compat';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { pdfjs } from '../io/extract';
 import { deliver } from '../io/share';
@@ -21,11 +22,11 @@ import { appendCard } from '../data/ops';
 import { listNotes } from '../notes/model';
 import { InkLayer, InkToolbar } from '../ink/InkLayer';
 import { useInkTools } from '../ink/InkSurface';
-import { History, type InkDoc, outline, svgPath } from '../ink/model';
-import { type Annots, annotsPath, type CharBox, emptyPage, fingerprintFile, fromLegacy, legacyPath, type Mark, type MarkKind, marksToMarkdown, type PageAnn, parseAnnots, samePdf, snapToText } from '../pdf/annots';
+import { History, type InkDoc, isFreeMarker, markerExport, outline, svgPath } from '../ink/model';
+import { type Annots, annotsPath, type CharBox, emptyPage, fingerprintFile, fromLegacy, legacyPath, type Mark, type MarkKind, marksToMarkdown, type PageAnn, markLineColor, parseAnnots, samePdf, snapToText } from '../pdf/annots';
 import { pdfLink, updatePdfMeta } from '../pdf/library';
 import { fileOf, openPdfFile } from '../pdf/open';
-import { fitPixels, Heights, RenderQueue, visibleRange } from '../pdf/virtual';
+import { fitPixels, Heights, PAGE_GAP, RenderQueue, visibleRange } from '../pdf/virtual';
 import { perf } from '../lib/perf';
 
 const MAX_PIXELS = 16_000_000;
@@ -35,6 +36,7 @@ const MARK_COLOR = '#ffd60a';
 
 export function PdfViewer(props: { path: string; page?: number }) {
   const app = useApp();
+  perf.inc('viewerRenders');
   const [doc, setDoc] = useState<PDFDoc | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [width, setWidth] = useState(600);
@@ -47,13 +49,12 @@ export function PdfViewer(props: { path: string; page?: number }) {
     const on = (e: Event) => setZoom((z) => Math.min(3, Math.max(0.5, +(z * (e as CustomEvent<{ f: number }>).detail.f).toFixed(3))));
     el.addEventListener('ownzoom', on);
     return () => el.removeEventListener('ownzoom', on);
-  });
+  }, [!!doc]); // el contenedor existe solo cuando hay documento
   // Prompt 7 · 2: siempre arranca «por página» (cambiar a continuo es manual y no se recuerda)
   const [mode, setMode] = useState<'scroll' | 'page'>('page');
   const [cur, setCur] = useState(props.page ?? 1);
   const [side, setSide] = useState<null | 'thumbs' | 'outline' | 'marks'>(null);
-  const [q, setQ] = useState('');
-  const [hits, setHits] = useState<number[]>([]);
+  const [seed, setSeed] = useState<{ q: string; n: number } | null>(null);
   const [ann, setAnn] = useState<Annots>({ v: 1, pdf: null, pages: {} });
   const [annotate, setAnnotate] = useState(false);
   const [markKind, setMarkKind] = useState<MarkKind>('highlight');
@@ -61,6 +62,8 @@ export function PdfViewer(props: { path: string; page?: number }) {
   const [tools, setTools] = useInkTools();
   const [sel, setSel] = useState<{ text: string; page: number } | null>(null);
   const [mk, setMk] = useState<'card' | 'quote' | null>(null);
+  const [noteDraft, setNoteDraft] = useState<{ n: number; x: number; y: number } | null>(null);
+  const [noteDel, setNoteDel] = useState<{ n: number; id: string } | null>(null);
   const [exporting, setExporting] = useState<File | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const fp = useRef<{ size: number; hash: string } | null>(null);
@@ -76,6 +79,7 @@ export function PdfViewer(props: { path: string; page?: number }) {
   /** Con lienzo dibujado: solo la visible ±1 (la ventana ±2 monta el DOM sin pintar). */
   const [near, setNear] = useState({ from: 1, to: 3 });
   const scrollRaf = useRef(0);
+  const lastTop = useRef(0);
   const aspectT = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -132,6 +136,9 @@ export function PdfViewer(props: { path: string; page?: number }) {
     // continuo: la posición sale de la tabla de alturas (la página puede no estar montada)
     if (mode === 'scroll' && box.current && heights.current) { box.current.scrollTop = heights.current.top(p, pwRef.current); syncWindow(); }
   };
+  const goRef = useRef(goTo);
+  goRef.current = goTo;
+  const goStable = useRef((n: number) => goRef.current(n)).current;
   const pwRef = useRef(600);
   /** Ventana visible (rAF): sin medir el DOM, con la tabla de alturas. */
   const syncWindow = () => {
@@ -139,7 +146,10 @@ export function PdfViewer(props: { path: string; page?: number }) {
     if (!b || !h) return;
     const r = visibleRange(h, pwRef.current, b.scrollTop, b.clientHeight, 2);
     setWin((w) => (w.from === r.from && w.to === r.to ? w : { from: r.from, to: r.to }));
-    const r1 = visibleRange(h, pwRef.current, b.scrollTop, b.clientHeight, 1);
+    // una página extra por delante en el sentido del desplazamiento (menos hojas en blanco al bajar rápido)
+    const dir = b.scrollTop > lastTop.current ? 1 : b.scrollTop < lastTop.current ? -1 : 0;
+    lastTop.current = b.scrollTop;
+    const r1 = visibleRange(h, pwRef.current, b.scrollTop, b.clientHeight, 1, dir);
     setNear((w) => (w.from === r1.from && w.to === r1.to ? w : { from: r1.from, to: r1.to }));
     setCur(h.pageAt(b.scrollTop + 80, pwRef.current));
   };
@@ -160,6 +170,8 @@ export function PdfViewer(props: { path: string; page?: number }) {
     aspectT.current = setTimeout(() => void updatePdfMeta(app.vault, props.path, { aspects: h.exceptions(h.ratio(1)) }), 1500);
   };
   // prioridad de los renders pendientes: la página central primero
+  const curRef = useRef(cur);
+  curRef.current = cur;
   useEffect(() => { queue.current.reprioritize((id) => Math.abs(Number(id.slice(1)) - cur)); }, [cur]);
   // continuo: al entrar o al cambiar el ancho, quedarse en la página actual
   useEffect(() => {
@@ -174,7 +186,9 @@ export function PdfViewer(props: { path: string; page?: number }) {
   };
   const pageOf = (n: number): PageAnn => ann.pages[n] ?? emptyPage();
   const setPage = (n: number, pa: PageAnn) => persist({ ...ann, pages: { ...ann.pages, [n]: pa } });
-  const histOf = (n: number) => { let h = hist.current.get(n); if (!h) hist.current.set(n, (h = new History(pageOf(n).ink))); return h; };
+  // el historial nace con la tinta de la página; si se creó antes de cargar las anotaciones y aún no tiene cambios propios, se vuelve a sincronizar
+  // (si no, «Deshacer» borraría también la tinta guardada antes)
+  const histOf = (n: number) => { let h = hist.current.get(n); const ink = pageOf(n).ink; if (!h || (!h.canUndo && !h.canRedo && h.doc !== ink)) hist.current.set(n, (h = new History(ink))); return h; };
   const record = (a: Act) => { acts.current.undo.push(a); acts.current.redo = []; bump((x) => x + 1); };
   const undo = () => {
     const a = acts.current.undo.pop();
@@ -195,45 +209,11 @@ export function PdfViewer(props: { path: string; page?: number }) {
     bump((x) => x + 1);
   };
 
-  // Prompt 11: búsqueda cancelable, cediendo el hilo, con progreso y con el texto en caché
-  // (`.app/cache/pdf-text/<huella>.json`): la segunda búsqueda, o al reabrir, no relee el PDF.
-  const texts = useRef<string[] | null>(null);
-  const finding = useRef(0);
-  const [findProgress, setFindProgress] = useState<{ done: number; total: number } | null>(null);
-  const textCache = () => `.app/cache/pdf-text/${fp.current?.hash ?? 'x'}-${fp.current?.size ?? 0}.json`;
-  const find = async () => {
-    const token = ++finding.current;
-    if (!doc || !q.trim()) return (setHits([]), setFindProgress(null));
-    const nq = q.toLowerCase();
-    if (!texts.current) {
-      try { const c = JSON.parse(await readTextOr(app.vault, textCache(), 'null')) as string[] | null; if (Array.isArray(c) && c.length === doc.numPages) texts.current = c; } catch { /* sin caché */ }
-    }
-    if (!texts.current) {
-      const out: string[] = [];
-      for (let i = 1; i <= doc.numPages; i++) {
-        if (token !== finding.current) return; // cancelada (nueva búsqueda o el visor se cerró)
-        const pg = await doc.getPage(i);
-        try {
-          out.push((await pg.getTextContent()).items.map((x) => (x as { str?: string }).str ?? '').join(' ').toLowerCase());
-        } finally {
-          pg.cleanup();
-        }
-        if (i % 4 === 0) { setFindProgress({ done: i, total: doc.numPages }); await new Promise((r) => setTimeout(r, 0)); }
-      }
-      texts.current = out;
-      void app.vault.write(textCache(), JSON.stringify(out));
-    }
-    setFindProgress(null);
-    const hits = texts.current.flatMap((t, i) => (t.includes(nq) ? [i + 1] : []));
-    setHits(hits);
-    if (hits[0]) goTo(hits[0]);
-  };
-  useEffect(() => () => { finding.current++; }, []);
   const onSelect = () => {
     if (annotate) return;
     const s = getSelection();
     const t = s?.toString().trim();
-    if (!t) return setSel(null);
+    if (!t) return setSel((x) => (x ? null : x)); // sin selección previa no hay nada que re-renderizar
     const page = Number((s!.anchorNode?.parentElement?.closest('[data-page]') as HTMLElement | null)?.dataset.page ?? 0);
     if (page) setSel({ text: t, page });
   };
@@ -251,7 +231,7 @@ export function PdfViewer(props: { path: string; page?: number }) {
   };
   const exportPdf = async () => {
     const bytes = await app.vault.read(props.path);
-    const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+    const { PDFDocument, rgb, StandardFonts, BlendMode } = await import('pdf-lib');
     const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     const hex = (c: string) => { const n = parseInt(c.slice(1), 16); return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255); };
@@ -260,10 +240,10 @@ export function PdfViewer(props: { path: string; page?: number }) {
       if (!a) return;
       const { width: W, height: H } = pg.getSize();
       for (const m of a.marks) for (const [x, y, w, h] of m.rects) {
-        if (m.kind === 'highlight') pg.drawRectangle({ x: x * W, y: H - (y + h) * H, width: w * W, height: h * H, color: hex(m.color), opacity: 0.35 });
-        else pg.drawRectangle({ x: x * W, y: H - (y + (m.kind === 'underline' ? h : h / 2)) * H, width: w * W, height: Math.max(0.8, h * H * 0.08), color: m.kind === 'underline' ? hex('#0a5cd6') : hex('#c4262e') });
+        if (m.kind === 'highlight') pg.drawRectangle({ x: x * W, y: H - (y + h) * H, width: w * W, height: h * H, color: hex(m.color), opacity: 0.35, blendMode: BlendMode.Multiply });
+        else pg.drawRectangle({ x: x * W, y: H - (y + (m.kind === 'underline' ? h : h / 2)) * H, width: w * W, height: Math.max(0.8, h * H * 0.08), color: hex(markLineColor(m)) });
       }
-      for (const s of a.ink.strokes) pg.drawSvgPath(svgPath(outline(s, W)), { x: 0, y: H, color: hex(s.color), opacity: s.tool === 'highlighter' ? 0.35 : 1, borderWidth: 0 });
+      for (const s of a.ink.strokes) { const mx = markerExport(s); pg.drawSvgPath(svgPath(outline(s, W)), { x: 0, y: H, color: hex(s.color), opacity: mx ? mx.opacity : 1, ...(mx ? { blendMode: BlendMode.Multiply } : {}), borderWidth: 0 }); }
       for (const n of a.notes) {
         pg.drawRectangle({ x: n.x * W, y: H - n.y * H - 14, width: 14, height: 14, color: hex('#ffd60a') });
         pg.drawText(n.text.slice(0, 200), { x: n.x * W + 18, y: H - n.y * H - 11, size: 8, font, color: rgb(0.1, 0.1, 0.1), maxWidth: Math.max(80, W * 0.4) });
@@ -277,10 +257,32 @@ export function PdfViewer(props: { path: string; page?: number }) {
     await deliver(new File([marksToMarkdown(name, props.path, ann, (p) => pdfLink(props.path, p))], `${name} (resaltados).md`, { type: 'text/markdown' }));
   };
 
+  // callbacks estables para `memo(Page)`: siempre llaman a la versión más reciente
+  const live = useRef({ onRatio, onInk: (_n: number, _i: InkDoc, _s?: Mark) => {}, onNote: (_n: number, _x: number, _y: number) => {}, onRemoveNote: (_n: number, _id: string) => {} });
+  live.current.onRatio = onRatio;
+  live.current.onInk = (n, ink, snapped) => {
+    const pg = pageOf(n);
+    if (snapped) { setPage(n, { ...pg, ink, marks: [...pg.marks, snapped] }); histOf(n).undo(); record({ type: 'mark', page: n, id: snapped.id }); }
+    else { setPage(n, { ...pg, ink }); record({ type: 'ink', page: n }); }
+  };
+  live.current.onNote = (n, x, y) => setNoteDraft({ n, x, y });
+  live.current.onRemoveNote = (n, id) => setNoteDel({ n, id });
+  const cb = useRef({
+    onRatio: (n: number, r: number) => live.current.onRatio(n, r),
+    onInk: (n: number, i: InkDoc, sn?: Mark) => live.current.onInk(n, i, sn),
+    onNote: (n: number, x: number, y: number) => live.current.onNote(n, x, y),
+    onRemoveNote: (n: number, id: string) => live.current.onRemoveNote(n, id),
+    prio: (n: number) => Math.abs(n - curRef.current),
+  }).current;
+  // zoom/giro: el diseño sigue el ancho al instante (el lienzo se estira por CSS) y el re-render
+  // de los lienzos espera a que el gesto se calme (trailing 150 ms): una sola ronda de render
+  const pw = Math.round(width * zoom);
+  const [rw, setRw] = useState(0);
+  useEffect(() => { const tm = setTimeout(() => setRw(pw), 150); return () => clearTimeout(tm); }, [pw]);
+  const renderW = rw || pw;
   if (err) return <div class="err">{tr('pdf.no_se_pudo_abrir_el_pdf', { err: err })}</div>;
   if (!doc) return <p class="t2" style={{ padding: '12px' }}>{tr('pdf.abriendo_pdf')}</p>;
   const src = `${props.path}#p${sel?.page ?? 1}`;
-  const pw = Math.round(width * zoom);
   pwRef.current = pw;
   const H = heights.current;
   // continuo: solo la ventana visible ± 2; el resto son espaciadores con su altura
@@ -290,9 +292,7 @@ export function PdfViewer(props: { path: string; page?: number }) {
   return (
     <div ref={root} class="pdf-viewer" data-own-zoom style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div class="row wrap pdf-bar" style={{ padding: '6px 10px', borderBottom: 'var(--hair) solid var(--line)' }}>
-        <form class="row" onSubmit={(e) => (e.preventDefault(), void find())}><input class="input" style={{ width: '140px', minHeight: '34px' }} placeholder={tr('inbox.buscar')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label={tr('pdf.buscar_en_el_pdf')} /><button class="btn icon small" aria-label={tr('inbox.buscar')}><Search size={16} /></button></form>
-        {findProgress && <span class="foot num" role="status">{tr('pdf.buscando', { a: findProgress.done, b: findProgress.total })}{' '}<button type="button" class="btn icon small" aria-label={tr('pdf.cancelar_busqueda')} onClick={() => { finding.current++; setFindProgress(null); }}><X size={14} /></button></span>}
-        {hits.length > 0 && <span class="foot">{tr('pdf.n_paginas', { n: hits.length })}{' '}{hits.slice(0, 8).map((h) => <button type="button" class="link" style={{ minHeight: '24px' }} onClick={() => goTo(h)}>{h} </button>)}</span>}
+        <SearchBox doc={doc} path={props.path} hash={fp.current} seed={seed} onGo={goStable} />
         <span class="grow" />
         <button type="button" class="btn icon small" aria-label={tr('pdf.alejar')} onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}><Minus size={16} /></button>
         <span class="foot num">{Math.round(zoom * 100)} %</span>
@@ -310,7 +310,7 @@ export function PdfViewer(props: { path: string; page?: number }) {
             <button type="button" class="btn small" onClick={() => markSelection('highlight')}><Highlighter size={16} />{' '}{tr('notes.resaltar')}</button>
             <button type="button" class="btn small" onClick={() => setMk('card')}><Sparkles size={16} />{' '}{tr('pdf.crear_tarjeta')}</button>
             <button type="button" class="btn small" onClick={() => setMk('quote')}><Quote size={16} />{' '}{tr('pdf.cita_en_nota')}</button>
-            <button type="button" class="btn small" onClick={() => (setQ(sel.text.slice(0, 60)), setTimeout(() => void find(), 0))}><Search size={16} />{' '}{tr('inbox.buscar')}</button>
+            <button type="button" class="btn small" onClick={() => setSeed({ q: sel.text.slice(0, 60), n: Date.now() })}><Search size={16} />{' '}{tr('inbox.buscar')}</button>
           </>
         )}
         <span class="foot">{mode === 'page' ? `${cur} / ` : ''}{tr('pdf.numpages_pags', { numPages: doc.numPages })}</span>
@@ -334,14 +334,8 @@ export function PdfViewer(props: { path: string; page?: number }) {
           onScroll={onScroll}>
           {mode === 'scroll' && H && <div aria-hidden="true" style={{ height: `${H.top(wFrom, pw)}px` }} />}
           {pages.map((n) => (
-            <Page key={n} doc={doc} n={n} width={pw} ratio={H?.ratio(n) ?? 1.414} slot={mode === 'scroll'} near={mode !== 'scroll' || (n >= near.from && n <= near.to)} focused={n === cur} queue={queue.current} pixels={pixels.current} onRatio={onRatio} ann={ann.pages[n]} annotate={annotate} sticky={sticky} tools={tools} markKind={markKind} finger={app.settings.inkFinger} history={histOf(n)}
-              onInk={(ink, snapped) => {
-                const pg = pageOf(n);
-                if (snapped) { setPage(n, { ...pg, ink, marks: [...pg.marks, snapped] }); histOf(n).undo(); record({ type: 'mark', page: n, id: snapped.id }); }
-                else { setPage(n, { ...pg, ink }); record({ type: 'ink', page: n }); }
-              }}
-              onNote={(x, y) => { const text = prompt(tr('pdf.texto_de_la_nota')); if (!text) return; const st = { id: Date.now().toString(36), x, y, text, ts: Date.now() }; setPage(n, { ...pageOf(n), notes: [...pageOf(n).notes, st] }); record({ type: 'note', page: n, id: st.id }); }}
-              onRemoveNote={(id) => { if (!confirm(tr('pdf.borrar_nota'))) return; setPage(n, { ...pageOf(n), notes: pageOf(n).notes.filter((x) => x.id !== id) }); }} />
+            <Page key={n} doc={doc} n={n} width={pw} renderWidth={renderW} ratio={H?.ratio(n) ?? 1.414} slot={mode === 'scroll'} near={mode !== 'scroll' || (n >= near.from && n <= near.to)} focused={n === cur} queue={queue.current} pixels={pixels.current} prio={cb.prio} onRatio={cb.onRatio} ann={ann.pages[n]} annotate={annotate} sticky={sticky} tools={tools} markKind={markKind} finger={app.settings.inkFinger} history={histOf(n)}
+              onInk={cb.onInk} onNote={cb.onNote} onRemoveNote={cb.onRemoveNote} />
           ))}
           {mode === 'scroll' && H && <div aria-hidden="true" style={{ height: `${H.total(pw) - H.top(wTo + 1, pw) + 10}px` }} />}
           {mode === 'page' && (
@@ -359,12 +353,90 @@ export function PdfViewer(props: { path: string; page?: number }) {
         </Sheet>
       )}
       {mk === 'quote' && sel && <QuoteToNote text={sel.text} src={src} link={pdfLink(props.path, sel.page)} onClose={() => setMk(null)} />}
+      {noteDraft && <NoteSheet onClose={() => setNoteDraft(null)} onSave={(text) => { const { n, x, y } = noteDraft; const st = { id: Date.now().toString(36), x, y, text, ts: Date.now() }; setPage(n, { ...pageOf(n), notes: [...pageOf(n).notes, st] }); record({ type: 'note', page: n, id: st.id }); setNoteDraft(null); }} />}
+      {noteDel && (
+        <Sheet title={tr('pdf.borrar_nota')} onClose={() => setNoteDel(null)}>
+          <div class="stack">
+            <p>{tr('pdfx.borrar_pregunta')}</p>
+            <div class="row"><button type="button" class="btn primary" onClick={() => { const { n, id } = noteDel; setPage(n, { ...pageOf(n), notes: pageOf(n).notes.filter((x) => x.id !== id) }); setNoteDel(null); }}>{tr('pdfx.borrar')}</button><button type="button" class="btn" onClick={() => setNoteDel(null)}>{tr('pdfx.cancelar')}</button></div>
+          </div>
+        </Sheet>
+      )}
       {exporting && (
         <Sheet title={tr('pdf.exportar_anotado')} onClose={() => setExporting(null)}>
           <div class="stack"><p>{tr('decks.name_esta_listo', { name: exporting.name })}</p><button type="button" class="btn primary" onClick={async () => { await deliver(exporting); setExporting(null); }}>{tr('backup.guardar_en_archivos')}</button></div>
         </Sheet>
       )}
     </div>
+  );
+}
+
+/** Nota adhesiva: texto en una hoja (sin `prompt()` nativo, que en iPad bloquea y no deja usar el teclado de la app). */
+function NoteSheet(p: { onSave: (text: string) => void; onClose: () => void }) {
+  const [text, setText] = useState('');
+  const ta = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => ta.current?.focus(), []);
+  return (
+    <Sheet title={tr('pdf.texto_de_la_nota')} onClose={p.onClose}>
+      <div class="stack">
+        <textarea ref={ta} class="input" rows={4} style={{ fontSize: '16px', minHeight: '96px' }} aria-label={tr('pdf.texto_de_la_nota')} value={text} onInput={(e) => setText((e.currentTarget as HTMLTextAreaElement).value)} />
+        <div class="row"><button type="button" class="btn primary" disabled={!text.trim()} onClick={() => p.onSave(text.trim())}>{tr('pdfx.guardar')}</button><button type="button" class="btn" onClick={p.onClose}>{tr('pdfx.cancelar')}</button></div>
+      </div>
+    </Sheet>
+  );
+}
+
+/**
+ * Buscador (Prompt 11): cancelable, cediendo el hilo, con progreso y con el texto en caché
+ * (`.app/cache/pdf-text/<huella>.json`). Tiene su propio `q`: escribir NO re-renderiza el visor.
+ */
+function SearchBox(p: { doc: PDFDoc; path: string; hash: { size: number; hash: string } | null; seed: { q: string; n: number } | null; onGo: (n: number) => void }) {
+  const app = useApp();
+  const [q, setQ] = useState('');
+  const [hits, setHits] = useState<number[]>([]);
+  const [prog, setProg] = useState<{ done: number; total: number } | null>(null);
+  const texts = useRef<{ doc: PDFDoc; t: string[] } | null>(null);
+  const finding = useRef(0);
+  const cacheFile = `.app/cache/pdf-text/${p.hash?.hash ?? 'x'}-${p.hash?.size ?? 0}.json`;
+  const find = async (query: string) => {
+    const token = ++finding.current;
+    const doc = p.doc;
+    if (!query.trim()) return (setHits([]), setProg(null));
+    const nq = query.toLowerCase();
+    let all = texts.current?.doc === doc ? texts.current.t : null;
+    if (!all) {
+      try { const c = JSON.parse(await readTextOr(app.vault, cacheFile, 'null')) as string[] | null; if (Array.isArray(c) && c.length === doc.numPages) all = c; } catch { /* sin caché */ }
+    }
+    if (!all) {
+      const out: string[] = [];
+      for (let i = 1; i <= doc.numPages; i++) {
+        if (token !== finding.current) return; // cancelada (nueva búsqueda o el visor se cerró)
+        const pg = await doc.getPage(i);
+        try {
+          out.push((await pg.getTextContent()).items.map((x) => (x as { str?: string }).str ?? '').join(' ').toLowerCase());
+        } finally {
+          pg.cleanup();
+        }
+        if (i % 4 === 0) { setProg({ done: i, total: doc.numPages }); await new Promise((r) => setTimeout(r, 0)); }
+      }
+      all = out;
+      void app.vault.write(cacheFile, JSON.stringify(out));
+    }
+    texts.current = { doc, t: all };
+    if (token !== finding.current) return;
+    setProg(null);
+    const found = all.flatMap((t, i) => (t.includes(nq) ? [i + 1] : []));
+    setHits(found);
+    if (found[0]) p.onGo(found[0]);
+  };
+  useEffect(() => () => { finding.current++; }, []);
+  useEffect(() => { if (p.seed) { setQ(p.seed.q); void find(p.seed.q); } }, [p.seed]);
+  return (
+    <>
+      <form class="row" onSubmit={(e) => (e.preventDefault(), void find(q))}><input class="input" style={{ width: '140px', minHeight: '44px', fontSize: '16px' }} placeholder={tr('inbox.buscar')} value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} aria-label={tr('pdf.buscar_en_el_pdf')} /><button class="btn icon small" aria-label={tr('inbox.buscar')}><Search size={16} /></button></form>
+      {prog && <span class="foot num" role="status">{tr('pdf.buscando', { a: prog.done, b: prog.total })}{' '}<button type="button" class="btn icon small" aria-label={tr('pdf.cancelar_busqueda')} onClick={() => { finding.current++; setProg(null); }}><X size={14} /></button></span>}
+      {hits.length > 0 && <span class="foot">{tr('pdf.n_paginas', { n: hits.length })}{' '}{hits.slice(0, 8).map((h) => <button type="button" class="link" style={{ minHeight: '44px', minWidth: '44px' }} onClick={() => p.onGo(h)}>{h} </button>)}</span>}
+    </>
   );
 }
 
@@ -502,24 +574,56 @@ const PIXEL_BUDGET = 40_000_000;
 /** Safari solo libera la memoria de un lienzo si se le pone tamaño 0 antes de soltarlo. */
 const freeCanvas = (c: HTMLCanvasElement | null | undefined) => { if (c) { c.width = 0; c.height = 0; c.remove(); } };
 
-function Page(p: { doc: PDFDoc; n: number; width: number; ratio: number; slot: boolean; near: boolean; focused: boolean; queue: RenderQueue; pixels: Map<number, number>; onRatio: (n: number, r: number) => void; ann?: PageAnn; annotate: boolean; sticky: boolean; tools: ReturnType<typeof useInkTools>[0]; markKind: MarkKind; finger: 'pencil' | 'scroll' | 'draw'; history: History; onInk: (ink: InkDoc, snapped?: Mark) => void; onNote: (x: number, y: number) => void; onRemoveNote: (id: string) => void }) {
+type PageProps = { doc: PDFDoc; n: number; width: number; renderWidth: number; ratio: number; slot: boolean; near: boolean; focused: boolean; queue: RenderQueue; pixels: Map<number, number>; prio: (n: number) => number; onRatio: (n: number, r: number) => void; ann?: PageAnn; annotate: boolean; sticky: boolean; tools: ReturnType<typeof useInkTools>[0]; markKind: MarkKind; finger: 'pencil' | 'scroll' | 'draw'; history: History; onInk: (n: number, ink: InkDoc, snapped?: Mark) => void; onNote: (n: number, x: number, y: number) => void; onRemoveNote: (n: number, id: string) => void };
+
+/** `memo`: con callbacks estables, escribir, hacer scroll o cambiar de página no re-renderiza las demás páginas. */
+const Page = memo(function Page(p: PageProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [openNote, setOpenNote] = useState<string | null>(null);
   const size = { w: p.width, h: p.width * p.ratio };
   const lowRes = useRef(false);
-  // Prompt 11: se renderiza al montarse (solo se montan las páginas cercanas), en la cola (2 a la vez,
-  // la central primero) y dentro del presupuesto de píxeles; al desmontarse se libera todo.
+  /** Ancho (px CSS) con el que se pintó el lienzo y la capa de texto; si el diseño cambió, se estiran por CSS. */
+  const drawn = useRef(0);
+  const lt = useRef(size.w);
+  const lr = useRef(p.ratio);
+  lt.current = size.w; // el trabajo de render es asíncrono: lee siempre el diseño más reciente
+  lr.current = p.ratio;
+  const fitText = () => {
+    const tl = ref.current?.querySelector<HTMLDivElement>('.pdf-text');
+    if (!tl || !drawn.current) return;
+    const k = lt.current / drawn.current;
+    tl.style.width = `${drawn.current}px`;
+    tl.style.height = `${drawn.current * lr.current}px`;
+    tl.style.transform = k === 1 ? '' : `scale(${k})`;
+  };
+  // El lienzo y la capa de texto se liberan SOLO al desmontar o salir de la zona cercana
+  // (no ante cada cambio de ancho: eso dejaba un hueco blanco hasta que terminaba el nuevo render).
+  useEffect(() => {
+    const host = ref.current;
+    if (!host || !p.near) return;
+    return () => {
+      freeCanvas(host.querySelector<HTMLCanvasElement>('canvas.page'));
+      const tl = host.querySelector<HTMLDivElement>('.pdf-text');
+      if (tl) tl.innerHTML = '';
+      drawn.current = 0;
+      p.pixels.delete(p.n);
+    };
+  }, [p.near, p.slot]);
+  useEffect(fitText, [size.w, p.ratio]);
+  // Prompt 11: se renderiza en la cola (2 a la vez, la más cercana primero) y dentro del presupuesto de píxeles.
+  // Si cambia el ancho de render, el trabajo viejo se cancela y el lienzo viejo se queda (estirado) hasta tener el nuevo.
   useEffect(() => {
     const host = ref.current;
     if (!host || !p.near) return;
     const id = `p${p.n}`;
-    p.queue.add(id, p.focused ? 0 : 1, async (signal) => {
+    const rw = p.renderWidth;
+    p.queue.add(id, p.focused ? 0 : p.prio(p.n), async (signal) => {
       const lib = await pdfjs();
       const pg = await p.doc.getPage(p.n);
       try {
         const base = pg.getViewport({ scale: 1 });
         p.onRatio(p.n, base.height / base.width);
-        const want = (size.w / base.width) * Math.min(2, devicePixelRatio || 1);
+        const want = (rw / base.width) * Math.min(2, devicePixelRatio || 1);
         const used = [...p.pixels.entries()].reduce((a, [k, v]) => a + (k === p.n ? 0 : v), 0);
         const allowed = fitPixels(base.width * base.height * want * want, used, PIXEL_BUDGET, MAX_PIXELS, p.focused);
         const scale = Math.min(want, Math.sqrt(allowed / (base.width * base.height)));
@@ -530,7 +634,7 @@ function Page(p: { doc: PDFDoc; n: number; width: number; ratio: number; slot: b
         c.height = Math.floor(vp.height);
         const rt = pg.render({ canvas: c, canvasContext: c.getContext('2d')!, viewport: vp } as never);
         signal.addEventListener('abort', () => rt.cancel());
-        await rt.promise;
+        try { await rt.promise; } catch (e) { freeCanvas(c); throw e; }
         if (signal.aborted || !host.isConnected) return freeCanvas(c);
         freeCanvas(host.querySelector<HTMLCanvasElement>('canvas.page'));
         c.className = 'page';
@@ -538,54 +642,56 @@ function Page(p: { doc: PDFDoc; n: number; width: number; ratio: number; slot: b
         p.pixels.set(p.n, c.width * c.height);
         perf.inc('pageRenders');
         const tl = host.querySelector<HTMLDivElement>('.pdf-text')!;
-        tl.innerHTML = '';
-        const cssVp = pg.getViewport({ scale: size.w / base.width });
+        const cssVp = pg.getViewport({ scale: rw / base.width });
         tl.style.setProperty('--scale-factor', String(cssVp.scale));
         tl.style.setProperty('--total-scale-factor', String(cssVp.scale));
-        const TL = (lib as unknown as { TextLayer?: new (o: object) => { render(): Promise<void> } }).TextLayer;
-        if (TL && !signal.aborted) await new TL({ textContentSource: await pg.getTextContent(), container: tl, viewport: cssVp }).render();
+        drawn.current = rw;
+        fitText();
+        const TL = (lib as unknown as { TextLayer?: new (o: object) => { render(): Promise<void>; cancel(): void } }).TextLayer;
+        if (TL && !signal.aborted) {
+          // la capa nueva se arma junto a la vieja y la reemplaza al terminar (sin parpadeo); si se cancela, se descarta
+          const old = [...tl.childNodes];
+          const layer = new TL({ textContentSource: await pg.getTextContent(), container: tl, viewport: cssVp });
+          const stop = () => layer.cancel();
+          signal.addEventListener('abort', stop);
+          try { await layer.render(); old.forEach((x) => x.remove()); } catch { [...tl.childNodes].filter((x) => !old.includes(x)).forEach((x) => x.remove()); }
+          signal.removeEventListener('abort', stop);
+        }
       } finally {
         pg.cleanup();
       }
     });
-    return () => {
-      p.queue.cancel(id);
-      // liberar TODO al salir de la ventana: lienzo (a tamaño 0), capa de texto y cuenta de píxeles
-      freeCanvas(host.querySelector<HTMLCanvasElement>('canvas.page'));
-      const tl = host.querySelector<HTMLDivElement>('.pdf-text');
-      if (tl) tl.innerHTML = '';
-      p.pixels.delete(p.n);
-    };
-  }, [size.w, p.near, p.focused && lowRes.current]);
+    return () => p.queue.cancel(id);
+  }, [p.renderWidth, p.near, p.slot, p.focused && lowRes.current]);
   const ink = p.ann?.ink ?? { v: 1 as const, strokes: [] };
   const inkActive = p.annotate && !p.sticky;
   const onInk = (next: InkDoc) => {
     const added = next.strokes.length === ink.strokes.length + 1 ? next.strokes[next.strokes.length - 1] : null;
     // resaltador inteligente: un trazo de resaltador sobre texto se vuelve una marca ajustada a las líneas
-    if (added?.tool === 'highlighter' && ref.current && size) {
+    if (added?.tool === 'highlighter' && !isFreeMarker(added) && ref.current && size) {
       const xs = added.pts.map((q) => q[0]), ys = added.pts.map((q) => (q[1] * size.w) / size.h);
       const pad = (added.size * 1.5) / size.h;
       const snap = snapToText(charBoxes(ref.current, { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys) - pad, y1: Math.max(...ys) + pad }), { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys) - pad, y1: Math.max(...ys) + pad });
-      if (snap.rects.length) return p.onInk(ink, { id: Date.now().toString(36), kind: p.markKind, color: added.color === '#1c1c1e' ? MARK_COLOR : added.color, rects: snap.rects, text: snap.text, ts: Date.now() });
+      if (snap.rects.length) return p.onInk(p.n, ink, { id: Date.now().toString(36), kind: p.markKind, color: added.color === '#1c1c1e' ? MARK_COLOR : added.color, rects: snap.rects, text: snap.text, ts: Date.now(), ...(p.markKind !== 'highlight' && added.color !== '#1c1c1e' ? { lc: added.color } : {}) });
     }
-    p.onInk(next);
+    p.onInk(p.n, next);
   };
   const page = (
-    <div ref={ref} class="pdf-page" data-page={p.n} data-user-content style={{ width: `${size.w}px`, height: `${size.h}px` }}
-      onClick={(e) => { if (!p.sticky || !size) return; const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); p.onNote((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); }}>
+    <div ref={ref} key={p.slot ? 'in-slot' : 'solo'} class="pdf-page" data-page={p.n} data-user-content style={{ width: `${size.w}px`, height: `${size.h}px` }}
+      onClick={(e) => { if (!p.sticky || !size) return; const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); p.onNote(p.n, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); }}>
       <div class="pdf-text textLayer" />
-      {p.ann?.marks.map((m) => m.rects.map(([x, y, w, hh]) => <div class={`pdf-mark ${m.kind}`} data-mark={m.id} style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: `${w * 100}%`, height: `${hh * 100}%`, '--mk': m.color }} />))}
-      {(p.annotate || ink.strokes.length > 0) && <InkLayer doc={ink} onChange={onInk} history={p.history} width={size.w} height={size.h} active={inkActive} tools={p.tools} finger={p.finger} label={tr('pdf.tinta_pagina_n', { n: p.n })} />}
+      {p.ann?.marks.map((m) => m.rects.map(([x, y, w, hh]) => <div class={`pdf-mark ${m.kind}`} data-mark={m.id} style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: `${w * 100}%`, height: `${hh * 100}%`, '--mk': m.color, ...(m.lc ? { '--mark-c': m.lc } : {}) }} />))}
+      {p.near && (p.annotate || ink.strokes.length > 0) && <InkLayer doc={ink} onChange={onInk} history={p.history} width={size.w} height={size.h} active={inkActive} tools={p.tools} finger={p.finger} label={tr('pdf.tinta_pagina_n', { n: p.n })} />}
       {p.ann?.notes.map((n) => (
         <div class="pdf-sticky" style={{ left: `${n.x * 100}%`, top: `${n.y * 100}%` }}>
           <button type="button" class="pdf-sticky-btn" aria-label={tr('pdf.nota_x', { text: n.text.slice(0, 40) })} onClick={(e) => (e.stopPropagation(), setOpenNote(openNote === n.id ? null : n.id))}><StickyNote size={16} /></button>
-          {openNote === n.id && <div class="pdf-sticky-pop glass strong" onClick={(e) => e.stopPropagation()}><p style={{ whiteSpace: 'pre-wrap' }}>{n.text}</p><button type="button" class="btn icon small" aria-label={tr('pdf.borrar_nota')} onClick={() => p.onRemoveNote(n.id)}><X size={14} /></button></div>}
+          {openNote === n.id && <div class="pdf-sticky-pop glass strong" onClick={(e) => e.stopPropagation()}><p style={{ whiteSpace: 'pre-wrap' }}>{n.text}</p><button type="button" class="btn icon small" aria-label={tr('pdf.borrar_nota')} onClick={() => p.onRemoveNote(p.n, n.id)}><X size={14} /></button></div>}
         </div>
       ))}
       <span class="foot" style={{ position: 'absolute', bottom: '-18px', right: 0 }}>{p.n}</span>
     </div>
   );
   // continuo: cada página va en un hueco de alto conocido (la tabla de alturas manda)
-  return p.slot ? <div class="pdf-slot" style={{ height: `${size.h + 10}px` }}>{page}</div> : page;
-}
+  return p.slot ? <div class="pdf-slot" style={{ height: `${size.h + PAGE_GAP}px` }}>{page}</div> : page;
+});
 

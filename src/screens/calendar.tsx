@@ -3,7 +3,7 @@ import { CalendarPlus, Check, ChevronLeft, ChevronRight, Download, NotebookPen, 
 import { useMemo, useState } from 'preact/hooks';
 import { useExtra } from '../data/extra';
 import { deliver } from '../io/share';
-import { addDays, dayKey, daysBetween, weekdayMon } from '../lib/days';
+import { addDays, dayKey, daysBetween, localDay, weekdayMon } from '../lib/days';
 import { decksForTopic, fmtDate, topicStats } from '../lib/exams';
 import { type EventKind, fromICS, KINDS, occurrences, type StudyBlock, toICS, WEEKDAYS } from '../lib/ics';
 import { addEvent, atMinutes, blankEvent, CAL, deleteOccurrence, editOccurrence, onDate, type Scope } from '../lib/calendar-edit';
@@ -25,10 +25,6 @@ type View = 'mes' | 'semana' | 'dia' | 'agenda';
 type Layer = 'forecast' | 'exams' | 'sims' | 'focus' | 'blocks' | 'tasks' | 'imported';
 const LAYERS = (): [Layer, string][] => ([['forecast', tr('calendar.pronostico')], ['exams', tr('calendar.examenes')], ['sims', tr('calendar.simulacros')], ['focus', tr('calendar.tiempo_y_pomodoro')], ['blocks', tr('calendar.bloques')], ['tasks', tr('calendar.tareas_y_diaria')], ['imported', tr('calendar.importados')]]);
 
-const localDay = (ms: number) => {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
 
 async function loadBlocks(vault: ReturnType<typeof useApp>['vault']) {
   const own = fromICS(await readTextOr(vault, CAL, ''));

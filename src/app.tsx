@@ -22,6 +22,7 @@ import { storageErrorText, takePendingSaves } from './vault/errinfo';
 import { checkIntegrity, type IntegrityReport } from './vault/integrity';
 import { type OpenedVault, reconnectFolder } from './vault/open';
 import { onUpdateReady } from './sw-register';
+import { fetchNovedades, markSeen, type Novedades } from './lib/novedades';
 import { usePomodoro } from './screens/pomodoro';
 import { walk } from './vault/util';
 import { TooltipLayer } from './ui/tooltip';
@@ -60,6 +61,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
   const [sheet, setSheet] = useState<AppCtx['sheet']>(null);
   const [sheetArg, setSheetArg] = useState<string | null>(null);
   const [update, setUpdate] = useState<(() => void) | null>(null);
+  const [nov, setNov] = useState<Novedades | null>(null);
   const [hasData, setHasData] = useState(props.hasData);
   const [inboxCount, setInbox] = useState(0);
   const [preview, setPreview] = useState<{ bg: Settings['bg']; mode: 'dark' | 'light' | null } | null>(null);
@@ -134,7 +136,7 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
     // papelera de mazos: vaciado automático a los N días (Ajustes → Mazos → Papelera)
     autoPurge(vault, settings.deckTrashDays).then((n) => n && setVersion((v) => v + 1), () => {});
     autoPurgeBanks(vault, settings.deckTrashDays).then((n) => n && setVersion((v) => v + 1), () => {}); // bancos: mismos días
-    onUpdateReady((apply) => setUpdate(() => apply));
+    onUpdateReady((apply) => { setUpdate(() => apply); void fetchNovedades(getLang()).then(setNov); });
     // sugerencia discreta con acción: el usuario decide (nunca se activa solo)
     watchFrames(() => !ctxRef.current.settings.lightMode && toast(t('app.el_vidrio_va_lento_en_este'), { label: t('app.activar_modo_ligero'), run: () => ctxRef.current.update({ lightMode: true }) }));
   }, []);
@@ -276,8 +278,13 @@ export function App(props: { opened: OpenedVault; initialSettings: Settings; has
           {update && (
             <div class="banner glass" role="status">
               <RefreshCw size={18} />
-              <span class="k">{t('app.nueva_version_disponible')}</span>
-              <button type="button" class="btn small primary" onClick={update}>{t('app.actualizar')}</button>
+              <span class="k">{t('app.nueva_version_disponible')}
+                {nov && <small class="nov">
+                  {nov.mejoro.length > 0 && <span><b>{t('app.novedades_mejoro')}</b> {nov.mejoro.join(' · ')}</span>}
+                  {nov.nuevo.length > 0 && <span><b>{t('app.novedades_nuevo')}</b> {nov.nuevo.join(' · ')}</span>}
+                </small>}
+              </span>
+              <button type="button" class="btn small primary" onClick={() => { if (nov) markSeen(nov.id); update(); }}>{t('app.actualizar')}</button>
             </div>
           )}
           {ctx.temporary && (

@@ -283,6 +283,8 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 
 .banner { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: var(--r-inner); margin-bottom: 14px; font-size: var(--t-note); }
 .banner .k { flex: 1; }
+.banner .nov { display: grid; gap: 2px; margin-top: 4px; font-size: var(--t-foot); color: var(--t2); line-height: 1.35; }
+.banner .nov b { color: var(--t1); font-weight: 600; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(28px + env(safe-area-inset-bottom) + var(--kb-inset, 0px)); z-index: var(--z-toast); padding: 12px 18px; border-radius: var(--r-pill); font-size: var(--t-note); animation: up .3s var(--spring); max-width: calc(100vw - 32px); }
 /* un aviso sin acción no atrapa toques: no tapa la pastilla del Asistente (que queda debajo, --z-assistant) mientras dura */
 .toast:not(:has(button, a)) { pointer-events: none; }
@@ -433,9 +435,6 @@ html.is-phone .md img[data-align] { float: none; display: block; width: 100% !im
 .minimap-toggle.alone { right: 12px; }
 .pdf-page { margin: 10px auto; position: relative; box-shadow: var(--shadow); background: #fff; }
 .pdf-page canvas { display: block; width: 100%; height: 100%; }
-.pdf-text { position: absolute; inset: 0; line-height: 1; overflow: hidden; }
-.pdf-text span { position: absolute; color: transparent; white-space: pre; transform-origin: 0 0; cursor: text; }
-.pdf-text ::selection { background: rgba(0, 0, 0, .25); }
 .sheet-table { border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
 .sheet-table td, .sheet-table th { border: var(--hair) solid var(--line); padding: 4px 8px; white-space: nowrap; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
 
@@ -765,13 +764,26 @@ mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border
 .ink-layer canvas { position: absolute; left: 0; top: 0; display: block; }
 .ink-base { pointer-events: none; }
 .ink-toolbar { position: sticky; top: calc(env(safe-area-inset-top) + 8px); z-index: var(--z-popover); display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 6px; border-radius: 18px; width: fit-content; max-width: 100%; }
-.ink-grip { display: grid; place-items: center; width: 24px; min-height: 36px; cursor: grab; touch-action: none; color: var(--t3); }
-.ink-colors, .ink-sizes { display: inline-flex; gap: 4px; align-items: center; padding: 0 4px; }
-.ink-swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--glass-strong); padding: 0; }
-.ink-swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--t1); }
+.ink-grip { display: grid; place-items: center; width: 28px; min-height: 44px; cursor: grab; touch-action: none; color: var(--t3); }
+.ink-colors, .ink-sizes, .ink-alphas { display: inline-flex; gap: 0; align-items: center; }
+.ink-sep { align-self: stretch; width: 1px; margin: 8px 4px; background: var(--line); }
+/* objetivos ≥ 44 px dentro de la barra de tinta (el aspecto no cambia: el círculo visible es el de dentro) */
+.ink-toolbar .btn.small, .ink-toolbar .btn.icon.small { min-width: 44px; min-height: 44px; }
+.ink-toolbar .btn.icon.small { width: 44px; height: 44px; padding: 0; }
+.ink-swatch { position: relative; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; background: none; border-radius: 50%; }
+.ink-chip { display: block; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--glass-strong); box-shadow: 0 0 0 1px var(--t3); }
+.ink-swatch[aria-checked="true"] .ink-chip { box-shadow: 0 0 0 2px var(--glass-strong), 0 0 0 4px var(--t1); }
+.ink-prev { display: block; }
 .ink-dot { display: block; border-radius: 50%; background: var(--t1); }
-.ink-sizes [aria-checked="true"], .ink-toolbar [aria-pressed="true"].btn { background: var(--inverse-bg); color: var(--inverse-fg); }
+.ink-sizes [aria-checked="true"], .ink-alphas [aria-checked="true"], .ink-toolbar [aria-pressed="true"].btn { background: var(--inverse-bg); color: var(--inverse-fg); }
 .ink-sizes [aria-checked="true"] .ink-dot { background: var(--inverse-fg); }
+/* estado activo: fondo invertido + barrita (no depende solo del color) */
+.ink-tool { position: relative; }
+.ink-tool[aria-pressed="true"]::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 4px; height: 3px; border-radius: 2px; background: var(--inverse-fg); }
+/* el marcador raya sobre todo: en el visor de PDF su lienzo se mezcla con la página (multiply) */
+.pdf-page .ink-layer { z-index: auto; }
+.pdf-page .ink-layer canvas { z-index: 3; }
+.pdf-page .ink-mk, .pdf-page .ink-live.mk { mix-blend-mode: multiply; }
 /* PDFs (Prompt 5 · C) */
 .pdf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
 .pdf-card { display: grid; grid-template-rows: auto 1fr; overflow: hidden; border-radius: var(--r-inner); }
@@ -787,9 +799,8 @@ mark.hit { background: var(--fill-sel); color: inherit; font-weight: 700; border
 .pdf-mark-item { gap: 6px; }
 .pdf-mark { position: absolute; pointer-events: none; z-index: 1; }
 .pdf-mark.highlight { background: color-mix(in srgb, var(--mk) 45%, transparent); mix-blend-mode: multiply; }
-.pdf-mark.underline { border-bottom: 2px solid #0a5cd6; }
-.pdf-mark.strike::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px solid #c4262e; }
-.pdf-page .ink-layer { z-index: 3; }
+.pdf-mark.underline { border-bottom: 2px solid var(--mark-c, #0a5cd6); } /* --mark-c: color de la marca (Mark.lc); sin él, el de siempre */
+.pdf-mark.strike::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px solid var(--mark-c, #c4262e); }
 .pdf-sticky { position: absolute; z-index: 4; transform: translate(-4px, -4px); }
 .pdf-sticky-btn { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; border: 1px solid rgba(0, 0, 0, .3); background: #ffd60a; color: #222; padding: 0; }
 .pdf-sticky-pop { position: absolute; left: 34px; top: 0; width: 220px; padding: 8px 10px; border-radius: 12px; font-size: var(--t-note); display: flex; gap: 6px; align-items: flex-start; }
@@ -969,3 +980,13 @@ body.focus .dev-sign, body.notes-full .dev-sign { display: none; }
 .swatch[data-color="neutro"] { background: linear-gradient(135deg, transparent 46%, var(--t2) 47%, var(--t2) 53%, transparent 54%), var(--fill-2); }
 .swatch[aria-checked="true"] { box-shadow: 0 0 0 3px var(--t1); }
 .is-phone .sticky-grid { grid-template-columns: 1fr; }
+
+/* Barrido UI: áreas de toque ≥ 44 px sin cambiar el aspecto (pseudo-elemento con inset negativo) */
+:where(.btn.small, .btn.icon.small, button.chip, .tog) { position: relative; } /* especificidad 0: no pisa a los que ya son absolute/fixed */
+.btn.small::before, .btn.icon.small::before { content: ''; position: absolute; inset: -5px; }
+.btn.small:not(.icon)::before { inset: -5px 0; } /* botones de texto: solo en vertical (ya miden > 44 px de ancho) y sin crear desborde horizontal */
+button.chip::before { content: ''; position: absolute; inset: -11px -5px; }
+.tog::before { content: ""; position: absolute; inset: -9px; }
+.pick-hit { display: grid; place-items: center; width: 44px; height: 44px; margin: -11px -7px -11px -11px; flex: none; cursor: pointer; }
+.pick-hit .pick { margin: 0; }
+.exam-opt > label { display: grid; place-items: center; min-width: 44px; min-height: 44px; }

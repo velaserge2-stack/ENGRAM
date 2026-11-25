@@ -41,7 +41,7 @@ Antes de buscar código, consulta `docs/audit/MAPA.md` y lee **solo la sección 
 - Editor de notas: `src/notes/format.ts` (edición pura: marcas, estilos, listas, tablas, bloques), `editorbar.tsx` (barra fija), `history.ts` (deshacer/rehacer), `sources.ts` (orígenes `#pN` al mover).
 - `src/io/` importar (zip, CSV, `.apkg` en Worker: legado, compatibilidad y formato nuevo), extraer texto, compartir · `src/io/apkgexport/` exportar `.apkg` (map/write/sched/worker/sheet) · `src/md/` Markdown seguro.
 - `src/i18n/` idiomas (`index.ts` + `es|en|fr.json`; pseudoidioma `xx` en /design).
-- `src/ink/` motor de tinta (modelo, capa, dibujos) · `src/pdf/` anotaciones y biblioteca · `src/lib/keys.ts` atajos.
+- `src/ink/` motor de tinta (modelo, capa, dibujos; **marcador libre**: se guarda como `highlighter` con `free:true`, lienzo `.ink-mk` con `multiply`) · `src/pdf/` anotaciones y biblioteca · `src/lib/keys.ts` atajos.
 - `src/ui/` kit, gráficas, fondos + guardián, `overlay.tsx` (capas), `tooltip.tsx`, `phonebar.tsx` (barra inferior del teléfono), `pressdrag.tsx` (pulsación larga y arrastrar) · `src/screens/` pantallas. `src/sw.js` plantilla del service worker.
 
 ## Comandos
@@ -83,6 +83,8 @@ Antes de buscar código, consulta `docs/audit/MAPA.md` y lee **solo la sección 
 **Landing real** en `main`: `npm run e2e:welcome`, `npm run e2e:demo`. Los e2e antiguos navegan con `?app`. Planes de pago «Próximamente» (requieren servidor proxy, no construido). Sin probar en Safari/iPad reales.
 
 **Estudio inteligente** en la rama `ei-integra` (desde `main`; no unir sin confirmación; plan en `docs/estudio-inteligente/PLAN.md`): analítica de estudio, exámenes avanzados y Asistente ampliado (roles Tutor/Examinador/Investigador/Creador/Analista, socrático, niveles, contexto desde nota/PDF/mazo, editar notas/tarjetas/bancos/exámenes/calendario, **cambiar ajustes** con vista previa y deshacer, acciones de la app, voz). GREX visible en Estudiar (solo la mascota). `npm run e2e:analitica e2e:examenes2 e2e:asistente2 e2e:acciones e2e:analista`; `npm run bench:analitica`. Sin probar en Safari/iPad/iPhone ni con las APIs reales.
+
+**PDF + anotador + errores menores** en la rama `pdf-integra` (desde `main`; no unir sin confirmación; plan en `docs/pdf-mejoras/PLAN.md`): visor sin hojas en blanco ni trabas (cola de render sin carrera, zoom con escala CSS y debounce, `memo(Page)`, buscador aparte), marcador libre (`isFreeMarker`, `markerExport`), subrayado/tachado con color (`Mark.lc`), áreas de toque de 44 px por CSS (`:where(...)`, sin crear desbordes), barra de actualización con «Mejoró / Nuevo» (`public/novedades.json` + `src/lib/novedades.ts`; **actualizar `novedades.json` en cada versión**; el SW lo deja pasar sin caché). `npm run e2e:pdfvisor` (`node e2e/pdfvisor.mjs`), `node e2e/anotador.mjs`, `node e2e/barrido-ui.mjs`. Sin probar en Safari/iPad/Pencil reales.
 
 ## Skills activas
 Auditoría (Prompt 13): ponytail, systematic-debugging (superpowers), webapp-testing, break-ui, security-review. Etapa 4b: code-simplifier y deslop pendientes (ver `docs/audit/LOG.md`). graphify no instalada (envía contenido a APIs externas si hay clave; ver LOG). Máx. 5–6 a la vez.

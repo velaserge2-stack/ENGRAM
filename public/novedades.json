@@ -1,0 +1,15 @@
+{
+  "id": "2026-11-25",
+  "es": {
+    "mejoro": ["Visor de PDF sin trabas ni hojas en blanco", "Anotador más claro y toques más fáciles"],
+    "nuevo": ["Marcador libre que raya sobre cualquier cosa", "Dominio, predicción y sesiones adaptativas"]
+  },
+  "en": {
+    "mejoro": ["PDF viewer with no lag or blank pages", "Clearer annotator and easier touch targets"],
+    "nuevo": ["Free marker that draws over anything", "Mastery, forecasts and adaptive sessions"]
+  },
+  "fr": {
+    "mejoro": ["Lecteur PDF sans saccades ni pages blanches", "Annotateur plus clair et zones tactiles plus grandes"],
+    "nuevo": ["Marqueur libre qui trace sur n'importe quoi", "Maîtrise, prévisions et séances adaptatives"]
+  }
+}

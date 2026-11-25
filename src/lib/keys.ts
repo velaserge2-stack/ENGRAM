@@ -42,6 +42,7 @@ export const ACTIONS: ActionDef[] = [
   { id: 'sim.mark', scope: 'sim', keys: ['m'] },
   // tinta (PDF y notas)
   { id: 'ink.pen', scope: 'ink', keys: ['p'] },
+  { id: 'ink.marker', scope: 'ink', keys: ['m'] },
   { id: 'ink.highlighter', scope: 'ink', keys: ['h'] },
   { id: 'ink.eraser', scope: 'ink', keys: ['e'] },
   { id: 'ink.undo', scope: 'ink', keys: ['mod+z'] },

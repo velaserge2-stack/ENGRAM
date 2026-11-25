@@ -66,3 +66,19 @@ describe('biblioteca de PDF', () => {
     expect(pdfLink('docs/Guía ECG.pdf', 12)).toBe('#/pdfs/ver/docs/Gu%C3%ADa%20ECG.pdf?p=12');
   });
 });
+
+import { markLineColor } from '../src/pdf/annots';
+describe('marcas: color de la línea y archivos anteriores', () => {
+  it('sin `lc` el subrayado es azul y el tachado rojo, como siempre; con `lc` manda el elegido', () => {
+    expect(markLineColor({ kind: 'underline' })).toBe('#0a5cd6');
+    expect(markLineColor({ kind: 'strike' })).toBe('#c4262e');
+    expect(markLineColor({ kind: 'underline', lc: '#1f8a3c' })).toBe('#1f8a3c');
+  });
+  it('un .annots.json v:1 con tinta, marcas y notas antiguas se lee idéntico (y con un marcador nuevo)', () => {
+    const old = { v: 1, pdf: { size: 10, hash: 'a-b' }, pages: { 1: { rot: 0, ink: { v: 1, strokes: [{ id: 's', tool: 'highlighter', color: '#ffd60a', size: 4, pts: [[0.1, 0.1, 0.5], [0.4, 0.1, 0.5]] }] }, marks: [{ id: 'm', kind: 'underline', color: '#ffd60a', rects: [[0.1, 0.1, 0.2, 0.02]], text: 'x', ts: 1 }], notes: [{ id: 'n', x: 0.5, y: 0.5, text: 'hola', ts: 2 }] } } };
+    expect(parseAnnots(JSON.stringify(old))).toEqual({ ...old, pages: { 1: old.pages[1] } });
+    const withMarker = structuredClone(old) as typeof old;
+    (withMarker.pages[1]!.ink.strokes as unknown[]).push({ id: 'k', tool: 'highlighter', free: true, alpha: 0.4, color: '#ff6fb1', size: 8, pts: [[0, 0, 1], [1, 1, 1]] });
+    expect(parseAnnots(JSON.stringify(withMarker))).toEqual(withMarker);
+  });
+});
