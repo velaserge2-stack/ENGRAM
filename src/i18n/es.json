@@ -1855,6 +1855,7 @@
  "analitica.porque_carga": "Carga pendiente alta: se reduce",
  "analitica.sin_objetivos": "No quedan tarjetas nuevas.",
  "analitica.tope": "Tope {n}",
+ "analitica.cargando": "Calculando…",
  "stickies.abrir": "Abrir",
  "stickies.abrir_en_notas": "Abrir en Notas",
  "stickies.archivadas_n.one": "{n} archivada",

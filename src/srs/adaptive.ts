@@ -5,7 +5,7 @@
 import type { Collection } from '../data/collection';
 import { dayKey } from '../lib/days';
 import { decksForTopic } from '../lib/exams';
-import { relapses, weaknesses } from '../lib/analytics';
+import { cached } from '../lib/analytics';
 import { retrievability, scheduler, State, type SrsParams } from './engine';
 import { buildQueue, type Queue, type StudyLimits } from './queue';
 
@@ -16,9 +16,9 @@ export function buildAdaptiveQueue(col: Collection, failedTopics: string[], now:
   const base = buildQueue(col, null, now, lim, params);
   const f = scheduler(params);
   const today = dayKey(now, lim.tz, lim.dayStartHour);
-  const w = weaknesses(col, now);
+  const w = cached.weaknesses(col, now);
   const weak = new Set(w.cards.map((c) => c.cid));
-  const rel = new Set(relapses(col).map((r) => r.cid));
+  const rel = new Set(cached.relapses(col).map((r) => r.cid));
   const flojo = new Set<string>();
   const topics = [...failedTopics, ...w.topics.slice(0, 3).map((g) => g.key)];
   for (const t of topics) for (const d of decksForTopic(col, t)) for (const c of d.cards) flojo.add(c.cid);

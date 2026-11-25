@@ -1855,6 +1855,7 @@
  "analitica.porque_carga": "High backlog: reduced",
  "analitica.sin_objetivos": "No new cards left.",
  "analitica.tope": "Cap {n}",
+ "analitica.cargando": "Calculating…",
  "stickies.abrir": "Open",
  "stickies.abrir_en_notas": "Open in Notes",
  "stickies.archivadas_n.one": "{n} archived",
