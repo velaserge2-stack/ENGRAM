@@ -1,27 +1,27 @@
 {
-  "id": "2026-11-25b",
+  "id": "2026-11-25c",
   "es": {
     "mejoro": [
-      "Exportar Anki entrega un solo archivo: .apkg, o .zip si incluye historial"
+      "«Leer» en el chat ya suena, igual que en las tarjetas de estudio"
     ],
     "nuevo": [
-      "El .zip incluye historial-repasos.csv y un LEEME"
+      "Dictado con el micrófono del teclado si el del navegador no responde"
     ]
   },
   "en": {
     "mejoro": [
-      "Anki export gives a single file: .apkg, or .zip when it includes history"
+      "Chat «Read» now speaks, same as in study cards"
     ],
     "nuevo": [
-      "The .zip includes historial-repasos.csv and a README"
+      "Dictation via the keyboard mic when the browser's own doesn't respond"
     ]
   },
   "fr": {
     "mejoro": [
-      "L'export Anki donne un seul fichier : .apkg, ou .zip avec l'historique"
+      "« Lire » du chat parle comme dans les cartes d'étude"
     ],
     "nuevo": [
-      "Le .zip inclut historial-repasos.csv et un LISEZ-MOI"
+      "Dictée avec le micro du clavier si celui du navigateur ne répond pas"
     ]
   }
 }

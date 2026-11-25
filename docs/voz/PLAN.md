@@ -1,0 +1,5 @@
+# Voz del chat: «Leer» y dictado (rama `voz-chat`, desde `main`; no unir sin confirmación)
+Alcance: SOLO voz del chat (leer respuestas y dictar). Nada más del chat se toca.
+Bugs (iPad/Safari): (A) «Leer» en el chat no suena; en tarjetas de estudio sí. (B) «Dictar» no detecta nada.
+Investigación: `SpeechRecognition` no está disponible en apps añadidas a la pantalla de inicio de iOS (WebKit 225298), con `continuous` falla en iOS, "Hey Siri" puede bloquear `onresult` en Mac; `speechSynthesis.speak` debe llamarse DENTRO del gesto y `getVoices()` puede estar vacío al primer toque (`voiceschanged` poco fiable). El dictado del sistema (micrófono del teclado de iOS/iPadOS, «Iniciar dictado» en macOS) funciona en cualquier campo de texto.
+Carriles (dueño único): **L · Leer**: `src/chat/voiceout.ts` + su botón en `src/chat/conv.tsx` (única dueña de conv.tsx), tests. **D · Dictado**: `src/chat/voice.ts`, `src/chat/dictbtn.tsx`, estado del dictado en `src/chat/dock.tsx` (solo lo de voz), tests. i18n: L `voz2.*`, D `voz3.*` (tras la última clave `voz.`). Nadie toca `package.json`, `CLAUDE.md` ni nada más de `src/chat`.
