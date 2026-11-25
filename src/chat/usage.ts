@@ -1,4 +1,4 @@
-// Uso local y barra (contrato §7). Puro salvo load/save. Día = UTC (aproximación; manda la cabecera si existe).
+// Uso local y barra (contrato §7). Puro salvo load/save. Día: Gemini = medianoche del Pacífico (como su cuota diaria); demás = UTC. Manda la cabecera si existe (Groq).
 import { isDemo, mem } from '../demo/state';
 import type { Limits, ProviderId } from './providers';
 
@@ -22,11 +22,17 @@ export function saveUsage(u: Usage): void {
   try { localStorage.setItem(USAGE_STORAGE, JSON.stringify(u)); } catch { /* sin acceso */ }
 }
 
-const dayOf = (now: number) => new Date(now).toISOString().slice(0, 10);
+/** Fecha del «día» de cuota: Gemini reinicia RPD a medianoche del Pacífico; los demás, UTC (aproximación). */
+export function dayOf(now: number, p?: ProviderId): string {
+  if (p === 'gemini') {
+    try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(now)); } catch { /* sin zonas horarias: UTC */ }
+  }
+  return new Date(now).toISOString().slice(0, 10);
+}
 
 /** Cuenta una petición; reinicia día y minuto al cambiar. */
-export function record(u: Usage, id: string, tokens: number, now: number): Usage {
-  const day = dayOf(now), t = Math.floor(now / 60_000);
+export function record(u: Usage, id: string, tokens: number, now: number, prov?: ProviderId): Usage {
+  const day = dayOf(now, prov), t = Math.floor(now / 60_000);
   const p = u.perKey[id];
   const d = p && p.day === day ? p : { day, req: 0, tok: 0, min: { t, req: 0, tok: 0 } };
   const m = d.min.t === t ? d.min : { t, req: 0, tok: 0 };
@@ -69,7 +75,7 @@ export function fromHeaders(p: ProviderId, h: H, now = Date.now()): HdrQuota | n
 
 export interface Bar { pct: number; level: 'ok' | 'near' | 'full'; show: boolean; label: string }
 
-export function bar(u: Usage, id: string, limits: Limits, now: number, warnAt = 0.8): Bar {
+export function bar(u: Usage, id: string, limits: Limits, now: number, warnAt = 0.8, p?: ProviderId): Bar {
   const h = u.hdr?.[id];
   let pct = 0;
   if (h && h.resetAt > now && ((h.remainingReq !== undefined && h.limitReq) || (h.remainingTok !== undefined && h.limitTok))) {
@@ -77,7 +83,7 @@ export function bar(u: Usage, id: string, limits: Limits, now: number, warnAt = 
     if (h.remainingTok !== undefined && h.limitTok) pct = Math.max(pct, 1 - h.remainingTok / h.limitTok);
   } else {
     const k = u.perKey[id];
-    if (k && k.day === dayOf(now)) {
+    if (k && k.day === dayOf(now, p)) {
       pct = Math.max(k.req / limits.rpd, limits.tpd ? k.tok / limits.tpd : 0);
       if (k.min.t === Math.floor(now / 60_000)) pct = Math.max(pct, k.min.req / limits.rpm, k.min.tok / limits.tpm);
     }

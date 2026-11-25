@@ -567,7 +567,7 @@ try {
   console.log('GREX · barra');
   await page.keyboard.press('Escape');
   await panel.waitFor({ state: 'detached' });
-  await page.evaluate(() => { const d = new Date().toISOString().slice(0, 10); localStorage.setItem('engrama.chat.usage', JSON.stringify({ v: 1, perKey: { a: { day: d, req: 230, tok: 0, min: { t: 0, req: 0, tok: 0 } } } })); });
+  await page.evaluate(() => { const d = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); localStorage.setItem('engrama.chat.usage', JSON.stringify({ v: 1, perKey: { a: { day: d, req: 230, tok: 0, min: { t: 0, req: 0, tok: 0 } } } })); });
   await page.goto(URL_ + '?app#/hoy');
   const dock = page.locator('.gx-dock');
   await dock.waitFor();

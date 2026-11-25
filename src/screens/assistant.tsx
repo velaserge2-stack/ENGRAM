@@ -114,7 +114,7 @@ export function AssistantBody() {
       <div class="row-i"><div class="k"><strong>{t('chat.claves')}</strong><small>{t('chat.claves_sub', { n: MAX_KEYS })}</small></div></div>
       {!store.keys.length && <Row k={t('chat.sin_claves')} />}
       {store.keys.map((k, i) => {
-        const b = bar(usage, k.id, s.chat.limits[k.provider], Date.now(), s.chat.warnAt);
+        const b = bar(usage, k.id, s.chat.limits[k.provider], Date.now(), s.chat.warnAt, k.provider);
         const tt = test?.id === k.id ? test.kind : null;
         return (
           <div class="row-i chat-key" key={k.id} data-drop={'k:' + k.id} style={{ flexWrap: 'wrap' }} {...pd.bind(k.id)}>

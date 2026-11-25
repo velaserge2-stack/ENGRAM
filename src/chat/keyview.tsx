@@ -80,7 +80,7 @@ export function KeyView(p: { onBack: () => void; onChange: () => void }) {
           <div class="gx-krows" role="radiogroup" aria-label={t('dock.modelo_claves')} ref={rows} onKeyDown={arrows}>
             {keys.map((k) => {
               const ok = usable(k, now), on = k.id === cur?.id;
-              const u = bar(loadUsage(), k.id, app.settings.chat.limits[k.provider], now, app.settings.chat.warnAt);
+              const u = bar(loadUsage(), k.id, app.settings.chat.limits[k.provider], now, app.settings.chat.warnAt, k.provider);
               return (
                 <div class={`gx-krow${ok ? '' : ' off'}`} key={k.id}>
                   <button type="button" role="radio" class="gx-kmain" aria-checked={on} aria-disabled={!ok} tabIndex={on || (!cur && ok) ? 0 : -1} onClick={() => choose(k)}

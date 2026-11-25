@@ -26,7 +26,7 @@ function UsageStrip() {
   return (
     <div class="gx-ustrip glass" role="status" aria-label={t('dock.uso_modelo')}>
       {shown.map((k) => {
-        const b = bar(loadUsage(), k.id, settings.chat.limits[k.provider], now, settings.chat.warnAt);
+        const b = bar(loadUsage(), k.id, settings.chat.limits[k.provider], now, settings.chat.warnAt, k.provider);
         const hot = b.pct >= 0.8, pct = Math.round(b.pct * 100);
         return (
           <span key={k.id} class={`gx-u${k === act ? ' on' : ''}${hot ? ' hot' : ''}`} data-key={k.id} data-provider={k.provider} role="progressbar" aria-label={`${PROVIDERS[k.provider].name}: ${t('chat.uso')} ${b.label}${hot ? ` · ${t('dock.casi_limite')}` : ''}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
