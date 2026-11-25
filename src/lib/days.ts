@@ -134,3 +134,9 @@ export function heatWeeks(first: string | undefined, today: string, full = false
 export function daysBetween(a: string, b: string): number {
   return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86_400_000);
 }
+
+/** "AAAA-MM-DD" del día de calendario en la zona del dispositivo (sin el corte de las 4 h). */
+export const localDay = (ms: number): string => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};

@@ -101,7 +101,7 @@ export function DeckPanel(props: { title?: string; select?: { keys: Set<string>;
         >
           <td>
             <div class="name" style={{ paddingLeft: `${depth * 22}px` }}>
-              {props.select && <input type="checkbox" class="pick" checked={props.select.keys.has(n.key)} aria-label={t('decks.seleccionar_label', { label: n.label })} onClick={(e) => e.stopPropagation()} onChange={() => props.select!.toggle(n.key)} />}
+              {props.select && <label class="pick-hit" onClick={(e) => e.stopPropagation()}><input type="checkbox" class="pick" checked={props.select.keys.has(n.key)} aria-label={t('decks.seleccionar_label', { label: n.label })} onClick={(e) => e.stopPropagation()} onChange={() => props.select!.toggle(n.key)} /></label>}
               {n.deck ? <span style={{ width: '28px', textAlign: 'center' }} aria-hidden="true">{deckEmoji(app, n.deck) || '·'}</span> : (
                 <button type="button" class="tog" aria-expanded={open} aria-label={t(open ? 'decks.contraer_label' : 'decks.expandir_label', { label: n.label })} onClick={(e) => (e.stopPropagation(), setClosed((s) => { const c = new Set(s); c.has(n.key) ? c.delete(n.key) : c.add(n.key); return c; }))}>
                   {open ? '－' : '＋'}
