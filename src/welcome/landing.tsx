@@ -45,7 +45,7 @@ export function Landing(c: Chrome) {
   const [tab, setTab] = useState(0);
   const [filter, setFilter] = useState('todo');
   const ref = useReveal();
-  const fns = Array.from({ length: 19 }, (_, i) => P(`fn${i + 1}`));
+  const fns = Array.from({ length: 33 }, (_, i) => P(`fn${i + 1}`));
   const cats = ['todo', 'repaso', 'notas', 'pdf', 'examenes', 'asistente', 'datos'];
   const shown = fns.filter((f) => filter === 'todo' || f[0] === filter);
   const onTabKey = (e: KeyboardEvent, i: number) => {
@@ -149,10 +149,10 @@ export function Landing(c: Chrome) {
           <h2 class="bv-h2">{K('ia_t')}</h2><p class="bv-lead">{K('ia_s')}</p>
         </div>
         <ul class="bv-caps">
-          {[['eye', 1], ['cards', 2], ['exam', 3], ['note', 4], ['flow', 5], ['cal', 6], ['trash', 7], ['mic', 8]].map(([ic, n]) => { const [h, p, q] = P(`ia${n}`); return (
+          {[['eye', 1], ['cards', 2], ['exam', 3], ['note', 4], ['flow', 5], ['cal', 6], ['trash', 7], ['mic', 8], ['chart', 9], ['note', 10], ['key', 11], ['arrow', 12]].map(([ic, n]) => { const [h, p, q] = P(`ia${n}`); return (
             <li class="bv-glass bv-cardx bv-reveal" key={n}>
               <span class="ico"><Ic n={ic as string} /></span>
-              <h3>{h}{n === 8 && <span class="bv-tg beta">{K('tg_b')}</span>}</h3>
+              <h3>{h}{Number(n) >= 8 && <span class="bv-tg beta">{K('tg_b')}</span>}</h3>
               <p>{p}</p>
               <p class="ask"><b>{K('pidele')}</b> «{q}»</p>
             </li>); })}
