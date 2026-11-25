@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 import { Info } from 'lucide-preact';
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { useExtra } from '../data/extra';
 import { dayKey } from '../lib/days';
 import { srsParams } from '../lib/settings';
@@ -23,6 +23,9 @@ export function Stats() {
   const col = app.col;
   const { data } = useExtra();
   const [how, setHow] = useState(false);
+  // analítica (carril A): se carga al entrar
+  const [An, setAn] = useState<null | typeof import('./analitica')>(null);
+  useEffect(() => { void import('./analitica').then(setAn, () => {}); }, []);
   if (!col) return <p class="t2">{t('deck.cargando')}</p>;
   const now = Date.now();
   const today = dayKey(now, s.timeZone, s.dayStartHour);
@@ -75,6 +78,7 @@ export function Stats() {
         <section class="glass panel"><h2 style={{ fontSize: 'var(--t-3)', marginBottom: '8px' }}>{t('stats.tarjetas_en_riesgo')}</h2>
           {risk.length ? risk.map((r) => <a class="kv" href={href('explorar', `id:${r.cid}`)} style={{ textDecoration: 'none' }}><span class="k ellipsis">{col.byCid.get(r.cid)?.ref.note.front.slice(0, 70)}</span><span class="v">{r.reason}</span></a>) : <p class="t2">{t('stats.ninguna_por_ahora')}</p>}
         </section>
+        {An && col && <An.AnalyticsPanels />}
         <Heatmap act={act} today={today} byDeck={byDeckFn(app)} />
         {/* encabezado sobre el fondo: dentro de vidrio, como el resto de secciones (el guardián lo cubre) */}
         <div class="row glass panel"><h2 style={{ fontSize: 'var(--t-2)' }}>{t('calendar.examenes')}</h2><span class="grow" /><AddExamButton /></div>
