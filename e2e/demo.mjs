@@ -127,19 +127,21 @@ try {
   check(errors.length === 0, '0 errores de consola ' + errors.slice(0, 3).join(' | '));
   check([...hosts].every((h) => h === ORIGIN), 'peticiones solo al servidor propio ' + [...hosts]);
 
-  console.log('— ?demo=1 como página normal (sin sandbox)');
+  console.log('— ?demo=1 FUERA de un iframe: la demo NO arranca y no toca datos reales');
   const p2 = await ctx.newPage(); const e2 = [], h2 = new Set();
   p2.on('console', (m) => m.type() === 'error' && e2.push(m.text())); p2.on('pageerror', (e) => e2.push(String(e)));
   p2.on('request', (r) => { if (!/^(data|blob|about):/.test(r.url())) h2.add(new URL(r.url()).origin); });
-  await p2.goto(ORIGIN + '/?demo=1&theme=light&lang=en#/hoy');
-  await p2.waitForSelector('.gx-pill', { timeout: 15000 });
-  check((await p2.evaluate(() => document.documentElement.dataset.glass)) === 'light', '?theme=light respetado');
-  check((await p2.evaluate(() => document.documentElement.lang || '')).startsWith('en') || (await p2.locator('.gx-ustrip').count()) === 1, '?lang=en aplicado');
-  await p2.waitForTimeout(1500);
-  await p2.evaluate(() => { location.hash = '#/estudiar'; });
-  await p2.waitForTimeout(800);
-  const real = await inspect(p2);
-  check(zero(real), 'página normal: nada persistido ' + JSON.stringify(real));
+  // datos «reales» sembrados en el origen antes de abrir la página
+  await p2.goto(ORIGIN + '/__blank.html');
+  const SEED = JSON.stringify({ v: 1, keys: [{ id: 'real', alias: 'REAL', provider: 'gemini', key: 'AIzaSEED-REAL-0000', status: 'active' }] });
+  await p2.evaluate((v) => localStorage.setItem('engrama.chat.keys', v), SEED);
+  for (const q of ['?demo=1', '?demo=0', '?demo=1&theme=light&lang=en']) {
+    await p2.goto(ORIGIN + '/' + q + '#/hoy');
+    await p2.waitForTimeout(1500);
+    check((await p2.evaluate(() => typeof window.__demoGuard)) === 'undefined', `${q}: la demo no arrancó fuera de un iframe`);
+    check((await p2.locator('.gx-ustrip').count()) === 0 || (await p2.evaluate(() => !!localStorage.getItem('engrama.chat.keys'))), `${q}: sin pastilla de demo con claves falsas`);
+    check((await p2.evaluate(() => localStorage.getItem('engrama.chat.keys'))) === SEED, `${q}: la clave real sigue intacta y sin cambios`);
+  }
   check(e2.length === 0 && [...h2].every((h) => h === ORIGIN), 'página normal: 0 errores y sin red externa ' + e2.slice(0, 2));
 } catch (e) { failed++; console.error(e); }
 await browser.close();

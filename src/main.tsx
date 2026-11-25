@@ -11,7 +11,9 @@ import { walk } from './vault/util';
 import './theme-cristal.css';
 
 let langSet = false;
-const demo = new URLSearchParams(location.search).has('demo'); // modo demo: bóveda en memoria, sin red (src/demo/)
+// modo demo (bóveda en memoria, sin red; src/demo/): SOLO dentro de un iframe y con `?demo=1`. Como página normal no arranca,
+// para que nadie crea que guarda en el origen real (todo se perdería al recargar).
+const demo = new URLSearchParams(location.search).get('demo') === '1' && window.top !== window;
 
 async function boot() {
   trackKeyboard();

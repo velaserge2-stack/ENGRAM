@@ -101,7 +101,9 @@ export async function openDemo(): Promise<{ opened: OpenedVault; settings: Setti
 export function announce(): void {
   // el guardián de legibilidad avisa «Ajustamos el vidrio…» al pintar el fondo: en la demo es ruido
   const msg = t('app.ajustamos_el_vidrio_para_que_se');
-  new MutationObserver(() => document.querySelectorAll<HTMLElement>('.toast').forEach((n) => n.textContent === msg && (n.style.display = 'none'))).observe(document.body, { childList: true, subtree: true });
+  const mo = new MutationObserver(() => document.querySelectorAll<HTMLElement>('.toast').forEach((n) => n.textContent === msg && (n.style.display = 'none')));
+  mo.observe(document.body, { childList: true, subtree: true });
+  setTimeout(() => mo.disconnect(), 15_000); // solo hace falta durante el arranque
   if (parent === window) return;
   const post = (m: object) => parent.postMessage(m, '*');
   addEventListener('hashchange', () => post({ type: 'engrama-demo:route', hash: location.hash }));
