@@ -6,6 +6,8 @@ export type Level = '' | keyof typeof SYSTEM_LEVEL;
 export const ROLE_IDS: readonly RoleId[] = ['tutor', 'examinador', 'investigador', 'creador', 'analista'];
 export const LEVELS: readonly Level[] = ['', 'basica', 'intermedia', 'avanzada', 'clinica'];
 
+import { SYSTEM_ANALISTA, SYSTEM_EXAMINADOR } from './roles-analyst';
+
 export const READ_TOOLS = ['buscar_notas', 'leer_nota', 'leer_pdf', 'listar_mazos', 'leer_mazo', 'listar_examenes', 'ver_calendario'] as const;
 export interface Role {
   system: string;
@@ -19,10 +21,10 @@ export interface Role {
 }
 export const ROLES: Record<RoleId, Role> = {
   tutor: { system: '', tools: null, writes: 'auto', deletes: true, exam: true },
-  examinador: { system: 'Role EXAMINER: quiz the user. Ask ONE question at a time (based on their notes/decks), wait for the answer, then evaluate it (correct / partial / wrong, with a one-line why) before asking the next. Never reveal the solution before the user answers or gives up. You never create or change anything.', tools: READ_TOOLS, writes: 'off', deletes: false, exam: false },
+  examinador: { system: SYSTEM_EXAMINADOR, tools: READ_TOOLS, writes: 'off', deletes: false, exam: false },
   investigador: { system: 'Role RESEARCHER: read-only. Every factual statement MUST carry a citation from this turn\'s tools; a statement you cannot source is not written (say what is missing instead). Compare sources when they differ. You never create or change anything.', tools: READ_TOOLS, writes: 'off', deletes: false, exam: false },
   creador: { system: 'Role CREATOR: the user wants study material built from their sources (cards, questions, notes, diagrams). Read first, then propose it with the creation tools; every proposal needs the user\'s approval.', tools: null, writes: 'force', deletes: false, exam: true },
-  analista: { system: 'Role ANALYST: read decks, exams and the calendar, find weak spots and propose what to review and when. Propose reviews as calendar events or a note; never invent numbers: use only what tools returned.', tools: [...READ_TOOLS, 'agregar_evento', 'modificar_evento', 'crear_nota', 'registrar_examen'], writes: 'auto', deletes: false, exam: false },
+  analista: { system: SYSTEM_ANALISTA, tools: [...READ_TOOLS, 'agregar_evento', 'modificar_evento', 'crear_nota', 'registrar_examen'], writes: 'auto', deletes: false, exam: false },
 };
 
 export interface Prefs { role: RoleId; socratic: boolean; level: Level }

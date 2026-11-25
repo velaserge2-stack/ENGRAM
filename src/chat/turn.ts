@@ -9,6 +9,7 @@ import { SYSTEM, ctxUser } from './system';
 import { DEFAULT_PREFS, composeSystem, filterTools, plan, ROLES, stickyWrite, wantsConvert, writeSubset, type Prefs } from './roles';
 import { loadCtx, type ChatCtx } from './context';
 import type { Proposal } from './proposal';
+import { wantsAction } from './actions';
 import { wantsDelete, wantsWrite } from './proposal';
 import type { Source, ToolCtx } from './tools';
 import type { ToolSet } from 'ai';
@@ -64,9 +65,25 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>, opts: S
       const all = { ...(await import('./tools')).makeTools({ ...env, sources }), ...writeSubset(writeTools, `${sticky ? prevUser + ' ' : ''}${q}`, true), ...(pl.dels && tw ? tw.makeDeleteTools({ ...env, sources, allowed: () => pl.dels, userText: q, propose: propose(pl.dels) }) : {}) };
       tools = filterTools(all, prefs.role) as ToolSet;
       const ex = pl.writes && ROLES[prefs.role].exam ? examMod['./tools-exam.ts'] : undefined;
-      const more = [pl.writes && ROLES[prefs.role].tools === null ? actionMod['./tools-actions.ts'] : undefined, prefs.role !== 'investigador' ? analyticsMod['./tools-analytics.ts'] : undefined];
-      for (const [i, l] of more.entries()) if (l) { try { const mod = await l(); Object.assign(tools, ((i ? (mod as { makeAnalyticsTools?: (c: unknown) => ToolSet }).makeAnalyticsTools : (mod as { makeActionTools?: (c: unknown) => ToolSet }).makeActionTools)?.(wctx)) ?? {}); } catch { /* carril aún no entregado o falló */ } }
-      if (ex) { try { Object.assign(tools, (await ex()).makeExamTools?.(wctx) ?? {}); } catch { /* el carril B aún no la entrega o falló: sin ella */ } }
+      const st = opts.app?.settings;
+      // acciones (pomodoro, sonido, navegar, tareas, stickies): su propio gating; solo proponen
+      const acts = (wantsAction(q) || sticky) && ROLES[prefs.role].tools === null && !!actionMod['./tools-actions.ts'] && !!st;
+      if (acts && st) {
+        try {
+          const { addonOn } = await import('../screens/addons');
+          const mod = await actionMod['./tools-actions.ts']!();
+          Object.assign(tools, mod.makeActionTools?.({ ...wctx, allowed: () => true, propose: propose(true), addon: (id: string) => addonOn(st, id) }) ?? {});
+        } catch { /* sin acciones */ }
+      }
+      // analítica: lectura siempre (salvo Investigador); `aplicar_objetivos` solo propone si el usuario lo pidió
+      if (prefs.role !== 'investigador' && analyticsMod['./tools-analytics.ts'] && st) {
+        try {
+          const { srsParams } = await import('../lib/settings');
+          const goal = { newPerDay: st.newPerDay, reviewLimit: st.reviewLimit, tz: st.timeZone, dayStartHour: st.dayStartHour };
+          Object.assign(tools, (await analyticsMod['./tools-analytics.ts']()).makeAnalyticsTools?.({ ...wctx, params: srsParams(st), goal }) ?? {});
+        } catch { /* sin analítica */ }
+      }
+      if (ex) { try { Object.assign(tools, (await ex()).makeExamTools?.(wctx) ?? {}); } catch { /* sin herramientas de examen */ } }
     }
     const cx = opts.ctx && env ? await loadCtx(env, opts.ctx, sources) : null;
     const last = history[history.length - 1];
