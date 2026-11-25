@@ -65,7 +65,7 @@ try {
   ok((await page.evaluate(() => window.__p)) === 1 || !(await page.evaluate(() => 'onbeforeinstallprompt' in window)), '(g) el botón dispara beforeinstallprompt');
   ok((await page.locator('.bv-inst').innerText()).length < 400, 'Instalar casi vacía');
   // (f) crear cuenta
-  await page.goto(URL_ + '?app#/bienvenida/crear');
+  await page.goto(URL_ + '#/bienvenida/crear');
   await page.getByLabel('Correo').waitFor();
   await page.getByRole('button', { name: 'Continuar' }).click();
   ok(/Escribe tu correo/.test(await page.getByRole('alert').innerText()) && (await page.getByLabel('Correo').getAttribute('aria-invalid')) === 'true', '(f) vacío: error accesible');
@@ -85,9 +85,9 @@ try {
     return s;
   });
   ok(!dump.includes(MAIL) && !reqs.some((u) => u.includes('secreto')), '(f) el correo no queda en almacenamiento, URL ni red');
-  ok(/tu correo no se guarda/.test(await (await ctx.newPage().then(async (p) => { await p.goto(URL_ + '?app#/bienvenida/crear'); return p.locator('.bv-ac-card'); })).innerText()), 'texto honesto bajo el botón');
+  ok(/tu correo no se guarda/.test(await (await ctx.newPage().then(async (p) => { await p.goto(URL_ + '#/bienvenida/crear'); return p.locator('.bv-ac-card'); })).innerText()), 'texto honesto bajo el botón');
   // (h) tema e idiomas
-  await page.goto(URL_ + '?app#/bienvenida');
+  await page.goto(URL_ + '#/bienvenida');
   await page.getByRole('button', { name: 'Tema oscuro' }).first().click();
   ok(await page.locator('.bv-root.dark').count() === 1, '(h) tema oscuro');
   for (const [l, h1, bad] of [['en', /Remember more/, /Recuerda/], ['fr', /Retiens plus/, /Recuerda|Remember/], ['es', /Recuerda más/, /Remember/]]) {
@@ -130,7 +130,7 @@ try {
   for (const [w, h] of [[1366, 1024], [1024, 768], [390, 844]]) {
     for (const dark of [false, true]) {
       ({ ctx, page } = await ctxFor({ viewport: { width: w, height: h }, hasTouch: w < 600 }));
-      await page.goto(URL_ + '?app#/bienvenida');
+      await page.goto(URL_ + '#/bienvenida');
       await page.locator('.bv-root h1').first().waitFor();
       if (dark) await page.getByRole('button', { name: 'Tema oscuro' }).first().click().catch(async () => { await page.locator('.bv-bot .bv-seg button[aria-label="Tema oscuro"]').click(); });
       const noScroll = await page.locator('#bv-root').evaluate((e) => e.scrollWidth <= e.clientWidth + 1);
@@ -142,7 +142,7 @@ try {
         await page.waitForTimeout(250);
         await page.screenshot({ path: `${OUT}${name}-${id}.png` });
       }
-      for (const p of ['crear', 'instalar']) { await page.goto(URL_ + '?app#/bienvenida/' + p); await page.waitForTimeout(300); await page.screenshot({ path: `${OUT}${name}-${p}.png` }); ok(await page.locator('#bv-root').evaluate((e) => e.scrollWidth <= e.clientWidth + 1), `(h) ${w}px ${p}: sin scroll horizontal`); }
+      for (const p of ['crear', 'instalar']) { await page.goto(URL_ + '#/bienvenida/' + p); await page.waitForTimeout(300); await page.screenshot({ path: `${OUT}${name}-${p}.png` }); ok(await page.locator('#bv-root').evaluate((e) => e.scrollWidth <= e.clientWidth + 1), `(h) ${w}px ${p}: sin scroll horizontal`); }
       await ctx.close();
     }
   }

@@ -31,7 +31,8 @@ try {
   const apiHits = [], genKeys = [], js = new Set(), logs = [];
   let mode = 'ok', lmode = 'ok', lrelease = null;
   const listReqs = [];
-  const EX_DATE = new Date(Date.now() + 20 * 864e5).toISOString().slice(0, 10);
+  // el «día» de la app empieza a las 4 a. m. (dayKey): restar 4 h para que «20 días» valga a cualquier hora
+  const EX_DATE = new Date(Date.now() - 4 * 36e5 + 20 * 864e5).toISOString().slice(0, 10);
   const CREATE = {
     cnota: ['crear_nota', { titulo: 'Nota IA ECG', contenido: 'El ECG registra **12 derivaciones**.\n\n<script>window.__x=1</script><b>x</b>', materia: 'Cardio IA', tema: 'ECG' }],
     cmapa: ['crear_diagrama', { tipo: 'mapa', titulo: 'Mapa IA Arritmias', fuente: 'Arritmias\n- Taquicardias\n  - Fibrilación\n- Bradicardias' }],
