@@ -9,7 +9,12 @@ html[class*="acc-"] .gx-avatar, html[class*="acc-"] .gx-mini, html[class*="acc-"
 /* ───── pastilla: una fila fija de 440 × 54 (texto · ⚡ · Dictar · minimizar · GREX) ───── */
 .gx-dock { position: fixed; z-index: var(--z-assistant); left: 50%; transform: translateX(-50%); bottom: calc(var(--chat-sb) + var(--gx-bottom)); width: min(440px, calc(100vw - 24px)); display: grid; justify-items: center; }
 html.kb-open .gx-dock { visibility: hidden; pointer-events: none; }
-body.focus .gx-dock, body.notes-full .gx-dock, body.focus .gx-mini, body.notes-full .gx-mini, body.focus .chat-fab, body.notes-full .chat-fab { display: none; }
+body.notes-full .gx-dock, body.notes-full .gx-mini, body.notes-full .chat-fab { display: none; }
+/* Estudiar (modo concentración): queda solo GREX, abajo a la derecha y por encima de los botones de respuesta */
+body.focus { --gx-bottom: 112px; }
+body.focus .gx-dock { left: auto; right: calc(var(--chat-sr) + 16px); transform: none; width: auto; }
+body.focus .gx-dock > :not(.gx-pw), body.focus .gx-pw > :not(.gx-pill), body.focus .gx-pill > :not(.gx-avatar) { display: none; }
+body.focus .gx-pill { width: auto; height: 56px; padding: 6px; border-radius: 18px; }
 .gx-pill { width: 100%; height: 54px; box-sizing: border-box; display: flex; align-items: center; gap: 4px; padding: 0 6px 0 16px; border-radius: 27px; }
 .gx-ib { width: 44px; height: 44px; border-radius: 50%; border: 0; background: none; color: var(--t2); display: grid; place-items: center; cursor: pointer; flex: none; padding: 0; }
 .gx-ib:hover { background: var(--fill); }
