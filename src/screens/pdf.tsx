@@ -1,4 +1,5 @@
 import { errMsg, t as tr } from '../i18n';
+import { AskButton } from '../chat/ask';
 /**
  * Visor PDF (SPEC §10d + Prompt 5 · C): páginas renderizadas bajo demanda y liberadas fuera
  * de pantalla; escala ≤ 2× y tope de ~16 MP por lienzo (límite de Safari); capa de texto
@@ -301,6 +302,7 @@ export function PdfViewer(props: { path: string; page?: number }) {
         <button type="button" class="btn icon small" aria-label={tr('pdf.indice')} aria-pressed={side === 'outline'} onClick={() => setSide(side === 'outline' ? null : 'outline')}><ListTree size={16} /></button>
         <button type="button" class="btn icon small" aria-label={tr('pdf.resaltados_n', { n: allMarks.length })} aria-pressed={side === 'marks'} onClick={() => setSide(side === 'marks' ? null : 'marks')}><BookOpen size={16} /></button>
         <button type="button" class={`btn small${annotate ? ' primary' : ''}`} aria-pressed={annotate} onClick={() => (setAnnotate(!annotate), setSel(null), setSticky(false))}><PencilLine size={16} />{' '}{tr('pdf.anotar')}</button>
+        <AskButton icon ctx={{ kind: 'pdf', ref: props.path, page: cur }} />
         <button type="button" class="btn icon small" aria-label={tr('pdf.exportar_anotado')} onClick={() => void exportPdf()}><Download size={16} /></button>
         <button type="button" class="btn icon small" aria-label={tr('pdf.exportar_resumen')} onClick={() => void exportMd()}><Quote size={16} /></button>
         {sel && !annotate && (
