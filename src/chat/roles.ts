@@ -33,11 +33,15 @@ export function normPrefs(raw: unknown): Prefs {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Record<keyof Prefs, unknown>>;
   return { role: ROLE_IDS.includes(r.role as RoleId) ? (r.role as RoleId) : 'tutor', socratic: r.socratic === true, level: LEVELS.includes(r.level as Level) ? (r.level as Level) : '' };
 }
+import { isDemo } from '../demo/state';
+
 const KEY = 'engrama.chat.prefs'; // por dispositivo; no toca settings.json
+let memPrefs: Prefs = DEFAULT_PREFS; // demo: solo en memoria, nunca localStorage
 export function loadPrefs(): Prefs {
+  if (isDemo()) return memPrefs;
   try { return normPrefs(JSON.parse(('localStorage' in globalThis && localStorage.getItem(KEY)) || 'null')); } catch { return DEFAULT_PREFS; }
 }
-export function savePrefs(p: Prefs): void { try { if ('localStorage' in globalThis) localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* sin almacenamiento */ } }
+export function savePrefs(p: Prefs): void { if (isDemo()) { memPrefs = p; return; } try { if ('localStorage' in globalThis) localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* sin almacenamiento */ } }
 
 /** ¿Pide convertir una clase/fuente completa en material? (activa convertir_clase fuera del rol Creador.) */
 export const wantsConvert = (text: string): boolean => /\b(clase|lecture|class|cours|temario|syllabus)\b/i.test(text.normalize('NFD').replace(/\p{M}/gu, ''));
