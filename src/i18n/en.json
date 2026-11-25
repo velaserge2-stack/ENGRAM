@@ -2322,5 +2322,6 @@
  "voz.err_capture": "No microphone is available",
  "voz.err_network": "System dictation has no connection right now",
  "voz.err_other": "Could not dictate. Type, or use the keyboard microphone",
- "voz.priv": "🔸 Dictate uses the system's speech recognition (Safari, iPadOS, macOS), not Engrama: audio does not go through the app and is not saved. Depending on your device's Dictation setting, the system may process it on Apple servers."
+ "voz.priv": "🔸 Dictate uses the system's speech recognition (Safari, iPadOS, macOS), not Engrama: audio does not go through the app and is not saved. Depending on your device's Dictation setting, the system may process it on Apple servers.",
+ "demo.chat_resp": "Here are 3 ECG cards for Cardiología. Review them and press Accept if they work. This is a demo: it doesn't use the internet."
 }

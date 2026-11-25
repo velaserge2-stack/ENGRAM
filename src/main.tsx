@@ -11,22 +11,27 @@ import { walk } from './vault/util';
 import './theme-cristal.css';
 
 let langSet = false;
+// modo demo (bóveda en memoria, sin red; src/demo/): SOLO dentro de un iframe y con `?demo=1`. Como página normal no arranca,
+// para que nadie crea que guarda en el origen real (todo se perdería al recargar).
+const demo = new URLSearchParams(location.search).get('demo') === '1' && window.top !== window;
 
 async function boot() {
   trackKeyboard();
   trackPhone();
-  registerSW();
-  const opened = await openVault();
-  const settings = await loadSettings(opened.vault);
+  const d = demo ? await (await import('./demo/boot')).openDemo() : null;
+  if (!d) registerSW();
+  const opened = d?.opened ?? (await openVault());
+  const settings = d?.settings ?? (await loadSettings(opened.vault));
   if (perf.on) void import('./lib/perfhooks').then((m) => m.install(opened.vault)); // solo con ?perf
   setLang(settings.lang || deviceLang());
   langSet = true;
   applyTheme(settings);
-  if (settings.welcomeDone) void requestPersist();
+  if (settings.welcomeDone && !d) void requestPersist();
   const hasData = (await walk(opened.vault, 'decks')).length + (await walk(opened.vault, 'notes')).length > 0;
   const root = document.getElementById('app')!;
   root.textContent = '';
   render(<App opened={opened} initialSettings={settings} hasData={hasData} />, root);
+  if (d) void import('./demo/boot').then((m) => m.announce());
 }
 
 boot().catch((e) => {
