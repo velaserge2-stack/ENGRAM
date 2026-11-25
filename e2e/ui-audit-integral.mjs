@@ -117,7 +117,7 @@ async function boot(w, h) {
 }
 
 let w0 = 0, h0 = 0;
-const goto = async (page, hash) => { await page.goto(URL_ + hash); await page.waitForTimeout(500); };
+const goto = async (page, hash) => { await page.goto(URL_ + '?app' + hash); await page.waitForTimeout(500); };
 const kbSet = (page, px) => page.evaluate((px) => { document.documentElement.style.setProperty('--kb-inset', px + 'px'); document.documentElement.classList.toggle('kb-open', px > 80); }, px);
 
 for (const [w, h] of SIZES) {
