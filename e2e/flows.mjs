@@ -40,12 +40,12 @@ try {
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
 
   // ── Simulacro: importar, corregir dudosa, responder, "cerrar Safari", continuar
-  await page.goto(URL_ + '#/simulacros/importar');
+  await page.goto(URL_ + '?app#/simulacros/importar');
   let fc = page.waitForEvent('filechooser');
   await page.getByText('Elegir archivo').click();
   await (await fc).setFiles(EX + 'simulacros/cardio-parcial.md');
@@ -64,7 +64,7 @@ try {
   await page.waitForTimeout(400);
   const before = await page.getByRole('timer').textContent();
   await page.reload();
-  await page.goto(URL_ + '#/simulacros');
+  await page.goto(URL_ + '?app#/simulacros');
   await page.getByRole('link', { name: 'Continuar simulacro' }).click();
   await page.getByRole('timer').waitFor();
   const answered = await page.locator('.qnav button.answered').count();
@@ -80,10 +80,10 @@ try {
   await page.screenshot({ path: OUT + 'flujo-resultados.png' });
 
   // ── Bandeja: archivos de Plaud → 4 pasos → nota archivada (Prompt 6 · C: add-on apagado por defecto)
-  await page.goto(URL_ + '#/ajustes/addons');
+  await page.goto(URL_ + '?app#/ajustes/addons');
   await page.getByRole('region', { name: 'Add-ons' }).getByRole('switch', { name: 'Bandeja de entrada' }).check();
   await page.waitForTimeout(300);
-  await page.goto(URL_ + '#/bandeja');
+  await page.goto(URL_ + '?app#/bandeja');
   fc = page.waitForEvent('filechooser');
   await page.getByText('Añadir archivos').click();
   await (await fc).setFiles([EX + 'plaud/Clase cardio 12-nov_summary.md', EX + 'plaud/Clase cardio 12-nov_transcript.txt', EX + 'plaud/Clase cardio 12-nov.srt']);
@@ -111,7 +111,7 @@ try {
   check(true, 'editar un bloque de la nota se guarda (autoguardado)');
 
   // ── Espacios: PDF + estudio y abrir un PDF
-  await page.goto(URL_ + '#/espacios');
+  await page.goto(URL_ + '?app#/espacios');
   await newSpace(page, 'PDF + tarjetas', ['PDF', 'Estudio']);
   fc = page.waitForEvent('filechooser');
   await page.getByText('Abrir PDF').click();
@@ -127,7 +127,7 @@ try {
   check(true, 'modo lienzo con ajustar al contenido');
 
   // ── Calendario: crear bloque y exportar .ics
-  await page.goto(URL_ + '#/calendario');
+  await page.goto(URL_ + '?app#/calendario');
   await page.getByRole('button', { name: 'Bloque' }).click();
   await page.getByLabel('Título').fill('Repasar ECG');
   await page.getByRole('button', { name: 'Guardar' }).click();

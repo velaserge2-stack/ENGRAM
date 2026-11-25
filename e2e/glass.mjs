@@ -55,20 +55,20 @@ try {
   const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: 'es-MX' });
   const page = await ctx.newPage();
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   const FONDOS = [['blanco', 'Color sólido #ffffff'], ['negro', 'Color sólido #000000'], ['rayas', 'Rayas'], ['degradado', 'Neón'], ['foto', 'Paisaje']];
   for (const [bg, name] of FONDOS) {
     for (const [modo, label] of [['dark', 'Oscuro'], ['light', 'Claro']]) {
-      await page.goto(URL_ + '#/ajustes');
+      await page.goto(URL_ + '?app#/ajustes');
       await page.locator('.settings').waitFor();
       if (await page.getByRole('button', { name: 'Desplegar todo' }).count()) await page.getByRole('button', { name: 'Desplegar todo' }).click();
       await page.getByRole('radiogroup', { name: 'Fondos' }).getByRole('radio', { name, exact: true }).click();
       await page.getByRole('group', { name: 'Modo del vidrio' }).getByRole('button', { name: label, exact: true }).click();
       await page.waitForTimeout(500);
       for (const [screen, sel] of [['hoy', '.btn:has-text("Añadir examen")'], ['estadisticas', '.btn:has-text("Añadir examen")']]) {
-        await page.goto(URL_ + '#/' + screen);
+        await page.goto(URL_ + '?app#/' + screen);
         await page.locator(sel).first().waitFor();
         await page.locator(sel).first().scrollIntoViewIfNeeded();
         await page.waitForTimeout(900); // el guardián vuelve a pasar
@@ -80,15 +80,15 @@ try {
   }
   // modo ligero: ningún backdrop-filter en ninguna pantalla; intensidad 0 %: desenfoque 0 también en .strong
   const blurs = () => page.evaluate(() => [...document.querySelectorAll('*')].map((e) => getComputedStyle(e).backdropFilter).filter((f) => f && f !== 'none'));
-  await page.goto(URL_ + '#/ajustes');
+  await page.goto(URL_ + '?app#/ajustes');
   await page.locator('.settings').waitFor();
   if (await page.getByRole('button', { name: 'Desplegar todo' }).count()) await page.getByRole('button', { name: 'Desplegar todo' }).click();
   await page.getByRole('switch', { name: 'Modo ligero' }).or(page.getByRole('checkbox', { name: 'Modo ligero' })).first().click();
   await page.waitForFunction(() => !!document.querySelector('.light-mode'));
   let bad = [];
-  for (const r of ['hoy', 'estudiar', 'notas', 'espacios', 'estadisticas', 'calendario', 'ajustes']) { await page.goto(URL_ + '#/' + r); await page.waitForTimeout(600); bad.push(...(await blurs()).map((f) => `${r}: ${f}`)); }
+  for (const r of ['hoy', 'estudiar', 'notas', 'espacios', 'estadisticas', 'calendario', 'ajustes']) { await page.goto(URL_ + '?app#/' + r); await page.waitForTimeout(600); bad.push(...(await blurs()).map((f) => `${r}: ${f}`)); }
   check(!bad.length, `modo ligero: sin backdrop-filter en 7 pantallas${bad.length ? ' (' + bad.slice(0, 3).join(' · ') + ')' : ''}`);
-  await page.goto(URL_ + '#/ajustes');
+  await page.goto(URL_ + '?app#/ajustes');
   await page.locator('.settings').waitFor();
   if (await page.getByRole('button', { name: 'Desplegar todo' }).count()) await page.getByRole('button', { name: 'Desplegar todo' }).click();
   await page.getByRole('switch', { name: 'Modo ligero' }).or(page.getByRole('checkbox', { name: 'Modo ligero' })).first().click();
@@ -103,7 +103,7 @@ try {
   // prefers-reduced-transparency (si el navegador de pruebas lo emula)
   try {
     await page.emulateMedia({ reducedTransparency: 'reduce' });
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     await page.waitForTimeout(600);
     const mq = await page.evaluate(() => matchMedia('(prefers-reduced-transparency: reduce)').matches);
     const n = (await blurs()).length;

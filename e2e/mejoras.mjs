@@ -40,13 +40,13 @@ try {
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
 
   if (only.includes('links')) {
     // segunda nota para vincular
-    await page.goto(URL_ + '#/notas/+nueva');
+    await page.goto(URL_ + '?app#/notas/+nueva');
     const sh = page.locator('.sheet');
     await sh.getByLabel('Materia').fill('Cardiología');
     await sh.getByLabel('Tema o clase').fill('ECG');
@@ -54,7 +54,7 @@ try {
     await page.getByRole('button', { name: 'Crear' }).click();
     await page.locator('.doc').waitFor();
 
-    await page.goto(URL_ + '#/calendario');
+    await page.goto(URL_ + '?app#/calendario');
     await page.getByRole('button', { name: 'Bloque' }).click();
     await page.getByLabel('Título').fill('Repaso ECG');
     for (const [tab, name] of [['Mazos y temas', 'Cardiología'], ['Notas', 'Clase 1 - ECG básico'], ['Notas', 'Ejes']]) {
@@ -68,7 +68,7 @@ try {
     await page.getByRole('button', { name: /Abrir Cardiología, \d+ vencidas/ }).waitFor();
     check(true, 'el día muestra datos vivos del mazo vinculado');
     // renombrar la nota con id no rompe el vínculo
-    await page.goto(URL_ + '#/notas/Cardiología/ECG/Ejes.md');
+    await page.goto(URL_ + '?app#/notas/Cardiología/ECG/Ejes.md');
     await page.getByRole('button', { name: 'Mover a otra materia o tema' }).click();
     await page.locator('.sheet').getByLabel('Título').fill('Ejes eléctricos');
     await page.getByRole('button', { name: 'Renombrar', exact: true }).click();
@@ -76,7 +76,7 @@ try {
     await page.getByRole('tab', { name: 'Eventos' }).click();
     await page.locator('.insp').getByText('Repaso ECG').first().waitFor();
     check(true, 'la nota renombrada muestra el evento en su inspector');
-    await page.goto(URL_ + '#/calendario');
+    await page.goto(URL_ + '?app#/calendario');
     await page.getByRole('button', { name: 'Abrir Ejes eléctricos' }).waitFor();
     check((await page.getByText('enlace roto').count()) === 0, 'renombrar la nota (con id) no rompe el vínculo');
     await page.getByRole('button', { name: 'Iniciar bloque' }).first().click();
@@ -87,7 +87,7 @@ try {
     await page.screenshot({ path: OUT + 'mejora-bloque.png' });
   }
   if (only.includes('notes')) {
-    await page.goto(URL_ + '#/notas/Cardiología/ECG/Clase 1 - ECG básico.md');
+    await page.goto(URL_ + '?app#/notas/Cardiología/ECG/Clase 1 - ECG básico.md');
     await page.locator('.doc').waitFor();
     if (await page.getByRole('button', { name: 'Ocultar explorador' }).count()) await page.getByRole('button', { name: 'Ocultar explorador' }).click();
     if (await page.getByRole('button', { name: 'Ocultar inspector' }).count()) await page.getByRole('button', { name: 'Ocultar inspector' }).click();
@@ -120,7 +120,7 @@ try {
 
   if (only.includes('tray')) {
     // Hoy: minimizar el pomodoro en marcha
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     // («Iniciar bloque» ya pudo dejarlo en marcha)
     const startBtn = page.locator('.pomo').getByRole('button', { name: 'Iniciar', exact: true });
     if (await startBtn.count()) await startBtn.first().click();
@@ -147,7 +147,7 @@ try {
     await page.getByRole('button', { name: /Mostrar paneles cerrados \(1\)/ }).click();
     check(await page.getByRole('button', { name: 'Minimizar Pendientes' }).count() === 1, 'pulsación larga → Cerrar, y se puede volver a mostrar');
     // Espacios: PDF minimizado y restaurado en su lugar
-    await page.goto(URL_ + '#/espacios');
+    await page.goto(URL_ + '?app#/espacios');
     await newSpace(page, 'Repaso', ['Estudio', 'Pomodoro', 'Estadísticas']);
     await page.getByRole('button', { name: 'Minimizar Estadísticas' }).click();
     await page.getByRole('button', { name: /^Estadísticas, minimizado$/ }).waitFor();
@@ -179,7 +179,7 @@ try {
       return { w: i.width, minA };
     }, URL_ + apple);
     check(corners.w === 180 && corners.minA === 255, 'apple-touch-icon 180×180 sin transparencia');
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     const logo = await page.locator('.brand-mark img').evaluate((e) => ({ src: e.getAttribute('src'), w: e.naturalWidth }));
     check(logo.src === 'brand/logo-64.png' && logo.w <= 256, 'la barra superior usa el logo optimizado (no el original de 1254 px)');
     await page.screenshot({ path: OUT + 'mejora-logo.png', clip: { x: 0, y: 0, width: 600, height: 80 } });

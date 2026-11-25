@@ -31,7 +31,7 @@ async function fresh(w = 1180, h = 820) {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   return { ctx, page };
@@ -42,7 +42,7 @@ try {
 
   if (run('perfil')) {
     console.log('Perfil');
-    await page.goto(URL_ + '#/ajustes');
+    await page.goto(URL_ + '?app#/ajustes');
     await openAll(page);
     await page.getByRole('button', { name: /^Perfil/ }).first().click();
     await page.getByRole('heading', { name: 'Perfil', level: 1 }).waitFor();
@@ -55,10 +55,10 @@ try {
     check(await page.locator('.profile-stats > div').count() === 3, 'tres cifras: racha, tarjetas y horas');
     check((await page.locator('.avatar-pill .avatar').innerText()).trim() === 'A', 'sin foto ni emoji, el avatar muestra la inicial');
     await page.reload();
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     await page.getByText(/Hola, Ana/).waitFor();
     check(true, 'Hoy saluda con el nombre y el perfil persiste tras recargar');
-    await page.goto(URL_ + '#/perfil');
+    await page.goto(URL_ + '?app#/perfil');
     await page.getByLabel('Emoji de avatar').fill('🩺');
     await page.getByRole('button', { name: 'Guardar' }).click();
     await page.waitForTimeout(400);
@@ -70,7 +70,7 @@ try {
 
   if (run('papelera')) {
     console.log('Papelera de mazos');
-    await page.goto(URL_ + '#/mazos');
+    await page.goto(URL_ + '?app#/mazos');
     const row = page.locator('tr.swipe-row', { hasText: 'Cardiología' });
     await row.locator('td').first().click({ position: { x: 4, y: 10 } });
     await page.getByRole('button', { name: 'Opciones de Cardiología' }).click();
@@ -113,7 +113,7 @@ try {
       const x = c.getContext('2d'); const g = x.createLinearGradient(0, 0, 1600, 0); g.addColorStop(0, '#203040'); g.addColorStop(1, '#d0c0a0'); x.fillStyle = g; x.fillRect(0, 0, 1600, 900);
       const b = await new Promise((r) => c.toBlob(r, 'image/png')); return [...new Uint8Array(await b.arrayBuffer())];
     });
-    await page.goto(URL_ + '#/ajustes');
+    await page.goto(URL_ + '?app#/ajustes');
     await openAll(page);
     await page.locator('.bg-grid input[type=file]').setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: Buffer.from(png) });
     await page.locator('.bg-layer img').waitFor();
@@ -137,7 +137,7 @@ try {
     await page.reload();
     await page.waitForFunction(() => document.querySelector('.bg-layer img')?.style.getPropertyValue('--bg-zoom') === '1.5', null, { timeout: 10000 });
     check(JSON.stringify(await pos()) === JSON.stringify(p1), 'el encuadre se conserva al volver a abrir la app');
-    await page.goto(URL_ + '#/ajustes');
+    await page.goto(URL_ + '?app#/ajustes');
     await openAll(page);
     await page.getByRole('button', { name: 'Gestionar' }).click();
     await page.getByRole('checkbox', { name: 'Imagen propia' }).click();
@@ -153,7 +153,7 @@ try {
       const c = document.createElement('canvas'); c.width = 300; c.height = 200; c.getContext('2d').fillRect(0, 0, 300, 200);
       const b = await new Promise((r) => c.toBlob(r, 'image/png')); return [...new Uint8Array(await b.arrayBuffer())];
     });
-    await page.goto(URL_ + '#/ajustes');
+    await page.goto(URL_ + '?app#/ajustes');
     await openAll(page);
     await page.getByRole('region', { name: 'Respaldo' }).getByRole('button', { name: /Importar/ }).click();
     await page.locator('.sheet input[type=file]').first().setInputFiles([
@@ -178,7 +178,7 @@ try {
     await st.getByRole('button', { name: 'Borrar definitivamente' }).click();
     await page.waitForTimeout(800);
     await st.getByRole('button', { name: 'Cerrar' }).click();
-    await page.goto(URL_ + '#/notas');
+    await page.goto(URL_ + '?app#/notas');
     await page.getByRole('link', { name: /Con imagen/ }).first().click();
     await page.getByText('Archivo eliminado: usado.png').waitFor();
     check(true, 'la nota muestra «Archivo eliminado» en lugar de una imagen rota');
@@ -186,7 +186,7 @@ try {
 
   if (run('buscar')) {
     console.log('Buscador de notas');
-    await page.goto(URL_ + '#/ajustes');
+    await page.goto(URL_ + '?app#/ajustes');
     await openAll(page);
     await page.getByRole('region', { name: 'Respaldo' }).getByRole('button', { name: /Importar/ }).click();
     await page.locator('.sheet input[type=file]').first().setInputFiles([
@@ -195,7 +195,7 @@ try {
     ]);
     await page.locator('.sheet .btn.primary').filter({ hasText: /Importar/ }).click();
     await page.getByRole('button', { name: 'Listo' }).click();
-    await page.goto(URL_ + '#/notas');
+    await page.goto(URL_ + '?app#/notas');
     const box = page.getByRole('searchbox', { name: /Buscar en todas las notas/ });
     await box.waitFor();
     check(await box.isVisible(), 'barra de búsqueda siempre visible en Notas');
@@ -232,7 +232,7 @@ try {
 
   if (run('calor')) {
     console.log('Mapa de adherencia proporcional');
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     const panel = page.locator('.heat-panel');
     await panel.waitFor();
     const cells = () => panel.locator('.heat .c').count();
@@ -247,7 +247,7 @@ try {
 
   if (run('examen')) {
     console.log('Editor visual de exámenes');
-    await page.goto(URL_ + '#/simulacros');
+    await page.goto(URL_ + '?app#/simulacros');
     await page.getByRole('link', { name: 'Nuevo examen' }).click();
     await page.getByLabel('Título del examen').fill('Repaso rápido');
     await page.getByLabel('Minutos').fill('5');
@@ -289,7 +289,7 @@ try {
     console.log('Espacios conectados');
     // el menú se cierra si la página se desplaza: abrirlo con el botón ya a la vista
     const addMenu = async () => { const b = page.getByRole('button', { name: 'Añadir panel' }); await b.scrollIntoViewIfNeeded(); await page.waitForTimeout(150); await b.click(); await page.getByRole('menu').waitFor(); };
-    await page.goto(URL_ + '#/espacios');
+    await page.goto(URL_ + '?app#/espacios');
     await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
     check(await page.getByLabel('Preajuste').count() === 0, 'crear un espacio ya no ofrece preajustes');
     await page.getByLabel(/Nombre/).fill('Estudio conectado');
@@ -312,14 +312,14 @@ try {
     await panel.locator('.doc textarea').last().click();
     await page.keyboard.type('Escrito en el panel');
     await page.waitForTimeout(700);
-    await page.goto(URL_ + '#/notas/Cardiolog%C3%ADa/Arritmias/Panel%20vivo.md');
+    await page.goto(URL_ + '?app#/notas/Cardiolog%C3%ADa/Arritmias/Panel%20vivo.md');
     await page.getByText('Escrito en el panel').first().waitFor();
     check(true, 'lo escrito en el panel de nota aparece en la pestaña Notas (misma nota en la bóveda)');
     await page.getByRole('button', { name: /Escribe o usa/ }).click();
     await page.locator('.doc textarea').last().click();
     await page.keyboard.type('Y esto desde Notas');
     await page.waitForTimeout(700);
-    await page.goto(URL_ + '#/espacios');
+    await page.goto(URL_ + '?app#/espacios');
     await page.locator('.win', { hasText: 'Panel vivo' }).getByText('Y esto desde Notas').waitFor();
     check(true, 'y al revés: lo escrito en Notas aparece en el panel');
     // mazo como panel: estudiar cuenta igual que en Estudiar
@@ -333,14 +333,14 @@ try {
       await dp.getByRole('button', { name: /^Bien/ }).click();
       await page.waitForTimeout(200);
     }
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     await page.getByText(/Estudiaste 5 tarjetas/).waitFor();
     check(true, 'estudiar 5 tarjetas desde un panel de mazo actualiza Hoy');
     await page.reload();
     await page.getByText(/Estudiaste 5 tarjetas/).waitFor();
     check(true, 'todo sobrevive a recargar');
     // simulacro dentro del panel: misma pantalla, sin salir del espacio
-    await page.goto(URL_ + '#/espacios');
+    await page.goto(URL_ + '?app#/espacios');
     await addMenu();
     await page.getByRole('menuitem', { name: /Simulacro/ }).evaluate((b) => b.click());
     const sp = page.locator('.win', { has: page.locator('.sim-embed') });
@@ -355,7 +355,7 @@ try {
     const today = await page.evaluate(() => { const d = new Date(); return [d.getFullYear(), d.getMonth(), d.getDate(), (d.getDay() + 6) % 7]; });
     const ymd = (k) => { const d = new Date(today[0], today[1], today[2] + k); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
     const mon1 = ymd(7 - today[3]), mon2 = ymd(14 - today[3]), mon3 = ymd(21 - today[3]);
-    await page.goto(URL_ + '#/calendario');
+    await page.goto(URL_ + '?app#/calendario');
     const newEntry = async (title, kind, date, from, to, extra) => {
       await page.getByRole('button', { name: 'Bloque', exact: true }).click();
       const f = page.getByRole('dialog');

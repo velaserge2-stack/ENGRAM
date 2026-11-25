@@ -63,10 +63,10 @@ async function boot(w, h) {
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
-  await page.goto(URL_ + '#/notas');
+  await page.goto(URL_ + '?app#/notas');
   await page.getByRole('button', { name: 'Nueva nota', exact: true }).first().click();
   await page.locator('.sheet').getByLabel('Título').fill('Auditoría');
   await page.locator('.sheet').getByLabel('Título').press('Enter');

@@ -32,10 +32,10 @@ const zip = zipSync({
 try {
   const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: 'es-MX' });
   const page = await ctx.newPage();
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
-  await page.goto(URL_ + '#/mazos');
+  await page.goto(URL_ + '?app#/mazos');
   await page.getByRole('button', { name: 'Importar archivo' }).click();
   await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'intentos.zip', mimeType: 'application/zip', buffer: Buffer.from(zip) });
   await page.locator('.sheet').getByRole('button', { name: 'Importar', exact: true }).click();
@@ -45,7 +45,7 @@ try {
   const rows = page.locator('.attempt-row');
   const titles = async () => (await rows.locator('.k').allTextContents()).map((s) => s.split(' · ')[0].trim());
   const sims = async () => {
-    await page.goto(URL_ + '#/calendario');
+    await page.goto(URL_ + '?app#/calendario');
     // el calendario coloca cada intento en el día local del navegador
     const day = await page.evaluate((ms) => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }, atts[0].startedAt);
     const cell = page.locator(`.day[data-day="${day}"]`).first();
@@ -53,7 +53,7 @@ try {
     await page.waitForTimeout(300);
     return cell.locator('.ev', { hasText: 'Simulacro' }).count();
   };
-  const home = async () => { await page.goto(URL_ + '#/simulacros'); await rows.first().waitFor(); };
+  const home = async () => { await page.goto(URL_ + '?app#/simulacros'); await rows.first().waitFor(); };
 
   check((await sims()) === 3, 'el calendario del día muestra 3 simulacros');
   await home();
@@ -91,7 +91,7 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('.attempt-row').length === 2);
 
   // desde Resultados
-  await page.goto(URL_ + '#/simulacros/resultado/ccc3');
+  await page.goto(URL_ + '?app#/simulacros/resultado/ccc3');
   await page.getByRole('button', { name: 'Borrar este intento' }).click();
   await sheet.getByRole('button', { name: 'Borrar', exact: true }).click();
   await page.waitForFunction(() => location.hash === '#/simulacros' || location.hash === '#/simulacros/');

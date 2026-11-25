@@ -54,13 +54,13 @@ async function fresh() {
   await ctx.addInitScript(PROBE);
   const page = await ctx.newPage();
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   return { ctx, page };
 }
 async function importZip(page, name, buffer) {
-  await page.goto(URL_ + '#/mazos');
+  await page.goto(URL_ + '?app#/mazos');
   await page.getByRole('button', { name: 'Importar archivo' }).click();
   await page.locator('.sheet input[type=file]').first().setInputFiles({ name, mimeType: 'application/zip', buffer });
   await page.locator('.sheet').getByRole('button', { name: 'Importar', exact: true }).click({ timeout: 120000 });
@@ -91,7 +91,7 @@ try {
     console.log('Asa de redimensionar en un panel de nota desplazado');
     const { ctx, page } = await fresh();
     await importZip(page, 'notas.zip', readFileSync(FIX + 'notas.zip'));
-    await page.goto(URL_ + '#/espacios/abrir/' + encodeURIComponent('notes/Perf/Notas/N1.md'));
+    await page.goto(URL_ + '?app#/espacios/abrir/' + encodeURIComponent('notes/Perf/Notas/N1.md'));
     await page.locator('.win').first().waitFor();
     await page.getByRole('group', { name: 'Modo' }).getByRole('button', { name: 'Lienzo' }).click();
     await page.locator('.canvas-plane .win .doc').first().waitFor({ timeout: 60000 });
@@ -118,7 +118,7 @@ try {
     for (const N of ['N1', 'N2', 'N3']) {
       if (run('notas')) {
         console.log(`Pestaña Notas · ${N}`);
-        await page.goto(URL_ + '#/hoy');
+        await page.goto(URL_ + '?app#/hoy');
         await page.waitForTimeout(300);
         const t0 = Date.now();
         await page.goto(URL_ + `#/notas/Perf/Notas/${N}.md`);
@@ -153,13 +153,13 @@ try {
     }
     if (run('panel')) {
       console.log('Panel del lienzo · N2 (dos paneles de la misma nota)');
-      await page.goto(URL_ + '#/espacios/abrir/' + encodeURIComponent('notes/Perf/Notas/N2.md'));
+      await page.goto(URL_ + '?app#/espacios/abrir/' + encodeURIComponent('notes/Perf/Notas/N2.md'));
       await page.locator('.win').first().waitFor();
       await page.getByRole('group', { name: 'Modo' }).getByRole('button', { name: 'Lienzo' }).click();
       const t0 = Date.now();
       await page.locator('.canvas-plane .win .doc [aria-label="Editar bloque"]').last().waitFor({ timeout: 120000 });
       const openMs = Date.now() - t0;
-      await page.goto(URL_ + '#/espacios/abrir/' + encodeURIComponent('notes/Perf/Notas/N2.md'));
+      await page.goto(URL_ + '?app#/espacios/abrir/' + encodeURIComponent('notes/Perf/Notas/N2.md'));
       await page.waitForFunction(() => document.querySelectorAll('.canvas-plane .win .doc').length >= 2, null, { timeout: 120000 });
       await page.waitForTimeout(1500);
       const m0 = await mem(page);
@@ -175,7 +175,7 @@ try {
     console.log('Memoria: 5 min escribiendo y desplazándose en N2');
     const { ctx, page } = await fresh();
     await importZip(page, 'notas.zip', readFileSync(FIX + 'notas.zip'));
-    await page.goto(URL_ + '#/notas/Perf/Notas/N2.md');
+    await page.goto(URL_ + '?app#/notas/Perf/Notas/N2.md');
     await page.locator('.doc [aria-label="Editar bloque"]').last().waitFor({ timeout: 120000 });
     const MIN = Number(process.env.SOAK_MIN || 5), samples = [];
     const t0 = Date.now();
@@ -201,7 +201,7 @@ try {
     const files = {};
     for (const f of imgs) files[`media/${f}`] = new Uint8Array(readFileSync(FIX + f));
     await importZip(page, 'imagenes.zip', Buffer.from(zipSync(files, { level: 0 })));
-    await page.goto(URL_ + '#/espacios');
+    await page.goto(URL_ + '?app#/espacios');
     await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
     await page.locator('.sheet input[name=n]').fill('Imágenes');
     await page.getByRole('button', { name: 'Crear', exact: true }).click();
@@ -213,7 +213,7 @@ try {
     for (const f of imgs) {
       await close();
       const t0 = Date.now();
-      await page.goto(URL_ + '#/espacios/abrir/' + encodeURIComponent(`media/${f}`));
+      await page.goto(URL_ + '?app#/espacios/abrir/' + encodeURIComponent(`media/${f}`));
       await shown();
       await page.evaluate(() => Promise.all([...document.querySelectorAll('.canvas-plane .win img')].map((i) => i.decode().catch(() => {}))));
       R.img[f] = { showMs: Date.now() - t0, ...(await mem(page)), naturalPx: await page.evaluate(() => { const i = document.querySelector('.canvas-plane .win img'); return `${i.naturalWidth}×${i.naturalHeight}`; }) };
@@ -223,7 +223,7 @@ try {
     await close();
     for (const k of [1, 2, 4]) {
       while ((await page.locator('.canvas-plane > .win').count()) < k) {
-        await page.goto(URL_ + '#/espacios/abrir/' + encodeURIComponent(`media/${imgs[(await page.locator('.canvas-plane > .win').count()) + 1]}`));
+        await page.goto(URL_ + '?app#/espacios/abrir/' + encodeURIComponent(`media/${imgs[(await page.locator('.canvas-plane > .win').count()) + 1]}`));
         await page.waitForTimeout(300);
       }
       await shown();
@@ -243,7 +243,7 @@ try {
     const reopen = [];
     for (let i = 0; i < 20; i++) {
       const t0 = Date.now();
-      await page.goto(URL_ + '#/espacios/abrir/' + encodeURIComponent(`media/${imgs[i % 4]}`));
+      await page.goto(URL_ + '?app#/espacios/abrir/' + encodeURIComponent(`media/${imgs[i % 4]}`));
       await shown();
       reopen.push(Date.now() - t0);
       await close();

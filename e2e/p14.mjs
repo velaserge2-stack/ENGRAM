@@ -37,10 +37,10 @@ async function fresh() {
   const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: 'es-MX' });
   const page = await ctx.newPage();
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
-  await page.goto(URL_ + '#/mazos');
+  await page.goto(URL_ + '?app#/mazos');
   await page.getByRole('button', { name: 'Importar archivo' }).click();
   await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'p14.zip', mimeType: 'application/zip', buffer: Buffer.from(VAULT) });
   await page.locator('.sheet').getByRole('button', { name: 'Importar', exact: true }).click();
@@ -98,13 +98,13 @@ try {
     const { ctx, page } = await fresh();
     for (const [label, path] of [['nota', 'notes/P14/Larga.md'], ['PDF', 'docs/guia-ecg.pdf'], ['documento', 'docs/apuntes-neuro.docx'], ['hoja', 'docs/neuro.csv']]) {
       console.log(`Asa de redimensionar · panel de ${label}`);
-      await page.goto(URL_ + '#/espacios');
+      await page.goto(URL_ + '?app#/espacios');
       await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
       await page.locator('.sheet input[name=n]').fill('Asa ' + label);
       await page.getByRole('button', { name: 'Crear', exact: true }).click();
       await page.getByRole('group', { name: 'Modo' }).getByRole('button', { name: 'Lienzo' }).click();
       await page.locator('.canvas-wrap').waitFor();
-      await page.goto(URL_ + '#/espacios/abrir/' + encodeURIComponent(path));
+      await page.goto(URL_ + '?app#/espacios/abrir/' + encodeURIComponent(path));
       await page.locator('.canvas-plane > .win .win-body > *').first().waitFor();
       await page.waitForTimeout(label === 'nota' ? 600 : 1500);
       // tamaño de partida pequeño para que quepa a escala 2
@@ -160,7 +160,7 @@ try {
   if (run('notas')) {
     const { ctx, page } = await fresh();
     console.log('Nota larga: buscar, imprimir, exportar, pestaña + panel y guardado');
-    await page.goto(URL_ + '#/notas/P14/Larga.md');
+    await page.goto(URL_ + '?app#/notas/P14/Larga.md');
     await page.locator('.doc .doc-chunk').first().waitFor();
     await page.waitForFunction(() => document.querySelector('.doc .doc-chunk:nth-child(6) [aria-label="Editar bloque"]'), null, { timeout: 8000 }); // el pintado en reposo completa los tramos
     const nb = await page.locator('.doc [aria-label="Editar bloque"]').count(), nc = await page.locator('.doc .doc-chunk').count();
@@ -200,13 +200,13 @@ try {
     await page.keyboard.type(' añadido');
     await page.keyboard.press('Escape');
     // la misma nota en un panel del lienzo ve el cambio
-    await page.goto(URL_ + '#/espacios/abrir/' + encodeURIComponent('notes/P14/Larga.md'));
+    await page.goto(URL_ + '?app#/espacios/abrir/' + encodeURIComponent('notes/P14/Larga.md'));
     await page.locator('.win .doc').first().waitFor();
     await page.locator('.win .doc').first().getByText('añadido').waitFor({ timeout: 8000 }).catch(() => {}); // el panel pinta el resto en reposo
     check(await page.locator('.win .doc').first().getByText('añadido').count() === 1, 'pestaña y panel comparten el documento (el panel ve lo escrito)');
     await page.waitForTimeout(1200);
     await page.reload();
-    await page.goto(URL_ + '#/notas/P14/Larga.md');
+    await page.goto(URL_ + '?app#/notas/P14/Larga.md');
     await page.locator('.doc .doc-chunk').first().waitFor();
     // lo editado está en el 6.º tramo: se pinta en reposo tras abrir (si se hubiera perdido, no aparece nunca)
     await page.locator('.doc').getByText('añadido').waitFor({ timeout: 8000 }).catch(() => {});
@@ -225,21 +225,21 @@ try {
     // foto de 12 MP (4000×3000) generada en el navegador e importada a media/
     const b64 = await page.evaluate(async () => { const c = new OffscreenCanvas(4000, 3000), x = c.getContext('2d'); const g = x.createLinearGradient(0, 0, 4000, 3000); g.addColorStop(0, '#89a'); g.addColorStop(1, '#234'); x.fillStyle = g; x.fillRect(0, 0, 4000, 3000); const b = await c.convertToBlob({ type: 'image/jpeg', quality: 0.8 }); return await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.readAsDataURL(b); }); });
     const orig = Buffer.from(b64, 'base64');
-    await page.goto(URL_ + '#/mazos');
+    await page.goto(URL_ + '?app#/mazos');
     await page.getByRole('button', { name: 'Importar archivo' }).click();
     await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'foto.zip', mimeType: 'application/zip', buffer: Buffer.from(zipSync({ 'media/foto-12mp.jpg': new Uint8Array(orig) }, { level: 0 })) });
     await page.locator('.sheet').getByRole('button', { name: 'Importar', exact: true }).click();
     await page.waitForTimeout(1000);
     for (let i = 0; i < 3 && (await page.locator('.scrim').count()); i++) { await page.keyboard.press('Escape'); await page.waitForTimeout(200); }
     await page.reload();
-    await page.goto(URL_ + '#/espacios');
+    await page.goto(URL_ + '?app#/espacios');
     await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
     await page.locator('.sheet input[name=n]').fill('Foto');
     await page.getByRole('button', { name: 'Crear', exact: true }).click();
     await page.getByRole('group', { name: 'Modo' }).getByRole('button', { name: 'Lienzo' }).click();
     await page.locator('.canvas-wrap').waitFor();
     const t0 = Date.now();
-    await page.goto(URL_ + '#/espacios/abrir/' + encodeURIComponent('media/foto-12mp.jpg'));
+    await page.goto(URL_ + '?app#/espacios/abrir/' + encodeURIComponent('media/foto-12mp.jpg'));
     const img = page.locator('.canvas-plane .win .img-view img');
     await page.waitForFunction(() => { const i = document.querySelector('.canvas-plane .win .img-view img'); return i && i.complete && i.naturalWidth > 0; }, null, { timeout: 15000 });
     const ms = Date.now() - t0;
@@ -262,7 +262,7 @@ try {
     await page.getByRole('button', { name: 'Cerrar panel' }).first().click();
     await page.waitForTimeout(400);
     check(await page.evaluate(() => window.__blobs()) === 0, 'al cerrar el panel no queda ninguna blob: viva');
-    await page.goto(URL_ + '#/perfil');
+    await page.goto(URL_ + '?app#/perfil');
     await page.getByRole('button', { name: /^Respaldo/ }).first().click();
     await page.getByRole('button', { name: 'Preparar respaldo (.zip)' }).click();
     const dl = page.waitForEvent('download');
@@ -277,7 +277,7 @@ try {
     // mismo flujo en esta rama y en la base: el .md guardado debe ser idéntico byte a byte
     const { ctx, page } = await fresh();
     console.log('Archivo guardado tras editar un bloque');
-    await page.goto(URL_ + '#/notas/P14/Larga.md');
+    await page.goto(URL_ + '?app#/notas/P14/Larga.md');
     await page.locator('.doc [aria-label="Editar bloque"]').nth(100).waitFor();
     await page.locator('.doc [aria-label="Editar bloque"]').nth(100).click();
     await page.locator('.doc textarea').first().press('End');
@@ -287,7 +287,7 @@ try {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(1500);
     // archivo guardado: respaldo .zip → notes/P14/Larga.md (se compara con la rama base, ver DECISIONS)
-    await page.goto(URL_ + '#/perfil');
+    await page.goto(URL_ + '?app#/perfil');
     await page.getByRole('button', { name: /^Respaldo/ }).first().click();
     await page.getByRole('button', { name: 'Preparar respaldo (.zip)' }).click();
     const dl = page.waitForEvent('download');

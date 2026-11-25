@@ -27,13 +27,13 @@ async function fresh(w = 1180, h = 820, opts = {}) {
   page.on('pageerror', (e) => (errors.push(String(e)), process.env.DBG && console.log(e.stack)));
   page.on('console', (m) => (m.type() === 'error' && errors.push(m.text()), process.env.DBG && m.text().startsWith('DBG') && console.log('    ' + m.text())));
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   return { ctx, page };
 }
 async function newNote(page, title) {
-  await page.goto(URL_ + '#/notas');
+  await page.goto(URL_ + '?app#/notas');
   await page.getByRole('button', { name: 'Nueva nota', exact: true }).first().click();
   await page.locator('.sheet').getByLabel('Título').fill(title);
   await page.locator('.sheet').getByLabel('Título').press('Enter');
@@ -221,7 +221,7 @@ try {
     console.log('Mover párrafos');
     const { ctx, page } = await fresh();
     // la nota de ejemplo tiene tarjetas vinculadas a sus párrafos
-    await page.goto(URL_ + '#/notas/' + encodeURI('Cardiología/ECG/Clase 1 - ECG básico.md'));
+    await page.goto(URL_ + '?app#/notas/' + encodeURI('Cardiología/ECG/Clase 1 - ECG básico.md'));
     await page.locator('.doc').waitFor();
     const before = await markdown(page);
     const blocks = await page.locator('[data-block]').count();
@@ -311,7 +311,7 @@ try {
   if (run('lienzo')) {
     console.log('Panel de nota en Espacios');
     const { ctx, page } = await fresh();
-    await page.goto(URL_ + '#/espacios');
+    await page.goto(URL_ + '?app#/espacios');
     await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
     await page.locator('.sheet input[name=n]').fill('Notas');
     await page.getByRole('button', { name: 'Crear', exact: true }).click();
@@ -359,13 +359,13 @@ try {
     const { ctx, page } = await fresh();
     await newNote(page, 'Pseudo');
     const h0 = (await box(page)).h;
-    await page.goto(URL_ + '#/design');
+    await page.goto(URL_ + '?app#/design');
     await page.getByRole('button', { name: 'Pseudo +40 %' }).click();
-    await page.goto(URL_ + '#/notas/' + encodeURI('Pseudo.md'));
+    await page.goto(URL_ + '?app#/notas/' + encodeURI('Pseudo.md'));
     await page.locator('.editorbar').waitFor();
     const r = await page.locator('.editorbar').evaluate((e) => ({ h: Math.round(e.getBoundingClientRect().height), page: document.documentElement.scrollWidth <= innerWidth }));
     check(r.h === h0 && r.page, `con textos un 40 % más largos la barra sigue en un renglón (${r.h} px) y la página sin scroll horizontal`);
-    await page.goto(URL_ + '#/design');
+    await page.goto(URL_ + '?app#/design');
     await page.getByRole('button', { name: 'ES', exact: true }).click();
     await ctx.close();
   }
