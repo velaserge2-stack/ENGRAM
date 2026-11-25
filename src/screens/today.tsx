@@ -1,5 +1,5 @@
 import { locale, t, tn } from '../i18n';
-import { BarChart3, BookOpen, CalendarRange, CheckCheck, CheckSquare, StickyNote, Flame, GraduationCap, Layers, ListTodo, Share2, Timer } from 'lucide-preact';
+import { BarChart3, BookOpen, CalendarRange, CheckCheck, CheckSquare, StickyNote, Flame, GraduationCap, Layers, ListTodo, Share2, Target, Timer } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
 import { addonOn } from './addons';
 import { Minimizable, Tray, type TrayItem, useHoyTray } from '../ui/tray';
@@ -56,6 +56,9 @@ export function Today() {
   const stickyOn = addonOn(s, 'sticky-notes');
   const [Stickies, setStickies] = useState<null | typeof import('../stickies/tile')>(null);
   useEffect(() => { if (stickyOn && !Stickies) void import('../stickies/tile').then(setStickies, () => {}); }, [stickyOn]);
+  // analítica (carril A): «Sesión adaptativa» y «Objetivos de hoy»
+  const [An, setAn] = useState<null | typeof import('./analitica')>(null);
+  useEffect(() => { void import('./analitica').then(setAn, () => {}); }, []);
   const openShare = () => void import('../share/sheet').then((m) => setShare(() => m.ShareSheet), () => app.toast(t('share.error')));
   const ITEMS: Record<string, TrayItem> = {
     pomodoro: { id: 'pomodoro', label: t('today.pomodoro'), icon: <Timer size={20} />, live: rem, liveLabel: t(app.pomo.state.running ? 'tray.restantes' : 'tray.restantes_pausa', { rem }) },
@@ -63,6 +66,7 @@ export function Today() {
     pendientes: { id: 'pendientes', label: t('today.pendientes'), icon: <ListTodo size={20} />, live: String(pend?.total ?? 0), liveLabel: t('today.n_pendientes', { n: pend?.total ?? 0 }) },
     hecho: { id: 'hecho', label: t('today.hecho_hoy'), icon: <CheckCheck size={20} /> },
     calor: { id: 'calor', label: t('today.mapa_de_adherencia'), icon: <CalendarRange size={20} /> },
+    adaptativa: { id: 'adaptativa', label: t('analitica.objetivos_hoy'), icon: <Target size={20} /> },
     mazos: { id: 'mazos', label: t('decks.mazos'), icon: <Layers size={20} /> },
   };
   if (stickyOn) ITEMS.sticky = { id: 'sticky', label: t('stickies.titulo'), icon: <StickyNote size={20} /> };
@@ -122,6 +126,7 @@ export function Today() {
             <KV k={t('today.conteo_de_otra_vez')} v={done?.again ?? 0} />
           </section></>}</Minimizable>
         </div>
+        {An && <div class="span-all"><Minimizable id="adaptativa" label={t('analitica.objetivos_hoy')} tray={tray}>{(b) => <>{b}<An.AdaptiveTile exams={data?.exams ?? []} /></>}</Minimizable></div>}
         {stickyOn && Stickies && <div class="span-all"><Minimizable id="sticky" label={t('stickies.titulo')} tray={tray}>{(b) => <div class="mh">{b}<Stickies.StickiesTile /></div>}</Minimizable></div>}
         {s.addons.heatmap !== false && <div class="span-all"><Minimizable id="calor" label={t('today.mapa_de_adherencia')} tray={tray}>{(b) => <div class="mh">{b}<Heatmap act={act} today={today} byDeck={byDeckFn(app)} /></div>}</Minimizable></div>}
       </div>
