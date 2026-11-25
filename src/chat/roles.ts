@@ -60,7 +60,7 @@ export function composeSystem(prefs: Prefs, o: { writes: boolean; dels: boolean;
 
 /** Escritura «pegajosa»: un «sí / hazlo / dale» corto tras una oferta de crear o editar (o tras una propuesta) mantiene las herramientas. */
 const YES = /^\s*(si|yes|yep|ok|okay|dale|hazlo|hazla|adelante|claro|va|venga|vale|perfecto|por favor|tambien|ademas|also|go ahead|do it|sure|oui|d'accord|vas-y|fais-le)\b/;
-const OFFER = /\b(crear|creo|creare|hacer|hago|hacerlo|proponer|propongo|editar|edito|agregar|anadir|anado|etiquetar|modificar|modifico|cambiar|create|propose|edit|add|tag|change|modify|proposer|creer|modifier|ajouter)\b/;
+const OFFER = /\b(cre[ae]\w*|creo|hacer|hago|hacerlo|proponer|propongo|editar|edito|agregar|anadir|anado|etiquetar|modificar|modifico|cambiar|create|propose|edit|add|tag|change|modify|proposer|creer|modifier|ajouter)\b/;
 export function stickyWrite(q: string, prev: { assistant?: string; proposed: boolean }): boolean {
   const n = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   const u = n(q);

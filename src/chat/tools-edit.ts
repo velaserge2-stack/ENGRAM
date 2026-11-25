@@ -143,8 +143,12 @@ export function makeEditTools(ctx: WriteCtx): ToolSet {
         // las preguntas nuevas se validan con el mismo constructor que «crear_examen» y se reanudan tras las existentes
         const built = buildExam('x', undefined, (preguntas ?? []).slice(0, MAX_QUESTIONS));
         if (isBad(built)) return built;
-        const old = parseBankMarkdown(f.text, ''), add = parseBankMarkdown(built.contenido, '').questions.map((q, i) => ({ ...q, n: old.questions.length + i + 1 }));
-        const body = parseFrontmatter(serializeBank({ ...old, minutes: clampMinutes(old.minutes ?? 60), questions: add })).body.trim();
+        const old = parseBankMarkdown(f.text, ''), add = parseBankMarkdown(built.contenido, '').questions;
+        // el serializador numera por posición: se serializa banco+nuevas y se toma solo la cola que las nuevas añaden
+        const ser = (qs: typeof add) => parseFrontmatter(serializeBank({ ...old, minutes: clampMinutes(old.minutes ?? 60), questions: qs.map((q, i) => ({ ...q, n: i + 1 })) })).body;
+        const head = ser(old.questions), full = ser([...old.questions, ...add]);
+        if (!full.startsWith(head)) return { error: 'formato', detail: 'No se pudo numerar las preguntas nuevas.' } as Bad;
+        const body = full.slice(head.length).trim();
         const next = setKeys(f.text.replace(/\s*$/, '') + '\n\n' + body + '\n', { origen: 'ia' });
         const chk = parseBankMarkdown(next, '');
         if (chk.questions.length !== old.questions.length + add.length || chk.questions.some((q) => q.problems.length)) return { error: 'formato', detail: 'El banco no queda válido con esas preguntas.' } as Bad;

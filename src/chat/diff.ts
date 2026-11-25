@@ -1,6 +1,7 @@
 // Diferencia legible entre dos textos: líneas quitadas («− ») y añadidas («+ ») entre el prefijo y el sufijo comunes, con una línea de contexto.
 export const MAX_DIFF = 40;
 export function diffLines(a: string, b: string): string[] {
+  if (a === b) return [];
   const x = a.split('\n'), y = b.split('\n');
   let i = 0;
   while (i < x.length && i < y.length && x[i] === y[i]) i++;
