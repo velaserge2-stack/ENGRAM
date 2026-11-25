@@ -1,5 +1,6 @@
 import { Minus, Square, Zap } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { modalOpen } from '../ui/overlay';
 import { t } from '../i18n';
 import { useApp } from '../state';
 import { getStatus, messages } from './history';
@@ -49,8 +50,9 @@ export function Dock(p: { ms: MascotState; avatarRef: Ref<HTMLButtonElement>; on
   // táctil: ⚡ abre la pestaña; tocar fuera o Esc la cierran (editando se queda hasta «Listo»)
   useEffect(() => {
     if (!q && !edit && mode === 'acc') return;
-    const away = (e: Event) => { if (!root.current?.contains(e.target as Node)) { if (!(e.target as Element).closest?.('.popover')) { setQ(false); setEdit(false); setMode('acc'); } } };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('.popover')) { setQ(false); setEdit(false); setMode('acc'); e.stopPropagation(); root.current?.querySelector<HTMLElement>('.gx-avatar')?.focus(); } };
+    const away = (e: Event) => { if (modalOpen()) return; // una hoja encima (p. ej. «Añadir clave») no cierra la pestaña
+      if (!root.current?.contains(e.target as Node)) { if (!(e.target as Element).closest?.('.popover')) { setQ(false); setEdit(false); setMode('acc'); } } };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !modalOpen() && !document.querySelector('.popover')) { setQ(false); setEdit(false); setMode('acc'); e.stopPropagation(); root.current?.querySelector<HTMLElement>('.gx-avatar')?.focus(); } };
     document.addEventListener('pointerdown', away);
     document.addEventListener('keydown', esc, true);
     return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc, true); };
