@@ -30,14 +30,14 @@ async function fresh(w = 1180, h = 820) {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   return { ctx, page };
 }
 const FIX = new URL('../tests/fixtures/apkg/', import.meta.url).pathname;
 const openImport = async (page) => {
-  await page.goto(URL_ + '#/mazos');
+  await page.goto(URL_ + '?app#/mazos');
   await page.getByRole('button', { name: 'Importar archivo' }).click();
   await page.locator('.sheet').waitFor();
 };
@@ -74,7 +74,7 @@ try {
     await page.waitForURL(/#\/mazos$/);
     await page.locator('tr[data-drop="Medicina/Cardio/ECG"]').waitFor();
     check(true, '«Ver mazos» lleva a la pestaña Mazos y ahí están');
-    await page.goto(URL_ + '#/estudiar/decks/Medicina/Cardio/ECG.md');
+    await page.goto(URL_ + '?app#/estudiar/decks/Medicina/Cardio/ECG.md');
     await page.locator('.study-card').waitFor();
     await page.getByRole('button', { name: /Mostrar respuesta/ }).click();
     await page.getByRole('group', { name: 'Calificación' }).getByRole('button', { name: /^Bien/ }).click();

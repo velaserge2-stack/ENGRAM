@@ -25,7 +25,7 @@ async function fresh() {
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('request', (r) => requests.push(r.url()));
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   return { ctx, page };
@@ -37,7 +37,7 @@ try {
   // importa el fixture, exporta (con/sin historial), reimporta en un contexto nuevo y compara
   async function roundTrip(history) {
     const { ctx, page } = await fresh();
-    await page.goto(URL_ + '#/mazos');
+    await page.goto(URL_ + '?app#/mazos');
     await page.getByRole('button', { name: 'Exportar Anki' }).waitFor();
     if (history) check(!requests.some((u) => /\.wasm|worker/.test(u) && !/opfs|search|thumb/.test(u)), 'sin abrir la hoja no se pide sql.js ni el exportador');
     await page.getByRole('button', { name: 'Importar archivo' }).click();
@@ -62,7 +62,7 @@ try {
     await ctx.close();
 
     const b = await fresh();
-    await b.page.goto(URL_ + '#/mazos');
+    await b.page.goto(URL_ + '?app#/mazos');
     await b.page.getByRole('button', { name: 'Importar archivo' }).click();
     await b.page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'x.apkg', mimeType: 'application/octet-stream', buffer: bytes });
     await b.page.locator('.sheet .import-sum').waitFor({ timeout: 30000 });
@@ -86,11 +86,11 @@ try {
     const { ctx, page } = await fresh();
     const SHOTS = process.env.SHOTS || '';
     for (const lang of ['fr', 'xx']) {
-      await page.goto(URL_ + '#/design');
+      await page.goto(URL_ + '?app#/design');
       await page.getByRole('button', { name: lang === 'fr' ? 'FR' : /pseudo/i }).first().click();
       for (const [w, h] of [[1024, 768], [390, 844]]) {
         await page.setViewportSize({ width: w, height: h });
-        await page.goto(URL_ + '#/mazos');
+        await page.goto(URL_ + '?app#/mazos');
         await page.locator('.footer-pills button:has(svg.lucide-package-open)').click();
         const sheet = page.locator('.sheet');
         await sheet.waitFor();

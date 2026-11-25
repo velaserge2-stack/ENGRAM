@@ -44,12 +44,12 @@ try {
   await ctx.addInitScript(PROBE);
   const page = await ctx.newPage();
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
-  await page.goto(URL_ + '#/ajustes/addons');
+  await page.goto(URL_ + '?app#/ajustes/addons');
   await page.getByRole('region', { name: 'Add-ons' }).getByRole('switch', { name: 'Sonido ambiente' }).check();
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await page.getByRole('button', { name: 'Sonido ambiente' }).click();
   const sh = page.getByRole('dialog', { name: 'Sonido ambiente' });
 
@@ -116,7 +116,7 @@ try {
   await page.evaluate(() => (window.__reject = null));
 
   // lienzo con 2 paneles: el mini no tapa minimapa, «Ajustar», dock ni el botón del minimapa; capturas claro/oscuro
-  await page.goto(URL_ + '#/espacios');
+  await page.goto(URL_ + '?app#/espacios');
   await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
   await page.locator('.sheet input[name=n]').fill('Música');
   await page.getByRole('button', { name: 'Crear', exact: true }).click();
@@ -124,7 +124,7 @@ try {
   for (let i = 0; i < 2; i++) { await page.getByRole('button', { name: 'Añadir panel', exact: true }).click(); await page.getByRole('menuitem', { name: 'Añadir panel Pomodoro', exact: true }).evaluate((x) => x.click()); await page.waitForTimeout(200); }
   const lienzo = page.url();
   for (const [m, label] of [['claro', 'Claro'], ['oscuro', 'Oscuro']]) {
-    await page.goto(URL_ + '#/ajustes');
+    await page.goto(URL_ + '?app#/ajustes');
     await page.locator('.settings').waitFor();
     if (await page.getByRole('button', { name: 'Desplegar todo' }).count()) await page.getByRole('button', { name: 'Desplegar todo' }).click();
     await page.getByRole('group', { name: 'Modo del vidrio' }).getByRole('button', { name: label, exact: true }).click();

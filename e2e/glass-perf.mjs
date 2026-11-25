@@ -52,7 +52,7 @@ try {
   if (EXP) await ctx.addInitScript((css) => addEventListener('DOMContentLoaded', () => document.head.append(Object.assign(document.createElement('style'), { textContent: css }))), EXP);
   const page = await ctx.newPage();
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   // fondo: «foto» de 2400 px (ruido de color + formas: se comprime y difumina como una foto)
@@ -62,7 +62,7 @@ try {
     for (let i = 0; i < 400; i++) { x.fillStyle = `hsla(${(i * 37) % 360} 60% ${30 + (i % 50)}% / .35)`; x.beginPath(); x.arc((i * 97) % 2400, (i * 53) % 1600, 20 + (i % 90), 0, 7); x.fill(); }
     const b = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.85)); return [...new Uint8Array(await b.arrayBuffer())];
   });
-  await page.goto(URL_ + '#/ajustes');
+  await page.goto(URL_ + '?app#/ajustes');
   await page.locator('.settings').waitFor();
   if (await page.getByRole('button', { name: 'Desplegar todo' }).count()) { await page.getByRole('button', { name: 'Desplegar todo' }).click(); await page.waitForTimeout(300); }
   await page.locator('.bg-grid input[type=file]').setInputFiles({ name: 'foto.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(jpg) });
@@ -71,7 +71,7 @@ try {
   await page.waitForTimeout(800);
 
   console.log('(a) Hoy con fondo de foto');
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   await page.waitForTimeout(1200);
   R.hoy = { glass: await glassCount(page), ...(await traced(page, () => fpsWhile(page, 'const s = document.scrollingElement; s.scrollTop = (i % 60 < 30 ? (i % 30) : 30 - (i % 30)) * 20;'))) };
@@ -79,7 +79,7 @@ try {
   await page.screenshot({ path: OUT + `glass-hoy-${process.env.PERF_LABEL || 'actual'}.png` });
 
   console.log('(b) Espacios: 4 paneles, paneo y zoom');
-  await page.goto(URL_ + '#/espacios');
+  await page.goto(URL_ + '?app#/espacios');
   await page.getByRole('button', { name: 'Nuevo espacio' }).first().click();
   await page.locator('.sheet input[name=n]').fill('Vidrio');
   await page.getByRole('button', { name: 'Crear', exact: true }).click();
@@ -102,13 +102,13 @@ try {
 
   console.log('(c) Notas: nota larga');
   const larga = '# Larga\n\n' + Array.from({ length: 400 }, (_, i) => (i % 6 === 2 ? `| A | B |\n|---|---|\n| ${i} | fila ${i} |` : i % 6 === 4 ? `> [!note] Nota ${i}\n> texto del callout ${i}` : `Párrafo ${i}: el electrocardiograma muestra ritmo sinusal, eje normal y ondas sin alteraciones en la derivación ${i % 12}.`)).join('\n\n') + '\n';
-  await page.goto(URL_ + '#/mazos');
+  await page.goto(URL_ + '?app#/mazos');
   await page.getByRole('button', { name: 'Importar archivo' }).click();
   await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'n.zip', mimeType: 'application/zip', buffer: Buffer.from(zipSync({ 'notes/Vidrio/Larga.md': strToU8(larga) }, { level: 0 })) });
   await page.locator('.sheet').getByRole('button', { name: 'Importar', exact: true }).click();
   await page.waitForTimeout(1000);
   for (let i = 0; i < 3 && (await page.locator('.scrim').count()); i++) { await page.keyboard.press('Escape'); await page.waitForTimeout(200); }
-  await page.goto(URL_ + '#/notas/Vidrio/Larga.md');
+  await page.goto(URL_ + '?app#/notas/Vidrio/Larga.md');
   await page.locator('.doc').waitFor();
   await page.waitForTimeout(1200);
   R.notas = { glass: await glassCount(page), ...(await traced(page, () => fpsWhile(page, `let el = document.querySelector('.doc'); while (el && !(el.scrollHeight > el.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement; el = el || document.scrollingElement; el.scrollTop += (i % 120 < 60 ? 40 : -40);`))) };

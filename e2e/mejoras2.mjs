@@ -45,20 +45,20 @@ try {
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
 
   if (only.includes('lang')) {
-    await page.goto(URL_ + '#/ajustes');
+    await page.goto(URL_ + '?app#/ajustes');
     await openAll(page);
     const grp = page.getByRole('group', { name: 'Idioma' });
     await grp.getByRole('button', { name: 'English' }).click();
     await page.getByRole('heading', { name: 'Settings', level: 1 }).waitFor({ timeout: 3000 });
     check(await page.evaluate(() => document.documentElement.lang) === 'en', 'cambio instantáneo a inglés, <html lang="en">');
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     await page.getByRole('heading', { name: 'Today', level: 1 }).waitFor();
-    await page.goto(URL_ + '#/ajustes');
+    await page.goto(URL_ + '?app#/ajustes');
     await openAll(page);
     await page.getByRole('group', { name: 'Language' }).getByRole('button', { name: 'Français' }).click();
     await page.getByRole('heading', { name: 'Réglages', level: 1 }).waitFor({ timeout: 3000 });
@@ -72,14 +72,14 @@ try {
     check(true, 'Automático vuelve al idioma del dispositivo (es-MX)');
 
     // pseudoidioma +40 %: nada se desborda ni se recorta
-    await page.goto(URL_ + '#/design');
+    await page.goto(URL_ + '?app#/design');
     await page.getByRole('group', { name: 'Idioma de prueba' }).getByRole('button', { name: 'Pseudo +40 %' }).click();
     await page.waitForTimeout(300);
     const fails = [];
     for (const w of [1366, 1024, 834]) {
       await page.setViewportSize({ width: w, height: w === 834 ? 1194 : 768 });
       for (const r of SCREENS) {
-        await page.goto(URL_ + '#/' + r);
+        await page.goto(URL_ + '?app#/' + r);
         await page.waitForTimeout(350);
         const res = await page.evaluate(() => {
           const out = [];
@@ -100,7 +100,7 @@ try {
     check(fails.length === 0, 'pseudoidioma +40 % sin desbordes en ' + SCREENS.length + ' pantallas × 3 anchos' + (fails.length ? ': ' + fails.join(', ') : ''));
     await page.screenshot({ path: OUT + 'mejora2-pseudo.png' });
     await page.setViewportSize({ width: 1180, height: 820 });
-    await page.goto(URL_ + '#/design');
+    await page.goto(URL_ + '?app#/design');
     await page.getByRole('button', { name: 'ES', exact: true }).click();
   }
 
@@ -123,11 +123,11 @@ try {
       await d.waitFor({ state: 'detached' });
     };
     // Papelera de Notas (antes quedaba dentro del explorador)
-    await page.goto(URL_ + '#/notas');
+    await page.goto(URL_ + '?app#/notas');
     await page.getByRole('button', { name: 'Papelera' }).click();
     await dialogOk('Papelera de Notas');
     // Ajustes del mazo desde Hoy
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     const row = page.locator('tr').filter({ hasText: 'Cardiología' }).first();
     await row.click({ position: { x: 300, y: 10 } });
     await page.getByRole('button', { name: /^Opciones de/ }).first().click();
@@ -140,7 +140,7 @@ try {
     check(true, 'tocar fuera cierra el modal');
 
     // Lienzo: 6 paneles sin solaparse; tocar uno lo trae al frente
-    await page.goto(URL_ + '#/espacios');
+    await page.goto(URL_ + '?app#/espacios');
     await newSpace(page, 'Capas');
     await page.getByRole('group', { name: 'Modo' }).getByRole('button', { name: 'Lienzo' }).click();
     for (const n of ['Pomodoro', 'Estadísticas', 'Imagen', 'PDF', 'Documento', 'Hoja']) await addPanel(page, n);
@@ -159,7 +159,7 @@ try {
 
   if (only.includes('minall')) {
     // simulacro en marcha
-    await page.goto(URL_ + '#/simulacros/importar');
+    await page.goto(URL_ + '?app#/simulacros/importar');
     const fc = page.waitForEvent('filechooser');
     await page.getByText('Elegir archivo').click();
     await (await fc).setFiles(EX + 'simulacros/cardio-parcial.md');
@@ -172,7 +172,7 @@ try {
     await page.keyboard.press('a');
     await page.waitForTimeout(400);
 
-    await page.goto(URL_ + '#/espacios');
+    await page.goto(URL_ + '?app#/espacios');
     await newSpace(page, 'Todo', ['Estudio', 'Pomodoro', 'Estadísticas']);
     await page.locator('.win').first().waitFor();
     check(await page.getByRole('button', { name: 'Minimizar Estudio' }).count() === 1, 'la sesión de estudio tiene botón de minimizar');
@@ -197,7 +197,7 @@ try {
     await page.locator('.dock').getByRole('button', { name: 'Restaurar todos' }).click();
     await page.waitForTimeout(300);
     // Hoy: el panel de mazos también se minimiza
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     await page.getByRole('button', { name: 'Minimizar Mazos' }).click();
     await page.getByRole('button', { name: /^Mazos, minimizado/ }).waitFor();
     await page.getByRole('button', { name: /^Mazos, minimizado/ }).click();
@@ -206,7 +206,7 @@ try {
   }
 
   if (only.includes('tips')) {
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     await page.waitForTimeout(300);
     const tip = page.locator('.tooltip');
     const info = () => tip.evaluate((el) => { const r = el.getBoundingClientRect(); return { text: el.textContent, inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, z: getComputedStyle(el).zIndex }; });
@@ -248,7 +248,7 @@ try {
     await page.keyboard.press('Escape');
     // ningún botón solo-icono sin nombre ni con title nativo
     for (const r of ['hoy', 'notas', 'espacios', 'estudiar', 'calendario']) {
-      await page.goto(URL_ + '#/' + r);
+      await page.goto(URL_ + '?app#/' + r);
       await page.waitForTimeout(300);
       const bad = await page.evaluate(() => [...document.querySelectorAll('button, a[href]')].filter((b) => b.getClientRects().length && ((!b.textContent.trim() && !b.getAttribute('aria-label')) || b.hasAttribute('title'))).map((b) => b.outerHTML.slice(0, 80)));
       check(bad.length === 0, `#/${r}: todo botón solo-icono tiene nombre y ninguno usa title nativo` + (bad.length ? ': ' + bad.join(' | ') : ''));

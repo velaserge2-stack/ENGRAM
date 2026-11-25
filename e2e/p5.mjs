@@ -31,7 +31,7 @@ async function fresh(w = 1180, h = 820) {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   return { ctx, page };
@@ -43,7 +43,7 @@ try {
   if (run('sonido')) {
     console.log('Sonido ambiente');
     check(await page.getByRole('button', { name: 'Sonido ambiente' }).count() === 0, 'apagado por defecto: sin icono en la barra');
-    await page.goto(URL_ + '#/ajustes/addons');
+    await page.goto(URL_ + '?app#/ajustes/addons');
     await page.getByRole('region', { name: 'Add-ons' }).getByRole('switch', { name: 'Sonido ambiente' }).check();
     const btn = page.getByRole('button', { name: 'Sonido ambiente' });
     await btn.waitFor();
@@ -70,7 +70,7 @@ try {
 
   if (run('tinta')) {
     console.log('Motor de tinta');
-    await page.goto(URL_ + '#/design');
+    await page.goto(URL_ + '?app#/design');
     const surf = page.locator('.ink-demo .ink-live');
     await surf.waitFor();
     const count = async () => Number(await page.getByTestId('ink-count').innerText());
@@ -125,7 +125,7 @@ try {
       for (let l = 0; l < 30; l++) pg.drawText(`Pagina ${i} linea ${l + 1}: la fibrilacion auricular no tiene ondas P y el ritmo es irregular.`, { x: 60, y: 780 - l * 22, size: 11, font });
     }
     const bytes = Buffer.from(await pdf.save());
-    await page.goto(URL_ + '#/pdfs');
+    await page.goto(URL_ + '?app#/pdfs');
     await page.locator('input[type=file][accept*="pdf"]').setInputFiles({ name: 'Cardiologia 120.pdf', mimeType: 'application/pdf', buffer: bytes });
     await page.locator('.pdf-card').first().waitFor();
     check(await page.locator('.pdf-card img').first().waitFor({ timeout: 15000 }).then(() => true), 'la biblioteca muestra el PDF con miniatura');
@@ -189,7 +189,7 @@ try {
 
   if (run('manuscrito')) {
     console.log('Notas manuscritas');
-    await page.goto(URL_ + '#/notas/+nueva');
+    await page.goto(URL_ + '?app#/notas/+nueva');
     const f = page.getByRole('dialog', { name: 'Nueva nota' });
     await f.getByLabel('Materia').fill('Fisiología');
     await f.getByLabel('Tema o clase').fill('Renal');
@@ -239,13 +239,13 @@ try {
     console.log('Atajos de teclado y mando');
     // mazo de 25 tarjetas nuevas (sin tocar la pantalla para repasar)
     const deck = '---\ndeck: Teclado\nnew_per_day: 40\n---\n' + Array.from({ length: 25 }, (_, i) => `Q:: Pregunta ${i + 1}\nA:: Respuesta ${i + 1} ^tk${i + 1}`).join('\n\n') + '\n';
-    await page.goto(URL_ + '#/ajustes');
+    await page.goto(URL_ + '?app#/ajustes');
     await openAll(page);
     await page.getByRole('region', { name: 'Respaldo' }).getByRole('button', { name: /Importar/ }).click();
     await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'Teclado.md', mimeType: 'text/markdown', buffer: Buffer.from(deck) });
     await page.locator('.sheet .btn.primary').filter({ hasText: /Importar/ }).click();
     await page.getByRole('button', { name: 'Listo' }).click();
-    await page.goto(URL_ + '#/estudiar/decks/Teclado.md');
+    await page.goto(URL_ + '?app#/estudiar/decks/Teclado.md');
     await page.locator('.study-card').waitFor();
     await page.locator('body').click({ position: { x: 2, y: 2 } }).catch(() => {});
     const before = await page.evaluate(() => document.querySelectorAll('.study-card').length);
@@ -255,11 +255,11 @@ try {
       await page.keyboard.press(i % 5 === 4 ? '4' : '3');
       await page.waitForTimeout(120);
     }
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     await page.getByText(/Estudiaste 20 tarjetas/).waitFor({ timeout: 8000 });
     check(before === 1, 'estudiar 20 tarjetas solo con el teclado (Espacio, 3, 4) sin tocar la pantalla');
     // clicker (PageDown = mostrar o Bien) y mando simulado (A = mostrar/Bien, B = Otra vez)
-    await page.goto(URL_ + '#/estudiar/decks/Teclado.md');
+    await page.goto(URL_ + '?app#/estudiar/decks/Teclado.md');
     await page.locator('.study-card').waitFor();
     const q1 = await page.locator('.study-card').innerText();
     await page.keyboard.press('PageDown');
@@ -283,16 +283,16 @@ try {
     check(await page.getByRole('button', { name: /Mostrar respuesta/ }).count() === 1, 'mando: B = Otra vez (califica y pasa a la siguiente)');
     void q2;
     // reasignar «Bien» a «b» y que persista
-    await page.goto(URL_ + '#/ajustes/atajos');
+    await page.goto(URL_ + '?app#/ajustes/atajos');
     await page.getByRole('button', { name: 'Cambiar tecla de «Bien»' }).click();
     await page.keyboard.press('b');
     await page.getByRole('button', { name: 'Restablecer «Bien»' }).waitFor(); // guardado en .app/atajos.json
     await page.waitForTimeout(1500);
     await page.reload();
-    await page.goto(URL_ + '#/ajustes/atajos');
+    await page.goto(URL_ + '?app#/ajustes/atajos');
     await page.getByRole('region', { name: /Atajos/ }).waitFor();
     check((await page.getByRole('button', { name: 'Restablecer «Bien»' }).count()) === 1 && (await page.locator('.key-row', { has: page.getByRole('button', { name: 'Restablecer «Bien»' }) }).locator('kbd').allInnerTexts()).join() === 'B', 'reasignar una tecla y que persista tras recargar (.app/atajos.json)');
-    await page.goto(URL_ + '#/estudiar/decks/Teclado.md');
+    await page.goto(URL_ + '?app#/estudiar/decks/Teclado.md');
     await page.locator('.study-card').waitFor();
     await page.keyboard.press('Space');
     await page.getByRole('group', { name: 'Calificación' }).getByRole('button', { name: /^Bien/ }).waitFor();
@@ -304,7 +304,7 @@ try {
     await page.waitForTimeout(250);
     check(await page.locator('.study-card').innerText() !== q3, 'y «b» califica Bien');
     // escribir en una nota no dispara ningún atajo
-    await page.goto(URL_ + '#/notas/+nueva');
+    await page.goto(URL_ + '?app#/notas/+nueva');
     const f = page.getByRole('dialog', { name: 'Nueva nota' });
     await f.getByLabel('Materia').fill('Atajos');
     await f.getByLabel('Tema o clase').fill('Prueba');
@@ -331,7 +331,7 @@ try {
   if (run('ipad')) {
     console.log('Barra superior en iPad');
     await page.setViewportSize({ width: 1024, height: 768 });
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     await page.locator('.seg-nav').waitFor();
     await page.waitForTimeout(300);
     check(await page.locator('.seg-nav').evaluate((n) => n.scrollWidth <= n.clientWidth + 1), 'a 1024 px se ven todas las secciones, PDFs incluida');

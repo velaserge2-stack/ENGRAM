@@ -36,10 +36,10 @@ try {
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
-  await page.goto(URL_ + '#/mazos');
+  await page.goto(URL_ + '?app#/mazos');
   await page.getByRole('button', { name: 'Importar archivo' }).click();
   await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'bancos.zip', mimeType: 'application/zip', buffer: Buffer.from(zip) });
   await page.locator('.sheet').getByRole('button', { name: 'Importar', exact: true }).click();
@@ -50,7 +50,7 @@ try {
   const names = async () => (await banks.locator('.k').allTextContents()).map((s) => s.trim()).sort();
   const sheet = page.locator('.sheet');
   const trashBtn = page.getByRole('button', { name: /^Papelera de bancos/ });
-  await page.goto(URL_ + '#/simulacros');
+  await page.goto(URL_ + '?app#/simulacros');
   await banks.first().waitFor();
 
   check((await banks.count()) === 2, 'se listan los 2 bancos');
@@ -97,15 +97,15 @@ try {
   await del.click();
   await sheet.getByRole('button', { name: 'Mover a la papelera' }).click();
   await trashBtn.waitFor();
-  await page.goto(URL_ + '#/simulacros/resultado/old1');
+  await page.goto(URL_ + '?app#/simulacros/resultado/old1');
   await page.getByText('Borrar este intento').waitFor();
   check(!(await page.getByText('No se encontró el intento').count()), 'el intento viejo sigue abriéndose');
-  await page.goto(URL_ + '#/simulacros/hacer');
+  await page.goto(URL_ + '?app#/simulacros/hacer');
   await page.getByText('¿Qué arteria se ocluye?').first().waitFor({ timeout: 5000 }).then(() => check(true, 'el simulacro en curso continúa'), () => check(false, 'el simulacro en curso continúa'));
 
   // recarga y persistencia
   await page.reload();
-  await page.goto(URL_ + '#/simulacros');
+  await page.goto(URL_ + '?app#/simulacros');
   await banks.first().waitFor();
   check((await names()).join() === B && (await trashBtn.textContent()).includes('(1)'), 'tras recargar: sigue en la papelera');
 

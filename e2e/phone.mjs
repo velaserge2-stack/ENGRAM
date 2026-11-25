@@ -40,7 +40,7 @@ async function open(w, h, opts = {}) {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   await page.clock.setFixedTime(FIXED);
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: /bóveda de ejemplo|sample vault|coffre d’exemple/i }).click();
   await page.locator('h1').first().waitFor();
   await page.mouse.move(1, 1); // fuera de cualquier botón: sin ayudas emergentes ni :hover
@@ -57,7 +57,7 @@ async function settle(page) {
 }
 
 async function go(page, r) {
-  await page.goto(URL_ + '#/' + r);
+  await page.goto(URL_ + '?app#/' + r);
   if (MODE === 'baseline' || MODE === 'compare') await page.reload(); // carga limpia: la píldora de la sección activa no viene animándose
   await page.locator('h1').first().waitFor().catch(() => {});
   await page.mouse.move(1, 1);

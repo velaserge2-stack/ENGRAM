@@ -53,7 +53,7 @@ let failed = 0;
 try {
   const ctx = await browser.newContext({ locale: 'es-MX', viewport: { width: 1180, height: 820 } });
   const page = await ctx.newPage();
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   for (const bg of ['blanco', 'negro', 'rayas', 'degradado', 'foto']) {

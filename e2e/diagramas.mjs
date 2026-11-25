@@ -29,7 +29,7 @@ async function fresh(viewport = { width: 1180, height: 1500 }) {
   page.on('pageerror', (e) => errors.push('pageerror: ' + e));
   page.on('console', (m) => m.type() === 'error' && errors.push('console: ' + m.text()));
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   return { ctx, page };
@@ -50,7 +50,7 @@ async function vaultWhen(page, path, ok) {
   return t;
 }
 async function newNote(page, title, kind) {
-  await page.goto(URL_ + '#/notas');
+  await page.goto(URL_ + '?app#/notas');
   await page.getByRole('button', { name: 'Nueva nota', exact: true }).first().click();
   const sheet = page.locator('.sheet');
   await sheet.getByLabel('Título').fill(title);
@@ -270,7 +270,7 @@ try {
   await nodes(page).first().waitFor({ timeout: 8000 }).catch(() => {});
   check((await nodeCount(page)) === nFlow && (await edgeCount(page)) === eFlow, `tras recargar el flujo sigue igual (${await nodeCount(page)} nodos, ${await edgeCount(page)} flechas)`);
   check((await readVault(page, 'notes/Flujo dos.md')) === flowNow, 'el .md no cambió al recargar');
-  await page.goto(URL_ + '#/notas/' + encodeURIComponent('Mapa diez.md'));
+  await page.goto(URL_ + '?app#/notas/' + encodeURIComponent('Mapa diez.md'));
   await nodes(page).first().waitFor({ timeout: 8000 }).catch(() => {});
   check((await nodeCount(page)) === before, `el mapa recargado conserva sus ${before} nodos (${await nodeCount(page)})`);
 
@@ -526,7 +526,7 @@ try {
   await newNote(q, 'P22 doble', 'Mapa mental');
   await setText(q, 'Raíz\n- Alfa\n- Beta');
   await vaultWhen(q, 'notes/P22 doble.md', (t) => t.includes('Beta'));
-  await q.goto(URL_ + '#/espacios');
+  await q.goto(URL_ + '?app#/espacios');
   await q.getByRole('button', { name: 'Nuevo espacio' }).first().click();
   await q.locator('.sheet input[name=n]').fill('Doble');
   await q.getByRole('button', { name: 'Crear', exact: true }).click();
@@ -551,7 +551,7 @@ try {
     await q.keyboard.press('Enter');
     const md1 = await vaultWhen(q, 'notes/P22 doble.md', (t) => t.includes('Alfa en panel'));
     check(/Alfa en panel/.test(md1 ?? ''), 'editar en el panel escribe el .md');
-    await q.goto(URL_ + '#/notas/' + encodeURIComponent('P22 doble.md'));
+    await q.goto(URL_ + '?app#/notas/' + encodeURIComponent('P22 doble.md'));
     await q.locator('.diag-node').first().waitFor({ timeout: 8000 });
     check((await node(q, 'Alfa en panel').count()) === 1, 'la pestaña de Notas ve lo editado en el panel');
     await fit(q);
@@ -563,7 +563,7 @@ try {
     await q.keyboard.type('Beta en pestaña');
     await q.keyboard.press('Enter');
     await vaultWhen(q, 'notes/P22 doble.md', (t) => t.includes('Beta en pestaña'));
-    await q.goto(URL_ + '#/espacios');
+    await q.goto(URL_ + '?app#/espacios');
     const pw2 = q.locator('.win', { has: q.locator('.diag-node') }).first();
     await pw2.locator('.diag-node').first().waitFor({ timeout: 8000 }).catch(() => {});
     check((await pw2.locator('.diag-node', { hasText: 'Beta en pestaña' }).count()) === 1 && (await pw2.locator('.diag-node', { hasText: 'Alfa en panel' }).count()) === 1, 'el panel ve lo editado en la pestaña y conserva lo suyo');
@@ -627,9 +627,9 @@ try {
   await p2.waitForFunction(() => document.activeElement?.tagName === 'TEXTAREA');
   await p2.keyboard.insertText('Una nota normal sin diagramas.');
   await p2.waitForTimeout(800);
-  await p2.goto(URL_ + '#/notas');
+  await p2.goto(URL_ + '?app#/notas');
   await p2.waitForTimeout(800);
-  await p2.goto(URL_ + '#/hoy');
+  await p2.goto(URL_ + '?app#/hoy');
   await p2.waitForTimeout(600);
   const jsA = await isDiag(js, JSM), cssA = await isDiag(css, CSSM);
   check(jsA.length === 0 && cssA.length === 0, `en una nota normal no se pide código del motor de diagramas (js ${js.size} fragmentos, css ${css.size}; coincidencias: ${[...jsA, ...cssA].join(', ') || 'ninguna'})`);

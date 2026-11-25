@@ -33,7 +33,7 @@ const geo = (page) => page.evaluate(() => {
 const inside = (g) => g.btn.x >= g.pan.x && g.btn.r <= g.pan.r && g.btn.y >= g.pan.y && g.btn.b <= g.pan.b;
 
 async function setMode(page, label) {
-  await page.goto(URL_ + '#/ajustes');
+  await page.goto(URL_ + '?app#/ajustes');
   await page.locator('.settings').waitFor();
   if (await page.getByRole('button', { name: /Desplegar todo|Tout déplier|Expand all/ }).count()) await page.getByRole('button', { name: /Desplegar todo|Tout déplier|Expand all/ }).click();
   await page.getByRole('group', { name: /Modo del vidrio|Mode du verre|Glass mode/ }).getByRole('button', { name: label, exact: true }).click();
@@ -44,12 +44,12 @@ try {
   const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: 'es-MX' });
   const page = await ctx.newPage();
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   for (const [modo, label] of [['oscuro', 'Oscuro'], ['claro', 'Claro']]) {
     await setMode(page, label);
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     const panel = page.locator('.heat-panel');
     await panel.waitFor();
     await panel.scrollIntoViewIfNeeded();
@@ -73,10 +73,10 @@ try {
   await page.waitForTimeout(600);
   check(await page.locator('.heat-panel').count() === 1 && inside(await geo(page)), 'restaurar lo devuelve con el botón en su esquina');
   // francés: el encabezado se envuelve y el botón sigue sin tapar nada
-  await page.goto(URL_ + '#/ajustes/idioma');
+  await page.goto(URL_ + '?app#/ajustes/idioma');
   await page.locator('#idioma').getByRole('button', { name: 'Français' }).click();
   await page.waitForTimeout(500);
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await page.locator('.heat-panel').scrollIntoViewIfNeeded();
   await page.waitForTimeout(500);
   const fr = await geo(page);

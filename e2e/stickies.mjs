@@ -42,7 +42,7 @@ try {
   page.on('dialog', (d) => d.accept());
   const js = new Set();
   page.on('request', (r) => r.url().endsWith('.js') && js.add(r.url()));
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
   await page.waitForTimeout(600);
@@ -54,11 +54,11 @@ try {
   check(!found, 'el código de Sticky notes no se descargó');
 
   console.log('Encendido');
-  await page.goto(URL_ + '#/ajustes');
+  await page.goto(URL_ + '?app#/ajustes');
   await page.locator('.settings').waitFor();
   if (await page.getByRole('button', { name: 'Desplegar todo' }).count()) await page.getByRole('button', { name: 'Desplegar todo' }).click();
   await page.getByRole('switch', { name: 'Sticky notes', exact: true }).click();
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   const tile = page.locator('section.stickies');
   await tile.waitFor();
   check(Object.keys(await vaultFiles(page, 'notes/Stickies')).length === 0, 'activar no escribe nada');
@@ -156,7 +156,7 @@ try {
   check(/#\/notas\/Stickies\//.test(page.url()) && (await page.locator('.doc, .note-panel, main').first().textContent()).includes('Segunda'), `abre la nota en Notas (${page.url().split('#')[1]})`);
 
   console.log('Bandeja y recarga');
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await tile.waitFor();
   await page.locator('.mh:has(section.stickies) .min-btn').click();
   await page.waitForTimeout(500);

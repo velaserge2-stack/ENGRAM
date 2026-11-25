@@ -100,10 +100,10 @@ const go = async (page, hash, label) => {
 try {
   for (const [dev, vp] of [['ipad', { width: 1180, height: 820 }], ['tel', { width: 390, height: 844 }]]) {
     const { page } = await run(dev, vp);
-    await page.goto(URL_);
+    await page.goto(URL_ + '?app');
     await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
     await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
-    await page.goto(URL_ + '#/mazos');
+    await page.goto(URL_ + '?app#/mazos');
     const t0 = Date.now();
     await page.getByRole('button', { name: 'Importar archivo' }).click();
     await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'hostil.zip', mimeType: 'application/zip', buffer: Buffer.from(zip) });

@@ -35,10 +35,10 @@ async function fresh(init, vault = VAULT) {
   const page = await ctx.newPage();
   page.on('request', (r) => { const u = r.url(); if (!u.startsWith(URL_) && !u.startsWith('blob:') && !u.startsWith('data:')) external.push(u); });
   page.on('dialog', (d) => d.accept());
-  await page.goto(URL_);
+  await page.goto(URL_ + '?app');
   await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
   await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
-  await page.goto(URL_ + '#/mazos');
+  await page.goto(URL_ + '?app#/mazos');
   await page.getByRole('button', { name: 'Importar archivo' }).click();
   await page.locator('.sheet input[type=file]').first().setInputFiles({ name: 'h.zip', mimeType: 'application/zip', buffer: Buffer.from(vault) });
   await page.locator('.sheet').getByRole('button', { name: 'Importar', exact: true }).click();
@@ -47,7 +47,7 @@ async function fresh(init, vault = VAULT) {
   return { ctx, page };
 }
 const openSheet = async (page) => {
-  await page.goto(URL_ + '#/hoy');
+  await page.goto(URL_ + '?app#/hoy');
   await page.getByRole('button', { name: 'Compartir estadísticas' }).click();
   await page.locator('.sheet[aria-label="Compartir estadísticas"]').waitFor();
 };
@@ -96,7 +96,7 @@ try {
       Object.defineProperty(navigator, 'share', { configurable: true, value: async (d) => { window.__shared = d.files.map((f) => ({ name: f.name, type: f.type, size: f.size })); } });
     });
     console.log('Carga perezosa');
-    await page.goto(URL_ + '#/hoy');
+    await page.goto(URL_ + '?app#/hoy');
     await page.getByRole('button', { name: 'Compartir estadísticas' }).waitFor();
     const before = await page.evaluate(() => performance.getEntriesByType('resource').map((e) => e.name).filter((n) => n.endsWith('.js')));
     await openSheet(page);
@@ -128,7 +128,7 @@ try {
     check(shared?.length === 1 && shared[0].type === 'image/png' && /^engrama-estadisticas-\d{4}-\d{2}-\d{2}\.png$/.test(shared[0].name) && shared[0].size > 10_000, `navigator.share recibe un File PNG (${JSON.stringify(shared)})`);
     // perfil: nombre y emoji → aparecen; apagarlos los quita
     await page.keyboard.press('Escape');
-    await page.goto(URL_ + '#/perfil');
+    await page.goto(URL_ + '?app#/perfil');
     await page.getByLabel('Nombre', { exact: true }).fill('Ana Prueba Con Un Nombre Larguísimo Que No Cabe En La Tarjeta');
     await page.getByLabel('Emoji de avatar').fill('🧠');
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
@@ -193,7 +193,7 @@ try {
     const userSw = page.locator('.sheet').getByRole('switch', { name: '@usuario' });
     check(await userSw.isDisabled() && (await page.locator('.sheet a[href="#/perfil"]').count()) === 1, 'sin @usuario en el perfil: interruptor desactivado y enlace a Perfil');
     await page.keyboard.press('Escape');
-    await page.goto(URL_ + '#/perfil');
+    await page.goto(URL_ + '?app#/perfil');
     const u = page.getByRole('textbox', { name: 'Nombre de usuario' });
     const box = await u.boundingBox();
     const fs = await u.evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
@@ -268,7 +268,7 @@ try {
     const FONDOS = [['blanco', 'Color sólido #ffffff'], ['negro', 'Color sólido #000000'], ['rayas', 'Rayas'], ['degradado', 'Neón'], ['foto', 'Paisaje']];
     const seen = {};
     for (const [bg, name] of FONDOS) for (const [modo, label] of [['dark', 'Oscuro'], ['light', 'Claro']]) {
-      await page.goto(URL_ + '#/ajustes');
+      await page.goto(URL_ + '?app#/ajustes');
       await page.locator('.settings').waitFor();
       if (await page.getByRole('button', { name: 'Desplegar todo' }).count()) await page.getByRole('button', { name: 'Desplegar todo' }).click();
       await page.getByRole('radiogroup', { name: 'Fondos' }).getByRole('radio', { name, exact: true }).click();
@@ -303,7 +303,7 @@ try {
   {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'es-MX', hasTouch: true });
     const page = await ctx.newPage();
-    await page.goto(URL_);
+    await page.goto(URL_ + '?app');
     await page.getByRole('button', { name: 'Con bóveda de ejemplo' }).click();
     await page.getByRole('heading', { name: 'Hoy', level: 1 }).waitFor();
     const b = await page.getByRole('button', { name: 'Compartir estadísticas' }).boundingBox();
