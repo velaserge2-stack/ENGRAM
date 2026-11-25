@@ -26,7 +26,7 @@ const DUE = /\s*📅\s*(\d{4}-\d{2}-\d{2})\s*$/;
 export function parseTasks(text: string): Task[] {
   const out: Task[] = [];
   text.split(/\r?\n/).forEach((l, line) => {
-    const m = RE.exec(l);
+    const m = RE.exec(line ? l : l.replace(/^\uFEFF/, ''));
     if (!m) return;
     const body = m[4] ?? '';
     const d = DUE.exec(body);
@@ -50,14 +50,15 @@ function group(ts: Task[], i: number): Task[] {
 
 /** Agrega al final de la lista (o del archivo, separada por una línea en blanco). */
 export function addTask(text: string, body: string, due: string | null = null): string {
+  const nl = text.includes('\r\n') ? '\r\n' : '\n';
   const line = taskLine({ level: 0, done: false, text: body, due });
   const ts = parseTasks(text);
   const ls = lines(text);
   if (!ts.length) {
     const base = text.replace(/\s+$/, '');
-    return (base ? `${base}\n\n` : '') + line + '\n';
+    return (base ? `${base}${nl}${nl}` : '') + line + nl;
   }
-  ls.splice(ts[ts.length - 1]!.line + 1, 0, line);
+  ls.splice(ts[ts.length - 1]!.line + 1, 0, nl === '\n' ? line : line + '\r');
   return ls.join('\n');
 }
 
@@ -66,7 +67,8 @@ function setLine(text: string, i: number, f: (t: Task) => Task): string {
   const t = ts[i];
   if (!t) return text;
   const ls = lines(text);
-  ls[t.line] = taskLine(f(t));
+  const old = ls[t.line]!; // conserva BOM y fin de línea CRLF
+  ls[t.line] = (t.line === 0 && old.startsWith('\uFEFF') ? '\uFEFF' : '') + taskLine(f(t)) + (old.endsWith('\r') ? '\r' : '');
   return ls.join('\n');
 }
 export const toggleTask = (text: string, i: number) => setLine(text, i, (t) => ({ ...t, done: !t.done }));
@@ -111,7 +113,7 @@ export function moveTask(text: string, from: number, to: number): string {
   const ga = group(ts, from), gb = group(ts, to);
   // el bloque contiguo: entre a y b solo puede haber líneas de tarea
   const lo = Math.min(ga[0]!.line, gb[0]!.line), hi = Math.max(ga[ga.length - 1]!.line, gb[gb.length - 1]!.line);
-  for (let n = lo; n <= hi; n++) if (!RE.test(ls[n]!)) return text;
+  for (let n = lo; n <= hi; n++) if (!RE.test(ls[n]!.replace(/\r$/, '').replace(/^\uFEFF/, ''))) return text;
   const moving = ls.splice(ga[0]!.line, ga.length);
   // posición de destino tras quitar el grupo
   const target = from < to ? gb[gb.length - 1]!.line - ga.length + 1 : gb[0]!.line;

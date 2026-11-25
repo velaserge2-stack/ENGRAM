@@ -35,7 +35,7 @@ export function noteMeta(path: string): NoteMeta {
 
 /** Nombre seguro: sin caracteres prohibidos y ≤ 200 bytes (sin partir un emoji ni el sufijo « (2)»). */
 export function safeSegment(s: string): string {
-  const c = s.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').replace(/\s+/g, ' ').replace(/^[.\s]+/, '').trim();
+  const c = s.replace(/[\\/:*?"<>|#^[\]\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').replace(/^[.\s]+/, '').trim();
   const [, base = c, suf = ''] = /^(.*?)( \(\d+\))?$/.exec(c) ?? [];
   const enc = new TextEncoder();
   let out = '';
