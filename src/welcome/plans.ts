@@ -16,15 +16,15 @@ export interface Plan {
 
 export const PLANS: Plan[] = [
   { id: 'gratis', name: 'bienvenida.plan_gratis', desc: 'bienvenida.pl_gratis_d', price: 0, soon: false, rows: [
-    ['bienvenida.r_app', 'bienvenida.v_si'], ['bienvenida.r_cta', 'bienvenida.v_si'], ['bienvenida.r_off', 'bienvenida.v_si'], ['bienvenida.r_as', 'bienvenida.v_clave'],
+    ['bienvenida.r_app', 'bienvenida.v_si'], ['bienvenida.r_cta', 'bienvenida.v_si'], ['bienvenida.r_off', 'bienvenida.v_si'], ['bienvenida.r_as', 'bienvenida.v_clave'], ['bienvenida.r_sync', 'bienvenida.v_local'], ['bienvenida.r_beta', 'bienvenida.v_no'],
   ] },
   { id: 'esencial', name: 'bienvenida.plan_esencial', desc: 'bienvenida.pl_esencial_d', price: 5, soon: true, rows: [
-    ['bienvenida.r_ia', 'bienvenida.v_si'], ['bienvenida.r_mod', 'bienvenida.v_algunos'], ['bienvenida.r_uso', 'bienvenida.v_basico'], ['bienvenida.r_pri', 'bienvenida.v_pnormal'],
+    ['bienvenida.r_ia', 'bienvenida.v_si'], ['bienvenida.r_mod', 'bienvenida.v_algunos'], ['bienvenida.r_uso', 'bienvenida.v_basico'], ['bienvenida.r_pri', 'bienvenida.v_pnormal'], ['bienvenida.r_sync', 'bienvenida.v_si'], ['bienvenida.r_beta', 'bienvenida.v_si'],
   ] },
   { id: 'plus', name: 'bienvenida.plan_plus', desc: 'bienvenida.pl_plus_d', price: 10, soon: true, rows: [
-    ['bienvenida.r_ia', 'bienvenida.v_si'], ['bienvenida.r_mod', 'bienvenida.v_varios'], ['bienvenida.r_uso', 'bienvenida.v_ampliado'], ['bienvenida.r_pri', 'bienvenida.v_palta'],
+    ['bienvenida.r_ia', 'bienvenida.v_si'], ['bienvenida.r_mod', 'bienvenida.v_varios'], ['bienvenida.r_uso', 'bienvenida.v_ampliado'], ['bienvenida.r_pri', 'bienvenida.v_palta'], ['bienvenida.r_sync', 'bienvenida.v_si'], ['bienvenida.r_beta', 'bienvenida.v_si'],
   ] },
   { id: 'pro', name: 'bienvenida.plan_pro', desc: 'bienvenida.pl_pro_d', price: 20, soon: true, rows: [
-    ['bienvenida.r_ia', 'bienvenida.v_si'], ['bienvenida.r_mod', 'bienvenida.v_todos'], ['bienvenida.r_uso', 'bienvenida.v_maximo'], ['bienvenida.r_pri', 'bienvenida.v_pmax'],
+    ['bienvenida.r_ia', 'bienvenida.v_si'], ['bienvenida.r_mod', 'bienvenida.v_todos'], ['bienvenida.r_uso', 'bienvenida.v_maximo'], ['bienvenida.r_pri', 'bienvenida.v_pmax'], ['bienvenida.r_sync', 'bienvenida.v_si'], ['bienvenida.r_beta', 'bienvenida.v_si'],
   ] },
 ];

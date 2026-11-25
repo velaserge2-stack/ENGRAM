@@ -45,7 +45,7 @@ export function Landing(c: Chrome) {
   const [tab, setTab] = useState(0);
   const [filter, setFilter] = useState('todo');
   const ref = useReveal();
-  const fns = Array.from({ length: 33 }, (_, i) => P(`fn${i + 1}`));
+  const fns = Array.from({ length: 35 }, (_, i) => P(`fn${i + 1}`));
   const cats = ['todo', 'repaso', 'notas', 'pdf', 'examenes', 'asistente', 'datos'];
   const shown = fns.filter((f) => filter === 'todo' || f[0] === filter);
   const onTabKey = (e: KeyboardEvent, i: number) => {
@@ -114,7 +114,7 @@ export function Landing(c: Chrome) {
               {shown.map((f) => (
                 <tr key={f[1]}>
                   <td><b>{f[1]}</b></td><td class="ben">{f[2]}</td>
-                  <td><span class="bv-tgs">{(f[4] ?? '').includes('n') && <span class="bv-tg core">{K('tg_n')}</span>}{(f[4] ?? '').includes('a') && <span class="bv-tg">{K('tg_a')}</span>}{(f[4] ?? '').includes('b') && <span class="bv-tg beta">{K('tg_b')}</span>}</span></td>
+                  <td><span class="bv-tgs">{(f[4] ?? '').includes('n') && <span class="bv-tg core">{K('tg_n')}</span>}{(f[4] ?? '').includes('a') && <span class="bv-tg">{K('tg_a')}</span>}{(f[4] ?? '').includes('b') && <span class="bv-tg beta">{K('tg_b')}</span>}{(f[4] ?? '').includes('p') && <span class="bv-tg">{K('soon')}</span>}</span></td>
                   <td class="r dat">{f[3]}</td>
                 </tr>
               ))}
@@ -203,7 +203,7 @@ export function Landing(c: Chrome) {
       <section class="bv-sec" id="bv-preguntas"><div class="bv-wrap">
         <div class="bv-head bv-reveal"><h2 class="bv-h2">{K('faq_t')}</h2></div>
         <div class="bv-faq">
-          {[1, 2, 3, 4, 5, 6, 7].map((i) => { const [q, a] = P(`faq${i}`); return <details key={i}><summary>{q}<Ic n="plus" /></summary><p class="a">{a}</p></details>; })}
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => { const [q, a] = P(`faq${i}`); return <details key={i}><summary>{q}<Ic n="plus" /></summary><p class="a">{a}</p></details>; })}
         </div>
       </div></section>
 
