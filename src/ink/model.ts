@@ -8,17 +8,39 @@
  */
 import { getStroke } from 'perfect-freehand';
 
-export type Tool = 'pen' | 'highlighter' | 'eraser' | 'lasso';
+export type Tool = 'pen' | 'highlighter' | 'marker' | 'eraser' | 'lasso';
 export type FingerMode = 'pencil' | 'scroll' | 'draw';
 export type Pt = [number, number, number]; // x, y (en anchos), presión 0–1
 
-export interface Stroke { id: string; tool: 'pen' | 'highlighter'; color: string; size: number; pts: Pt[]; simulated?: boolean }
+/**
+ * Marcador (Prompt PDF · anotador): herramienta `marker`, pero se GUARDA como `highlighter` con
+ * `free: true` (una build vieja lo ve como resaltador de tinta y no lo pierde). `alpha` es opcional
+ * (por defecto 0,35, como el resaltador). El marcador nunca se ajusta al texto ni se vuelve `Mark`.
+ */
+export interface Stroke { id: string; tool: 'pen' | 'highlighter'; color: string; size: number; pts: Pt[]; simulated?: boolean; free?: boolean; alpha?: number }
 export interface InkDoc { v: 1; strokes: Stroke[] }
 export const emptyInk = (): InkDoc => ({ v: 1, strokes: [] });
 
 /** Paleta propia de la tinta (la tinta puede tener color; la interfaz sigue neutra). */
 export const INK_COLORS = ['#1c1c1e', '#0a5cd6', '#c4262e', '#1f8a3c', '#7a3fc4', '#c46a00', '#ffd60a', '#ff6fb1'];
 export const SIZES = [2, 4, 8];
+export const MARKER_ALPHAS = [0.25, 0.4, 0.6];
+const HL_ALPHA = 0.35;
+const WIDE = 4; // el resaltador y el marcador son ×4 del grosor
+
+/** ¿Es un trazo de marcador (libre, sin ajustarse al texto)? Fase 2: `onInk` de pdf.tsx no lo ajusta. */
+export const isFreeMarker = (s: Pick<Stroke, 'tool' | 'free'>) => s.tool === 'highlighter' && !!s.free;
+/** Opacidad con la que se pinta el trazo. */
+export const strokeAlpha = (s: Stroke) => (s.tool === 'pen' ? 1 : s.alpha ?? HL_ALPHA);
+/** Fase 2 · exportPdf: opacidad y modo de mezcla del trazo (pdf-lib `blendMode`), o null si es normal. */
+export const markerExport = (s: Stroke): { opacity: number; blendMode: 'Multiply' } | null => (s.tool === 'highlighter' ? { opacity: strokeAlpha(s), blendMode: 'Multiply' } : null);
+/** Trazo de la herramienta: el marcador se crea ya en su forma guardada. */
+export function newStroke(tool: Tool, id: string, color: string, size: number, pts: Pt[], simulated: boolean, alpha: number): Stroke | null {
+  if (tool === 'pen') return { id, tool, color, size, pts, ...(simulated ? { simulated } : {}) };
+  if (tool === 'highlighter') return { id, tool, color, size, pts, ...(simulated ? { simulated } : {}) };
+  if (tool === 'marker') return { id, tool: 'highlighter', free: true, alpha, color, size, pts, ...(simulated ? { simulated } : {}) };
+  return null;
+}
 
 let seq = 0;
 export const strokeId = () => `${Date.now().toString(36)}${(++seq).toString(36)}`;
@@ -27,7 +49,9 @@ export function parseInk(text: string): InkDoc {
   try {
     const d = JSON.parse(text) as Partial<InkDoc>;
     if (!d || !Array.isArray(d.strokes)) return emptyInk();
-    return { v: 1, strokes: d.strokes.filter((s) => s && (s.tool === 'pen' || s.tool === 'highlighter') && Number.isFinite(s.size) && typeof s.color === 'string' && Array.isArray(s.pts) && s.pts.every((p) => Array.isArray(p) && p.every(Number.isFinite))) as Stroke[] };
+    const ok = (s: Omit<Stroke, 'tool'> & { tool: string }) => s && (s.tool === 'pen' || s.tool === 'highlighter' || s.tool === 'marker') && Number.isFinite(s.size) && typeof s.color === 'string' && Array.isArray(s.pts) && s.pts.every((p) => Array.isArray(p) && p.every(Number.isFinite));
+    // un `marker` suelto (nunca debería guardarse así) se normaliza a su forma guardada
+    return { v: 1, strokes: (d.strokes as unknown as (Omit<Stroke, 'tool'> & { tool: string })[]).filter(ok).map((s) => (s.tool === 'marker' ? { ...s, tool: 'highlighter', free: true } : s)) as Stroke[] };
   } catch {
     return emptyInk();
   }
@@ -36,8 +60,23 @@ export function parseInk(text: string): InkDoc {
 /** Contorno del trazo en píxeles para un ancho de superficie `w`. */
 export function outline(s: Stroke, w: number): [number, number][] {
   const pts = s.pts.map(([x, y, p]) => [x * w, y * w, p] as [number, number, number]);
-  const size = s.size * (w / 600) * (s.tool === 'highlighter' ? 4 : 1);
-  return getStroke(pts, { size: Math.max(1, size), thinning: s.tool === 'highlighter' ? 0 : 0.6, smoothing: 0.5, streamline: 0.4, simulatePressure: !!s.simulated, last: true }) as [number, number][];
+  const size = s.size * (w / 600) * (s.tool === 'highlighter' ? WIDE : 1);
+  const flat = isFreeMarker(s) ? { start: { cap: false }, end: { cap: false } } : {}; // marcador: puntas planas
+  return getStroke(pts, { size: Math.max(1, size), thinning: s.tool === 'highlighter' ? 0 : 0.6, smoothing: 0.5, streamline: 0.4, simulatePressure: !!s.simulated, last: true, ...flat }) as [number, number][];
+}
+
+/** Ancho en píxeles del trazo de un resaltador/marcador para una superficie de ancho `w`. */
+export const wideWidth = (size: number, w: number) => Math.max(1, size * (w / 600) * WIDE);
+
+/**
+ * Tramos nuevos de un trazo ancho de ancho constante (vista previa en vivo, incremental):
+ * un segmento por cada punto desde `from`, más un disco en la unión (sin disco en los extremos:
+ * puntas planas como el trazo final). Concatenar tramos sucesivos == calcularlo de una vez.
+ */
+export function liveSegments(pts: Pt[], from: number): { a: [number, number]; b: [number, number]; join: boolean }[] {
+  const out: { a: [number, number]; b: [number, number]; join: boolean }[] = [];
+  for (let i = Math.max(1, from); i < pts.length; i++) out.push({ a: [pts[i - 1]![0], pts[i - 1]![1]], b: [pts[i]![0], pts[i]![1]], join: i >= 2 });
+  return out;
 }
 
 export function svgPath(poly: [number, number][]): string {
