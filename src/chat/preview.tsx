@@ -13,7 +13,7 @@ import { type Msg, patch } from './history';
 import { applySetting, appLists } from './tools-app';
 import { applyProposal, type EventFields, isBad, revalidate, undoProposal } from './proposal';
 
-const TITLE: Record<'tarjetas' | 'examen' | 'evento' | 'nota' | 'diagrama' | 'fecha' | 'edicion' | 'ajuste', string> = { edicion: 'asist2.pv_t_edicion', ajuste: 'asist2.pv_t_ajuste', tarjetas: 'chat.pv_t_tarjetas', examen: 'chat.pv_t_examen', evento: 'chat.pv_t_evento', nota: 'chat.pv_t_nota', diagrama: 'chat.pv_t_diagrama', fecha: 'chat.pv_t_fecha' } as const;
+const TITLE: Record<'tarjetas' | 'examen' | 'evento' | 'nota' | 'diagrama' | 'fecha' | 'edicion' | 'ajuste' | 'objetivos', string> = { edicion: 'asist2.pv_t_edicion', ajuste: 'asist2.pv_t_ajuste', tarjetas: 'chat.pv_t_tarjetas', examen: 'chat.pv_t_examen', evento: 'chat.pv_t_evento', nota: 'chat.pv_t_nota', diagrama: 'chat.pv_t_diagrama', fecha: 'chat.pv_t_fecha', objetivos: 'analista.pv_titulo' } as const;
 const NEWFILE = new Set(['nota', 'diagrama', 'fecha']);
 
 /** Vista del diagrama propuesto con el visor de siempre, cargado bajo demanda; si falla, queda el código. */
