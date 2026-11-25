@@ -3,6 +3,7 @@
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { strFromU8, unzipSync } from 'fflate';
 
 const require = createRequire(import.meta.url);
 const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
@@ -51,14 +52,30 @@ try {
     await sheet.waitFor();
     check(await sheet.getByRole('button', { name: 'Preparar .apkg' }).isEnabled(), 'la hoja abre con mazos marcados');
     if (history) await sheet.getByLabel('Incluir historial de repasos').check();
-    await sheet.getByRole('button', { name: 'Preparar .apkg' }).click();
+    await sheet.getByRole('button', { name: history ? 'Preparar .zip' : 'Preparar .apkg' }).click();
     const save = sheet.getByRole('button', { name: 'Guardar / Compartir' });
     await save.waitFor({ timeout: 60000 });
     const sum = await sheet.locator('.import-sum').innerText();
     console.log('   exporta:', sum);
-    const [dl] = await Promise.all([page.waitForEvent('download'), save.click()]);
-    check(/^Engrama-.+-\d{4}-\d{2}-\d{2}\.apkg$/.test(dl.suggestedFilename()), 'nombre ' + dl.suggestedFilename());
-    const bytes = readFileSync(await dl.path());
+    const ext = history ? 'zip' : 'apkg';
+    if (history) check(await sheet.locator('[role=note]').innerText().then((x) => /\.zip/.test(x)), 'aviso de .zip visible');
+    const dls = [];
+    page.on('download', (d) => dls.push(d));
+    await save.click();
+    await page.waitForTimeout(3000);
+    check(dls.length === 1, `exactamente 1 descarga (${dls.length})`);
+    const dl = dls[0];
+    check(new RegExp(`^Engrama-.+-\\d{4}-\\d{2}-\\d{2}\\.${ext}$`).test(dl.suggestedFilename()), 'nombre ' + dl.suggestedFilename());
+    check(/Guardar de nuevo/.test(await sheet.getByRole('button', { name: /Guardar/ }).innerText()), 'botón pasa a «Guardar de nuevo»');
+    let bytes = readFileSync(await dl.path());
+    if (history) {
+      const z = unzipSync(new Uint8Array(bytes));
+      const names = Object.keys(z).sort();
+      check(names.length === 3 && names.some((n) => n.endsWith('.apkg')) && names.includes('historial-repasos.csv') && names.includes('LEEME.txt'), 'zip: ' + names.join(', '));
+      check(strFromU8(z['historial-repasos.csv']).split('\n').length > 2, 'csv con repasos');
+      check(/Anki/.test(strFromU8(z['LEEME.txt'])), 'LEEME presente');
+      bytes = Buffer.from(z[names.find((n) => n.endsWith('.apkg'))]);
+    }
     await ctx.close();
 
     const b = await fresh();
@@ -81,6 +98,24 @@ try {
   }
   await roundTrip(true);
   await roundTrip(false);
+  // historial marcado pero sin repasos (bóveda de ejemplo sin estudiar) → un solo .apkg
+  {
+    const { ctx, page } = await fresh();
+    await page.goto(URL_ + '?app#/mazos');
+    await page.getByRole('button', { name: 'Exportar Anki' }).click();
+    const sheet = page.locator('.sheet');
+    await sheet.getByLabel('Incluir historial de repasos').check();
+    await sheet.getByRole('button', { name: 'Preparar .zip' }).click();
+    const save = sheet.getByRole('button', { name: 'Guardar / Compartir' });
+    await save.waitFor({ timeout: 60000 });
+    const sum = await sheet.locator('.import-sum').innerText();
+    const dls = [];
+    page.on('download', (d) => dls.push(d));
+    await save.click();
+    await page.waitForTimeout(3000);
+    check(/[1-9]\d* repasos/.test(sum) ? true : dls.length === 1 && dls[0].suggestedFilename().endsWith('.apkg'), `sin repasos: 1 descarga .apkg (${dls.map((d) => d.suggestedFilename())}) · ${sum}`);
+    await ctx.close();
+  }
   // sin desbordes en francés y pseudo-idioma (+40 %), iPad pequeño y teléfono
   {
     const { ctx, page } = await fresh();
