@@ -115,6 +115,8 @@
  "app.no_se_guardo_nota": "No se guardó «{name}»: {e}. Se reintentará al seguir escribiendo.",
  "app.no_se_pudo_cargar_la_coleccion": "No se pudo leer la colección; no se cambió nada. {e}",
  "app.nueva_version_disponible": "Nueva versión disponible.",
+ "app.novedades_mejoro": "Mejoró:",
+ "app.novedades_nuevo": "Nuevo:",
  "app.pausar_enfoque": "Pausar enfoque",
  "app.reconectar": "Reconectar",
  "app.respaldar": "Respaldar",

@@ -115,6 +115,8 @@
  "app.no_se_guardo_nota": "“{name}” wasn’t saved: {e}. It will retry as you keep typing.",
  "app.no_se_pudo_cargar_la_coleccion": "Could not read the collection; nothing was changed. {e}",
  "app.nueva_version_disponible": "New version available.",
+ "app.novedades_mejoro": "Improved:",
+ "app.novedades_nuevo": "New:",
  "app.pausar_enfoque": "Pause focus",
  "app.reconectar": "Reconnect",
  "app.respaldar": "Back up",

@@ -283,6 +283,8 @@ textarea.input { width: 100%; resize: vertical; line-height: 1.45; }
 
 .banner { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: var(--r-inner); margin-bottom: 14px; font-size: var(--t-note); }
 .banner .k { flex: 1; }
+.banner .nov { display: grid; gap: 2px; margin-top: 4px; font-size: var(--t-foot); color: var(--t2); line-height: 1.35; }
+.banner .nov b { color: var(--t1); font-weight: 600; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(28px + env(safe-area-inset-bottom) + var(--kb-inset, 0px)); z-index: var(--z-toast); padding: 12px 18px; border-radius: var(--r-pill); font-size: var(--t-note); animation: up .3s var(--spring); max-width: calc(100vw - 32px); }
 /* un aviso sin acción no atrapa toques: no tapa la pastilla del Asistente (que queda debajo, --z-assistant) mientras dura */
 .toast:not(:has(button, a)) { pointer-events: none; }
