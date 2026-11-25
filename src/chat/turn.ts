@@ -5,8 +5,7 @@ import { busy, runTurn } from './session';
 import { fetchAcct, hasAcct } from './account';
 import { loadKeys } from './keys';
 import { loadUsage, saveUsage, setAcct } from './usage';
-import { SYSTEM } from './system';
-import { budget } from './providers';
+import { SYSTEM, ctxUser } from './system';
 import { DEFAULT_PREFS, composeSystem, filterTools, plan, ROLES, stickyWrite, wantsConvert, writeSubset, type Prefs } from './roles';
 import { loadCtx, type ChatCtx } from './context';
 import type { Proposal } from './proposal';
@@ -41,7 +40,7 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>, opts: S
   if (isDemo()) return (await import('../demo/chat')).demoSend(q, env?.col);
   const gen = generation();
   const prev = messages(), prefs = opts.prefs ?? DEFAULT_PREFS;
-  const sticky = stickyWrite(q, { assistant: [...prev].reverse().find((m) => m.role === 'assistant' && m.text)?.text, proposed: prev.slice(-3).some((m) => m.role === 'proposal') });
+  const sticky = stickyWrite(q, { assistant: [...prev].reverse().find((m) => m.role === 'assistant' && m.text)?.text, proposed: false });
   const prevUser = [...prev].reverse().find((m) => m.role === 'user')?.text ?? '';
   add('user', q);
   const sources: Source[] = [];
@@ -60,9 +59,9 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>, opts: S
     const tw = pl.writes || pl.dels ? await import('./tools-write') : null;
     let tools: ToolSet | undefined;
     if (env) {
-      const wctx = { ...env, sources, allowed: () => pl.writes, propose: propose(pl.writes) };
+      const wctx = { ...env, sources, userText: q, allowed: () => pl.writes, propose: propose(pl.writes) };
       const writeTools: ToolSet = pl.writes && tw ? { ...tw.makeWriteTools(wctx), ...(await import('./tools-edit')).makeEditTools(wctx), ...(opts.app ? await appTools(wctx, opts.app.settings, env.vault) : {}), ...(pl.convert ? (await import('./tools-convert')).makeConvertTools(wctx) : {}) } : {};
-      const all = { ...(await import('./tools')).makeTools({ ...env, sources }), ...writeSubset(writeTools, `${sticky ? prevUser + ' ' : ''}${q}`, budget().histTokens <= 4000), ...(pl.dels && tw ? tw.makeDeleteTools({ ...env, sources, allowed: () => pl.dels, userText: q, propose: propose(pl.dels) }) : {}) };
+      const all = { ...(await import('./tools')).makeTools({ ...env, sources }), ...writeSubset(writeTools, `${sticky ? prevUser + ' ' : ''}${q}`, true), ...(pl.dels && tw ? tw.makeDeleteTools({ ...env, sources, allowed: () => pl.dels, userText: q, propose: propose(pl.dels) }) : {}) };
       tools = filterTools(all, prefs.role) as ToolSet;
       const ex = pl.writes && ROLES[prefs.role].exam ? examMod['./tools-exam.ts'] : undefined;
       const more = [pl.writes && ROLES[prefs.role].tools === null ? actionMod['./tools-actions.ts'] : undefined, prefs.role !== 'investigador' ? analyticsMod['./tools-analytics.ts'] : undefined];
@@ -70,6 +69,8 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>, opts: S
       if (ex) { try { Object.assign(tools, (await ex()).makeExamTools?.(wctx) ?? {}); } catch { /* el carril B aún no la entrega o falló: sin ella */ } }
     }
     const cx = opts.ctx && env ? await loadCtx(env, opts.ctx, sources) : null;
+    const last = history[history.length - 1];
+    if (cx && last && last.role === 'user' && typeof last.content === 'string') last.content = `${ctxUser(cx.label, cx.body)}\n\n${last.content}`;
     r = await runTurn({
       messages: history, system: composeSystem(prefs, { ...pl, ctx: cx, app: pl.writes && !!opts.app }), tools, signal: mine.signal, produced: () => proposed,
       onTool: (name) => { if (generation() === gen) setStatus({ tool: name }); },

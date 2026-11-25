@@ -2,6 +2,7 @@
 // y borrado). Solo PROPONE: una propuesta con una línea «antes → después» por cambio, un Aceptar y un Deshacer; la interfaz aplica con el
 // mismo `app.update(...)` de Ajustes. Valida aplicando el parche a `mergeSettings` (sin tocar settings.ts).
 import { jsonSchema, tool, type ToolSet } from 'ai';
+import { t } from '../i18n';
 import { ACTIONS } from '../lib/keys';
 import { SOUNDS } from '../lib/noise';
 import { accentVariant, COLOR_NAMES, resolveColor } from '../lib/palette';
@@ -10,7 +11,7 @@ import { setKeys } from '../lib/frontmatter';
 import { readTextOr } from '../vault/util';
 import { editProposal } from './tools-edit';
 import { pick } from './delete';
-import { isBad, type Bad, type Proposal } from './proposal';
+import { isBad, MAX_PROPOSALS, MAX_TURN, turnCount, type Bad, type Proposal } from './proposal';
 import type { WriteCtx } from './tools-write';
 
 type Val = string | number | boolean | null | undefined;
@@ -28,16 +29,16 @@ const csv = (v: Val) => String(v ?? '').split(',').filter(Boolean);
 export const CATALOG: readonly Entry[] = [
   pomo('work', 'trabajo', 1, 180), pomo('short', 'descanso corto', 1, 60), pomo('long', 'descanso largo', 1, 120), pomo('every', 'sesiones hasta el descanso largo', 1, 12, ''),
   { ruta: 'pomo.sound', label: 'Pomodoro · sonido', tipo: 'bool', get: (s) => s.pomo.sound, patch: (s, v) => ({ pomo: { ...s.pomo, sound: v as boolean } }) },
-  { ruta: 'tema', label: 'Tema', tipo: 'enum', valores: ['auto', 'dark', 'light'], get: (s) => s.glassMode, patch: (_s, v) => ({ glassMode: v as Settings['glassMode'] }), fmt: (v) => ({ auto: 'sistema', dark: 'oscuro', light: 'claro' })[String(v)] ?? String(v) },
-  { ruta: 'idioma', label: 'Idioma', tipo: 'enum', valores: ['', 'es', 'en', 'fr'], get: (s) => s.lang, patch: (_s, v) => ({ lang: v as Settings['lang'] }), fmt: (v) => String(v || 'dispositivo') },
-  { ruta: 'acento', label: 'Acento', tipo: 'color', get: (s) => s.accent.color, patch: (s, v) => ({ accent: { ...s.accent, color: (v as string | null) || null } }), fmt: (v) => String(v ?? 'sin acento') },
-  { ruta: 'acento.usos', label: 'Acento · dónde se usa', tipo: 'texto', valores: ACCENT_USES, get: (s) => s.accent.usos.join(','), patch: (s, v) => ({ accent: { ...s.accent, usos: csv(v) as AccentUse[] } }), fmt: (v) => csv(v).join(', ') || 'ninguno' },
+  { ruta: 'tema', label: 'Tema', tipo: 'enum', valores: ['auto', 'dark', 'light'], get: (s) => s.glassMode, patch: (_s, v) => ({ glassMode: v as Settings['glassMode'] }), fmt: (v) => ({ auto: t('asist2.v_sistema'), dark: t('asist2.v_oscuro'), light: t('asist2.v_claro') })[String(v)] ?? String(v) },
+  { ruta: 'idioma', label: 'Idioma', tipo: 'enum', valores: ['', 'es', 'en', 'fr'], get: (s) => s.lang, patch: (_s, v) => ({ lang: v as Settings['lang'] }), fmt: (v) => String(v || t('asist2.v_dispositivo')) },
+  { ruta: 'acento', label: 'Acento', tipo: 'color', get: (s) => s.accent.color, patch: (s, v) => ({ accent: { ...s.accent, color: (v as string | null) || null } }), fmt: (v) => String(v ?? t('asist2.v_sin_acento')) },
+  { ruta: 'acento.usos', label: 'Acento · dónde se usa', tipo: 'texto', valores: ACCENT_USES, get: (s) => s.accent.usos.join(','), patch: (s, v) => ({ accent: { ...s.accent, usos: csv(v) as AccentUse[] } }), fmt: (v) => csv(v).join(', ') || t('asist2.v_ninguno') },
   top('vidrio', 'glass', 'Intensidad del vidrio', 'int', 0, 100, '%'), flag('modo_ligero', 'lightMode', 'Modo ligero (sin desenfoque)'),
   top('fondo.desenfoque', 'bgBlur', 'Desenfoque del fondo', 'int', 0, 40), top('fondo.velo', 'bgDim', 'Velo del fondo (− oscurece, + aclara)', 'int', -50, 50), top('texto.escala', 'textScale', 'Tamaño del texto', 'num', 0.8, 1.6),
   top('nuevas_por_dia', 'newPerDay', 'Tarjetas nuevas al día', 'int', 0, 9999), top('repasos_por_dia', 'reviewLimit', 'Repasos máximos al día', 'int', 0, 99999),
-  top('retencion', 'retention', 'Retención deseada', 'num', 0.7, 0.99), top('intervalo_maximo', 'maxInterval', 'Intervalo máximo', 'int', 1, 36500, 'días'), top('umbral_sanguijuela', 'leechThreshold', 'Fallos para marcar sanguijuela', 'int', 1, 99, ''),
+  top('retencion', 'retention', 'Retención deseada', 'num', 0.7, 0.99), top('intervalo_maximo', 'maxInterval', 'Intervalo máximo', 'int', 1, 36500, 'd'), top('umbral_sanguijuela', 'leechThreshold', 'Fallos para marcar sanguijuela', 'int', 1, 99, ''),
   top('dia.inicia', 'dayStartHour', 'Hora en que empieza el día de estudio', 'int', 0, 23, 'h'), flag('semana.lunes', 'weekStartsMonday', 'La semana empieza en lunes'), top('racha.minimo', 'streakMin', 'Tarjetas mínimas para la racha', 'int', 1, 999, ''),
-  top('respaldo.recordatorio_dias', 'backupReminderDays', 'Recordatorio de respaldo cada', 'int', 1, 365, 'días'), top('papelera.dias', 'deckTrashDays', 'Días en la papelera de mazos', 'int', 0, 365, 'días'),
+  top('respaldo.recordatorio_dias', 'backupReminderDays', 'Recordatorio de respaldo cada', 'int', 1, 365, 'd'),
   flag('mostrar.grafo', 'showGraph', 'Mostrar el grafo de notas'), flag('mostrar.enlaces_entrantes', 'showBacklinks', 'Mostrar enlaces entrantes'),
   chat('asistente.dock', 'dock', 'GREX · barra', ['barra', 'mascota']), chat('asistente.estilo', 'estilo', 'GREX · estilo de respuestas', ['a', 'b']), chat('asistente.tamano', 'size', 'GREX · tamaño del chat', ['compact', 'large']), chat('asistente.contexto', 'context', 'GREX · contexto', ['normal', 'amplio']),
   amb('sonido.fondo', 'background', 'Sonido ambiente · seguir en segundo plano'), amb('sonido.bajar_con_voz', 'duck', 'Sonido ambiente · bajar con otros sonidos'), amb('sonido.bucle', 'loop', 'Música · repetir'), amb('sonido.aleatorio', 'shuffle', 'Música · aleatorio'), amb('sonido.solo_enfoque', 'onlyFocus', 'Sonido ambiente · solo en enfoque'),
@@ -50,7 +51,7 @@ const volEntry = (id: string): Entry => ({ ruta: `sonido.volumen.${id}`, label: 
 const FONDO = (L: Lists): Entry => ({
   ruta: 'fondo', label: 'Fondo', tipo: 'texto', valores: [...L.builtins, '#rrggbb', 'nombre de color', ...L.fondos.map((f) => `guardado:${f}`)],
   get: (s) => `${s.bg.kind}:${s.bg.value}`, patch: (_s, v) => { const [kind, ...r] = String(v).split(':'); return { bg: { kind: kind as 'builtin' | 'image' | 'solid', value: r.join(':') } }; },
-  fmt: (v) => { const [k, ...r] = String(v).split(':'), x = r.join(':'); return k === 'image' ? `imagen ${x.replace(/^.*\//, '').replace(/\.\w+$/, '')}` : k === 'solid' ? `color ${x}` : x; },
+  fmt: (v) => { const [k, ...r] = String(v).split(':'), x = r.join(':'); return k === 'image' ? t('asist2.v_imagen', { x: x.replace(/^.*\//, '').replace(/\.\w+$/, '') }) : k === 'solid' ? t('asist2.v_color', { x }) : x; },
 });
 export function entryOf(ruta: string, L: Lists): Entry | null {
   if (ruta === 'fondo') return FONDO(L);
@@ -59,9 +60,13 @@ export function entryOf(ruta: string, L: Lists): Entry | null {
   return CATALOG.find((e) => e.ruta === ruta) ?? null;
 }
 
-const show = (e: Entry, v: Val) => (e.fmt ? e.fmt(v) : v === undefined || v === null || v === '' ? '—' : typeof v === 'boolean' ? (v ? 'sí' : 'no') : `${v}${e.unidad ? ' ' + e.unidad : ''}`);
+/** Etiqueta traducida de una entrada (`asist2.l_<ruta con _>`; `label` queda como respaldo en español). */
+const labelOf = (e: Entry): string => (e.ruta.startsWith('addon.') ? t('asist2.l_addon', { x: e.ruta.slice(6) }) : e.ruta.startsWith('sonido.volumen.') ? t('asist2.l_volumen', { x: e.ruta.slice(15) }) : t('asist2.l_' + e.ruta.replace(/\./g, '_')));
+const unit = (u?: string) => (u === 'd' ? ' ' + t('asist2.v_dias') : u ? ' ' + u : '');
+const show = (e: Entry, v: Val) => (e.fmt ? e.fmt(v) : v === undefined || v === null || v === '' ? '—' : typeof v === 'boolean' ? t(v ? 'asist2.v_si' : 'asist2.v_no') : `${v}${unit(e.unidad)}`);
 const NAMES = new Set<string>(COLOR_NAMES);
 const coerce = (e: Entry, raw: unknown, L: Lists, s: Settings): Val | Bad => {
+  if (raw === undefined || raw === null || (typeof raw === 'string' && !raw.trim())) return { error: 'valor', detail: 'Falta el valor (para quitar el acento usa «ninguno»).' };
   if (e.ruta === 'fondo') {
     const v = String(raw ?? '').trim(), low = v.toLowerCase();
     if (L.builtins.includes(low)) return `builtin:${low}`;
@@ -110,11 +115,11 @@ export function buildSettings(s: Settings, L: Lists, cambios: { ruta: string; va
     if (e.ruta === 'acento' && typeof v === 'string') { // guardián de contraste AA: se propone el color más cercano que pase en el modo activo
       const mode = w.glassMode === 'auto' ? (typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : w.glassMode;
       const c2 = accentVariant(v, mode).color.toLowerCase();
-      if (c2 !== v) { note = ` — ${v} no pasa el contraste AA; propongo ${c2}`; v = c2; }
+      if (c2 !== v) { note = ` — ${t('asist2.v_contraste', { a: v, b: c2 })}`; v = c2; }
     }
     const merged = mergeSettings({ ...w, ...e.patch(w, v) }), after = e.get(merged), before = e.get(w);
     if (after === before) return { error: 'igual', detail: `${e.ruta} ya tiene ese valor.` };
-    items.push(`${e.label}: ${show(e, before)} → ${show(e, after)}${after !== v ? ` (quedó en ${show(e, after)})` : ''}${note}`);
+    items.push(`${labelOf(e)}: ${show(e, before)} → ${show(e, after)}${after !== v ? ` (${t('asist2.v_quedo', { x: show(e, after) })})` : ''}${note}`);
     ch.push({ ruta: e.ruta, antes: before, despues: after });
     w = merged;
   }
@@ -150,11 +155,12 @@ const str = { type: 'string' } as const;
 export interface AppDeps { settings: Settings; lists: () => Promise<Lists> | Lists }
 export function makeAppTools(ctx: WriteCtx, deps: AppDeps): ToolSet {
   let n = 0;
+  const turn = turnCount(ctx);
   const NO = { error: 'El usuario no pidió cambiar nada: no se propone nada.' };
   const out = (p: Proposal | Bad) => {
     if (isBad(p)) return { error: `No válido (${p.error}${p.detail ? ': ' + p.detail : ''}).` };
-    if (n >= 3) return { error: 'Límite alcanzado: ya hay 3 propuestas en este turno.' };
-    n++; ctx.propose(p);
+    if (n >= MAX_PROPOSALS || turn.n >= MAX_TURN) return { error: 'Límite alcanzado: ya hay 3 propuestas en este turno.' };
+    n++; turn.n++; ctx.propose(p);
     return { estado: 'PROPUESTA mostrada al usuario; no se ha cambiado nada hasta que pulse Aceptar.', resumen: p.resumen };
   };
   return {
@@ -172,9 +178,9 @@ export function makeAppTools(ctx: WriteCtx, deps: AppDeps): ToolSet {
       },
     }),
     cambiar_ajuste: tool({
-      description: 'Propone cambiar uno o VARIOS ajustes de la app en una sola propuesta (`cambios`: [{ruta, valor}], máx. 6; o `ruta`+`valor`). Ej.: pomo.work=40, tema=dark, fondo=azul, acento=verde + acento.usos=boton, addon.tasks=true. Con ruta mazo.nuevas_por_dia y `mazo`, el límite de nuevas de ese mazo. No cambia nada: el usuario acepta y puede deshacer. Apagar addon.assistant exige confirmo=true tras preguntárselo.',
-      inputSchema: jsonSchema<{ ruta?: string; valor?: string | number | boolean; cambios?: { ruta: string; valor: string | number | boolean }[]; mazo?: string; confirmo?: boolean }>({ type: 'object', properties: { ruta: str, valor: { type: ['string', 'number', 'boolean'] }, cambios: { type: 'array', items: { type: 'object', properties: { ruta: str, valor: { type: ['string', 'number', 'boolean'] } }, required: ['ruta', 'valor'], additionalProperties: false } }, mazo: str, confirmo: { type: 'boolean' } }, additionalProperties: false }),
-      execute: async ({ ruta, valor, cambios, mazo, confirmo }) => {
+      description: 'Propone cambiar uno o VARIOS ajustes de la app en una sola propuesta (`cambios`: [{ruta, valor}], máx. 6; o `ruta`+`valor`). Ej.: pomo.work=40, tema=dark, fondo=azul, acento=verde + acento.usos=boton, addon.tasks=true. Con ruta mazo.nuevas_por_dia y `mazo`, el límite de nuevas de ese mazo. No cambia nada: el usuario acepta y puede deshacer. Apagar addon.assistant solo si el usuario lo pidió con esas palabras (asistente/GREX).',
+      inputSchema: jsonSchema<{ ruta?: string; valor?: string | number | boolean; cambios?: { ruta: string; valor: string | number | boolean }[]; mazo?: string }>({ type: 'object', properties: { ruta: str, valor: { type: ['string', 'number', 'boolean'] }, cambios: { type: 'array', items: { type: 'object', properties: { ruta: str, valor: { type: ['string', 'number', 'boolean'] } }, required: ['ruta', 'valor'], additionalProperties: false } }, mazo: str }, additionalProperties: false }),
+      execute: async ({ ruta, valor, cambios, mazo }) => {
         if (!ctx.allowed()) return NO;
         const list = cambios?.length ? cambios : ruta !== undefined ? [{ ruta, valor }] : [];
         if (list.length === 1 && list[0]!.ruta === DECK_NEW) {
@@ -183,10 +189,13 @@ export function makeAppTools(ctx: WriteCtx, deps: AppDeps): ToolSet {
           const v = Number(list[0]!.valor);
           if (!Number.isInteger(v) || v < 0 || v > 9999) return out({ error: 'rango', detail: 'Entero entre 0 y 9999.' });
           const text = await readTextOr(ctx.vault, d.key, '');
-          return out(editProposal(d.key, text, setKeys(text, { new_per_day: v }), `Nuevas al día en ${d.label}: ${ctx.col!.decks.find((x) => x.path === d.key)?.newPerDay ?? 'general'} → ${v}`));
+          return out(editProposal(d.key, text, setKeys(text, { new_per_day: v }), t('asist2.l_nuevas_mazo', { mazo: d.label, a: String(ctx.col!.decks.find((x) => x.path === d.key)?.newPerDay ?? t('asist2.v_general')), b: String(v) })));
         }
-        if (list.some((c) => c.ruta === 'addon.assistant' && !(c.valor === true || c.valor === 'true')) && confirmo !== true) return { error: 'Apagar el Asistente exige confirmación explícita: pregúntale al usuario y, si dice que sí, vuelve a llamar con confirmo=true.' };
-        return out(buildSettings(deps.settings, await deps.lists(), list as { ruta: string; valor: unknown }[]));
+        // apagar el Asistente: lo decide el USUARIO (su último mensaje), no un parámetro del modelo
+        const off = list.some((c) => c.ruta === 'addon.assistant' && !(c.valor === true || c.valor === 'true'));
+        if (off && !/asistente|grex|assistant/i.test(ctx.userText ?? '')) return { error: 'Apagar el Asistente solo si el usuario lo pide con esas palabras en su último mensaje; pregúntale.' };
+        const r = buildSettings(deps.settings, await deps.lists(), list as { ruta: string; valor: unknown }[]);
+        return out(off && !isBad(r) ? { ...r, aviso: 'asist2.aviso_apagar' } : r);
       },
     }),
   };

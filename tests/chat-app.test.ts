@@ -8,9 +8,9 @@ import { MemoryBackend } from '../src/vault/memory';
 const ADDONS = ['tasks', 'assistant', 'ambient'];
 const LISTS = { addons: ADDONS, builtins: ['bruma', 'aurora', 'duna'], fondos: ['mi-foto'] };
 const run = (t: any, n: string, i: object) => t[n].execute(i, { toolCallId: 't', messages: [] }); // eslint-disable-line @typescript-eslint/no-explicit-any
-const mk = (s: Settings, allowed = true) => {
+const mk = (s: Settings, allowed = true, userText = '') => {
   const got: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
-  return { got, t: makeAppTools({ vault: new MemoryBackend(), col: null, today: '2026-03-01', sources: [], allowed: () => allowed, propose: (p) => got.push(p) }, { settings: s, lists: () => LISTS }) };
+  return { got, t: makeAppTools({ vault: new MemoryBackend(), col: null, today: '2026-03-01', sources: [], allowed: () => allowed, userText, propose: (p) => got.push(p) }, { settings: s, lists: () => LISTS }) };
 };
 const app = (s: Settings) => { const a = { settings: s, update: (p: Partial<Settings>) => { a.settings = mergeSettings({ ...a.settings, ...p }); } }; return a; };
 
@@ -55,11 +55,14 @@ describe('ajustes desde el Asistente', () => {
     for (const r of ['chat', 'chat.keys', 'chat.limits', 'engrama.chat.keys', 'vault', 'storage', 'lastExportAt', 'backup', 'welcomeDone', 'deckEmoji', 'tagList', '__proto__', 'addon.__proto__', '']) expect(buildSetting(s, LISTS, r, 1)).toMatchObject({ error: 'noexiste' });
     expect(CATALOG.every((e) => !/key|clave|vault|almac|respaldo\.(exportar|borrar)/i.test(e.ruta))).toBe(true);
   });
-  it('apagar el Asistente exige confirmo', async () => {
-    const s = defaultSettings(), { t, got } = mk(s);
-    expect((await run(t, 'cambiar_ajuste', { ruta: 'addon.assistant', valor: false })).error).toMatch(/confirmación explícita/);
-    expect(got).toHaveLength(0);
-    expect((await run(t, 'cambiar_ajuste', { ruta: 'addon.assistant', valor: false, confirmo: true })).estado).toMatch(/PROPUESTA/);
+  it('apagar el Asistente: solo si el USUARIO lo nombra; `confirmo` del modelo no cuenta; lleva aviso fijo', async () => {
+    const s = defaultSettings(), a = mk(s, true, 'quita el addon de tareas');
+    expect((await run(a.t, 'cambiar_ajuste', { ruta: 'addon.assistant', valor: false, confirmo: true })).error).toMatch(/solo si el usuario/);
+    expect(a.got).toHaveLength(0);
+    const b = mk(s, true, 'apaga el asistente');
+    expect((await run(b.t, 'cambiar_ajuste', { ruta: 'addon.assistant', valor: false })).estado).toMatch(/PROPUESTA/);
+    expect(b.got[0].aviso).toBe('asist2.aviso_apagar');
+    expect(mk(s, true, 'x').got).toHaveLength(0);
   });
   it('sin `allowed` no propone; listar_ajustes trae el valor actual, atajos y fondos', async () => {
     const s = defaultSettings(), off = mk(s, false);
@@ -112,6 +115,28 @@ describe('ajustes desde el Asistente', () => {
     expect(buildSetting(a.settings, LISTS, 'sonido.volumen.nada', 0.4)).toMatchObject({ error: 'noexiste' });
     expect(buildSetting(a.settings, LISTS, 'sonido.volumen.rain', 3)).toMatchObject({ error: 'rango' });
   });
+  it('valores vacíos o ausentes se rechazan (Number("") = 0)', async () => {
+    const s = defaultSettings();
+    for (const v of ['', '  ', undefined, null]) expect(buildSetting(s, LISTS, 'nuevas_por_dia', v), String(v)).toMatchObject({ error: 'valor' });
+    const { t, got } = mk(s);
+    expect(await run(t, 'cambiar_ajuste', { ruta: 'pomo.work' })).toHaveProperty('error'); expect(got).toHaveLength(0);
+  });
+  it('papelera.dias ya no se puede cambiar (autoPurge borraría mazos sin deshacer)', () => {
+    expect(buildSetting(defaultSettings(), LISTS, 'papelera.dias', 1)).toMatchObject({ error: 'noexiste' });
+    expect(CATALOG.map((e) => e.ruta)).not.toContain('papelera.dias');
+  });
+  it('el tope de propuestas del turno se COMPARTE entre fábricas', async () => {
+    const got: unknown[] = [], sources: never[] = [];
+    const base = { vault: new MemoryBackend(), col: null, today: '2026-03-01', sources, allowed: () => true, propose: (p: unknown) => got.push(p) } as never;
+    const app2 = makeAppTools(base, { settings: defaultSettings(), lists: () => LISTS });
+    const wr = (await import('../src/chat/tools-write')).makeWriteTools(base);
+    const ev = (i: number) => run(wr, 'agregar_evento', { titulo: `E${i}`, fecha: '2026-03-02', inicio: '09:00', fin: '10:00' });
+    for (let i = 0; i < 3; i++) await ev(i);
+    await run(app2, 'cambiar_ajuste', { ruta: 'pomo.work', valor: 41 }); await run(app2, 'cambiar_ajuste', { ruta: 'pomo.short', valor: 6 }); await run(app2, 'cambiar_ajuste', { ruta: 'pomo.long', valor: 16 });
+    expect(got).toHaveLength(6); // 3 + 3; el séptimo ya no cabe
+    expect(await run(app2, 'cambiar_ajuste', { ruta: 'pomo.every', valor: 3 })).toHaveProperty('error');
+    expect(got).toHaveLength(6);
+  });
   it('nuevas por día de UN mazo va al frontmatter del mazo con diff', async () => {
     const v = new MemoryBackend();
     await v.write('decks/Bio.md', new TextEncoder().encode('---\ndeck: Bio\n---\nQ:: a\nA:: b ^abcde\n'));
@@ -124,9 +149,13 @@ describe('ajustes desde el Asistente', () => {
     expect((await run(t, 'cambiar_ajuste', { ruta: 'mazo.nuevas_por_dia', mazo: 'Nada', valor: 20 })).error).toMatch(/noexiste/);
   });
   it('activación: verbos de ajuste y preguntas de capacidad; subconjunto «ajuste»', () => {
-    for (const q of ['pon un pomodoro de 40 min', 'cambia el tema a oscuro', 'pon el fondo azul', 'acento verde solo en botones', 'modo oscuro', 'activa el add-on de tareas', 'set the language to english', 'puedes cambiar mis ajustes?', 'configura el pomodoro']) expect(wantsWrite(q), q).toBe(true);
+    for (const q of ['pon un pomodoro de 40 min', 'cambia el tema a oscuro', 'pon el fondo azul', 'acento verde solo en botones',  'activa el add-on de tareas', 'activa el modo oscuro', 'set the language to english', 'puedes cambiar mis ajustes?', 'configura el pomodoro']) expect(wantsWrite(q), q).toBe(true);
     expect(wantsWrite('¿qué es un pomodoro?')).toBe(false);
+    for (const q of ['Explica el tema de la sangre', 'Resume el fondo de ojo normal', 'explícame el modo subjuntivo', 'puedes explicarme el tema del corazón', 'el fondo del mar es oscuro y claro']) expect(wantsWrite(q), q).toBe(false);
     expect([...groupsOf('pon el tema oscuro')]).toEqual(['ajuste']);
+    // las herramientas de ajustes solo con mensajes de ajustes (siempre se filtra)
+    expect(Object.keys(writeSubset({ cambiar_ajuste: 1, listar_ajustes: 1, crear_nota: 1 }, 'puedes hacer notas con tags?', false))).toEqual(['crear_nota']);
+    expect(Object.keys(writeSubset({ cambiar_ajuste: 1, listar_ajustes: 1, crear_nota: 1 }, 'hola puedes', false))).toEqual(['crear_nota']);
     expect(Object.keys(writeSubset({ cambiar_ajuste: 1, crear_nota: 1 }, 'tema oscuro', true))).toEqual(['cambiar_ajuste']);
   });
 });

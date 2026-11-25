@@ -99,6 +99,7 @@ function WritePreview({ m }: { m: Msg }) {
     <section ref={root} class="chat-pv" tabIndex={-1} aria-label={title} aria-live="polite">
       <b class="chat-pv-t" data-user-content>{title}</b>
       {(st === 'pending' || st === 'saving') && <p class="foot">{t('chat.pv_aviso')}</p>}
+      {p.aviso && (st === 'pending' || st === 'saving') && <p class="chat-pv-err" role="alert">{t(p.aviso)}</p>}
       {edit ? (
         <div class="stack-s">
           {p.tipo === 'evento' && ev

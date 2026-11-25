@@ -28,8 +28,9 @@ export function speechChunks(text: string, max = 180): string[] {
   if (cur.trim()) out.push(cur.trim());
   return out;
 }
-export function pickVoice<V extends { lang: string }>(voices: readonly V[], lang: string): V | undefined {
-  const l = lang.toLowerCase();
+/** Solo voces LOCALES (`localService`): una voz en la nube enviaría el texto de la respuesta a un servidor. */
+export function pickVoice<V extends { lang: string; localService?: boolean }>(all: readonly V[], lang: string): V | undefined {
+  const l = lang.toLowerCase(), voices = all.filter((v) => v.localService === true);
   return voices.find((v) => v.lang.toLowerCase().replace('_', '-') === l) ?? voices.find((v) => v.lang.toLowerCase().startsWith(l.slice(0, 2)));
 }
 
@@ -52,12 +53,14 @@ export function speak(md: string, onEnd?: (done: boolean) => void): boolean {
   const parts = speechChunks(speechText(md));
   if (!speechSupported() || !parts.length) return false;
   stopSpeak();
-  const me = ++run, lang = dictLang(), voice = pickVoice(speechSynthesis.getVoices(), lang);
+  const lang = dictLang(), voice = pickVoice(speechSynthesis.getVoices(), lang);
+  if (!voice) return false; // sin voz local no se lee (ni se manda a la red)
+  const me = ++run;
   const next = (i: number) => {
     if (me !== run) return onEnd?.(false);
     if (i >= parts.length) { set(false); return onEnd?.(true); }
     const u = new SpeechSynthesisUtterance(parts[i]);
-    u.lang = lang; if (voice) u.voice = voice;
+    u.lang = lang; u.voice = voice;
     u.onend = () => next(i + 1);
     u.onerror = () => { if (me === run) { set(false); onEnd?.(false); } };
     speechSynthesis.speak(u);
