@@ -16,7 +16,7 @@ import { diffLines } from './diff';
 import { checkExamEdit, checkNoteFile, one } from './make';
 import { tracked, undo, type Entry } from './undo';
 
-export type Kind = 'tarjetas' | 'examen' | 'evento' | 'borrar' | 'nota' | 'diagrama' | 'fecha' | 'edicion';
+export type Kind = 'tarjetas' | 'examen' | 'evento' | 'borrar' | 'nota' | 'diagrama' | 'fecha' | 'edicion' | 'ajuste';
 export interface EventFields { titulo: string; fecha: string; inicio: string; fin: string; materia: string; nota: string; tipo: EventKind }
 export interface Proposal {
   tipo: Kind;
@@ -39,6 +39,8 @@ export interface Proposal {
   huella?: string;
   /** edicion: texto completo del archivo ANTES (para el diff tras «Editar»); `huella` es su huella y `contenido` el texto nuevo completo */
   antes?: string;
+  /** ajuste: cambio de un ajuste de la app (lo aplica la interfaz con `app.update`, no el vault) */
+  ajuste?: { ruta: string; antes: unknown; despues: unknown };
   reversible?: true;
   /** borrar: cifras para la tarjeta de confirmación (se traducen en la interfaz) */
   datos?: Record<string, number>;
@@ -58,12 +60,15 @@ const SUMM_OBJ = /\b(resumenes|resumen|summary|summaries|resume)\b/;
 // editar lo que ya existe (notas, tarjetas, bancos, exámenes) y preguntas de capacidad («¿puedes hacer notas con tags?»)
 const EDIT_VERB = /\b(edit\w*|modific\w*|corrig\w*|actualiz\w*|reescrib\w*|etiquet\w*|tagu?e\w*|anade\w*|agrega\w*|apend\w*|update\w*|fix|correct\w*|rewrite|tag|label|ajoute\w*|corrige\w*|modifie\w*|mets|metre)\b/;
 const EDIT_OBJ = /\b(notas?|apuntes?|notes?|tarjetas?|cards?|cartes?|etiquetas?|tags?|encabezados?|headings?|preguntas?|questions?|bancos?|examen(es)?|exams?|simulacros?)\b/;
+// cambiar ajustes de la app («pon un pomodoro de 40 min», «tema oscuro», «activa el add-on …»)
+const SET_VERB = /\b(pon\w*|cambia\w*|activ\w*|desactiv\w*|apag\w*|enciend\w*|configur\w*|ajusta\w*|set|change|switch|turn|enable|disable|mets|active\w*|desactive\w*|configure\w*|regle\w*)\b/;
+const SET_OBJ = /\b(ajustes?|settings?|pomodoro|pomo|tema|oscuro|claro|dark|light|idioma|language|langue|ingles|english|acento|vidrio|add-?ons?|extension\w*|nuevas|preferencias?|desenfoque|modo)\b/;
 const CAP_ASK = /\b(puedes|puedo|podrias|podria|podrian|puede|sabes|eres capaz|can you|could you|can i|are you able|pouvez|peux|pourrais|sais)\b/;
 /** El último mensaje del usuario pide crear/modificar algo concreto (verbo + objeto, es/en/fr), o pregunta si puede. Sin ella no hay herramientas de escritura. */
 export function wantsWrite(text: string): boolean {
   const q = text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   return (WRITE_VERB.test(q) && WRITE_OBJ.test(q)) || (NOTE_VERB.test(q) && NOTE_OBJ.test(q)) || (SUMM_VERB.test(q) && SUMM_OBJ.test(q))
-    || (EDIT_VERB.test(q) && EDIT_OBJ.test(q)) || (CAP_ASK.test(q) && (EDIT_OBJ.test(q) || WRITE_OBJ.test(q) || SUMM_OBJ.test(q) || /\b(eventos?|events?|calendario|calendar)\b/.test(q)));
+    || (EDIT_VERB.test(q) && EDIT_OBJ.test(q)) || (SET_VERB.test(q) && SET_OBJ.test(q)) || (CAP_ASK.test(q) && SET_OBJ.test(q)) || (CAP_ASK.test(q) && (EDIT_OBJ.test(q) || WRITE_OBJ.test(q) || SUMM_OBJ.test(q) || /\b(eventos?|events?|calendario|calendar)\b/.test(q)));
 }
 
 // ───────── utilidades ─────────
@@ -180,6 +185,7 @@ export async function buildEventEdit(vault: VaultAdapter, q: { titulo?: string; 
 
 // ───────── revalidar tras «Editar» ─────────
 export function revalidate(p: Proposal, edit: { contenido?: string; evento?: Partial<EventFields> }, env?: { col: Collection | null; today: string }): Proposal | Bad {
+  if (p.tipo === 'ajuste') return p;
   if (p.tipo === 'edicion') {
     const c = edit.contenido ?? p.contenido, d = p.destino;
     let v: Bad | null = null;
@@ -210,9 +216,9 @@ export function revalidate(p: Proposal, edit: { contenido?: string; evento?: Par
 }
 
 // ───────── aplicar y deshacer (solo la interfaz, tras «Aceptar») ─────────
-const OKPATH: Record<Exclude<Kind, 'borrar' | 'edicion'>, [string, RegExp]> = { tarjetas: ['decks', /\.md$/], examen: ['exams-bank', /\.md$/], evento: ['calendar', /\.ics$/], nota: ['notes', /\.md$/], diagrama: ['notes', /\.md$/], fecha: ['exams', /\.md$/] };
+const OKPATH: Record<Exclude<Kind, 'borrar' | 'edicion' | 'ajuste'>, [string, RegExp]> = { tarjetas: ['decks', /\.md$/], examen: ['exams-bank', /\.md$/], evento: ['calendar', /\.ics$/], nota: ['notes', /\.md$/], diagrama: ['notes', /\.md$/], fecha: ['exams', /\.md$/] };
 const EDIT_OK = /^(notes\/.+|decks\/.+|exams-bank\/.+|exams\/[^/]+)\.md$/;
-const safeDest = (p: Proposal) => { if (p.tipo === 'borrar') return safeDeleteDest(p); if (p.tipo === 'edicion') return EDIT_OK.test(p.destino) && p.destino.length <= 400 && p.destino.split('/').every((s) => s !== '' && s !== '.' && s !== '..') && !/[\\\u0000-\u001f]/.test(p.destino); const [pre, re] = OKPATH[p.tipo]; return p.destino.startsWith(pre + '/') && re.test(p.destino) && p.destino.split('/').every((s) => s !== '' && s !== '.' && s !== '..') && !/[\\\u0000-\u001f]/.test(p.destino) && (p.tipo !== 'evento' || p.destino === CAL) && (p.tipo !== 'fecha' || p.destino.split('/').length === 2) && p.destino.length <= 400; };
+const safeDest = (p: Proposal) => { if (p.tipo === 'ajuste') return false; if (p.tipo === 'borrar') return safeDeleteDest(p); if (p.tipo === 'edicion') return EDIT_OK.test(p.destino) && p.destino.length <= 400 && p.destino.split('/').every((s) => s !== '' && s !== '.' && s !== '..') && !/[\\\u0000-\u001f]/.test(p.destino); const [pre, re] = OKPATH[p.tipo]; return p.destino.startsWith(pre + '/') && re.test(p.destino) && p.destino.split('/').every((s) => s !== '' && s !== '.' && s !== '..') && !/[\\\u0000-\u001f]/.test(p.destino) && (p.tipo !== 'evento' || p.destino === CAL) && (p.tipo !== 'fecha' || p.destino.split('/').length === 2) && p.destino.length <= 400; };
 const inflight = new Map<number, Promise<Entry[]>>();
 const groups = new Map<number, Entry[]>();
 const restorers = new Map<number, () => Promise<void>>(); // borrar: restaurar desde la papelera

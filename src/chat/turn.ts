@@ -18,7 +18,7 @@ import type { ToolSet } from 'ai';
 const examMod = import.meta.glob<{ makeExamTools?: (c: unknown) => ToolSet }>('./tools-exam.ts');
 
 /** `prefs`: rol, socrático y nivel · `ctx`: contexto con el que se abrió el chat · `write`: un botón interno fuerza las herramientas de escritura. */
-export interface SendOpts { prefs?: Prefs; ctx?: ChatCtx | null; write?: boolean }
+export interface SendOpts { prefs?: Prefs; ctx?: ChatCtx | null; write?: boolean; /** lo que hace falta para proponer cambios de ajustes: valores actuales, `go` y el `app.update` lo aplica la UI */ app?: { settings: import('../lib/settings').Settings; go: (screen: string) => void } }
 
 export { SYSTEM };
 
@@ -54,7 +54,7 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>, opts: S
     let tools: ToolSet | undefined;
     if (env) {
       const wctx = { ...env, sources, allowed: () => pl.writes, propose: propose(pl.writes) };
-      const writeTools: ToolSet = pl.writes && tw ? { ...tw.makeWriteTools(wctx), ...(await import('./tools-edit')).makeEditTools(wctx), ...(pl.convert ? (await import('./tools-convert')).makeConvertTools(wctx) : {}) } : {};
+      const writeTools: ToolSet = pl.writes && tw ? { ...tw.makeWriteTools(wctx), ...(await import('./tools-edit')).makeEditTools(wctx), ...(opts.app ? (await import('./tools-app')).makeAppTools(wctx, { settings: opts.app.settings, go: opts.app.go, addons: (await import('./tools-app')).addonIds }) : {}), ...(pl.convert ? (await import('./tools-convert')).makeConvertTools(wctx) : {}) } : {};
       const all = { ...(await import('./tools')).makeTools({ ...env, sources }), ...writeSubset(writeTools, `${sticky ? prevUser + ' ' : ''}${q}`, budget().histTokens <= 4000), ...(pl.dels && tw ? tw.makeDeleteTools({ ...env, sources, allowed: () => pl.dels, userText: q, propose: propose(pl.dels) }) : {}) };
       tools = filterTools(all, prefs.role) as ToolSet;
       const ex = pl.writes && ROLES[prefs.role].exam ? examMod['./tools-exam.ts'] : undefined;
@@ -62,7 +62,7 @@ export async function send(text: string, env?: Omit<ToolCtx, 'sources'>, opts: S
     }
     const cx = opts.ctx && env ? await loadCtx(env, opts.ctx, sources) : null;
     r = await runTurn({
-      messages: history, system: composeSystem(prefs, { ...pl, ctx: cx }), tools, signal: mine.signal, produced: () => proposed,
+      messages: history, system: composeSystem(prefs, { ...pl, ctx: cx, app: pl.writes && !!opts.app }), tools, signal: mine.signal, produced: () => proposed,
       onTool: (name) => { if (generation() === gen) setStatus({ tool: name }); },
       onText: (d) => { if (generation() !== gen) return; if (getStatus().tool) setStatus({ tool: undefined }); append(reply.id, d); },
       onStatus: (s) => {

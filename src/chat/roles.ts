@@ -1,5 +1,5 @@
 // Roles del Asistente: system + lista blanca de herramientas + escritura. Lógica pura (sin `ai`); turn.ts la aplica.
-import { SYSTEM, SYSTEM_CONVERT, SYSTEM_EDIT, SYSTEM_DELETE, SYSTEM_LEVEL, SYSTEM_SOCRATIC, SYSTEM_WRITE, ctxSystem } from './system';
+import { SYSTEM, SYSTEM_CONVERT, SYSTEM_APP, SYSTEM_EDIT, SYSTEM_DELETE, SYSTEM_LEVEL, SYSTEM_SOCRATIC, SYSTEM_WRITE, ctxSystem } from './system';
 
 export type RoleId = 'tutor' | 'examinador' | 'investigador' | 'creador' | 'analista';
 export type Level = '' | keyof typeof SYSTEM_LEVEL;
@@ -54,8 +54,8 @@ export function filterTools<T extends Record<string, unknown>>(tools: T, id: Rol
 }
 
 /** Prompt de sistema del turno. Con prefs por defecto y sin contexto da exactamente el de siempre. */
-export function composeSystem(prefs: Prefs, o: { writes: boolean; dels: boolean; convert: boolean; ctx?: { label: string; body: string } | null }): string {
-  return [SYSTEM, ROLES[prefs.role].system, prefs.socratic && SYSTEM_SOCRATIC, prefs.level && SYSTEM_LEVEL[prefs.level], o.writes && SYSTEM_WRITE, o.writes && SYSTEM_EDIT, o.convert && SYSTEM_CONVERT, o.dels && SYSTEM_DELETE, o.ctx && ctxSystem(o.ctx.label, o.ctx.body)].filter(Boolean).join(' ');
+export function composeSystem(prefs: Prefs, o: { writes: boolean; dels: boolean; convert: boolean; ctx?: { label: string; body: string } | null; app?: boolean }): string {
+  return [SYSTEM, ROLES[prefs.role].system, prefs.socratic && SYSTEM_SOCRATIC, prefs.level && SYSTEM_LEVEL[prefs.level], o.writes && SYSTEM_WRITE, o.writes && SYSTEM_EDIT, o.app && SYSTEM_APP, o.convert && SYSTEM_CONVERT, o.dels && SYSTEM_DELETE, o.ctx && ctxSystem(o.ctx.label, o.ctx.body)].filter(Boolean).join(' ');
 }
 
 /** Escritura «pegajosa»: un «sí / hazlo / dale» corto tras una oferta de crear o editar (o tras una propuesta) mantiene las herramientas. */
@@ -68,14 +68,15 @@ export function stickyWrite(q: string, prev: { assistant?: string; proposed: boo
   return prev.proposed || (!!prev.assistant && OFFER.test(n(prev.assistant)));
 }
 
-type Group = 'nota' | 'tarjeta' | 'examen' | 'evento';
-export const TOOL_GROUP: Record<string, Group> = { crear_nota: 'nota', crear_diagrama: 'nota', anadir_a_nota: 'nota', editar_nota: 'nota', etiquetar_nota: 'nota', crear_tarjetas: 'tarjeta', editar_tarjeta: 'tarjeta', crear_examen: 'examen', anadir_preguntas_a_banco: 'examen', registrar_examen: 'examen', modificar_examen: 'examen', agregar_evento: 'evento', modificar_evento: 'evento' };
+type Group = 'nota' | 'tarjeta' | 'examen' | 'evento' | 'ajuste';
+export const TOOL_GROUP: Record<string, Group> = { crear_nota: 'nota', crear_diagrama: 'nota', anadir_a_nota: 'nota', editar_nota: 'nota', etiquetar_nota: 'nota', crear_tarjetas: 'tarjeta', listar_ajustes: 'ajuste', cambiar_ajuste: 'ajuste', ir_a: 'ajuste', editar_tarjeta: 'tarjeta', crear_examen: 'examen', anadir_preguntas_a_banco: 'examen', registrar_examen: 'examen', modificar_examen: 'examen', agregar_evento: 'evento', modificar_evento: 'evento' };
 /** Qué objetos nombra el mensaje (sirve para ofrecer solo ese subconjunto de esquemas cuando el presupuesto es pequeño, p. ej. Groq). */
 export function groupsOf(q: string): Set<Group> {
   const u = q.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase(), g = new Set<Group>();
   if (/\b(notas?|apuntes?|notes?|tags?|etiquetas?|encabezados?|diagramas?|mapas?|resumen\w*)\b/.test(u)) g.add('nota');
   if (/\b(tarjetas?|cards?|flashcards?|cartes?|mazos?|decks?|cloze)\b/.test(u)) g.add('tarjeta');
   if (/\b(examen(es)?|exams?|bancos?|simulacros?|preguntas?|questions?|quiz)\b/.test(u)) g.add('examen');
+  if (/\b(ajustes?|settings?|pomodoro|pomo|tema|oscuro|claro|idioma|language|langue|acento|vidrio|add-?ons?|extensi\w+|nuevas|configur\w+|preferencias?|volumen|desenfoque)\b/.test(u)) g.add('ajuste');
   if (/\b(eventos?|events?|calendario|calendar|citas?|clases?|horario)\b/.test(u)) g.add('evento');
   return g;
 }

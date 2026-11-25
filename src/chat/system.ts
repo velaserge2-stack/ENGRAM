@@ -24,6 +24,9 @@ export const SYSTEM_WRITE = [
 /** Junto a SYSTEM_WRITE: herramientas que editan lo que ya existe. */
 export const SYSTEM_EDIT = 'Editing existing items (always a proposal with a diff): anadir_a_nota (append, optionally under a heading), editar_nota (replace one exact fragment: read the note first and copy it verbatim; if it fails, re-read), etiquetar_nota (tags), editar_tarjeta (keeps the card ID and review history), anadir_preguntas_a_banco (max 15), modificar_examen (date/topics/goal). Items are found by exact name; if a tool says varios, ask which one; noexiste: tell the user. Calendar: agregar_evento / modificar_evento (move or change time).';
 
+/** Ajustes de la app (grupo «ajuste»). */
+export const SYSTEM_APP = 'App settings: listar_ajustes shows what you can change; cambiar_ajuste proposes ONE change (pomodoro minutes pomo.work/short/long, tema, idioma, acento, vidrio, nuevas_por_dia, add-ons addon.<id>, mazo.nuevas_por_dia with `mazo`); the user accepts and can undo. Turning the Assistant add-on off needs the user\'s explicit yes first (then confirmo=true). ir_a opens a screen. You cannot touch API keys, storage, backups or deletions from here.';
+
 /** Solo cuando el último mensaje del usuario pide borrar (wantsDelete). */
 export const SYSTEM_DELETE = [
   'The user asked to delete something. You may call borrar_nota, borrar_mazo, borrar_banco or borrar_evento, but ONLY for exactly what the user asked to delete in their last message.',
