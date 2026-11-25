@@ -82,3 +82,12 @@ export function runAct(a: Act, app: AppCtx): void {
     ambient.play(levels, s.background);
   }
 }
+
+const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+/** ¿El último mensaje del usuario pide ACTUAR sobre la app? (verbo + objeto, es/en/fr). Sin ella no se ofrecen estas herramientas. */
+const VERB = /\b(inicia\w*|arranca\w*|pon\w*|para|deten\w*|pausa\w*|enciende\w*|apaga\w*|abre|abr\w+|ve|vamos|llevame|lleva\w*|muestra\w*|ir|estudia\w*|repasa\w*|anota\w*|agrega\w*|anade\w*|crea\w*|completa\w*|marca\w*|mueve\w*|edita\w*|start\w*|stop|pause|turn|play|open|go|show|take|study|add|create|complete|mark|move|edit|begin|demarre\w*|lance\w*|arrete\w*|allume\w*|eteins\w*|ouvre|va|emmene\w*|etudie\w*|ajoute\w*|cree\w*|termine\w*|deplace\w*)\b/;
+const OBJ = /\b(pomodoro|temporizador|timer|minuteur|enfoque|focus|sonido|sonidos|ruido|lluvia|ambiente|ambient|rain|noise|sound|bruit|pluie|tareas?|pendientes?|tasks?|todo|taches?|stickies|sticky|post-?its?|adhesivas?|notas? adhesivas?|hoy|mazos|estudiar|calendario|estadisticas|simulacros|notas|ajustes|perfil|today|decks|calendar|stats|statistics|notes|settings|profile|accueil|paquets|calendrier|statistiques|reglages|profil)\b/;
+export function wantsAction(text: string): boolean {
+  const q = norm(text);
+  return VERB.test(q) && OBJ.test(q);
+}
