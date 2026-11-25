@@ -1,4 +1,5 @@
 // Uso local y barra (contrato §7). Puro salvo load/save. Día = UTC (aproximación; manda la cabecera si existe).
+import { isDemo, mem } from '../demo/state';
 import type { Limits, ProviderId } from './providers';
 
 export const USAGE_STORAGE = 'engrama.chat.usage';
@@ -9,6 +10,7 @@ export interface Usage { v: 1; perKey: Record<string, KeyUse>; hdr?: Record<stri
 export const emptyUsage = (): Usage => ({ v: 1, perKey: {} });
 
 export function loadUsage(): Usage {
+  if (isDemo()) return mem.usage as Usage;
   try {
     const o = JSON.parse(localStorage.getItem(USAGE_STORAGE) ?? '') as Usage;
     if (o && o.v === 1 && o.perKey && typeof o.perKey === 'object') return o;
@@ -16,6 +18,7 @@ export function loadUsage(): Usage {
   return emptyUsage();
 }
 export function saveUsage(u: Usage): void {
+  if (isDemo()) { mem.usage = u; return; }
   try { localStorage.setItem(USAGE_STORAGE, JSON.stringify(u)); } catch { /* sin acceso */ }
 }
 

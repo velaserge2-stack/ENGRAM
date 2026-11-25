@@ -1,6 +1,7 @@
 import { Mic } from 'lucide-preact';
 import { useRef } from 'preact/hooks';
 import { t } from '../i18n';
+import { isDemo } from '../demo/state';
 import { dictate, useDict } from './voice';
 
 const HOLD_MS = 350;
@@ -13,6 +14,7 @@ export function DictButton(p: { variant: 'pill' | 'icon'; onStart?: () => void }
   // pill: abre el chat al SOLTAR (la pastilla desaparece y su pointerup no llegaría); icon: ya está en el chat. Abre aunque no haya soporte (se enfoca el campo)
   const pill = p.variant === 'pill';
   const begin = () => { dictate.start(); if (!pill) p.onStart?.(); };
+  if (isDemo()) return null; // demo: sin micrófono
   const label = on ? t('voz.escuchando_detener') : t('voz.dictar');
   const ev = {
     onPointerDown: (e: PointerEvent) => {

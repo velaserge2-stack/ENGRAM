@@ -2322,5 +2322,6 @@
  "voz.err_capture": "No se encontró un micrófono disponible",
  "voz.err_network": "El dictado del sistema no tiene conexión ahora",
  "voz.err_other": "No se pudo dictar. Escribe o usa el micrófono del teclado",
- "voz.priv": "🔸 Dictar usa el reconocimiento de voz del sistema (Safari, iPadOS, macOS), no Engrama: el audio no pasa por la app ni se guarda. Según el ajuste de Dictado de tu dispositivo, el sistema puede procesarlo en servidores de Apple."
+ "voz.priv": "🔸 Dictar usa el reconocimiento de voz del sistema (Safari, iPadOS, macOS), no Engrama: el audio no pasa por la app ni se guarda. Según el ajuste de Dictado de tu dispositivo, el sistema puede procesarlo en servidores de Apple.",
+ "demo.chat_resp": "Te propongo 3 tarjetas de ECG para Cardiología. Revísalas y, si te sirven, pulsa Aceptar. Esto es una demostración: no usa internet."
 }
