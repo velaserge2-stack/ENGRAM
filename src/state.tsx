@@ -11,7 +11,8 @@ type SheetId = 'import' | 'backup' | 'add' | 'exam' | 'palette' | 'ambient' | nu
 export interface PomoCtl {
   state: PomoState;
   now: number;
-  start(label?: string): void;
+  /** `minutes` (opcional, solo parado y en trabajo): duración de esta fase sin tocar los ajustes */
+  start(label?: string, minutes?: number): void;
   pause(): void;
   reset(): void;
   skip(): void;

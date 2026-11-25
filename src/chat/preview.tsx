@@ -8,6 +8,7 @@ import { parseFrontmatter } from '../lib/frontmatter';
 import { renderMarkdown } from '../md/render';
 import { useApp } from '../state';
 import { redact } from './errors';
+import { runAct, writes } from './actions';
 import { type Msg, patch } from './history';
 import { applySetting, appLists } from './tools-app';
 import { applyProposal, type EventFields, isBad, revalidate, undoProposal } from './proposal';
@@ -61,13 +62,14 @@ function WritePreview({ m }: { m: Msg }) {
   }, [st]);
   useEffect(() => { if (edit) first.current?.focus(); }, [edit]);
 
-  const refresh = () => (p.tipo === 'nota' || p.tipo === 'diagrama' || (p.tipo === 'edicion' && p.destino.startsWith('notes/')) ? app.changed('notes') : app.changed());
+  const pure = p.tipo === 'accion' && !writes(p.accion!); // navegar, temporizador, sonido: no escribe ni se deshace
+  const refresh = () => (p.tipo === 'nota' || p.tipo === 'diagrama' || p.tipo === 'accion' || (p.tipo === 'edicion' && p.destino.startsWith('notes/')) ? app.changed('notes') : app.changed());
   const accept = async () => {
     if (lock.current || st !== 'pending' || edit) return; // doble toque: una sola escritura (applyProposal también es idempotente)
     lock.current = true;
     patch(m.id, { pstate: 'saving', perr: undefined });
     try {
-      if (p.tipo === 'ajuste') applySetting(app, await appLists(app.vault), p); else await applyProposal(app.vault, app.col, p, m.id);
+      if (p.tipo === 'ajuste') applySetting(app, await appLists(app.vault), p); else if (pure) runAct(p.accion!, app); else await applyProposal(app.vault, app.col, p, m.id);
       patch(m.id, { pstate: 'saved' });
       refresh();
     } catch (e) {
@@ -93,7 +95,7 @@ function WritePreview({ m }: { m: Msg }) {
     queueMicrotask(() => editBtn.current?.focus());
   };
 
-  const title = p.tipo === 'evento' ? t(p.op ? 'chat.pv_t_evento_mod' : 'chat.pv_t_evento') : t(TITLE[p.tipo as keyof typeof TITLE], { dest: p.mazo ?? p.destino.replace(/^.*\//, '').replace(/\.md$/, '') });
+  const title = p.tipo === 'accion' ? t(`acc2.t_${p.accion!.k}`) : p.tipo === 'evento' ? t(p.op ? 'chat.pv_t_evento_mod' : 'chat.pv_t_evento') : t(TITLE[p.tipo as keyof typeof TITLE], { dest: p.mazo ?? p.destino.replace(/^.*\//, '').replace(/\.md$/, '') });
   const busy = st === 'saving';
   return (
     <section ref={root} class="chat-pv" tabIndex={-1} aria-label={title} aria-live="polite">
@@ -127,13 +129,13 @@ function WritePreview({ m }: { m: Msg }) {
           {edit
             ? <button type="button" class="btn primary" aria-label={t('chat.pv_revisar')} onClick={check}><Check size={18} aria-hidden="true" /> {t('chat.pv_revisar')}</button>
             : <button type="button" class="btn primary" aria-label={t('chat.pv_aceptar')} disabled={busy} onClick={() => void accept()}><Check size={18} aria-hidden="true" /> {busy ? t('chat.pv_guardando') : t('chat.pv_aceptar')}</button>}
-          {!edit && p.tipo !== 'ajuste' && <button ref={editBtn} type="button" class="btn" aria-label={t('chat.pv_editar')} disabled={busy} onClick={open}><Pencil size={18} aria-hidden="true" /> {t('chat.pv_editar')}</button>}
+          {!edit && p.tipo !== 'ajuste' && p.tipo !== 'accion' && <button ref={editBtn} type="button" class="btn" aria-label={t('chat.pv_editar')} disabled={busy} onClick={open}><Pencil size={18} aria-hidden="true" /> {t('chat.pv_editar')}</button>}
           <button type="button" class="btn" aria-label={t('chat.pv_cancelar')} disabled={busy} onClick={() => patch(m.id, { pstate: 'canceled' })}><X size={18} aria-hidden="true" /> {t('chat.pv_cancelar')}</button>
         </div>
       ) : st === 'saved' ? (
         <div class="chat-pv-act" role="status">
-          <span class="chat-pv-ok">{t('chat.pv_guardado', { resumen: p.resumen })}</span>
-          <button type="button" class="btn" aria-label={t('chat.pv_deshacer')} onClick={() => void undo()}><Undo2 size={18} aria-hidden="true" /> {t('chat.pv_deshacer')}</button>
+          <span class="chat-pv-ok">{t(pure ? 'acc2.hecho' : 'chat.pv_guardado', { resumen: p.resumen })}</span>
+          {!pure && <button type="button" class="btn" aria-label={t('chat.pv_deshacer')} onClick={() => void undo()}><Undo2 size={18} aria-hidden="true" /> {t('chat.pv_deshacer')}</button>}
           {m.perr && <span class="chat-pv-err">{t(`chat.pv_werr_${m.perr}`)}</span>}
         </div>
       ) : (
