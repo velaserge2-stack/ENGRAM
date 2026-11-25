@@ -11,7 +11,7 @@ const URLS: Record<ProviderId, string> = {
 };
 // no son de texto/chat
 const NOT_CHAT = /whisper|guard|tts|playai|orpheus|embed|aqa|imagen|veo|image|live|native-audio|robotics|computer-use|transcri/i;
-const rank = (p: ProviderId, id: string) => (p === 'gemini' ? (/flash/.test(id) ? 0 : 1) : p === 'openrouter' ? (/:free$/.test(id) ? 0 : 1) : p === 'kimi' ? (/kimi-k2/.test(id) ? 0 : 1) : /llama/.test(id) ? 0 : 1);
+const rank = (p: ProviderId, id: string) => (p === 'gemini' ? (/flash/.test(id) ? 0 : 1) : p === 'openrouter' ? (/:free$/.test(id) ? 0 : 1) : p === 'kimi' ? (/kimi-k2/.test(id) ? 0 : 1) : /llama|gpt-oss/.test(id) ? 0 : 1);
 const sortIds = (p: ProviderId, ids: string[]) => [...new Set(ids)].sort((a, b) => rank(p, a) - rank(p, b) || a.localeCompare(b));
 
 /** Gemini: `{models:[{name:'models/x', supportedGenerationMethods:[…]}], nextPageToken?}`. */

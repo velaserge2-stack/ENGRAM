@@ -16,12 +16,12 @@ export interface TurnOpts {
   tools?: ToolSet;
   signal?: AbortSignal;
   onText?: (delta: string) => void;
-  /** Códigos para la interfaz: 'rotated' (cambió de clave) | 'waiting' (429 por minuto). */
+  /** Códigos para la interfaz: 'rotated' (cambió de clave) | 'waiting' (429 por minuto) | 'notools' (el modelo no admite herramientas: se repite sin ellas). */
   /** Una herramienta fue llamada; la interfaz lo muestra hasta que llega texto. */
   /** ¿el turno ya produjo algo visible aparte del texto (p. ej. una propuesta)? */
   produced?: () => boolean;
   onTool?: (name: string) => void;
-  onStatus?: (s: { code: 'rotated' | 'waiting'; alias: string; waitMs?: number }) => void;
+  onStatus?: (s: { code: 'rotated' | 'waiting' | 'notools'; alias: string; waitMs?: number }) => void;
   /** Solo pruebas. */
   timeoutMs?: number;
   fetch?: typeof fetch;
@@ -50,11 +50,14 @@ export async function runTurn(o: TurnOpts): Promise<TurnResult> {
   try { return await run(o); } finally { inflight = false; }
 }
 
+/** «tool calling is not supported with this model» (Groq), «does not support tools», «No endpoints found that support tool use» (OpenRouter)… */
+export const NO_TOOLS = /tool[s _-]*(calling|use|call)?[`'"]?\s*(is |are )?not supported|(does not|doesn't) support (tools|tool|function)|no endpoints found that support tool/i;
+
 async function run(o: TurnOpts): Promise<TurnResult> {
   const now = o.now ?? Date.now, sleep = o.sleep ?? sleepAbortable;
   let store = loadKeys();
   const skip = new Set<string>();
-  let rotated = false, waited = false, halved = false; // halved: ya se reintentó con la mitad de salida (400 por max_tokens)
+  let rotated = false, waited = false, halved = false, notools = false; // halved: ya se reintentó con la mitad de salida (400 por max_tokens)
   let last: { code: Kind; message: string; detail?: Detail } | null = null;
   const fail = (code: 'nokey' | Kind, message: string, detail?: Detail): TurnResult => ({ ok: false, code, message: redact(message, store.keys.map((k) => k.key)), rotated, detail });
 
@@ -74,7 +77,7 @@ async function run(o: TurnOpts): Promise<TurnResult> {
       const b = budget(k.provider), maxOut = halved ? Math.max(256, b.maxOut >> 1) : b.maxOut;
       const [core, model] = await Promise.all([loadCore(), loadModel(k.provider, k.key, o.fetch)]);
       const r = core.streamText({
-        model, system: o.system, messages: trimMessages(o.messages, b.histTokens), tools: o.tools,
+        model, system: notools ? o.system + ' En esta conversación no tienes herramientas: no digas que buscaste, leíste o cambiaste notas, tarjetas o mazos.' : o.system, messages: trimMessages(o.messages, b.histTokens), tools: notools ? undefined : o.tools,
         stopWhen: core.stepCountIs(b.steps),
         // último paso sin herramientas: obliga a cerrar con texto
         prepareStep: ({ stepNumber }) => (stepNumber >= b.steps - 1 ? { toolChoice: 'none' as const } : undefined),
@@ -111,6 +114,8 @@ async function run(o: TurnOpts): Promise<TurnResult> {
     last = { code: c.kind, message, detail };
     // 400 por max_tokens: una sola vez con la mitad, misma clave, sin rotar
     if (c.kind === 'limit' && !halved && !text && !stepped) { halved = true; continue; }
+    // el modelo elegido no admite herramientas (p. ej. allam-2-7b en Groq): una vez sin ellas, misma clave
+    if (o.tools && !notools && !text && !stepped && NO_TOOLS.test(message + ' ' + (detail?.msg ?? ''))) { notools = true; o.onStatus?.({ code: 'notools', alias: k.alias }); continue; }
     const d = decide(c.kind);
     if (text || stepped || d === 'fail') return fail(c.kind, message, detail);
     if (d === 'rotate') {

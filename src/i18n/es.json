@@ -2169,6 +2169,7 @@
  "chat.p_ia": "Asistente",
  "chat.p_clave_usada": "Clave: {alias}",
  "chat.p_rotada": "Cambié a la clave «{alias}».",
+ "chat.p_sin_herramientas": "Este modelo no admite herramientas: respondo sin leer ni cambiar tus notas y tarjetas. Para eso elige otro (p. ej. openai/gpt-oss-120b).",
  "chat.p_espera": "Esperando {s} s por el límite por minuto…",
  "chat.p_ajustes": "Ir a Ajustes",
  "chat.p_detenida": "Respuesta detenida.",

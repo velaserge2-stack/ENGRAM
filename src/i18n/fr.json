@@ -2169,6 +2169,7 @@
  "chat.p_ia": "Assistant",
  "chat.p_clave_usada": "Clé : {alias}",
  "chat.p_rotada": "Passage à la clé « {alias} ».",
+ "chat.p_sin_herramientas": "Ce modèle ne prend pas en charge les outils : je réponds sans lire ni modifier tes notes et cartes. Pour cela, choisis-en un autre (p. ex. openai/gpt-oss-120b).",
  "chat.p_espera": "Attente de {s} s pour la limite par minute…",
  "chat.p_ajustes": "Aller aux Réglages",
  "chat.p_detenida": "Réponse arrêtée.",
