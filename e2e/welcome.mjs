@@ -42,7 +42,7 @@ try {
   ok((await page.locator('#bv-root .bv-plan').count()) === 4, 'precios: 4 tarjetas');
   ok((await page.locator('.bv-plan [aria-disabled=true]').count()) === 3, 'precios: 3 botones «Próximamente» deshabilitados');
   ok((await page.locator('.bv-plan.hi').count()) === 1, 'precios: «Gratis» destacada');
-  ok((await page.locator('#bv-ia .bv-cardx').count()) === 8 && (await page.locator('#bv-ia .bv-guar li').count()) === 4, 'capacidades: 8 tarjetas y 4 garantías');
+  ok((await page.locator('#bv-ia .bv-cardx').count()) === 12 && (await page.locator('#bv-ia .bv-guar li').count()) === 4, 'capacidades: 12 tarjetas y 4 garantías');
   // demo falso: ready → iframe visible; las pestañas mandan la ruta
   await page.locator('#bv-stage').scrollIntoViewIfNeeded();
   const fr = page.frameLocator('.bv-screen iframe');
