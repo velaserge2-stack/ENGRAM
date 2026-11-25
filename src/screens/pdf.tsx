@@ -22,8 +22,8 @@ import { appendCard } from '../data/ops';
 import { listNotes } from '../notes/model';
 import { InkLayer, InkToolbar } from '../ink/InkLayer';
 import { useInkTools } from '../ink/InkSurface';
-import { History, type InkDoc, outline, svgPath } from '../ink/model';
-import { type Annots, annotsPath, type CharBox, emptyPage, fingerprintFile, fromLegacy, legacyPath, type Mark, type MarkKind, marksToMarkdown, type PageAnn, parseAnnots, samePdf, snapToText } from '../pdf/annots';
+import { History, type InkDoc, isFreeMarker, markerExport, outline, svgPath } from '../ink/model';
+import { type Annots, annotsPath, type CharBox, emptyPage, fingerprintFile, fromLegacy, legacyPath, type Mark, type MarkKind, marksToMarkdown, type PageAnn, markLineColor, parseAnnots, samePdf, snapToText } from '../pdf/annots';
 import { pdfLink, updatePdfMeta } from '../pdf/library';
 import { fileOf, openPdfFile } from '../pdf/open';
 import { fitPixels, Heights, PAGE_GAP, RenderQueue, visibleRange } from '../pdf/virtual';
@@ -229,7 +229,7 @@ export function PdfViewer(props: { path: string; page?: number }) {
   };
   const exportPdf = async () => {
     const bytes = await app.vault.read(props.path);
-    const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+    const { PDFDocument, rgb, StandardFonts, BlendMode } = await import('pdf-lib');
     const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     const hex = (c: string) => { const n = parseInt(c.slice(1), 16); return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255); };
@@ -238,10 +238,10 @@ export function PdfViewer(props: { path: string; page?: number }) {
       if (!a) return;
       const { width: W, height: H } = pg.getSize();
       for (const m of a.marks) for (const [x, y, w, h] of m.rects) {
-        if (m.kind === 'highlight') pg.drawRectangle({ x: x * W, y: H - (y + h) * H, width: w * W, height: h * H, color: hex(m.color), opacity: 0.35 });
-        else pg.drawRectangle({ x: x * W, y: H - (y + (m.kind === 'underline' ? h : h / 2)) * H, width: w * W, height: Math.max(0.8, h * H * 0.08), color: m.kind === 'underline' ? hex('#0a5cd6') : hex('#c4262e') });
+        if (m.kind === 'highlight') pg.drawRectangle({ x: x * W, y: H - (y + h) * H, width: w * W, height: h * H, color: hex(m.color), opacity: 0.35, blendMode: BlendMode.Multiply });
+        else pg.drawRectangle({ x: x * W, y: H - (y + (m.kind === 'underline' ? h : h / 2)) * H, width: w * W, height: Math.max(0.8, h * H * 0.08), color: hex(markLineColor(m)) });
       }
-      for (const s of a.ink.strokes) pg.drawSvgPath(svgPath(outline(s, W)), { x: 0, y: H, color: hex(s.color), opacity: s.tool === 'highlighter' ? 0.35 : 1, borderWidth: 0 });
+      for (const s of a.ink.strokes) { const mx = markerExport(s); pg.drawSvgPath(svgPath(outline(s, W)), { x: 0, y: H, color: hex(s.color), opacity: mx ? mx.opacity : 1, ...(mx ? { blendMode: BlendMode.Multiply } : {}), borderWidth: 0 }); }
       for (const n of a.notes) {
         pg.drawRectangle({ x: n.x * W, y: H - n.y * H - 14, width: 14, height: 14, color: hex('#ffd60a') });
         pg.drawText(n.text.slice(0, 200), { x: n.x * W + 18, y: H - n.y * H - 11, size: 8, font, color: rgb(0.1, 0.1, 0.1), maxWidth: Math.max(80, W * 0.4) });
@@ -666,11 +666,11 @@ const Page = memo(function Page(p: PageProps) {
   const onInk = (next: InkDoc) => {
     const added = next.strokes.length === ink.strokes.length + 1 ? next.strokes[next.strokes.length - 1] : null;
     // resaltador inteligente: un trazo de resaltador sobre texto se vuelve una marca ajustada a las líneas
-    if (added?.tool === 'highlighter' && ref.current && size) {
+    if (added?.tool === 'highlighter' && !isFreeMarker(added) && ref.current && size) {
       const xs = added.pts.map((q) => q[0]), ys = added.pts.map((q) => (q[1] * size.w) / size.h);
       const pad = (added.size * 1.5) / size.h;
       const snap = snapToText(charBoxes(ref.current, { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys) - pad, y1: Math.max(...ys) + pad }), { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys) - pad, y1: Math.max(...ys) + pad });
-      if (snap.rects.length) return p.onInk(p.n, ink, { id: Date.now().toString(36), kind: p.markKind, color: added.color === '#1c1c1e' ? MARK_COLOR : added.color, rects: snap.rects, text: snap.text, ts: Date.now() });
+      if (snap.rects.length) return p.onInk(p.n, ink, { id: Date.now().toString(36), kind: p.markKind, color: added.color === '#1c1c1e' ? MARK_COLOR : added.color, rects: snap.rects, text: snap.text, ts: Date.now(), ...(p.markKind !== 'highlight' && added.color !== '#1c1c1e' ? { lc: added.color } : {}) });
     }
     p.onInk(p.n, next);
   };
@@ -678,7 +678,7 @@ const Page = memo(function Page(p: PageProps) {
     <div ref={ref} key={p.slot ? 'in-slot' : 'solo'} class="pdf-page" data-page={p.n} data-user-content style={{ width: `${size.w}px`, height: `${size.h}px` }}
       onClick={(e) => { if (!p.sticky || !size) return; const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); p.onNote(p.n, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); }}>
       <div class="pdf-text textLayer" />
-      {p.ann?.marks.map((m) => m.rects.map(([x, y, w, hh]) => <div class={`pdf-mark ${m.kind}`} data-mark={m.id} style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: `${w * 100}%`, height: `${hh * 100}%`, '--mk': m.color }} />))}
+      {p.ann?.marks.map((m) => m.rects.map(([x, y, w, hh]) => <div class={`pdf-mark ${m.kind}`} data-mark={m.id} style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: `${w * 100}%`, height: `${hh * 100}%`, '--mk': m.color, ...(m.lc ? { '--mark-c': m.lc } : {}) }} />))}
       {p.near && (p.annotate || ink.strokes.length > 0) && <InkLayer doc={ink} onChange={onInk} history={p.history} width={size.w} height={size.h} active={inkActive} tools={p.tools} finger={p.finger} label={tr('pdf.tinta_pagina_n', { n: p.n })} />}
       {p.ann?.notes.map((n) => (
         <div class="pdf-sticky" style={{ left: `${n.x * 100}%`, top: `${n.y * 100}%` }}>
