@@ -116,17 +116,7 @@ try {
   check(outside.every((v, i) => Math.abs(v - outside0[i]) <= 2), 'fuera del trazo la página no cambia');
   await pg1.screenshot({ path: OUT + 'anotador-marcador.png' });
 
-  // persiste: reabrir la app y el trazo sigue
-  await page.waitForTimeout(800);
-  await page.reload();
-  await page.locator('.pdf-page[data-page="1"] canvas.ink-mk').waitFor({ timeout: 20000 });
-  await page.waitForTimeout(500);
-  check(await extent('canvas.ink-mk') > 14, 'tras reabrir, el marcador sigue ahí');
-
-  // deshacer y borrador
-  await page.getByRole('button', { name: 'Anotar', exact: true }).click().catch(() => {});
-  await mark.waitFor();
-  await mark.click();
+  // deshacer y borrador (otro trazo, en la misma sesión)
   const n1 = await inkpx();
   await drawPart('half', 0.75); await drawPart('rest', 0.75); // otro trazo en esta sesión (el historial no sobrevive al reabrir)
   await page.waitForTimeout(500);
@@ -135,7 +125,7 @@ try {
   await page.getByRole('button', { name: /^Deshacer/ }).first().waitFor();
   await page.getByRole('button', { name: /^Deshacer/ }).first().click();
   await page.waitForTimeout(300);
-  { const n = await inkpx(); check(n > 0 && n < n2 * 0.8, 'deshacer quita solo el último trazo'); }
+  { const n = await inkpx(); check(n > 0 && n < n2 * 0.8, `deshacer quita solo el último trazo (${n1} → ${n2} → ${n})`); }
   await page.getByRole('button', { name: /^Rehacer/ }).first().click();
   await page.waitForTimeout(300);
   check(await inkpx() === n2, 'rehacer lo devuelve');
@@ -147,6 +137,13 @@ try {
   });
   await page.waitForTimeout(300);
   { const n = await inkpx(); check(n > 0 && n < n2 * 0.8, 'el borrador quita el trazo tocado y deja el otro'); }
+
+  // persiste: reabrir la app y el trazo sigue
+  await page.waitForTimeout(800);
+  await page.reload();
+  await page.locator('.pdf-page[data-page="1"] canvas.ink-mk').waitFor({ timeout: 20000 });
+  await page.waitForTimeout(500);
+  check(await extent('canvas.ink-mk') > 14, 'tras reabrir, el trazo que quedó sigue ahí');
 
   check(errors.length === 0, 'sin errores de consola: ' + errors.slice(0, 3).join(' | '));
   console.log('OK anotador');
