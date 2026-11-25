@@ -1,36 +1,20 @@
 import { Mic } from 'lucide-preact';
-import { useRef } from 'preact/hooks';
 import { t } from '../i18n';
 import { isDemo } from '../demo/state';
 import { dictate, useDict } from './voice';
 
-const HOLD_MS = 350;
-
-/** Botón «Dictar». Toque = empezar/detener; mantener ≥ 350 ms = hablar mientras se mantiene y detener al soltar.
- *  `start()` va dentro del gesto (pointerdown/clic). `pill` = el de la barra; `icon` = el del campo del panel. */
+/** Botón «Dictar»: toque = empezar, segundo toque = detener. El reconocimiento arranca en `pointerup`/`click` (activación de usuario real;
+ *  `pointerdown` no la da en Safari táctil). `pill` = el de la barra; `icon` = el del campo del panel. */
 export function DictButton(p: { variant: 'pill' | 'icon'; onStart?: () => void }) {
   const dict = useDict(), on = dict.state === 'listening';
-  const down = useRef<{ at: number; was: boolean } | null>(null);
-  // pill: abre el chat al SOLTAR (la pastilla desaparece y su pointerup no llegaría); icon: ya está en el chat. Abre aunque no haya soporte (se enfoca el campo)
+  // pill: abre el chat en el mismo gesto (la pastilla desaparece); abre aunque no haya API (modo sistema: se enfoca el campo)
   const pill = p.variant === 'pill';
-  const begin = () => { dictate.start(); if (!pill) p.onStart?.(); };
   if (isDemo()) return null; // demo: sin micrófono
   const label = on ? t('voz.escuchando_detener') : t('voz.dictar');
+  const toggle = () => { if (on) dictate.stop(); else dictate.start(); if (pill) p.onStart?.(); else if (!on) p.onStart?.(); };
   const ev = {
-    onPointerDown: (e: PointerEvent) => {
-      if (e.button > 0 || !e.isPrimary) return;
-      try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* sin captura */ }
-      down.current = { at: Date.now(), was: on };
-      if (!on) begin();
-    },
-    onPointerUp: () => {
-      const s = down.current; down.current = null;
-      if (!s) return;
-      if (s.was || Date.now() - s.at >= HOLD_MS) dictate.stop();
-      if (pill) p.onStart?.();
-    },
-    onPointerCancel: () => { if (down.current) { down.current = null; dictate.stop(); } },
-    onClick: (e: MouseEvent) => { if (e.detail === 0) { if (on) dictate.stop(); else begin(); if (pill) p.onStart?.(); } }, // teclado
+    onPointerUp: (e: PointerEvent) => { if (e.button > 0 || !e.isPrimary) return; e.preventDefault(); toggle(); },
+    onClick: (e: MouseEvent) => { if (e.detail === 0) toggle(); }, // teclado
     onContextMenu: (e: Event) => e.preventDefault(),
   };
   return pill
@@ -40,6 +24,12 @@ export function DictButton(p: { variant: 'pill' | 'icon'; onStart?: () => void }
 
 /** Mensaje del dictado (permiso, sin soporte…) bajo el botón; región viva. */
 export function VoiceMsg() {
-  const { msg } = useDict();
-  return <div class="gx-voz-msg" role="status" aria-live="polite">{msg ? t(msg) : ''}</div>;
+  const { msg, help } = useDict();
+  return (
+    <div class="gx-voz-msg" role="status" aria-live="polite">
+      {msg && <div>{t(msg)}</div>}
+      {help && <div class="gx-voz-help"><Mic size={14} aria-hidden="true" /> {t(`voz3.ayuda_${help === 'other' ? 'otro' : help}`)}</div>}
+      {help && help !== 'other' && <div>{t(`voz3.activar_${help}`)}</div>}
+    </div>
+  );
 }

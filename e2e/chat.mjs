@@ -1009,20 +1009,16 @@ try {
   await field().fill('');
   const vpb = page.locator('.chat-form .vz');
   check((await vpb.boundingBox()).height >= 44, 'botón del campo: ≥ 44 px');
-  await vpb.dispatchEvent('pointerdown', { pointerId: 1, isPrimary: true, button: 0 });
-  await page.waitForTimeout(450);
-  check(await page.evaluate(() => window.__srN === 3), 'mantener: empieza al pulsar');
+  const tap = (id) => vpb.dispatchEvent('pointerup', { pointerId: id, isPrimary: true, button: 0 }); // el reconocimiento arranca en pointerup (activación real)
+  await tap(1);
+  check(await page.evaluate(() => window.__srN === 3), 'toque: empieza al soltar (no en pointerdown)');
+  check((await page.locator('.chat-form .vz.on').count()) === 1, 'toque: sigue escuchando hasta otro toque');
   await page.evaluate(() => window.__sr.say('mantenido', true));
-  await vpb.dispatchEvent('pointerup', { pointerId: 1, isPrimary: true });
+  await tap(2);
   await page.waitForTimeout(100);
-  check((await field().inputValue()) === 'mantenido' && (await page.locator('.chat-form .vz.on').count()) === 0, 'mantener ≥ 350 ms: al soltar se detiene');
-  // toque corto en el campo: sigue escuchando hasta otro toque
-  await vpb.dispatchEvent('pointerdown', { pointerId: 2, isPrimary: true, button: 0 });
-  await vpb.dispatchEvent('pointerup', { pointerId: 2, isPrimary: true });
-  check((await page.locator('.chat-form .vz.on').count()) === 1, 'toque corto: sigue escuchando');
+  check((await field().inputValue()) === 'mantenido' && (await page.locator('.chat-form .vz.on').count()) === 0, 'segundo toque: detiene');
   await vpb.dispatchEvent('pointerdown', { pointerId: 3, isPrimary: true, button: 0 });
-  await vpb.dispatchEvent('pointerup', { pointerId: 3, isPrimary: true });
-  check((await page.locator('.chat-form .vz.on').count()) === 0, 'segundo toque: detiene');
+  check(await page.evaluate(() => window.__srN === 3), 'pointerdown solo no arranca');
   await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
   // permiso denegado
   await sr('denied');
@@ -1034,7 +1030,7 @@ try {
   await sr(null);
   await page.locator('.gx-dock').getByRole('button', { name: 'Dictar' }).click({ delay: 30 });
   await panel.waitFor();
-  await page.getByText('Usa el micrófono del teclado para dictar').first().waitFor();
+  await page.locator('.gx-voz-help').first().waitFor();
   check(await page.evaluate(() => document.activeElement?.tagName === 'TEXTAREA'), 'sin soporte: el campo queda enfocado y hay aviso');
   await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
   // teléfono

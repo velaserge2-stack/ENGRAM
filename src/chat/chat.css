@@ -188,6 +188,7 @@ html.is-phone .chat-panel { inset: 0 0 var(--kb-inset, 0px) 0; width: auto; heig
 .gx-voz-msg { font-size: 13px; color: var(--t2); text-align: center; min-height: 0; }
 .gx-voz-msg:empty { display: none; }
 .gx-voz-msg { padding: 2px 12px 6px; }
+.gx-voz-help svg { vertical-align: -2px; }
 .chat-form textarea.vz-int { color: var(--t2); font-style: italic; }
 @media (prefers-reduced-motion: no-preference) {
   .gx-act.vz.on, .btn.icon.vz.on { animation: vz-ring 1.6s ease-out infinite; }

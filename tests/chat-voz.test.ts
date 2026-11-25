@@ -51,11 +51,12 @@ describe('dictado', () => {
       .toEqual(['denied', 'denied', 'nospeech', 'capture', 'network', 'aborted', 'other']);
     install(); dictate.start(); Fake.all[0]!.onerror!({ error: 'not-allowed' });
     expect(getDict().state).toBe('error'); expect(getDict().msg).toBe('voz.err_denied');
+    expect(getDict().help).not.toBe(''); expect(getDict().focusN).toBe(1); // cae al dictado del sistema
     expect(dictate.start()).toBe(true);
   });
   it('sin soporte: avisa y pide enfocar el campo', () => {
     expect(dictate.start()).toBe(false);
-    expect(getDict().msg).toBe('voz.sin_soporte'); expect(getDict().focusN).toBe(1);
+    expect(getDict().help).not.toBe(''); expect(getDict().focusN).toBe(1);
   });
   it('createDictation sin soporte lanza', () => {
     expect(() => createDictation({ lang: 'es-MX', onInterim() {}, onFinal() {}, onState() {}, onError() {} })).toThrow();
